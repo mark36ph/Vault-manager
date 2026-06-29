@@ -15,75 +15,151 @@ class NewFactPage(BasePage):
 
     def build(self):
 
-        form = ctk.CTkFrame(self.content)
-        form.pack(anchor="nw", padx=10, pady=10)
+        # ==========================================
+        # Main container
+        # ==========================================
+
+        main = ctk.CTkFrame(
+            self.content,
+            fg_color="transparent"
+        )
+
+        main.pack(
+            fill="both",
+            expand=True,
+            padx=10,
+            pady=10
+        )
+
+        # ==========================================
+        # Left Panel
+        # ==========================================
+
+        self.left_panel = ctk.CTkFrame(
+            main,
+            corner_radius=12
+        )
+
+        self.left_panel.pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=(0,10)
+        )
+
+        # ==========================================
+        # Right Panel
+        # ==========================================
+
+        self.right_panel = ctk.CTkFrame(
+            main,
+            width=320,
+            corner_radius=12
+        )
+
+        self.right_panel.pack(
+            side="right",
+            fill="y"
+        )
+
+        self.right_panel.pack_propagate(False)
+
+        # ==========================================
+        # Build Sections
+        # ==========================================
+
+        self.build_left_panel()
+        self.build_right_panel()
+
+    def build_left_panel(self):
 
         ctk.CTkLabel(
-            form,
-            text="Fact Title"
-        ).grid(row=0, column=0, sticky="w", pady=(15, 5))
-
-        self.title_entry = ctk.CTkEntry(
-            form,
-            width=400,
-            placeholder_text="Enter a title..."
+            self.left_panel,
+            text="Project Details",
+            font=("Segoe UI", 26, "bold")
+        ).pack(
+            anchor="w",
+            padx=25,
+            pady=(20,10)
         )
 
-        self.title_entry.grid(
-            row=1,
-            column=0,
-            padx=15,
-            pady=(0, 15)
+        self.form = ctk.CTkFrame(
+            self.left_panel,
+            fg_color="transparent"
         )
+
+        self.form.pack(
+            fill="both",
+            expand=True,
+            padx=25,
+            pady=(0,20)
+        )
+
+    def build_right_panel(self):
 
         ctk.CTkLabel(
-            form,
-            text="Category"
-        ).grid(row=2, column=0, sticky="w", padx=15)
-
-        categories = self.pm.db.get_categories()
-
-        if not categories:
-            categories = ["Misc"]
-
-        self.category = ctk.CTkOptionMenu(
-            form,
-            values=categories,
-            width=220
+            self.right_panel,
+            text="Project Preview",
+            font=("Segoe UI",24,"bold")
+        ).pack(
+            pady=(20,15)
         )
 
-        self.category.grid(
-            row=3,
-            column=0,
-            padx=15,
-            pady=(5, 20),
-            sticky="w"
+        self.preview = ctk.CTkTextbox(
+            self.right_panel,
+            width=280
         )
 
-        self.status = ctk.CTkLabel(
-            form,
-            text=""
+        self.preview.pack(
+            fill="both",
+            expand=True,
+            padx=20,
+            pady=(0,20)
         )
 
-        self.status.grid(
-            row=4,
-            column=0,
-            padx=15,
-            pady=(0, 15),
-            sticky="w"
+        self.preview.insert(
+            "1.0",
+            """📁 New Project
+
+    Category:
+    -
+
+    Status:
+    -
+
+    Template:
+    -
+
+    --------------------------
+
+    Files
+
+    ✔ Script.txt
+
+    ✔ Description.txt
+
+    ✔ Notes.txt
+
+    ✔ project.json
+
+    --------------------------
+
+    Folders
+
+    ✔ Assets
+
+    ✔ Images
+
+    ✔ Videos
+
+    ✔ Music
+
+    ✔ Export
+    """
         )
 
-        ctk.CTkButton(
-            form,
-            text="Create Project",
-            width=200,
-            command=self.create_project
-        ).grid(
-            row=5,
-            column=0,
-            padx=15,
-            pady=(0, 20),
-            sticky="w"
+        self.preview.configure(
+            state="disabled"
         )
 
     def create_project(self):
