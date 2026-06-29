@@ -41,7 +41,7 @@ class ProjectManager:
     # Create Project
     # =====================================================
 
-    def create_project(self, title, category):
+    def create_project(self, title, category, status):
 
         settings = self.load_settings()
 
@@ -54,7 +54,7 @@ class ProjectManager:
 
         project_info = {
             "title": title,
-            "status": "In Progress"
+            "status": status
         }
 
         project_folder = self.get_project_folder(project_info)
@@ -106,7 +106,7 @@ class ProjectManager:
 
             "category": category,
 
-            "status": "In Progress",
+            "status": status,
 
             "created": created,
 
@@ -129,12 +129,129 @@ class ProjectManager:
         self.db.add_project(
             title,
             category,
-            "In Progress",
+            status,
             str(project_folder),
             created
         )
 
         return project_folder
+
+    def apply_template(self, folder, template):
+
+        from pathlib import Path
+
+        folder = Path(folder)
+
+        templates = {
+
+            "Standard Fact": {
+                "Script.txt": """HOOK
+
+    INTRO
+
+    FACT 1
+
+    FACT 2
+
+    FACT 3
+
+    OUTRO
+    """,
+
+                "Description.txt": """Description...
+
+    #facts #shorts
+    """,
+
+                "Notes.txt": """Thumbnail ideas
+
+    Research
+
+    Voice-over notes
+    """
+            },
+
+            "Animal Fact": {
+                "Script.txt": """HOOK
+
+    Amazing animal fact...
+
+    FACT 1
+
+    FACT 2
+
+    FACT 3
+
+    OUTRO
+    """
+            },
+
+            "History Fact": {
+                "Script.txt": """HOOK
+
+    Today's historical event...
+
+    BACKGROUND
+
+    KEY EVENTS
+
+    LEGACY
+
+    OUTRO
+    """
+            },
+
+            "Science Fact": {
+                "Script.txt": """HOOK
+
+    Scientific discovery...
+
+    HOW IT WORKS
+
+    WHY IT MATTERS
+
+    OUTRO
+    """
+            },
+
+            "Space Fact": {
+                "Script.txt": """HOOK
+
+    Space discovery...
+
+    FACT 1
+
+    FACT 2
+
+    OUTRO
+    """
+            },
+
+            "Haunted Fact": {
+                "Script.txt": """HOOK
+
+    Haunted location...
+
+    HISTORY
+
+    PARANORMAL REPORTS
+
+    OUTRO
+    """
+            }
+
+        }
+
+        data = templates.get(template, {})
+
+        for filename, content in data.items():
+
+            path = folder / filename
+
+            path.write_text(
+                content,
+                encoding="utf-8"
+            )
 
     # =====================================================
     # Database Functions
@@ -151,6 +268,30 @@ class ProjectManager:
     def delete_project(self, project_id):
 
         self.db.delete_project(project_id)
+
+    # ==========================================
+    # Templates
+    # ==========================================
+
+    def get_templates(self):
+
+        templates_folder = Path("templates")
+
+        if not templates_folder.exists():
+            return ["Standard Fact"]
+
+        templates = [
+            folder.name
+            for folder in templates_folder.iterdir()
+            if folder.is_dir()
+        ]
+
+        templates.sort()
+
+        if not templates:
+            templates.append("Standard Fact")
+
+        return templates
 
     def close(self):
 

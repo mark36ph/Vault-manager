@@ -68,8 +68,8 @@ class NewFactPage(BasePage):
         # Build Sections
         # ==========================================
 
-        self.build_left_panel()
         self.build_right_panel()
+        self.build_left_panel()
 
     def build_left_panel(self):
 
@@ -80,7 +80,7 @@ class NewFactPage(BasePage):
         ).pack(
             anchor="w",
             padx=25,
-            pady=(20,10)
+            pady=(20, 20)
         )
 
         self.form = ctk.CTkFrame(
@@ -91,9 +91,143 @@ class NewFactPage(BasePage):
         self.form.pack(
             fill="both",
             expand=True,
-            padx=25,
-            pady=(0,20)
+            padx=25
         )
+
+        # ======================================
+        # Title
+        # ======================================
+
+        ctk.CTkLabel(
+            self.form,
+            text="Project Title"
+        ).pack(anchor="w")
+
+        self.title_entry = ctk.CTkEntry(
+            self.form,
+            height=38,
+            placeholder_text="Enter project title..."
+        )
+
+        self.title_entry.pack(
+            fill="x",
+            pady=(5, 20)
+        )
+
+        self.title_entry.bind(
+            "<KeyRelease>",
+            self.update_preview
+        )
+
+        # ======================================
+        # Category
+        # ======================================
+
+        ctk.CTkLabel(
+            self.form,
+            text="Category"
+        ).pack(anchor="w")
+
+        categories = self.pm.db.get_categories()
+
+        if not categories:
+            categories = ["Misc"]
+
+        self.category = ctk.CTkOptionMenu(
+            self.form,
+            values=categories,
+            height=38,
+            command=lambda _: self.update_preview()
+        )
+
+        self.category.pack(
+            fill="x",
+            pady=(5, 20)
+        )
+
+        # ======================================
+        # Status
+        # ======================================
+
+        ctk.CTkLabel(
+            self.form,
+            text="Status"
+        ).pack(anchor="w")
+
+        self.status = ctk.CTkOptionMenu(
+            self.form,
+            values=[
+                "In Progress",
+                "Scheduled",
+                "Completed"
+            ],
+            height=38,
+            command=lambda _: self.update_preview()
+        )
+
+        self.status.set("In Progress")
+
+        self.status.pack(
+            fill="x",
+            pady=(5, 20)
+        )
+
+        # ======================================
+        # Template
+        # ======================================
+
+        ctk.CTkLabel(
+            self.form,
+            text="Project Template"
+        ).pack(anchor="w")
+
+        templates = self.pm.get_templates()
+
+        self.template = ctk.CTkOptionMenu(
+            self.form,
+            values=templates,
+            height=38,
+            command=lambda _: self.update_preview()
+        )
+
+        if templates:
+            self.template.set(templates[0])
+    
+        self.template.pack(
+            fill="x",
+            pady=(5, 20)
+        )
+
+        # ======================================
+        # Options
+        # ======================================
+
+        self.open_after = ctk.CTkCheckBox(
+            self.form,
+            text="Open project after creating"
+        )
+
+        self.open_after.select()
+
+        self.open_after.pack(
+            anchor="w",
+            pady=(5, 25)
+        )
+
+        # ======================================
+        # Create Button
+        # ======================================
+
+        ctk.CTkButton(
+            self.form,
+            text="Create Project",
+            height=42,
+            command=self.create_project
+        ).pack(
+            fill="x",
+            pady=(10, 10)
+        )
+        self.update_preview()
 
     def build_right_panel(self):
 
@@ -162,7 +296,59 @@ class NewFactPage(BasePage):
             state="disabled"
         )
 
+    def update_preview(self, *_):
+
+        title = self.title_entry.get().strip()
+
+        if not title:
+            title = "New Project"
+
+        preview = f"""📁 {title}
+
+    Category:
+    {self.category.get()}
+
+    Status:
+    {self.status.get()}
+
+    Template:
+    {self.template.get()}
+
+    --------------------------
+
+    Files
+
+    ✔ Script.txt
+
+    ✔ Description.txt
+
+    ✔ Notes.txt
+
+    ✔ project.json
+
+    --------------------------
+
+    Folders
+
+    ✔ Assets
+
+    ✔ Images
+
+    ✔ Videos
+
+    ✔ Music
+
+    ✔ Export
+    """
+
+        self.preview.configure(state="normal")
+        self.preview.delete("1.0", "end")
+        self.preview.insert("1.0", preview)
+        self.preview.configure(state="disabled")
+
     def create_project(self):
+
+        from tkinter import messagebox
 
         title = self.title_entry.get().strip()
 
@@ -170,7 +356,7 @@ class NewFactPage(BasePage):
 
             messagebox.showerror(
                 "Missing Title",
-                "Please enter a title."
+                "Please enter a project title."
             )
 
             return
@@ -179,20 +365,21 @@ class NewFactPage(BasePage):
 
             folder = self.pm.create_project(
                 title,
-                self.category.get()
+                self.category.get(),
+                self.status.get()
             )
 
-            self.status.configure(
-                text="✔ Project created successfully!",
-                text_color="lightgreen"
+            self.pm.apply_template(
+                folder,
+                self.template.get()
             )
 
             messagebox.showinfo(
                 "Success",
-                f"Project created.\n\n{folder}"
+                "Project created successfully!"
             )
 
-            self.app.show_dashboard()
+            self.app.show_projects()
 
         except Exception as e:
 
