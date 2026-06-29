@@ -3,7 +3,7 @@ import customtkinter as ctk
 import os
 import shutil
 from tkinter import messagebox
-
+from widgets.project_card import ProjectCard
 
 class ProjectsPage(BasePage):
 
@@ -11,7 +11,7 @@ class ProjectsPage(BasePage):
         super().__init__(parent, pm, "Projects")
 
         self.app = app
-
+        self.current_status = "All"
         self.build()
 
     def build(self):
@@ -33,46 +33,29 @@ class ProjectsPage(BasePage):
             command=self.load_projects
         ).pack(side="left")
 
+        # Status Filters
+        filters = ctk.CTkFrame(self.content)
+        filters.pack(fill="x", pady=(0, 10))
+
+        for status in ["All", "In Progress", "Scheduled", "Completed"]:
+
+            ctk.CTkButton(
+                filters,
+                text=status,
+                width=120,
+                command=lambda s=status: self.set_status_filter(s)
+            ).pack(side="left", padx=5)
+
         self.project_list = ctk.CTkScrollableFrame(self.content)
         self.project_list.pack(fill="both", expand=True)
 
         self.load_projects()
 
-    def delete_project(self, project):
+    def set_status_filter(self, status):
 
-        answer = messagebox.askyesno(
-            "Delete Project",
-            f"Are you sure you want to permanently delete:\n\n"
-            f"{project['title']}?\n\n"
-            "This will delete the project folder and remove it from the database."
-        )
+        self.current_status = status
 
-        if not answer:
-            return
-
-        try:
-
-            folder = project["folder"]
-
-            if os.path.exists(folder):
-                shutil.rmtree(folder)
-
-            self.pm.delete_project(project["id"])
-
-            messagebox.showinfo(
-                "Deleted",
-                "Project deleted successfully."
-            )
-
-            self.load_projects()
-
-        except Exception as e:
-
-            messagebox.showerror(
-                "Error",
-                str(e)
-            )
-        
+        self.load_projects()
 
     def load_projects(self):
 
@@ -83,6 +66,13 @@ class ProjectsPage(BasePage):
 
         projects = self.pm.get_all_projects()
 
+        # Filter by status
+        if self.current_status != "All":
+            projects = [
+                p for p in projects
+                if p["status"] == self.current_status
+            ]
+
         for project in projects:
 
             title = project["title"]
@@ -90,39 +80,12 @@ class ProjectsPage(BasePage):
             if search not in title.lower():
                 continue
 
-            card = ctk.CTkFrame(self.project_list)
-            card.pack(fill="x", padx=10, pady=8)
-
-            ctk.CTkLabel(
-                card,
-                text=title,
-                font=("Segoe UI",20,"bold")
-            ).pack(anchor="w", padx=15, pady=(10,0))
-
-            ctk.CTkLabel(
-                card,
-                text=f"{project['category']} • {project['status']}"
-            ).pack(anchor="w", padx=15)
-
-            buttons = ctk.CTkFrame(card)
-            buttons.pack(anchor="w", padx=10, pady=10)
-
-            ctk.CTkButton(
-                buttons,
-                text="📂 Open Folder",
-                command=lambda f=project["folder"]: os.startfile(f)
-            ).pack(side="left", padx=5)
- 
-            ctk.CTkButton(
-                buttons,
-                text="✏ Edit",
-                command=lambda p=project: self.app.show_edit_project(p["id"])
-            ).pack(side="left", padx=5)
-
-            ctk.CTkButton(
-               buttons,
-               text="🗑 Delete",
-               fg_color="#b71c1c",
-               hover_color="#8b0000",
-               command=lambda p=project: self.delete_project(p)
-           ).pack(side="left", padx=5)
+            ProjectCard(
+                self.project_list,
+                project,
+                self.app
+            ).pack(
+                fill="x",
+                padx=10,
+                pady=8
+            )

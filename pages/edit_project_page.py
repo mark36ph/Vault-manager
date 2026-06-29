@@ -2,6 +2,9 @@ from tkinter import messagebox
 import os
 import customtkinter as ctk
 from pages.base_page import BasePage
+import shutil
+from pathlib import Path
+
 
 class EditProjectPage(BasePage):
     def __init__(self, parent, pm, app, project_id):
@@ -65,8 +68,22 @@ class EditProjectPage(BasePage):
         try:
 
             # Current folder
-            old_folder = self.pm.get_project_folder(self.project)
 
+            old_folder = None
+
+            settings = self.pm.load_settings()
+            root = Path(settings["projects_folder"])
+
+            # Look for the project in every status folder
+            for status in ["In Progress", "Scheduled", "Completed"]:
+                candidate = root / status / self.project["title"]
+                if candidate.exists():
+                    old_folder = candidate
+                    break
+
+            if old_folder is None:
+                raise Exception("Project folder could not be found.")
+                
             # New project details
             new_project = {
                 "title": self.title_entry.get().strip(),
@@ -75,7 +92,6 @@ class EditProjectPage(BasePage):
 
             # Calculate where the folder should be
             new_folder = self.pm.get_project_folder(new_project)
-
             # Move folder if needed
             if old_folder != new_folder:
 
@@ -92,6 +108,7 @@ class EditProjectPage(BasePage):
                 self.title_entry.get().strip(),
                 self.category.get(),
                 self.status.get(),
+                str(new_folder),   # <-- add this back
                 self.script.get("1.0", "end").strip(),
                 self.description.get("1.0", "end").strip(),
                 self.pinned_comment.get("1.0", "end").strip(),

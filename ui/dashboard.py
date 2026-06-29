@@ -1,5 +1,6 @@
 import customtkinter as ctk
-
+import os
+from tkinter import messagebox
 from pages.dashboard_page import DashboardPage
 from pages.new_fact_page import NewFactPage
 from pages.projects_page import ProjectsPage
@@ -166,3 +167,56 @@ class Dashboard(ctk.CTk):
     def show_settings(self):
 
         self.load_page(SettingsPage, self)
+
+    def open_project_folder(self, project):
+
+        try:
+
+            folder = self.pm.get_project_folder(project)
+
+            os.startfile(folder)
+
+        except Exception as e:
+
+            messagebox.showerror(
+                "Error",
+                str(e)
+            )
+
+
+    def delete_project(self, project):
+
+        import shutil
+
+        answer = messagebox.askyesnocancel(
+            "Delete Project",
+            "Delete the project folder as well?\n\n"
+            "Yes = Delete project and folder\n"
+            "No = Delete project only\n"
+            "Cancel = Do nothing"
+        )
+
+        if answer is None:
+            return
+
+        if answer:
+
+            try:
+
+                folder = self.pm.get_project_folder(project)
+
+                if folder.exists():
+                    shutil.rmtree(folder)
+
+            except Exception as e:
+
+                messagebox.showerror(
+                    "Error",
+                    str(e)
+                )
+
+                return
+
+        self.pm.delete_project(project["id"])
+
+        self.show_projects()
