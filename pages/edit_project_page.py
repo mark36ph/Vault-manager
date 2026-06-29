@@ -46,7 +46,8 @@ class EditProjectPage(BasePage):
 
     def open_folder(self):
         try:
-            os.startfile(self.project["folder"])
+            folder = self.pm.get_project_folder(self.project)
+            os.startfile(folder)
         except Exception as e:
             messagebox.showerror("Error",str(e))
 
@@ -60,15 +61,53 @@ class EditProjectPage(BasePage):
         self.notes.insert("1.0",self.project["notes"] or "")
 
     def save_project(self):
-        self.pm.db.update_project(
-            self.project_id,
-            self.title_entry.get().strip(),
-            self.category.get(),
-            self.status.get(),
-            self.script.get("1.0","end").strip(),
-            self.description.get("1.0","end").strip(),
-            self.pinned_comment.get("1.0","end").strip(),
-            self.notes.get("1.0","end").strip()
-        )
-        messagebox.showinfo("Saved","Project saved successfully.")
-        self.app.show_projects()
+
+        try:
+
+            # Current folder
+            old_folder = self.pm.get_project_folder(self.project)
+
+            # New project details
+            new_project = {
+                "title": self.title_entry.get().strip(),
+                "status": self.status.get()
+            }
+
+            # Calculate where the folder should be
+            new_folder = self.pm.get_project_folder(new_project)
+
+            # Move folder if needed
+            if old_folder != new_folder:
+
+                new_folder.parent.mkdir(parents=True, exist_ok=True)
+
+                shutil.move(
+                    str(old_folder),
+                    str(new_folder)
+                )
+
+            # Save changes to the database
+            self.pm.db.update_project(
+                self.project_id,
+                self.title_entry.get().strip(),
+                self.category.get(),
+                self.status.get(),
+                self.script.get("1.0", "end").strip(),
+                self.description.get("1.0", "end").strip(),
+                self.pinned_comment.get("1.0", "end").strip(),
+                self.notes.get("1.0", "end").strip()
+            )
+
+            messagebox.showinfo(
+                "Saved",
+                "Project updated successfully."
+            )
+
+            self.app.show_projects()
+
+        except Exception as e:
+
+            messagebox.showerror(
+                "Error",
+                str(e)
+            )

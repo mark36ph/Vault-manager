@@ -20,9 +20,9 @@ class DashboardPage(BasePage):
 
         cards = [
             ("Projects", self.pm.project_count()),
-            ("In Progress", self.pm.project_count()),
-            ("Completed", 0),
-            ("Scheduled", 0)
+            ("In Progress", self.pm.count_projects_by_status("In Progress")),
+            ("Completed", self.pm.count_projects_by_status("Completed")),
+            ("Scheduled", self.pm.count_projects_by_status("Scheduled"))
         ]
 
         for title, value in cards:

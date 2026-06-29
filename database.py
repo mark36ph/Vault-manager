@@ -214,6 +214,13 @@ class Database:
 
         ).fetchone()[0]
 
+    def count_projects_by_status(self, status):
+
+        return self.conn.execute(
+            "SELECT COUNT(*) FROM projects WHERE status=?",
+            (status,)
+        ).fetchone()[0]
+
     def delete_project(self, project_id):
 
         self.conn.execute(
@@ -295,6 +302,7 @@ class Database:
         title,
         category,
         status,
+        folder,
         script,
         description,
         pinned_comment,
@@ -310,6 +318,7 @@ class Database:
                 title=?,
                 category=?,
                 status=?,
+                folder=?,
                 script=?,
                 description=?,
                 pinned_comment=?,
@@ -324,6 +333,7 @@ class Database:
             title,
             category,
             status,
+            folder,
             script,
             description,
             pinned_comment,

@@ -1,7 +1,6 @@
 ﻿import json
 from pathlib import Path
 from datetime import datetime
-
 from database import Database
 
 DATA_FOLDER = Path("data")
@@ -53,11 +52,12 @@ class ProjectManager:
                 "Please select your Projects Folder in Settings."
             )
 
-        project_folder = (
-            Path(root)
-            / "In Progress"
-            / title
-        )
+        project_info = {
+            "title": title,
+            "status": "In Progress"
+        }
+
+        project_folder = self.get_project_folder(project_info)
 
         folders = [
 
@@ -155,3 +155,15 @@ class ProjectManager:
     def close(self):
 
         self.db.close()
+
+    def count_projects_by_status(self, status):
+
+        return self.db.count_projects_by_status(status)
+        
+    def get_project_folder(self, project):
+
+        settings = self.load_settings()
+
+        root = Path(settings["projects_folder"])
+
+        return root / project["status"] / project["title"]
