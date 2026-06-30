@@ -8,6 +8,8 @@ from pages.settings_page import SettingsPage
 from pages.statistics_page import StatisticsPage
 from pages.edit_project_page import EditProjectPage
 from project_manager import ProjectManager
+from pages.templates_page import TemplatesPage
+from pages.edit_template_page import EditTemplatePage
 
 
 class Dashboard(ctk.CTk):
@@ -54,6 +56,11 @@ class Dashboard(ctk.CTk):
         self.add_sidebar_button(
             "📂 Projects",
             self.show_projects
+        )
+
+        self.add_sidebar_button(
+            "🗂 Templates",
+            self.show_templates
         )
 
         self.add_sidebar_button(
@@ -167,6 +174,21 @@ class Dashboard(ctk.CTk):
     def show_settings(self):
 
         self.load_page(SettingsPage, self)
+
+    def show_edit_template(self, template_name):
+
+        self.load_page(
+            EditTemplatePage,
+            self,
+            template_name
+        )
+
+    def show_templates(self):
+
+        self.load_page(
+            TemplatesPage,
+            self
+        )
 
     def open_project_folder(self, project):
 

@@ -1,0 +1,8 @@
+﻿{
+    "engine": "Piper",
+    "default_voice": "en_US-lessac-high",
+    "speech_rate": 1.0,
+    "speech_pitch": 1.0,
+    "output_format": "wav",
+    "volume": 1.0
+}

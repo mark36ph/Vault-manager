@@ -1,0 +1,7 @@
+Hello Mark.
+
+Welcome to Fact Vault Manager.
+
+This is the first automated voice generation test.
+
+If you can hear this, Piper has been installed successfully.

@@ -1,0 +1,40 @@
+﻿{
+    "voices": [
+        {
+            "id": "en_GB-alan-high",
+            "display_name": "British Alan",
+            "language": "English (UK)",
+            "gender": "Male",
+            "quality": "High",
+            "engine": "Piper",
+            "installed": false
+        },
+        {
+            "id": "en_US-lessac-high",
+            "display_name": "Lessac",
+            "language": "English (US)",
+            "gender": "Male",
+            "quality": "High",
+            "engine": "Piper",
+            "installed": false
+        },
+        {
+            "id": "en_US-ryan-high",
+            "display_name": "Ryan",
+            "language": "English (US)",
+            "gender": "Male",
+            "quality": "High",
+            "engine": "Piper",
+            "installed": false
+        },
+        {
+            "id": "en_GB-southern_english_female-high",
+            "display_name": "British Female",
+            "language": "English (UK)",
+            "gender": "Female",
+            "quality": "High",
+            "engine": "Piper",
+            "installed": false
+        }
+    ]
+}

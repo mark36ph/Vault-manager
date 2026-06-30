@@ -1,0 +1,20 @@
+﻿{
+    "engines": [
+        {
+            "name": "Piper",
+            "enabled": true
+        },
+        {
+            "name": "Windows",
+            "enabled": false
+        },
+        {
+            "name": "ElevenLabs",
+            "enabled": false
+        },
+        {
+            "name": "OpenAI",
+            "enabled": false
+        }
+    ]
+}

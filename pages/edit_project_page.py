@@ -4,6 +4,8 @@ import customtkinter as ctk
 from pages.base_page import BasePage
 import shutil
 from pathlib import Path
+from services.voice.voice_service import VoiceService
+from services.voice.piper_engine import PiperEngine
 
 
 class EditProjectPage(BasePage):
@@ -12,6 +14,8 @@ class EditProjectPage(BasePage):
         self.app = app
         self.project_id = project_id
         self.project = self.pm.db.get_project(project_id)
+        self.voice_service = VoiceService()
+        self.piper = PiperEngine()
         if not self.project:
             messagebox.showerror("Error","Project not found.")
             self.app.show_projects()
@@ -46,6 +50,55 @@ class EditProjectPage(BasePage):
             box=ctk.CTkTextbox(self.form,width=900,height=h)
             box.pack(fill="x",padx=15)
             setattr(self,attr,box)
+
+        # =====================================
+        # Voice Generation
+        # =====================================
+
+        ctk.CTkLabel(
+            self.form,
+            text="Voice Generation",
+            font=("Segoe UI", 18, "bold")
+        ).pack(
+            anchor="w",
+            padx=15,
+            pady=(25, 10)
+        )
+
+        voice_frame = ctk.CTkFrame(self.form)
+
+        voice_frame.pack(
+            fill="x",
+            padx=15,
+            pady=(0, 20)
+        )
+
+        default_voice = self.voice_service.get_default_voice()
+
+        voice_name = "None"
+
+        if default_voice:
+            voice_name = default_voice.display_name
+
+        ctk.CTkLabel(
+            voice_frame,
+            text=f"Default Voice: {voice_name}"
+        ).pack(
+            anchor="w",
+            padx=15,
+            pady=(15, 5)
+        )
+
+        ctk.CTkButton(
+            voice_frame,
+            text="🎙 Generate Narration",
+            height=40,
+            command=self.generate_narration
+        ).pack(
+            padx=15,
+            pady=15,
+            anchor="w"
+        )
 
     def open_folder(self):
         try:
@@ -126,5 +179,63 @@ class EditProjectPage(BasePage):
 
             messagebox.showerror(
                 "Error",
+                str(e)
+            )
+            
+    def generate_narration(self):
+
+        try:
+
+            # Get the default voice
+            voice = self.voice_service.get_default_voice()
+
+            if voice is None:
+
+                messagebox.showerror(
+                    "Voice",
+                    "No default voice has been selected.\n\n"
+                    "Please configure a default voice first."
+                )
+
+                return
+
+            # Get the script
+            script = self.script.get(
+                "1.0",
+                "end"
+            ).strip()
+
+            if not script:
+
+                messagebox.showerror(
+                    "Voice",
+                    "The script is empty."
+                )
+
+                return
+
+            # Get the Voice folder
+            voice_folder = self.pm.get_voice_folder(
+                self.project
+            )
+
+            output_file = voice_folder / "narration.wav"
+
+            # Generate narration
+            self.piper.generate(
+                voice=voice,
+                text=script,
+                output_file=output_file
+            )
+
+            messagebox.showinfo(
+                "Voice",
+                f"Narration created successfully!\n\n{output_file}"
+            )
+
+        except Exception as e:
+
+            messagebox.showerror(
+                "Voice Generation Failed",
                 str(e)
             )

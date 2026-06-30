@@ -1,10 +1,12 @@
 ﻿import json
+import shutil
 from pathlib import Path
 from datetime import datetime
 from database import Database
+from common.json_utils import load_json, save_json
 
 DATA_FOLDER = Path("data")
-SETTINGS_FILE = DATA_FOLDER / "settings.json"
+SETTINGS_FILE = DATA_FOLDER / "app_settings.json"
 
 
 class ProjectManager:
@@ -15,12 +17,13 @@ class ProjectManager:
         self.db = Database()
 
         if not SETTINGS_FILE.exists():
-            SETTINGS_FILE.write_text(
-                json.dumps({
+
+            save_json(
+                SETTINGS_FILE,
+                {
                     "projects_folder": "",
                     "theme": "dark"
-                }, indent=4),
-                encoding="utf-8"
+                }
             )
 
     # =====================================================
@@ -29,8 +32,31 @@ class ProjectManager:
 
     def load_settings(self):
 
-        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+
+            with open(
+                SETTINGS_FILE,
+                "r",
+                encoding="utf-8-sig"
+            ) as f:
+
+                return json.load(f)
+
+        except FileNotFoundError:
+
+            settings = {
+                "projects_folder": ""
+            }
+
+            self.save_settings(settings)
+
+            return settings
+
+        except json.JSONDecodeError as e:
+
+            raise Exception(
+                f"Settings file is invalid:\n{e}"
+            )
 
     def save_settings(self, settings):
 
@@ -75,7 +101,9 @@ class ProjectManager:
 
             project_folder / "CapCut",
 
-            project_folder / "Export"
+            project_folder / "Export",
+
+            project_folder / "Voice"
 
         ]
 
@@ -114,17 +142,10 @@ class ProjectManager:
 
         }
 
-        with open(
+        save_json(
             project_folder / "project.json",
-            "w",
-            encoding="utf-8"
-        ) as f:
-
-            json.dump(
-                project_info,
-                f,
-                indent=4
-            )
+            project_info
+        )
 
         self.db.add_project(
             title,
@@ -136,122 +157,32 @@ class ProjectManager:
 
         return project_folder
 
-    def apply_template(self, folder, template):
+    def apply_template(self, project_folder, template):
 
-        from pathlib import Path
+        template_folder = Path("templates") / template
 
-        folder = Path(folder)
+        if not template_folder.exists():
+            return
 
-        templates = {
+        for item in template_folder.iterdir():
 
-            "Standard Fact": {
-                "Script.txt": """HOOK
+            destination = Path(project_folder) / item.name
 
-    INTRO
+            if item.is_dir():
 
-    FACT 1
+                shutil.copytree(
+                    item,
+                    destination,
+                    dirs_exist_ok=True
+                )
 
-    FACT 2
+            else:
 
-    FACT 3
+                shutil.copy2(
+                    item,
+                    destination
+                )
 
-    OUTRO
-    """,
-
-                "Description.txt": """Description...
-
-    #facts #shorts
-    """,
-
-                "Notes.txt": """Thumbnail ideas
-
-    Research
-
-    Voice-over notes
-    """
-            },
-
-            "Animal Fact": {
-                "Script.txt": """HOOK
-
-    Amazing animal fact...
-
-    FACT 1
-
-    FACT 2
-
-    FACT 3
-
-    OUTRO
-    """
-            },
-
-            "History Fact": {
-                "Script.txt": """HOOK
-
-    Today's historical event...
-
-    BACKGROUND
-
-    KEY EVENTS
-
-    LEGACY
-
-    OUTRO
-    """
-            },
-
-            "Science Fact": {
-                "Script.txt": """HOOK
-
-    Scientific discovery...
-
-    HOW IT WORKS
-
-    WHY IT MATTERS
-
-    OUTRO
-    """
-            },
-
-            "Space Fact": {
-                "Script.txt": """HOOK
-
-    Space discovery...
-
-    FACT 1
-
-    FACT 2
-
-    OUTRO
-    """
-            },
-
-            "Haunted Fact": {
-                "Script.txt": """HOOK
-
-    Haunted location...
-
-    HISTORY
-
-    PARANORMAL REPORTS
-
-    OUTRO
-    """
-            }
-
-        }
-
-        data = templates.get(template, {})
-
-        for filename, content in data.items():
-
-            path = folder / filename
-
-            path.write_text(
-                content,
-                encoding="utf-8"
-            )
 
     # =====================================================
     # Database Functions
@@ -286,7 +217,7 @@ class ProjectManager:
             if folder.is_dir()
         ]
 
-        templates.sort()
+        templates.sort(key=str.lower)
 
         if not templates:
             templates.append("Standard Fact")
@@ -308,3 +239,22 @@ class ProjectManager:
         root = Path(settings["projects_folder"])
 
         return root / project["status"] / project["title"]
+
+    def get_voice_folder(self, project):
+
+        if "folder" in project and project["folder"]:
+
+            folder = Path(project["folder"])
+
+        else:
+
+            folder = self.get_project_folder(project)
+
+        voice_folder = folder / "Voice"
+
+        voice_folder.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+        return voice_folder
