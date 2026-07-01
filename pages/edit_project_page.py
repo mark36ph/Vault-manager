@@ -222,10 +222,10 @@ class EditProjectPage(BasePage):
             output_file = voice_folder / "narration.wav"
 
             # Generate narration
-            self.piper.generate(
-                voice=voice,
-                text=script,
-                output_file=output_file
+            self.voice_service.generate_voice(
+                voice.id,
+                script,
+                output_file
             )
 
             messagebox.showinfo(

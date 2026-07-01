@@ -10,15 +10,15 @@ from pages.edit_project_page import EditProjectPage
 from project_manager import ProjectManager
 from pages.templates_page import TemplatesPage
 from pages.edit_template_page import EditTemplatePage
-
+from pages.voice_studio_page import VoiceStudioPage
 
 class Dashboard(ctk.CTk):
 
     def __init__(self):
         super().__init__()
-
+        self.minsize(1200, 700)
         self.pm = ProjectManager()
-
+        self.after(100, lambda: self.state("zoomed"))
         self.title("Fact Vault Manager")
         self.geometry("1400x800")
 
@@ -66,6 +66,11 @@ class Dashboard(ctk.CTk):
         self.add_sidebar_button(
             "📊 Statistics",
             self.show_statistics
+        )
+
+        self.add_sidebar_button(
+            "🎤 Voice Studio",
+            self.show_voice_studio
         )
 
         self.add_sidebar_button(
@@ -175,6 +180,13 @@ class Dashboard(ctk.CTk):
 
         self.load_page(SettingsPage, self)
 
+    def show_voice_studio(self):
+
+        self.load_page(
+            VoiceStudioPage,
+            self
+        )
+    
     def show_edit_template(self, template_name):
 
         self.load_page(

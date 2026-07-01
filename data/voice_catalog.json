@@ -1,40 +1,52 @@
 ﻿{
     "voices": [
         {
-            "id": "en_GB-alan-high",
-            "display_name": "British Alan",
-            "language": "English (UK)",
-            "gender": "Male",
-            "quality": "High",
-            "engine": "Piper",
-            "installed": false
-        },
-        {
             "id": "en_US-lessac-high",
             "display_name": "Lessac",
-            "language": "English (US)",
+            "language": "en",
+            "region": "en_US",
+            "voice": "lessac",
             "gender": "Male",
-            "quality": "High",
+            "quality": "high",
             "engine": "Piper",
-            "installed": false
+            "installed": false,
+            "sample_text": "Welcome to Fact Vault."
+        },
+        {
+            "id": "en_GB-alan-medium",
+            "display_name": "British Alan",
+            "language": "en",
+            "region": "en_GB",
+            "voice": "alan",
+            "gender": "Male",
+            "quality": "medium",
+            "engine": "Piper",
+            "installed": false,
+            "sample_text": "Welcome to Fact Vault."
         },
         {
             "id": "en_US-ryan-high",
             "display_name": "Ryan",
-            "language": "English (US)",
+            "language": "en",
+            "region": "en_US",
+            "voice": "ryan",
             "gender": "Male",
-            "quality": "High",
+            "quality": "high",
             "engine": "Piper",
-            "installed": false
+            "installed": false,
+            "sample_text": "Welcome to Fact Vault."
         },
         {
-            "id": "en_GB-southern_english_female-high",
+            "id": "en_GB-southern_english_female-medium",
             "display_name": "British Female",
-            "language": "English (UK)",
+            "language": "en",
+            "region": "en_GB",
+            "voice": "southern_english_female",
             "gender": "Female",
-            "quality": "High",
+            "quality": "medium",
             "engine": "Piper",
-            "installed": false
+            "installed": false,
+            "sample_text": "Welcome to Fact Vault."
         }
     ]
 }

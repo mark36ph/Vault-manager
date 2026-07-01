@@ -4,27 +4,27 @@ import requests
 
 class DownloadManager:
 
-    def __init__(self, download_folder):
+    def __init__(self):
 
-        self.download_folder = Path(download_folder)
-
-        self.download_folder.mkdir(
-            parents=True,
-            exist_ok=True
-        )
+        self.chunk_size = 8192
 
     # ==========================================
-    # Download a file
+    # Download File
     # ==========================================
 
-    def download(
+    def download_file(
         self,
         url,
-        filename,
+        destination,
         progress_callback=None
     ):
 
-        destination = self.download_folder / filename
+        destination = Path(destination)
+
+        destination.parent.mkdir(
+            parents=True,
+            exist_ok=True
+        )
 
         response = requests.get(
             url,
@@ -43,40 +43,77 @@ class DownloadManager:
 
         downloaded = 0
 
-        with open(destination, "wb") as file:
+        with open(destination, "wb") as f:
 
             for chunk in response.iter_content(
-                chunk_size=8192
+                chunk_size=self.chunk_size
             ):
 
                 if not chunk:
                     continue
 
-                file.write(chunk)
+                f.write(chunk)
 
                 downloaded += len(chunk)
 
-                if progress_callback and total:
+                if progress_callback:
+
+                    if total > 0:
+
+                        percent = downloaded / total
+
+                    else:
+
+                        percent = 0
 
                     progress_callback(
                         downloaded,
-                        total
+                        total,
+                        percent
                     )
 
         return destination
 
     # ==========================================
-    # Delete
+    # Download Voice
     # ==========================================
 
-    def delete(self, filename):
+    def download_voice(
+        self,
+        voice,
+        progress_callback=None
+    ):
 
-        file = self.download_folder / filename
+        self.download_file(
+            voice.model_url,
+            voice.model_path,
+            progress_callback
+        )
 
-        if file.exists():
+        self.download_file(
+            voice.config_url,
+            voice.config_path,
+            progress_callback
+        )
 
-            file.unlink()
+        return True
 
-            return True
+    # ==========================================
+    # Delete Voice
+    # ==========================================
 
-        return False
+    def delete_voice(self, voice):
+
+        if (
+            voice.model_path
+            and voice.model_path.exists()
+        ):
+            voice.model_path.unlink()
+
+        if (
+            voice.config_path
+            and voice.config_path.exists()
+        ):
+            voice.config_path.unlink()
+
+        return True

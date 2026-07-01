@@ -1,6 +1,14 @@
 import json
 from pathlib import Path
 
+PIPER_VERSION = "v1.0.0"
+
+PIPER_BASE = (
+    "https://huggingface.co/"
+    "rhasspy/piper-voices/"
+    f"resolve/{PIPER_VERSION}"
+)
+
 VOICE_FOLDER = Path("voices")
 INSTALLED_FOLDER = VOICE_FOLDER / "installed"
 CACHE_FOLDER = VOICE_FOLDER / "cache"
@@ -109,3 +117,27 @@ def get_output_file(project_name):
 def get_sample_output():
 
     return SAMPLES_FOLDER / "preview.wav"
+    
+
+def get_model_url(voice):
+
+    return (
+        f"{PIPER_BASE}/"
+        f"{voice.language}/"
+        f"{voice.region}/"
+        f"{voice.voice}/"
+        f"{voice.quality}/"
+        f"{voice.id}.onnx?download=true"
+    )
+
+
+def get_config_url(voice):
+
+    return (
+        f"{PIPER_BASE}/"
+        f"{voice.language}/"
+        f"{voice.region}/"
+        f"{voice.voice}/"
+        f"{voice.quality}/"
+        f"{voice.id}.onnx.json?download=true"
+    )

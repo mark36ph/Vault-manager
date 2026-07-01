@@ -4,16 +4,17 @@ from pathlib import Path
 
 @dataclass
 class Voice:
-    """
-    Represents a single voice that can be used by the application.
-    """
 
-    id: str
-    display_name: str
-    language: str
-    gender: str
-    quality: str
-    engine: str
+    id: str = ""
+    display_name: str = ""
+
+    language: str = ""
+    region: str = ""
+    voice: str = ""
+
+    gender: str = ""
+    quality: str = ""
+    engine: str = "Piper"
 
     installed: bool = False
 
@@ -65,14 +66,15 @@ class Voice:
             "engine": self.engine,
             "installed": self.installed,
             "sample_text": self.sample_text,
-        }
+            "region": self.region,
+            "voice": self.voice,
+}
 
     @classmethod
     def from_dict(cls, data: dict):
         """
         Create a Voice object from JSON data.
         """
-
         return cls(
             id=data.get("id", ""),
             display_name=data.get("display_name", ""),
@@ -84,7 +86,9 @@ class Voice:
             sample_text=data.get(
                 "sample_text",
                 "Welcome to Fact Vault."
-            )
+            ),
+            region=data.get("region", ""),
+            voice=data.get("voice", ""),
         )
 
     def __str__(self) -> str:

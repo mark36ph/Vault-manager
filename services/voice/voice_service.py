@@ -1,11 +1,16 @@
 ﻿from services.voice.models import Voice
 from services.voice.settings_manager import SettingsManager
+from services.voice.audio_player import AudioPlayer
+from services.voice.download_manager import DownloadManager
+from services.voice.piper_engine import PiperEngine
 from services.voice.utils import (
     ensure_voice_folders,
     load_voice_catalog,
     voice_installed,
     get_model_path,
-    get_config_path
+    get_config_path,
+    get_model_url,
+    get_config_url
 )
 
 
@@ -14,8 +19,10 @@ class VoiceService:
     def __init__(self):
 
         ensure_voice_folders()
-
         self.settings = SettingsManager()
+        self.download_manager = DownloadManager()
+        self.player = AudioPlayer()
+        self.piper = PiperEngine()
 
     # =====================================================
     # Catalog
@@ -28,13 +35,11 @@ class VoiceService:
         for data in load_voice_catalog():
 
             voice = Voice.from_dict(data)
-
             voice.installed = voice_installed(voice.id)
-
             voice.model_path = get_model_path(voice.id)
-
             voice.config_path = get_config_path(voice.id)
-
+            voice.model_url = get_model_url(voice)
+            voice.config_url = get_config_url(voice)
             voices.append(voice)
 
         return sorted(
@@ -92,6 +97,26 @@ class VoiceService:
             return None
 
         return self.get_voice(voice_id)
+
+    # =====================================================
+    # Set Default Voice
+    # =====================================================
+
+    def set_default_voice(self, voice_id):
+
+        voice = self.get_voice(voice_id)
+
+        if voice is None:
+            raise Exception("Voice not found.")
+
+        if not voice.installed:
+            raise Exception("Voice is not installed.")
+
+        self.settings.set_default_voice(
+            voice.id
+        )
+
+        return voice
 
     # =====================================================
     # Engine
@@ -157,22 +182,70 @@ class VoiceService:
     # Placeholders (Phase 2)
     # =====================================================
 
-    def download_voice(self, voice_id):
+    def download_voice(
+        self,
+        voice_id,
+        progress_callback=None
+    ):
 
-        raise NotImplementedError(
-            "Download manager not implemented yet."
+        voice = self.get_voice(voice_id)
+
+        if voice is None:
+            raise Exception("Voice not found.")
+
+        self.download_manager.download_voice(
+            voice,
+            progress_callback
         )
 
     def delete_voice(self, voice_id):
 
-        raise NotImplementedError(
-            "Delete manager not implemented yet."
+        voice = self.get_voice(voice_id)
+
+        if voice is None:
+            raise Exception("Voice not found.")
+
+        self.download_manager.delete_voice(
+            voice
         )
 
-    def preview_voice(self, voice_id, text=None):
+        # If it was the default voice, clear it
+        default = self.settings.get_default_voice()
 
-        raise NotImplementedError(
-            "Preview not implemented yet."
+        if default == voice.id:
+
+            self.settings.set_default_voice("")
+
+    from pathlib import Path
+
+    def preview_voice(self, voice_id):
+
+        voice = self.get_voice(voice_id)
+
+        if voice is None:
+            raise Exception("Voice not found.")
+
+        if not voice.installed:
+            raise Exception("Voice not installed.")
+
+        preview_file = (
+            Path("voices")
+            / "temp"
+            / "preview.wav"
+        )
+
+        self.generate_voice(
+
+            voice.id,
+
+            voice.sample_text,
+
+            preview_file
+
+        )
+
+        self.player.play(
+            preview_file
         )
 
     def generate_voice(
@@ -182,6 +255,22 @@ class VoiceService:
         output_file
     ):
 
-        raise NotImplementedError(
-            "Piper engine not implemented yet."
+        voice = self.get_voice(voice_id)
+
+        if voice is None:
+            raise Exception("Voice not found.")
+
+        if not voice.installed:
+            raise Exception("Voice is not installed.")
+
+        self.piper.generate(
+            voice=voice,
+            text=text,
+            output_file=output_file
         )
+
+        return output_file
+
+    def stop_preview(self):
+
+        self.player.stop()
