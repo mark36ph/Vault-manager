@@ -1,14 +1,12 @@
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 from common.settings_manager import SettingsManager
-from common.app_info import AppInfo
 
 class GeneralPage(ctk.CTkFrame):
 
     def __init__(self, parent, pm, app):
 
         super().__init__(parent)
-        self.app_info = AppInfo()
         self.pm = pm
         self.app = app
         self.settings = SettingsManager()
@@ -44,22 +42,6 @@ class GeneralPage(ctk.CTkFrame):
 # ==========================================
 # Projects Folder
 # ==========================================
-        ctk.CTkLabel(
-            container,
-            text="App Name",
-            font=("Segoe UI", 16, "bold")
-        ).pack(anchor="w", padx=20, pady=(10, 5))
-
-        self.app_name = ctk.CTkEntry(container)
-        self.app_name.pack(fill="x", padx=20)
-
-        self.app_name.insert(
-            0,
-            self.app_info.get(
-                "name",
-                "Fact Vault Manager"
-            )
-        )
 
         ctk.CTkLabel(
             container,
@@ -248,13 +230,6 @@ class GeneralPage(ctk.CTkFrame):
             self.theme.get().lower()
         )
  
-        self.app_info.set(
-            "name",
-            self.app_name.get().strip() or "Fact Vault Manager"
-        )
-
-        self.app.refresh_app_info()
-
         ctk.set_appearance_mode(
             self.theme.get()
         )

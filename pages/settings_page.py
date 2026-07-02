@@ -1,8 +1,8 @@
 ﻿import customtkinter as ctk
-
 from pages.base_page import BasePage
 from pages.settings.general_page import GeneralPage
-
+from common.app_info import AppInfo
+from pages.settings.about_page import AboutPage
 
 class SettingsPage(BasePage):
 
@@ -10,6 +10,7 @@ class SettingsPage(BasePage):
         self.nav_buttons = {}
         super().__init__(parent, pm, "Settings")
         self.app = app
+        self.app_info = AppInfo()
         self.build()
 
     def build(self):
@@ -103,7 +104,7 @@ class SettingsPage(BasePage):
         self.add_button(
             "about",
             "ℹ About",
-            lambda: None
+            self.show_about
         )
 
         self.select_page(
@@ -123,15 +124,26 @@ class SettingsPage(BasePage):
             pady=15
         )
 
-        ctk.CTkLabel(
+        self.footer_label = ctk.CTkLabel(
             footer,
             text=(
-                f"{self.app.settings.get('general', 'app_name', 'Fact Vault Manager')}\n"
-                f"Version {self.app.settings.get('general', 'version', '1.0.0')}"
+                f"{self.app_info.get('name', 'Fact Vault Manager')}\n"
+                f"Version {self.app_info.get('version', '1.0.0')}"
             ),
             justify="left",
             font=("Segoe UI", 11)
-        ).pack(anchor="w")
+        )
+
+        self.footer_label.pack(anchor="w")
+
+    def refresh_footer(self):
+
+        self.footer_label.configure(
+            text=(
+                f"{self.app_info.get('name', 'Fact Vault Manager')}\n"
+                f"Version {self.app_info.get('version', '1.0.0')}"
+            )
+        )
 
     def add_button(self, key, text, command):
 
@@ -196,3 +208,18 @@ class SettingsPage(BasePage):
             expand=True
         )
         self.current_page.focus_set()
+        
+    def show_about(self):
+
+        self.clear()
+
+        self.current_page = AboutPage(
+            self.content,
+            self.pm,
+            self.app
+        )
+
+        self.current_page.pack(
+            fill="both",
+            expand=True
+        )

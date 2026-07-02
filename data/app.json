@@ -1,9 +1,9 @@
 {
-    "name": "Marks app!!",
-    "version": "1.0.0",
+    "name": "Fact Vault Manager",
+    "version": "1.6.0",
     "developer": "Mark",
-    "company": "",
-    "website": "",
-    "support_email": "",
+    "company": "what company?",
+    "website": "http://www.markswebsite.com",
+    "support_email": "me@home.com",
     "build": 1
 }

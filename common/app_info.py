@@ -59,6 +59,10 @@ class AppInfo:
             default
         )
 
+    def all(self):
+
+        return self.info
+
     def set(self, key, value):
 
         self.info[key] = value
