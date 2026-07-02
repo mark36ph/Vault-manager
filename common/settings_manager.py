@@ -11,56 +11,36 @@ SETTINGS_FILE = Path("data") / "settings.json"
 DEFAULT_SETTINGS = {
 
     "general": {
-
         "projects_folder": "",
         "theme": "dark",
-
         "start_maximized": True,
-
         "remember_last_project": True,
-
         "check_updates": True,
-
+        "app_name": "Fact Vault Manager",
+        "version": "1.0.0",
         "default_export_folder": ""
-
     },
 
     "voice": {
-
         "engine": "Piper",
-
         "default_voice": "",
-
         "speech_rate": 1.0,
-
         "speech_pitch": 1.0,
-
         "volume": 1.0,
-
         "output_format": "wav"
-
     },
 
     "youtube": {
-
         "default_channel": "",
-
         "export_folder": ""
-
     },
 
     "ai": {
-
         "provider": "OpenAI",
-
         "api_key": "",
-
         "model": "",
-
         "temperature": 0.7
-
     }
-
 }
 
 class SettingsManager:

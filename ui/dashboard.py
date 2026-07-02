@@ -12,11 +12,13 @@ from pages.templates_page import TemplatesPage
 from pages.edit_template_page import EditTemplatePage
 from pages.voice_studio_page import VoiceStudioPage
 from common.settings_manager import SettingsManager
+from common.app_info import AppInfo
 
 class Dashboard(ctk.CTk):
 
     def __init__(self):
         super().__init__()
+        self.app_info = AppInfo()
         self.settings = SettingsManager()
         ctk.set_appearance_mode(
             self.settings.get(
@@ -38,7 +40,10 @@ class Dashboard(ctk.CTk):
                 lambda: self.state("zoomed")
             )
 
-        self.title("Fact Vault Manager")
+        self.title(
+            self.app_info.get("name")
+        )
+
         self.geometry("1400x800")
 
         # ==========================
@@ -56,11 +61,17 @@ class Dashboard(ctk.CTk):
             fill="y"
         )
 
-        ctk.CTkLabel(
+        self.app_title = ctk.CTkLabel(
             self.sidebar,
-            text="FACT VAULT\nMANAGER",
+            text=self.app_info.get(
+                "name"
+            ),
             font=("Segoe UI", 28, "bold")
-        ).pack(pady=30)
+        )
+
+        self.app_title.pack(
+            pady=30
+        )
 
         self.add_sidebar_button(
             "🏠 Dashboard",
@@ -273,3 +284,18 @@ class Dashboard(ctk.CTk):
         self.pm.delete_project(project["id"])
 
         self.show_projects()
+        
+    def refresh_app_info(self):
+
+        self.app_info = AppInfo()
+
+        name = self.app_info.get(
+            "name",
+            "Fact Vault Manager"
+        )
+
+        self.title(name)
+
+        self.app_title.configure(
+            text=name
+        )

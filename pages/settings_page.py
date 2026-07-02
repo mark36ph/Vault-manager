@@ -1,206 +1,198 @@
 ﻿import customtkinter as ctk
-from tkinter import filedialog, messagebox
+
 from pages.base_page import BasePage
-from common.settings_manager import SettingsManager
+from pages.settings.general_page import GeneralPage
+
 
 class SettingsPage(BasePage):
 
     def __init__(self, parent, pm, app):
+        self.nav_buttons = {}
         super().__init__(parent, pm, "Settings")
         self.app = app
-        self.settings = SettingsManager()
         self.build()
-
-    # ==========================================
-    # UI
-    # ==========================================
 
     def build(self):
 
-        self.add_section_title("General Settings")
-
-        frame = ctk.CTkFrame(self)
-        frame.pack(fill="both", expand=True, padx=20, pady=20)
-
-        # ==========================================
-        # Projects Folder
-        # ==========================================
-
-        ctk.CTkLabel(
-            frame,
-            text="Projects Folder",
-            font=("Segoe UI", 16, "bold")
-        ).pack(anchor="w", padx=20, pady=(20, 5))
-
-        self.projects_folder = ctk.CTkEntry(
-            frame,
-            width=700
+        self.sidebar = ctk.CTkFrame(
+            self,
+            width=240,
+            corner_radius=10
         )
 
-        self.projects_folder.pack(
-            fill="x",
-            padx=20
-        )
+        self.sidebar.pack_propagate(False)
 
-        self.projects_folder.insert(
-            0,
-            self.settings.get(
-                "general",
-                "projects_folder",
-                ""
-            )
-        )
-
-        ctk.CTkButton(
-            frame,
-            text="Browse...",
-            command=self.browse_projects_folder
-        ).pack(
-            anchor="w",
-            padx=20,
+        self.sidebar.pack(
+            side="left",
+            fill="y",
+            padx=(20, 10),
             pady=(10, 20)
         )
 
-        # ==========================================
-        # Startup Options
-        # ==========================================
+        self.content.pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=(0, 20),
+            pady=(10, 20)
+        )
+
+        self.current_page = None
 
         ctk.CTkLabel(
-            frame,
-            text="Startup",
-            font=("Segoe UI", 16, "bold")
-        ).pack(anchor="w", padx=20)
-
-        self.start_maximized = ctk.BooleanVar(
-            value=self.settings.get("general", "start_maximized", True)
-        )
-
-        ctk.CTkCheckBox(
-            frame,
-            text="Open maximized",
-            variable=self.start_maximized
-        ).pack(anchor="w", padx=25, pady=5)
-
-        self.remember_project = ctk.BooleanVar(
-            value=self.settings.get("general", "remember_last_project", True)
-        )
-
-        ctk.CTkCheckBox(
-            frame,
-            text="Remember last opened project",
-            variable=self.remember_project
-        ).pack(anchor="w", padx=25, pady=5)
-
-        self.check_updates = ctk.BooleanVar(
-            value=self.settings.get("general", "check_updates", True)
-        )
-
-        ctk.CTkCheckBox(
-            frame,
-            text="Check for updates on startup",
-            variable=self.check_updates
-        ).pack(anchor="w", padx=25, pady=5)
-
-        # ==========================================
-        # Theme
-        # ==========================================
-
-        ctk.CTkLabel(
-            frame,
-            text="Appearance",
-            font=("Segoe UI", 16, "bold")
-        ).pack(anchor="w", padx=20, pady=(25, 5))
-
-        self.theme = ctk.CTkOptionMenu(
-            frame,
-            values=[
-                "Dark",
-                "Light",
-                "System"
-            ]
-        )
-
-        self.theme.pack(
-            anchor="w",
-            padx=20
-        )
-
-        self.theme.set(
-            self.settings.get(
-                "general",
-                "theme",
-                "dark"
-            ).title()
-        )
-
-        # ==========================================
-        # Save
-        # ==========================================
-
-        ctk.CTkButton(
-            frame,
-            text="💾 Save Settings",
-            height=40,
-            command=self.save_settings
+            self.sidebar,
+            text="⚙ Settings",
+            font=("Segoe UI", 24, "bold")
         ).pack(
-            pady=30
+            anchor="w",
+            padx=20,
+            pady=(20, 25)
         )
+
+        ctk.CTkFrame(
+            self.sidebar,
+            height=2
+        ).pack(
+            fill="x",
+            padx=15,
+            pady=(0, 15)
+        )
+
+        self.add_button(
+            "general",
+            "📁 General",
+            self.show_general
+        )
+
+        self.add_button(
+            "voice",
+            "🎤 Voice",
+            lambda: None
+        )
+
+        self.add_button(
+            "ai",
+            "🤖 AI",
+            lambda: None
+        )
+
+        self.add_button(
+            "youtube",
+            "🎬 YouTube",
+            lambda: None
+        )
+
+        self.add_button(
+            "appearance",
+            "🎨 Appearance",
+            lambda: None
+        )
+
+        self.add_button(
+            "projects",
+            "📂 Projects",
+            lambda: None
+        )
+
+        self.add_button(
+            "advanced",
+            "🔧 Advanced",
+            lambda: None
+        )
+
+        self.add_button(
+            "about",
+            "ℹ About",
+            lambda: None
+        )
+
+        self.select_page(
+            "general",
+            self.show_general
+        )
+
+        footer = ctk.CTkFrame(
+            self.sidebar,
+            fg_color="transparent"
+        )
+
+        footer.pack(
+            side="bottom",
+            fill="x",
+            padx=15,
+            pady=15
+        )
+
+        ctk.CTkLabel(
+            footer,
+            text=(
+                f"{self.app.settings.get('general', 'app_name', 'Fact Vault Manager')}\n"
+                f"Version {self.app.settings.get('general', 'version', '1.0.0')}"
+            ),
+            justify="left",
+            font=("Segoe UI", 11)
+        ).pack(anchor="w")
+
+    def add_button(self, key, text, command):
+
+        button = ctk.CTkButton(
+            self.sidebar,
+            text=text,
+            anchor="w",
+            height=42,
+            corner_radius=8,
+            fg_color="transparent",
+            hover_color=("gray85", "#2B2B2B"),
+            text_color=("black", "white"),
+            command=lambda: self.select_page(key, command)
+        )
+
+        button.pack(
+            fill="x",
+            padx=10,
+            pady=2
+        )
+
+        self.nav_buttons[key] = button
+
+    def select_page(self, key, callback):
+
+        for name, button in self.nav_buttons.items():
+
+            if name == key:
+
+                button.configure(
+                    fg_color=("gray75", "#1f538d")
+                )
+
+            else:
+
+                button.configure(
+                    fg_color="transparent"
+                )
+
+        callback()
     
-    # ==========================================
-    # Browse
-    # ==========================================
+    def clear(self):
 
-    def browse_projects_folder(self):
+        if self.current_page:
 
-        folder = filedialog.askdirectory()
+            self.current_page.destroy()
 
-        if folder:
+            self.current_page = None
 
-            self.projects_folder.delete(0, "end")
+    def show_general(self):
 
-            self.projects_folder.insert(0, folder)
+        self.clear()
 
-    # ==========================================
-    # Save
-    # ==========================================
-
-    def save_settings(self):
-
-        self.settings.set(
-            "general",
-            "projects_folder",
-            self.projects_folder.get().strip()
+        self.current_page = GeneralPage(
+            self.content,
+            self.pm,
+            self.app
         )
 
-        self.settings.set(
-            "general",
-            "start_maximized",
-            self.start_maximized.get()
+        self.current_page.pack(
+            fill="both",
+            expand=True
         )
-
-        self.settings.set(
-            "general",
-            "remember_last_project",
-            self.remember_project.get()
-        )
-
-        self.settings.set(
-            "general",
-            "check_updates",
-            self.check_updates.get()
-        )
-
-        self.settings.set(
-            "general",
-            "theme",
-            self.theme.get().lower()
-        )
-
-        ctk.set_appearance_mode(
-            self.theme.get()
-        )
-
-        messagebox.showinfo(
-            "Settings",
-            "Settings saved successfully."
-        )
+        self.current_page.focus_set()

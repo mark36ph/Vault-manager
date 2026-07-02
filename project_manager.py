@@ -2,7 +2,6 @@
 from pathlib import Path
 from datetime import datetime
 from database import Database
-from common.json_utils import load_json, save_json
 from common.settings_manager import SettingsManager
 
 DATA_FOLDER = Path("data")
@@ -14,16 +13,6 @@ class ProjectManager:
 
         self.db = Database()
         self.settings = SettingsManager()
-
-        if not SETTINGS_FILE.exists():
-
-            save_json(
-                SETTINGS_FILE,
-                {
-                    "projects_folder": "",
-                    "theme": "dark"
-                }
-            )
 
     # =====================================================
     # Create Project
