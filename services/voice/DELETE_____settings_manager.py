@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-
+from common.settings_manager import SettingsManager
 
 class SettingsManager:
 

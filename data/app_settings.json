@@ -1,3 +1,7 @@
 {
-    "projects_folder": "C:/Users/mark3/Documents/1 Minute Fact Vault"
+    "projects_folder": "C:/Users/mark3/Documents/1 Minute Fact Vault",
+    "theme": "dark",
+    "start_maximized": true,
+    "remember_last_project": true,
+    "check_updates": true
 }

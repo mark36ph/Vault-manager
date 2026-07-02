@@ -11,14 +11,33 @@ from project_manager import ProjectManager
 from pages.templates_page import TemplatesPage
 from pages.edit_template_page import EditTemplatePage
 from pages.voice_studio_page import VoiceStudioPage
+from common.settings_manager import SettingsManager
 
 class Dashboard(ctk.CTk):
 
     def __init__(self):
         super().__init__()
+        self.settings = SettingsManager()
+        ctk.set_appearance_mode(
+            self.settings.get(
+                "general",
+                "theme",
+                "dark"
+            ).title()
+        )
         self.minsize(1200, 700)
         self.pm = ProjectManager()
-        self.after(100, lambda: self.state("zoomed"))
+
+        if self.settings.get(
+            "general",
+            "start_maximized",
+            True
+        ):
+            self.after(
+                100,
+                lambda: self.state("zoomed")
+            )
+
         self.title("Fact Vault Manager")
         self.geometry("1400x800")
 

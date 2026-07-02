@@ -4,6 +4,7 @@ from pathlib import Path
 from datetime import datetime
 from database import Database
 from common.json_utils import load_json, save_json
+from common.settings_manager import SettingsManager
 
 DATA_FOLDER = Path("data")
 SETTINGS_FILE = DATA_FOLDER / "app_settings.json"
@@ -15,6 +16,7 @@ class ProjectManager:
         DATA_FOLDER.mkdir(exist_ok=True)
 
         self.db = Database()
+        self.settings = SettingsManager()
 
         if not SETTINGS_FILE.exists():
 
@@ -32,6 +34,14 @@ class ProjectManager:
 
     def load_settings(self):
 
+        defaults = {
+            "projects_folder": "",
+            "theme": "dark",
+            "start_maximized": True,
+            "remember_last_project": True,
+            "check_updates": True
+        }
+
         try:
 
             with open(
@@ -40,13 +50,11 @@ class ProjectManager:
                 encoding="utf-8-sig"
             ) as f:
 
-                return json.load(f)
+                settings = json.load(f)
 
         except FileNotFoundError:
 
-            settings = {
-                "projects_folder": ""
-            }
+            settings = defaults.copy()
 
             self.save_settings(settings)
 
@@ -57,6 +65,22 @@ class ProjectManager:
             raise Exception(
                 f"Settings file is invalid:\n{e}"
             )
+
+        # Add any missing settings automatically
+        updated = False
+
+        for key, value in defaults.items():
+
+            if key not in settings:
+
+                settings[key] = value
+                updated = True
+
+        if updated:
+
+            self.save_settings(settings)
+
+        return settings
 
     def save_settings(self, settings):
 
@@ -69,7 +93,7 @@ class ProjectManager:
 
     def create_project(self, title, category, status):
 
-        settings = self.load_settings()
+        settings = self.settings.section("general")
 
         root = settings.get("projects_folder", "").strip()
 
@@ -234,7 +258,7 @@ class ProjectManager:
         
     def get_project_folder(self, project):
 
-        settings = self.load_settings()
+        settings = self.settings.section("general")
 
         root = Path(settings["projects_folder"])
 

@@ -1,8 +1,9 @@
 ﻿from services.voice.models import Voice
-from services.voice.settings_manager import SettingsManager
 from services.voice.audio_player import AudioPlayer
+from common.settings_manager import SettingsManager
 from services.voice.download_manager import DownloadManager
 from services.voice.piper_engine import PiperEngine
+from pathlib import Path
 from services.voice.utils import (
     ensure_voice_folders,
     load_voice_catalog,
@@ -91,7 +92,10 @@ class VoiceService:
 
     def get_default_voice(self):
 
-        voice_id = self.settings.get_default_voice()
+        voice_id = self.settings.get(
+            "voice",
+            "default_voice"
+        )
 
         if not voice_id:
             return None
@@ -112,7 +116,9 @@ class VoiceService:
         if not voice.installed:
             raise Exception("Voice is not installed.")
 
-        self.settings.set_default_voice(
+        self.settings.set(
+            "voice",
+            "default_voice",
             voice.id
         )
 
@@ -124,11 +130,18 @@ class VoiceService:
 
     def get_engine(self):
 
-        return self.settings.get_engine()
+        return self.settings.get(
+            "voice",
+            "engine"
+        )
 
     def set_engine(self, engine):
 
-        self.settings.set_engine(engine)
+        self.settings.set(
+            "voice",
+            "engine",
+            engine
+        )
 
     # =====================================================
     # Speech
@@ -136,27 +149,48 @@ class VoiceService:
 
     def get_rate(self):
 
-        return self.settings.get_rate()
+        return self.settings.get(
+            "voice",
+            "speech_rate"
+        )
 
     def set_rate(self, value):
 
-        self.settings.set_rate(value)
+        self.settings.set(
+            "voice",
+            "speech_rate",
+            value
+        )
 
     def get_pitch(self):
 
-        return self.settings.get_pitch()
+        return self.settings.get(
+            "voice",
+            "speech_pitch"
+        )
 
     def set_pitch(self, value):
 
-        self.settings.set_pitch(value)
+        self.settings.set(
+            "voice",
+            "speech_pitch",
+            value
+        )
 
     def get_volume(self):
 
-        return self.settings.get_volume()
+        return self.settings.get(
+            "voice",
+            "volume"
+        )
 
     def set_volume(self, value):
 
-        self.settings.set_volume(value)
+        self.settings.set(
+            "voice",
+            "volume",
+            value
+        )
 
     # =====================================================
     # Output
@@ -164,11 +198,18 @@ class VoiceService:
 
     def get_output_format(self):
 
-        return self.settings.get_output_format()
+        return self.settings.get(
+            "voice",
+            "output_format"
+        )
 
     def set_output_format(self, fmt):
 
-        self.settings.set_output_format(fmt)
+        self.settings.set(
+            "voice",
+            "output_format",
+            fmt
+        )
 
     # =====================================================
     # Status
@@ -210,13 +251,18 @@ class VoiceService:
         )
 
         # If it was the default voice, clear it
-        default = self.settings.get_default_voice()
+        default = self.settings.get(
+            "voice",
+            "default_voice"
+        )
 
         if default == voice.id:
 
-            self.settings.set_default_voice("")
-
-    from pathlib import Path
+            self.settings.set(
+                "voice",
+                "default_voice",
+                ""
+            )
 
     def preview_voice(self, voice_id):
 
