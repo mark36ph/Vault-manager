@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 from services.voice.voice_service import VoiceService
 from services.voice.piper_engine import PiperEngine
+from common.settings_manager import SettingsManager
 
 
 class EditProjectPage(BasePage):
@@ -14,6 +15,7 @@ class EditProjectPage(BasePage):
         self.app = app
         self.project_id = project_id
         self.project = self.pm.db.get_project(project_id)
+        self.settings = SettingsManager()
         self.voice_service = VoiceService()
         self.piper = PiperEngine()
         if not self.project:
@@ -124,7 +126,7 @@ class EditProjectPage(BasePage):
 
             old_folder = None
 
-            settings = self.pm.load_settings()
+            settings = self.settings.section("general")
             root = Path(settings["projects_folder"])
 
             # Look for the project in every status folder

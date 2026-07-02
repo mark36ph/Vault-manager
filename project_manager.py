@@ -1,5 +1,4 @@
-﻿import json
-import shutil
+﻿import shutil
 from pathlib import Path
 from datetime import datetime
 from database import Database
@@ -7,8 +6,6 @@ from common.json_utils import load_json, save_json
 from common.settings_manager import SettingsManager
 
 DATA_FOLDER = Path("data")
-SETTINGS_FILE = DATA_FOLDER / "app_settings.json"
-
 
 class ProjectManager:
 
@@ -27,65 +24,6 @@ class ProjectManager:
                     "theme": "dark"
                 }
             )
-
-    # =====================================================
-    # Settings
-    # =====================================================
-
-    def load_settings(self):
-
-        defaults = {
-            "projects_folder": "",
-            "theme": "dark",
-            "start_maximized": True,
-            "remember_last_project": True,
-            "check_updates": True
-        }
-
-        try:
-
-            with open(
-                SETTINGS_FILE,
-                "r",
-                encoding="utf-8-sig"
-            ) as f:
-
-                settings = json.load(f)
-
-        except FileNotFoundError:
-
-            settings = defaults.copy()
-
-            self.save_settings(settings)
-
-            return settings
-
-        except json.JSONDecodeError as e:
-
-            raise Exception(
-                f"Settings file is invalid:\n{e}"
-            )
-
-        # Add any missing settings automatically
-        updated = False
-
-        for key, value in defaults.items():
-
-            if key not in settings:
-
-                settings[key] = value
-                updated = True
-
-        if updated:
-
-            self.save_settings(settings)
-
-        return settings
-
-    def save_settings(self, settings):
-
-        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-            json.dump(settings, f, indent=4)
 
     # =====================================================
     # Create Project
