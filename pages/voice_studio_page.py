@@ -1,8 +1,7 @@
 import customtkinter as ctk
 from pages.base_page import BasePage
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 from services.voice.voice_service import VoiceService
-
 
 class VoiceStudioPage(BasePage):
 
@@ -85,51 +84,80 @@ class VoiceStudioPage(BasePage):
             padx=20,
             pady=(15, 10)
         )
-    installed_voices = self.voice_service.get_installed_voices()
 
-    voice_names = [
-        voice.display_name
-        for voice in installed_voices
-    ]
+        installed_voices = self.voice_service.get_installed_voices()
 
-    self.voice_lookup = {
-        voice.display_name: voice
-        for voice in installed_voices
-    }
+        voice_names = [
+            voice.display_name
+            for voice in installed_voices
+        ]
 
-    ctk.CTkLabel(
-        panel,
-        text="Voice",
-        font=("Segoe UI", 16, "bold")
-    ).pack(
-        anchor="w",
-        padx=20,
-        pady=(5, 5)
-    )
+        self.voice_lookup = {
+            voice.display_name: voice
+            for voice in installed_voices
+        }
 
-    self.voice_dropdown = ctk.CTkOptionMenu(
-        panel,
-        values=voice_names or ["No voices installed"]
-    )
+        ctk.CTkLabel(
+            panel,
+            text="Voice",
+            font=("Segoe UI", 16, "bold")
+        ).pack(
+            anchor="w",
+            padx=20,
+            pady=(0, 5)
+        )
 
-    self.voice_dropdown.pack(
-        anchor="w",
-        padx=20,
-        pady=(0, 15)
-    )
+        self.voice_dropdown = ctk.CTkOptionMenu(
+            panel,
+            values=voice_names if voice_names else ["No installed voices"]
+        )
 
-    default_voice = self.voice_service.get_default_voice()
+        self.voice_dropdown.pack(
+            anchor="w",
+            padx=20,
+            pady=(0, 15)
+        )
 
-    if default_voice:
-        self.voice_dropdown.set(default_voice.display_name)
-    elif voice_names:
-        self.voice_dropdown.set(voice_names[0])
-    else:
-        self.voice_dropdown.set("No voices installed")
+        default = self.voice_service.get_default_voice()
+
+        if default:
+            self.voice_dropdown.set(default.display_name)
+        elif voice_names:
+            self.voice_dropdown.set(voice_names[0])
+
         self.speech_text = ctk.CTkTextbox(
             panel,
             height=120
         )
+
+        ctk.CTkLabel(
+            panel,
+            text="Speed",
+            font=("Segoe UI", 16, "bold")
+        ).pack(anchor="w", padx=20, pady=(0, 5))
+
+        self.speed_value = ctk.CTkLabel(
+            panel,
+            text="100%"
+        )
+
+        self.speed_value.pack(anchor="w", padx=20)
+
+        self.speed_slider = ctk.CTkSlider(
+            panel,
+            from_=0.75,
+            to=1.5,
+            number_of_steps=15,
+            command=self.update_speed_label
+        )
+
+        self.speed_slider.pack(
+            fill="x",
+            padx=20,
+            pady=(0, 15)
+        )
+
+        self.speed_slider.set(1.0)
 
         self.speech_text.pack(
             fill="x",
@@ -182,6 +210,16 @@ class VoiceStudioPage(BasePage):
             text="■ Stop",
             width=120,
             command=self.voice_service.stop_preview
+        ).pack(
+            side="left",
+            padx=5
+        )
+
+        ctk.CTkButton(
+            btns,
+            text="💾 Save WAV",
+            width=140,
+            command=self.save_wav
         ).pack(
             side="left",
             padx=5
@@ -255,14 +293,19 @@ class VoiceStudioPage(BasePage):
             ).pack(
                 pady=(0, 6)
             )
-            ctk.CTkButton(
+            delete_button = ctk.CTkButton(
                 right,
                 text="🗑 Delete",
                 fg_color="#AA3333",
                 hover_color="#882222",
                 width=120,
                 command=lambda v=voice: self.delete_voice(v)
-            ).pack(
+            )
+
+            if default and default.id == voice.id:
+                delete_button.configure(state="disabled")
+
+            delete_button.pack(
                 pady=(6, 0)
             )
             if default and default.id == voice.id:
@@ -441,6 +484,18 @@ class VoiceStudioPage(BasePage):
 
     def delete_voice(self, voice):
 
+        default = self.voice_service.get_default_voice()
+
+        if default and default.id == voice.id:
+
+            messagebox.showwarning(
+                "Cannot Delete Voice",
+                f"'{voice.display_name}' is currently your default voice.\n\n"
+                "Please choose another default voice first."
+            )
+
+            return
+
         if not messagebox.askyesno(
 
             "Delete Voice",
@@ -548,7 +603,7 @@ class VoiceStudioPage(BasePage):
 
                 messagebox.showerror(
                     "Voice Studio",
-                    "Please choose an installed voice."
+                    "Please choose a default voice."
                 )
 
                 return
@@ -569,7 +624,8 @@ class VoiceStudioPage(BasePage):
 
             self.voice_service.speak(
                 voice.id,
-                text
+                text,
+                speed=self.speed_slider.get()
             )
 
         except Exception as e:
@@ -579,6 +635,12 @@ class VoiceStudioPage(BasePage):
                 str(e)
             )
 
+    def get_selected_voice(self):
+
+        selected = self.voice_dropdown.get()
+
+        return self.voice_lookup.get(selected)
+        
     def clear_placeholder(self, event=None):
 
         text = self.speech_text.get(
@@ -616,10 +678,67 @@ class VoiceStudioPage(BasePage):
                 text_color=self.placeholder_color
             )
 
-    def get_selected_voice(self):
+    def update_speed_label(self, value):
 
-        selected = self.voice_dropdown.get()
+        self.speed_value.configure(
+            text=f"{int(float(value) * 100)}%"
+        )
 
-        voice = self.voice_lookup.get(selected)
+    def save_wav(self):
 
-        return voice
+        try:
+
+            voice = self.get_selected_voice()
+
+            if voice is None:
+
+                messagebox.showerror(
+                    "Save WAV",
+                    "Please choose an installed voice."
+                )
+
+                return
+
+            text = self.speech_text.get(
+                "1.0",
+                "end"
+            ).strip()
+
+            if not text or text == self.placeholder:
+
+                messagebox.showerror(
+                    "Save WAV",
+                    "Please enter some text."
+                )
+
+                return
+
+            output_file = filedialog.asksaveasfilename(
+                defaultextension=".wav",
+                filetypes=[
+                    ("WAV Audio", "*.wav")
+                ],
+                initialfile="narration.wav"
+            )
+
+            if not output_file:
+                return
+
+            self.voice_service.generate_voice(
+                voice.id,
+                text,
+                output_file,
+                length_scale=1 / float(self.speed_slider.get())
+            )
+
+            messagebox.showinfo(
+                "Save WAV",
+                f"WAV saved successfully:\n\n{output_file}"
+            )
+
+        except Exception as e:
+
+            messagebox.showerror(
+                "Save WAV Failed",
+                str(e)
+            )

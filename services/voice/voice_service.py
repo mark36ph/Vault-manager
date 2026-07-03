@@ -281,13 +281,9 @@ class VoiceService:
         )
 
         self.generate_voice(
-
             voice.id,
-
             voice.sample_text,
-
             preview_file
-
         )
 
         self.player.play(
@@ -298,7 +294,8 @@ class VoiceService:
         self,
         voice_id,
         text,
-        output_file
+        output_file,
+        length_scale=1.0
     ):
 
         voice = self.get_voice(voice_id)
@@ -312,7 +309,8 @@ class VoiceService:
         self.piper.generate(
             voice=voice,
             text=text,
-            output_file=output_file
+            output_file=output_file,
+            length_scale=length_scale
         )
 
         return output_file
@@ -324,10 +322,9 @@ class VoiceService:
     def speak(
         self,
         voice_id,
-        text
+        text,
+        speed=1.0
     ):
-
-        from pathlib import Path
 
         temp_file = (
             Path("voices")
@@ -338,7 +335,8 @@ class VoiceService:
         self.generate_voice(
             voice_id,
             text,
-            temp_file
+            temp_file,
+            length_scale=1 / float(speed)
         )
 
         self.player.play(
