@@ -85,7 +85,47 @@ class VoiceStudioPage(BasePage):
             padx=20,
             pady=(15, 10)
         )
+    installed_voices = self.voice_service.get_installed_voices()
 
+    voice_names = [
+        voice.display_name
+        for voice in installed_voices
+    ]
+
+    self.voice_lookup = {
+        voice.display_name: voice
+        for voice in installed_voices
+    }
+
+    ctk.CTkLabel(
+        panel,
+        text="Voice",
+        font=("Segoe UI", 16, "bold")
+    ).pack(
+        anchor="w",
+        padx=20,
+        pady=(5, 5)
+    )
+
+    self.voice_dropdown = ctk.CTkOptionMenu(
+        panel,
+        values=voice_names or ["No voices installed"]
+    )
+
+    self.voice_dropdown.pack(
+        anchor="w",
+        padx=20,
+        pady=(0, 15)
+    )
+
+    default_voice = self.voice_service.get_default_voice()
+
+    if default_voice:
+        self.voice_dropdown.set(default_voice.display_name)
+    elif voice_names:
+        self.voice_dropdown.set(voice_names[0])
+    else:
+        self.voice_dropdown.set("No voices installed")
         self.speech_text = ctk.CTkTextbox(
             panel,
             height=120
@@ -502,13 +542,13 @@ class VoiceStudioPage(BasePage):
 
         try:
 
-            voice = self.voice_service.get_default_voice()
+            voice = self.get_selected_voice()
 
             if voice is None:
 
                 messagebox.showerror(
                     "Voice Studio",
-                    "Please choose a default voice."
+                    "Please choose an installed voice."
                 )
 
                 return
@@ -575,3 +615,11 @@ class VoiceStudioPage(BasePage):
             self.speech_text.configure(
                 text_color=self.placeholder_color
             )
+
+    def get_selected_voice(self):
+
+        selected = self.voice_dropdown.get()
+
+        voice = self.voice_lookup.get(selected)
+
+        return voice
