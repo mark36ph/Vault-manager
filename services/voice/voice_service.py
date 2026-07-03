@@ -320,3 +320,27 @@ class VoiceService:
     def stop_preview(self):
 
         self.player.stop()
+
+    def speak(
+        self,
+        voice_id,
+        text
+    ):
+
+        from pathlib import Path
+
+        temp_file = (
+            Path("voices")
+            / "temp"
+            / "speak.wav"
+        )
+
+        self.generate_voice(
+            voice_id,
+            text,
+            temp_file
+        )
+
+        self.player.play(
+            temp_file
+        )

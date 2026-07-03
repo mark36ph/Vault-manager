@@ -156,7 +156,11 @@ class PiperEngine:
     def get_version(self):
 
         try:
-
+            text = " ".join(
+                line.strip()
+                for line in text.splitlines()
+                if line.strip()
+            )
             result = subprocess.run(
 
                 [

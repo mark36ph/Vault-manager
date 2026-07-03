@@ -9,11 +9,11 @@ class VoiceStudioPage(BasePage):
     def __init__(self, parent, pm, app):
 
         super().__init__(parent, pm, "Voice Studio")
-
         self.app = app
-
         self.voice_service = VoiceService()
-
+        self.placeholder = "Type or paste text here..."
+        self.placeholder_color = ("gray50", "gray50")
+        self.normal_color = ("black", "white")
         self.build()
 
     # =====================================
@@ -21,7 +21,7 @@ class VoiceStudioPage(BasePage):
     def build(self):
 
         self.add_section_title("Voice Studio")
-
+        self.build_generate_panel()
         self.installed_frame = ctk.CTkFrame(self)
 
         self.installed_frame.pack(
@@ -65,6 +65,87 @@ class VoiceStudioPage(BasePage):
         self.build_available()
 
     # =====================================
+
+    def build_generate_panel(self):
+
+        panel = ctk.CTkFrame(self)
+
+        panel.pack(
+            fill="x",
+            padx=20,
+            pady=(10, 5)
+        )
+
+        ctk.CTkLabel(
+            panel,
+            text="Generate Speech",
+            font=("Segoe UI", 20, "bold")
+        ).pack(
+            anchor="w",
+            padx=20,
+            pady=(15, 10)
+        )
+
+        self.speech_text = ctk.CTkTextbox(
+            panel,
+            height=120
+        )
+
+        self.speech_text.pack(
+            fill="x",
+            padx=20,
+            pady=(0, 10)
+        )
+
+        self.speech_text.insert(
+            "1.0",
+            self.placeholder
+        )
+
+        self.speech_text.configure(
+            text_color=self.placeholder_color
+        )
+
+        self.speech_text.bind(
+            "<FocusIn>",
+            self.clear_placeholder
+        )
+
+        self.speech_text.bind(
+            "<FocusOut>",
+            self.restore_placeholder
+        )
+
+        btns = ctk.CTkFrame(
+            panel,
+            fg_color="transparent"
+        )
+
+        btns.pack(
+            anchor="e",
+            padx=20,
+            pady=(0, 15)
+        )
+
+        ctk.CTkButton(
+            btns,
+            text="▶ Speak",
+            width=160,
+            command=self.speak_text
+        ).pack(
+            side="left",
+            padx=5
+        )
+
+        ctk.CTkButton(
+            btns,
+            text="■ Stop",
+            width=120,
+            command=self.voice_service.stop_preview
+        ).pack(
+            side="left",
+            padx=5
+        )
 
     def build_installed(self):
 
@@ -126,6 +207,24 @@ class VoiceStudioPage(BasePage):
                 padx=15
             )
 
+            ctk.CTkButton(
+                right,
+                text="▶ Preview",
+                width=120,
+                command=lambda v=voice: self.preview_voice(v)
+            ).pack(
+                pady=(0, 6)
+            )
+            ctk.CTkButton(
+                right,
+                text="🗑 Delete",
+                fg_color="#AA3333",
+                hover_color="#882222",
+                width=120,
+                command=lambda v=voice: self.delete_voice(v)
+            ).pack(
+                pady=(6, 0)
+            )
             if default and default.id == voice.id:
 
                 badge = ctk.CTkLabel(
@@ -141,23 +240,13 @@ class VoiceStudioPage(BasePage):
                 )
 
             else:
-
                 ctk.CTkButton(
                     right,
                     text="⭐ Set Default",
                     width=120,
                     command=lambda v=voice: self.set_default_voice(v)
                 ).pack()
-                ctk.CTkButton(
-                    right,
-                    text="🗑 Delete",
-                    fg_color="#AA3333",
-                    hover_color="#882222",
-                    width=120,
-                    command=lambda v=voice: self.delete_voice(v)
-                ).pack(
-                    pady=(6, 0)
-                )
+
 
     # =====================================
 
@@ -309,7 +398,7 @@ class VoiceStudioPage(BasePage):
                 "Voice Studio",
                 str(e)
             )
-    from tkinter import messagebox
+
     def delete_voice(self, voice):
 
         if not messagebox.askyesno(
@@ -335,4 +424,154 @@ class VoiceStudioPage(BasePage):
             messagebox.showerror(
                 "Voice Studio",
                 str(e)
+            )
+
+    def preview_voice(self, voice):
+
+        try:
+
+            self.voice_service.preview_voice(
+                voice.id
+            )
+
+        except Exception as e:
+
+            messagebox.showerror(
+                "Voice Preview",
+                str(e)
+            )
+
+    def generate_speech(self):
+
+        try:
+
+            voice = self.voice_service.get_default_voice()
+
+            if voice is None:
+
+                messagebox.showerror(
+                    "Generate Speech",
+                    "No default voice selected."
+                )
+
+                return
+
+            text = self.speech_text.get(
+                "1.0",
+                "end"
+            ).strip()
+
+            if not text or text == self.placeholder:
+
+                messagebox.showerror(
+                    "Generate Speech",
+                    "Please enter some text first."
+                )
+
+                return
+
+            output_file = (
+                self.pm.get_voice_folder(
+                    {
+                        "title": "Voice Studio",
+                        "status": "In Progress"
+                    }
+                )
+                / "voice_studio.wav"
+            )
+
+            self.voice_service.generate_voice(
+                voice.id,
+                text,
+                output_file
+            )
+
+            messagebox.showinfo(
+                "Generate Speech",
+                f"WAV created successfully:\n\n{output_file}"
+            )
+
+        except Exception as e:
+
+            messagebox.showerror(
+                "Generate Speech Failed",
+                str(e)
+            )
+
+    def speak_text(self):
+
+        try:
+
+            voice = self.voice_service.get_default_voice()
+
+            if voice is None:
+
+                messagebox.showerror(
+                    "Voice Studio",
+                    "Please choose a default voice."
+                )
+
+                return
+
+            text = self.speech_text.get(
+                "1.0",
+                "end"
+            ).strip()
+
+            if not text or text == self.placeholder:
+
+                messagebox.showerror(
+                    "Voice Studio",
+                    "Please enter some text."
+                )
+
+                return
+
+            self.voice_service.speak(
+                voice.id,
+                text
+            )
+
+        except Exception as e:
+
+            messagebox.showerror(
+                "Voice Studio",
+                str(e)
+            )
+
+    def clear_placeholder(self, event=None):
+
+        text = self.speech_text.get(
+            "1.0",
+            "end"
+        ).strip()
+
+        if text == self.placeholder:
+
+            self.speech_text.delete(
+                "1.0",
+                "end"
+            )
+
+            self.speech_text.configure(
+                text_color=self.normal_color
+            )
+
+
+    def restore_placeholder(self, event=None):
+
+        text = self.speech_text.get(
+            "1.0",
+            "end"
+        ).strip()
+
+        if not text:
+
+            self.speech_text.insert(
+                "1.0",
+                self.placeholder
+            )
+
+            self.speech_text.configure(
+                text_color=self.placeholder_color
             )
