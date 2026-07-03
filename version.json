@@ -1,0 +1,11 @@
+{
+    "latest_version": "1.6.0",
+    "build": 5,
+    "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
+    "release_notes": [
+        "Added Voice Studio.",
+        "Added voice selection.",
+        "Added speed control.",
+        "Added Save WAV."
+    ]
+}
