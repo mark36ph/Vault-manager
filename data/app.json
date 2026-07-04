@@ -1,9 +1,9 @@
 {
     "name": "Fact Vault Manager",
-    "version": "1.6.0",
+    "version": "1.0.0",
     "developer": "Mark",
-    "company": "what company?",
-    "website": "http://www.markswebsite.com",
-    "support_email": "me@home.com",
+    "company": "FactVaultManager",
+    "website": "http://www.factvaultmanager.app",
+    "support_email": "factvaultmanager@gmail.com",
     "build": 1
 }

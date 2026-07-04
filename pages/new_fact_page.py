@@ -199,6 +199,42 @@ class NewFactPage(BasePage):
         )
 
         # ======================================
+        # Voice
+        # ======================================
+
+        ctk.CTkLabel(
+            self.form,
+            text="Narration Voice"
+        ).pack(anchor="w")
+
+        installed_voices = self.voice_service.get_installed_voices()
+
+        self.voice_lookup = {
+            voice.display_name: voice
+            for voice in installed_voices
+        }
+
+        voice_names = list(self.voice_lookup.keys())
+
+        self.voice_dropdown = ctk.CTkOptionMenu(
+            self.form,
+            values=voice_names if voice_names else ["No installed voices"],
+            height=38
+        )
+
+        self.voice_dropdown.pack(
+            fill="x",
+            pady=(5, 20)
+        )
+
+        default_voice = self.voice_service.get_default_voice()
+
+        if default_voice:
+            self.voice_dropdown.set(default_voice.display_name)
+        elif voice_names:
+            self.voice_dropdown.set(voice_names[0])
+            
+        # ======================================
         # ChatGPT Import
         # ======================================
 
@@ -437,14 +473,15 @@ class NewFactPage(BasePage):
                 "end"
             ).strip()
 
-            default_voice = self.voice_service.get_default_voice()
+            selected_voice_name = self.voice_dropdown.get()
+            selected_voice = self.voice_lookup.get(selected_voice_name)
 
-            if script_text and default_voice:
+            if script_text and selected_voice:
 
                 output_file = folder / "Voice" / "narration.wav"
 
                 self.voice_service.generate_voice(
-                    default_voice.id,
+                    selected_voice.id,
                     script_text,
                     output_file
                 )
