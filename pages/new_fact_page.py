@@ -1,14 +1,14 @@
 ﻿from tkinter import messagebox
 import customtkinter as ctk
-
+from common.chatgpt_import_parser import ChatGPTImportParser
 from pages.base_page import BasePage
-
+from services.voice.voice_service import VoiceService
 
 class NewFactPage(BasePage):
 
     def __init__(self, parent, pm, app):
         super().__init__(parent, pm, "New Fact")
-
+        self.voice_service = VoiceService()
         self.app = app
 
         self.build()
@@ -83,7 +83,7 @@ class NewFactPage(BasePage):
             pady=(20, 20)
         )
 
-        self.form = ctk.CTkFrame(
+        self.form = ctk.CTkScrollableFrame(
             self.left_panel,
             fg_color="transparent"
         )
@@ -198,6 +198,60 @@ class NewFactPage(BasePage):
             pady=(5, 20)
         )
 
+        # ======================================
+        # ChatGPT Import
+        # ======================================
+
+        ctk.CTkLabel(
+            self.form,
+            text="Paste From ChatGPT",
+            font=("Segoe UI", 18, "bold")
+        ).pack(anchor="w", pady=(10, 5))
+
+        self.import_box = ctk.CTkTextbox(
+            self.form,
+            height=160
+        )
+
+        self.import_box.pack(
+            fill="x",
+            pady=(5, 10)
+        )
+
+        ctk.CTkButton(
+            self.form,
+            text="Import ChatGPT Text",
+            height=38,
+            command=self.import_chatgpt_text
+        ).pack(
+            fill="x",
+            pady=(0, 20)
+        )
+
+        for label, attr, height in [
+            ("Script", "script", 180),
+            ("Description", "description", 100),
+            ("Pinned Comment", "pinned_comment", 100),
+            ("Notes / Tags", "notes", 100)
+        ]:
+            ctk.CTkLabel(
+                self.form,
+                text=label,
+                font=("Segoe UI", 16, "bold")
+            ).pack(anchor="w", pady=(10, 5))
+
+            box = ctk.CTkTextbox(
+                self.form,
+                height=height
+            )
+
+            box.pack(
+                fill="x",
+                pady=(0, 10)
+            )
+
+            setattr(self, attr, box)
+            
         # ======================================
         # Options
         # ======================================
@@ -366,7 +420,11 @@ class NewFactPage(BasePage):
             folder = self.pm.create_project(
                 title,
                 self.category.get(),
-                self.status.get()
+                self.status.get(),
+                self.script.get("1.0", "end").strip(),
+                self.description.get("1.0", "end").strip(),
+                self.pinned_comment.get("1.0", "end").strip(),
+                self.notes.get("1.0", "end").strip()
             )
 
             self.pm.apply_template(
@@ -374,6 +432,23 @@ class NewFactPage(BasePage):
                 self.template.get()
             )
 
+            script_text = self.script.get(
+                "1.0",
+                "end"
+            ).strip()
+
+            default_voice = self.voice_service.get_default_voice()
+
+            if script_text and default_voice:
+
+                output_file = folder / "Voice" / "narration.wav"
+
+                self.voice_service.generate_voice(
+                    default_voice.id,
+                    script_text,
+                    output_file
+                )
+                
             messagebox.showinfo(
                 "Success",
                 "Project created successfully!"
@@ -387,3 +462,45 @@ class NewFactPage(BasePage):
                 "Error",
                 str(e)
             )
+
+    def import_chatgpt_text(self):
+
+        raw_text = self.import_box.get(
+            "1.0",
+            "end"
+        ).strip()
+
+        if not raw_text:
+
+            messagebox.showerror(
+                "Import",
+                "Please paste text from ChatGPT first."
+            )
+
+            return
+
+        data = ChatGPTImportParser.parse(raw_text)
+
+        if data["title"]:
+
+            self.title_entry.delete(0, "end")
+            self.title_entry.insert(0, data["title"])
+        if data["category"]:
+            self.category.set(data["category"])
+
+        if data["template"]:
+            self.template.set(data["template"])
+
+        for key in [
+            "script",
+            "description",
+            "pinned_comment",
+            "notes"
+        ]:
+
+            box = getattr(self, key)
+
+            box.delete("1.0", "end")
+            box.insert("1.0", data[key])
+
+        self.update_preview()

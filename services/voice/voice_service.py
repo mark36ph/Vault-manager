@@ -162,21 +162,6 @@ class VoiceService:
             value
         )
 
-    def get_pitch(self):
-
-        return self.settings.get(
-            "voice",
-            "speech_pitch"
-        )
-
-    def set_pitch(self, value):
-
-        self.settings.set(
-            "voice",
-            "speech_pitch",
-            value
-        )
-
     def get_volume(self):
 
         return self.settings.get(
@@ -312,7 +297,6 @@ class VoiceService:
             output_file=output_file,
             length_scale=length_scale
         )
-
         return output_file
 
     def stop_preview(self):
@@ -323,7 +307,7 @@ class VoiceService:
         self,
         voice_id,
         text,
-        speed=1.0
+        speed=1.0,
     ):
 
         temp_file = (
@@ -336,7 +320,7 @@ class VoiceService:
             voice_id,
             text,
             temp_file,
-            length_scale=1 / float(speed)
+            length_scale=1 / float(speed),
         )
 
         self.player.play(

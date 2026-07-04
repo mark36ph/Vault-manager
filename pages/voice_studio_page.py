@@ -19,9 +19,24 @@ class VoiceStudioPage(BasePage):
 
     def build(self):
 
-        self.add_section_title("Voice Studio")
+        #self.add_section_title("Voice Studio")
+
+        # Main scrollable content
+        self.scroll = ctk.CTkScrollableFrame(
+            self.content,
+            fg_color="transparent"
+        )
+
+        self.scroll.pack(
+            fill="both",
+            expand=True,
+            padx=10,
+            pady=(0, 10)
+        )
+
         self.build_generate_panel()
-        self.installed_frame = ctk.CTkFrame(self)
+
+        self.installed_frame = ctk.CTkFrame(self.scroll)
 
         self.installed_frame.pack(
             fill="x",
@@ -29,7 +44,7 @@ class VoiceStudioPage(BasePage):
             pady=10
         )
 
-        self.available_frame = ctk.CTkFrame(self)
+        self.available_frame = ctk.CTkFrame(self.scroll)
 
         self.available_frame.pack(
             fill="both",
@@ -38,7 +53,7 @@ class VoiceStudioPage(BasePage):
             pady=10
         )
 
-        self.progress = ctk.CTkProgressBar(self)
+        self.progress = ctk.CTkProgressBar(self.content)
 
         self.progress.pack(
             fill="x",
@@ -47,27 +62,24 @@ class VoiceStudioPage(BasePage):
         )
 
         self.progress.set(0)
-
         self.progress.pack_forget()
 
         self.status = ctk.CTkLabel(
-            self,
+            self.content,
             text=""
         )
 
         self.status.pack()
-
         self.status.pack_forget()
 
         self.build_installed()
-
         self.build_available()
-
+    
     # =====================================
 
     def build_generate_panel(self):
 
-        panel = ctk.CTkFrame(self)
+        panel = ctk.CTkFrame(self.scroll)
 
         panel.pack(
             fill="x",
@@ -338,59 +350,74 @@ class VoiceStudioPage(BasePage):
         ctk.CTkLabel(
             self.available_frame,
             text="Available Voices",
-            font=("Segoe UI",20,"bold")
+            font=("Segoe UI", 20, "bold")
         ).pack(
             anchor="w",
             padx=20,
-            pady=(15,15)
+            pady=(15, 15)
         )
 
-        for voice in self.voice_service.get_available_voices():
+        self.downloadable_voices = [
+            voice
+            for voice in self.voice_service.get_available_voices()
+            if not voice.installed
+        ]
 
-            if voice.installed:
-                continue
+        self.download_voice_lookup = {
+            voice.display_name: voice
+            for voice in self.downloadable_voices
+        }
 
-            card = ctk.CTkFrame(self.available_frame)
+        voice_names = list(
+            self.download_voice_lookup.keys()
+        )
 
-            card.pack(
-                fill="x",
-                padx=20,
-                pady=5
+        self.available_voice_dropdown = ctk.CTkOptionMenu(
+            self.available_frame,
+            values=voice_names if voice_names else ["No voices available"]
+        )
+
+        self.available_voice_dropdown.pack(
+            fill="x",
+            padx=20,
+            pady=(0, 10)
+        )
+
+        if voice_names:
+            self.available_voice_dropdown.set(voice_names[0])
+
+        ctk.CTkButton(
+            self.available_frame,
+            text="⬇ Download Selected Voice",
+            height=38,
+            command=self.download_selected_voice
+        ).pack(
+            fill="x",
+            padx=20,
+            pady=(0, 20)
+        )
+    
+    def download_selected_voice(self):
+
+        selected = self.available_voice_dropdown.get()
+
+        voice = self.download_voice_lookup.get(
+            selected
+        )
+
+        if voice is None:
+
+            messagebox.showerror(
+                "Download Voice",
+                "Please select a voice to download."
             )
 
-            left = ctk.CTkFrame(
-                card,
-                fg_color="transparent"
-            )
+            return
 
-            left.pack(
-                side="left",
-                padx=15,
-                pady=10
-            )
-
-            ctk.CTkLabel(
-                left,
-                text=voice.display_name,
-                font=("Segoe UI",18,"bold")
-            ).pack(anchor="w")
-
-            ctk.CTkLabel(
-                left,
-                text=f"{voice.language} • {voice.quality}",
-                text_color="gray"
-            ).pack(anchor="w")
-
-            ctk.CTkButton(
-                card,
-                text="⬇ Download",
-                width=120,
-                command=lambda v=voice: self.download_voice(v)
-            ).pack(
-                side="right",
-                padx=15
-            )
-
+        self.download_voice(
+            voice
+        )
+    
     def download_voice(self, voice):
 
         self.progress.pack(
@@ -625,7 +652,7 @@ class VoiceStudioPage(BasePage):
             self.voice_service.speak(
                 voice.id,
                 text,
-                speed=self.speed_slider.get()
+                speed=self.speed_slider.get(),
             )
 
         except Exception as e:
@@ -677,8 +704,11 @@ class VoiceStudioPage(BasePage):
             self.speech_text.configure(
                 text_color=self.placeholder_color
             )
-
     def update_speed_label(self, value):
+
+        self.speed_value.configure(
+            text=f"{int(float(value) * 100)}%"
+        )
 
         self.speed_value.configure(
             text=f"{int(float(value) * 100)}%"

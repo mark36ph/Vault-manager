@@ -1,4 +1,5 @@
 ﻿import shutil
+import json
 from pathlib import Path
 from datetime import datetime
 from database import Database
@@ -18,10 +19,18 @@ class ProjectManager:
     # Create Project
     # =====================================================
 
-    def create_project(self, title, category, status):
+    def create_project(
+        self,
+        title,
+        category,
+        status,
+        script="",
+        description="",
+        pinned_comment="",
+        notes=""
+    ):
 
         settings = self.settings.section("general")
-
         root = settings.get("projects_folder", "").strip()
 
         if not root:
@@ -29,6 +38,8 @@ class ProjectManager:
                 "Please select your Projects Folder in Settings."
             )
 
+        # Build the project folder path using the same app structure:
+        # Projects Folder / Status / Project Title
         project_info = {
             "title": title,
             "status": status
@@ -36,74 +47,72 @@ class ProjectManager:
 
         project_folder = self.get_project_folder(project_info)
 
+        # Create project folders
         folders = [
-
             project_folder,
-
             project_folder / "Assets",
-
             project_folder / "Assets" / "Images",
-
             project_folder / "Assets" / "Videos",
-
             project_folder / "Assets" / "Music",
-
             project_folder / "Assets" / "SFX",
-
             project_folder / "CapCut",
-
             project_folder / "Export",
-
             project_folder / "Voice"
-
         ]
 
         for folder in folders:
             folder.mkdir(parents=True, exist_ok=True)
 
-        files = [
+        # Create/save text files
+        text_files = {
+            "Script.txt": script,
+            "Description.txt": description,
+            "Pinned Comment.txt": pinned_comment,
+            "Notes.txt": notes
+        }
 
-            "Script.txt",
+        for filename, content in text_files.items():
 
-            "Description.txt",
-
-            "Pinned Comment.txt",
-
-            "Notes.txt"
-
-        ]
-
-        for filename in files:
-
-            (project_folder / filename).touch(exist_ok=True)
+            (project_folder / filename).write_text(
+                content,
+                encoding="utf-8"
+            )
 
         created = datetime.now().strftime("%Y-%m-%d %H:%M")
 
         project_info = {
-
             "title": title,
-
             "category": category,
-
             "status": status,
-
             "created": created,
-
             "folder": str(project_folder)
-
         }
 
-        save_json(
+        # Save project metadata
+        with open(
             project_folder / "project.json",
-            project_info
-        )
+            "w",
+            encoding="utf-8"
+        ) as f:
 
+            json.dump(
+                project_info,
+                f,
+                indent=4,
+                ensure_ascii=False
+            )
+
+        # Save project to database
         self.db.add_project(
             title,
             category,
             status,
             str(project_folder),
-            created
+            created,
+            script,
+            description,
+            pinned_comment,
+            notes
         )
 
         return project_folder

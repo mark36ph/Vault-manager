@@ -157,7 +157,11 @@ class Database:
         category,
         status,
         folder,
-        created
+        created,
+        script="",
+        description="",
+        pinned_comment="",
+        notes=""
     ):
 
         self.conn.execute("""
@@ -168,11 +172,15 @@ class Database:
             category,
             status,
             folder,
-            created
+            created,
+            script,
+            description,
+            pinned_comment,
+            notes
 
         )
 
-        VALUES(?,?,?,?,?)
+        VALUES(?,?,?,?,?,?,?,?,?)
 
         """,
 
@@ -182,7 +190,11 @@ class Database:
             category,
             status,
             folder,
-            created
+            created,
+            script,
+            description,
+            pinned_comment,
+            notes
 
         ))
 
