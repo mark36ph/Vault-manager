@@ -3,9 +3,10 @@
     "build": 5,
     "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
     "release_notes": [
-        "Added Voice Studio.",
-        "Added voice selection.",
-        "Added speed control.",
-        "Added Save WAV."
+        "Voice Studio added.",
+        "Choose any installed voice.",
+        "Speech speed slider.",
+        "Export narration to WAV.",
+        "Various bug fixes."
     ]
 }

@@ -45,9 +45,21 @@ class UpdateDialog(ctk.CTkToplevel):
         )
         notes.pack(padx=30, pady=(0, 20))
 
+        release_notes = info.get(
+            "release_notes",
+            "No release notes available."
+        )
+
+        if isinstance(release_notes, list):
+
+            release_notes = "\n".join(
+                f"• {note}"
+                for note in release_notes
+            )
+
         notes.insert(
             "1.0",
-            info.get("release_notes", "No release notes available.")
+            release_notes
         )
 
         notes.configure(state="disabled")
