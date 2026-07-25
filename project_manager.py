@@ -46,6 +46,11 @@ class ProjectManager:
 
         project_folder = self.get_project_folder(project_info)
 
+        if project_folder.exists():
+            raise FileExistsError(
+                f"Project folder already exists: {project_folder}"
+            )
+    
         # Only media/import folders live on disk. All text and project
         # metadata are stored in SQLite as the single source of truth.
         folders = [

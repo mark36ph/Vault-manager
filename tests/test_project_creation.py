@@ -1,5 +1,30 @@
 from pathlib import Path
+import pytest
 
+
+def test_create_project_fails_when_folder_already_exists(project_manager):
+    pm = project_manager
+
+    pm.create_project(
+        title="Duplicate Project",
+        category="Testing",
+        status="In Progress",
+    )
+
+    with pytest.raises(FileExistsError):
+        pm.create_project(
+            title="Duplicate Project",
+            category="Testing",
+            status="In Progress",
+        )
+
+    matching_projects = [
+        project
+        for project in pm.db.get_projects()
+        if project["title"] == "Duplicate Project"
+    ]
+
+    assert len(matching_projects) == 1
 
 def test_create_project_creates_required_folders(project_manager):
     pm = project_manager
