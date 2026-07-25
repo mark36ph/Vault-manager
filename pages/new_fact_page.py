@@ -2,13 +2,12 @@
 import customtkinter as ctk
 from common.chatgpt_import_parser import ChatGPTImportParser
 from pages.base_page import BasePage
-from services.voice.voice_service import VoiceService
+from common.ui_fonts import EMOJI_FONT, EMOJI_FONT_BOLD, EMOJI_BUTTON_FONT
 
 class NewFactPage(BasePage):
 
     def __init__(self, parent, pm, app):
         super().__init__(parent, pm, "New Fact")
-        self.voice_service = VoiceService()
         self.app = app
 
         self.build()
@@ -73,15 +72,43 @@ class NewFactPage(BasePage):
 
     def build_left_panel(self):
 
-        ctk.CTkLabel(
+        # ======================================
+        # Fixed Header
+        # ======================================
+
+        header = ctk.CTkFrame(
             self.left_panel,
-            text="Project Details",
+            fg_color="transparent"
+        )
+
+        header.pack(
+            fill="x",
+            padx=20,
+            pady=(20, 10)
+        )
+
+        ctk.CTkLabel(
+            header,
+            text="New Fact",
             font=("Segoe UI", 26, "bold")
         ).pack(
-            anchor="w",
-            padx=25,
-            pady=(20, 20)
+            side="left"
         )
+
+        ctk.CTkButton(
+            header,
+            text="☑ Create Fact",
+            height=42,
+            width=170,
+            font=EMOJI_BUTTON_FONT,
+            command=self.create_project
+        ).pack(
+            side="right"
+        )
+
+        # ======================================
+        # Scrollable Form
+        # ======================================
 
         self.form = ctk.CTkScrollableFrame(
             self.left_panel,
@@ -91,27 +118,44 @@ class NewFactPage(BasePage):
         self.form.pack(
             fill="both",
             expand=True,
-            padx=25
+            padx=20,
+            pady=(0, 20)
         )
 
         # ======================================
-        # Title
+        # Details
         # ======================================
 
         ctk.CTkLabel(
             self.form,
-            text="Project Title"
-        ).pack(anchor="w")
+            text="New Fact Details",
+            font=("Segoe UI", 22, "bold")
+        ).pack(
+            anchor="w",
+            padx=15,
+            pady=(10, 10)
+        )
+
+        details_row = ctk.CTkFrame(
+            self.form,
+            fg_color="transparent"
+        )
+
+        details_row.pack(
+            fill="x",
+            padx=15,
+            pady=(0, 15)
+        )
 
         self.title_entry = ctk.CTkEntry(
-            self.form,
-            height=38,
-            placeholder_text="Enter project title..."
+            details_row,
+            width=420,
+            placeholder_text="Project title..."
         )
 
         self.title_entry.pack(
-            fill="x",
-            pady=(5, 20)
+            side="left",
+            padx=(0, 10)
         )
 
         self.title_entry.bind(
@@ -119,181 +163,137 @@ class NewFactPage(BasePage):
             self.update_preview
         )
 
-        # ======================================
-        # Category
-        # ======================================
-
-        ctk.CTkLabel(
-            self.form,
-            text="Category"
-        ).pack(anchor="w")
-
-        categories = self.pm.db.get_categories()
-
-        if not categories:
-            categories = ["Misc"]
-
         self.category = ctk.CTkOptionMenu(
-            self.form,
-            values=categories,
-            height=38,
+            details_row,
+            values=self.pm.db.get_categories() or ["Misc"],
+            width=180,
             command=lambda _: self.update_preview()
         )
 
         self.category.pack(
-            fill="x",
-            pady=(5, 20)
+            side="left",
+            padx=10
         )
 
-        # ======================================
-        # Status
-        # ======================================
-
-        ctk.CTkLabel(
-            self.form,
-            text="Status"
-        ).pack(anchor="w")
-
         self.status = ctk.CTkOptionMenu(
-            self.form,
+            details_row,
             values=[
                 "In Progress",
                 "Scheduled",
                 "Completed"
             ],
-            height=38,
+            width=180,
             command=lambda _: self.update_preview()
         )
 
         self.status.set("In Progress")
 
         self.status.pack(
-            fill="x",
-            pady=(5, 20)
+            side="left",
+            padx=10
         )
-
-        # ======================================
-        # Template
-        # ======================================
-
-        ctk.CTkLabel(
-            self.form,
-            text="Project Template"
-        ).pack(anchor="w")
 
         templates = self.pm.get_templates()
 
         self.template = ctk.CTkOptionMenu(
-            self.form,
+            details_row,
             values=templates,
-            height=38,
+            width=180,
             command=lambda _: self.update_preview()
         )
 
         if templates:
             self.template.set(templates[0])
-    
+
         self.template.pack(
+            side="left",
+            padx=10
+        )
+
+        # ======================================
+        # Content Columns
+        # ======================================
+
+        columns = ctk.CTkFrame(
+            self.form,
+            fg_color="transparent"
+        )
+
+        columns.pack(
             fill="x",
-            pady=(5, 20)
+            padx=0,
+            pady=(0, 10)
         )
 
-        # ======================================
-        # Voice
-        # ======================================
-
-        ctk.CTkLabel(
-            self.form,
-            text="Narration Voice"
-        ).pack(anchor="w")
-
-        installed_voices = self.voice_service.get_installed_voices()
-
-        self.voice_lookup = {
-            voice.display_name: voice
-            for voice in installed_voices
-        }
-
-        voice_names = list(self.voice_lookup.keys())
-
-        self.voice_dropdown = ctk.CTkOptionMenu(
-            self.form,
-            values=voice_names if voice_names else ["No installed voices"],
-            height=38
+        left = ctk.CTkFrame(columns)
+        left.pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=(0, 10),
+            anchor="n"
         )
 
-        self.voice_dropdown.pack(
-            fill="x",
-            pady=(5, 20)
+        right = ctk.CTkFrame(columns)
+        right.pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=(10, 0),
+            anchor="n"
         )
 
-        default_voice = self.voice_service.get_default_voice()
-
-        if default_voice:
-            self.voice_dropdown.set(default_voice.display_name)
-        elif voice_names:
-            self.voice_dropdown.set(voice_names[0])
-            
-        # ======================================
-        # ChatGPT Import
-        # ======================================
-
-        ctk.CTkLabel(
-            self.form,
-            text="Paste From ChatGPT",
-            font=("Segoe UI", 18, "bold")
-        ).pack(anchor="w", pady=(10, 5))
-
-        self.import_box = ctk.CTkTextbox(
-            self.form,
-            height=160
-        )
-
-        self.import_box.pack(
-            fill="x",
-            pady=(5, 10)
+        # Left column
+        self.add_textbox(
+            left,
+            "Paste From ChatGPT",
+            "import_box",
+            180
         )
 
         ctk.CTkButton(
-            self.form,
+            left,
             text="Import ChatGPT Text",
             height=38,
+            font=EMOJI_BUTTON_FONT,
             command=self.import_chatgpt_text
         ).pack(
             fill="x",
-            pady=(0, 20)
+            padx=15,
+            pady=(5, 15)
         )
 
-        for label, attr, height in [
-            ("Script", "script", 180),
-            ("Description", "description", 100),
-            ("Pinned Comment", "pinned_comment", 100),
-            ("Notes / Tags", "notes", 100)
-        ]:
-            ctk.CTkLabel(
-                self.form,
-                text=label,
-                font=("Segoe UI", 16, "bold")
-            ).pack(anchor="w", pady=(10, 5))
+        self.add_textbox(
+            left,
+            "Script",
+            "script",
+            260
+        )
 
-            box = ctk.CTkTextbox(
-                self.form,
-                height=height
-            )
+        # Right column
+        self.add_textbox(
+            right,
+            "Description",
+            "description",
+            130
+        )
 
-            box.pack(
-                fill="x",
-                pady=(0, 10)
-            )
+        self.add_textbox(
+            right,
+            "Pinned Comment",
+            "pinned_comment",
+            120
+        )
 
-            setattr(self, attr, box)
-            
-        # ======================================
-        # Options
-        # ======================================
+        self.add_textbox(
+            right,
+            "Notes / Tags / Sources",
+            "notes",
+            180
+        )
 
         self.open_after = ctk.CTkCheckBox(
-            self.form,
+            right,
             text="Open project after creating"
         )
 
@@ -301,24 +301,34 @@ class NewFactPage(BasePage):
 
         self.open_after.pack(
             anchor="w",
-            pady=(5, 25)
+            padx=15,
+            pady=(20, 10)
         )
 
-        # ======================================
-        # Create Button
-        # ======================================
-
-        ctk.CTkButton(
-            self.form,
-            text="Create Project",
-            height=42,
-            command=self.create_project
-        ).pack(
-            fill="x",
-            pady=(10, 10)
-        )
         self.update_preview()
 
+    def add_textbox(self, parent, label, attr, height):
+
+        ctk.CTkLabel(
+            parent,
+            text=label,
+            font=EMOJI_FONT_BOLD
+        ).pack(anchor="w", padx=15, pady=(15, 5))
+
+        box = ctk.CTkTextbox(
+            parent,
+            height=height,
+            font=EMOJI_FONT
+        )
+
+        box.pack(
+            fill="x",
+            padx=15,
+            pady=(0, 5)
+        )
+
+        setattr(self, attr, box)
+        
     def build_right_panel(self):
 
         ctk.CTkLabel(
@@ -467,31 +477,29 @@ class NewFactPage(BasePage):
                 folder,
                 self.template.get()
             )
-
-            script_text = self.script.get(
-                "1.0",
-                "end"
-            ).strip()
-
-            selected_voice_name = self.voice_dropdown.get()
-            selected_voice = self.voice_lookup.get(selected_voice_name)
-
-            if script_text and selected_voice:
-
-                output_file = folder / "Voice" / "narration.wav"
-
-                self.voice_service.generate_voice(
-                    selected_voice.id,
-                    script_text,
-                    output_file
-                )
                 
             messagebox.showinfo(
                 "Success",
                 "Project created successfully!"
             )
 
-            self.app.show_projects()
+            if self.open_after.get():
+
+                project = self.pm.db.get_latest_project()
+
+                if project:
+
+                    self.app.show_edit_project(
+                        project["id"]
+                    )
+
+                else:
+
+                    self.app.show_projects()
+
+            else:
+
+                self.app.show_projects()
 
         except Exception as e:
 
@@ -532,12 +540,29 @@ class NewFactPage(BasePage):
             "script",
             "description",
             "pinned_comment",
-            "notes"
+            "notes",
+            "on_screen_text",
+            "visual_plan"
         ]:
 
-            box = getattr(self, key)
+            if not hasattr(
+                self,
+                key
+            ):
 
-            box.delete("1.0", "end")
-            box.insert("1.0", data[key])
+                continue
 
-        self.update_preview()
+            box = getattr(
+                self,
+                key
+            )
+
+            box.delete(
+                "1.0",
+                "end"
+            )
+
+            box.insert(
+                "1.0",
+                data[key]
+            )

@@ -1,5 +1,4 @@
-﻿import shutil
-import json
+import shutil
 from pathlib import Path
 from datetime import datetime
 from database import Database
@@ -47,14 +46,16 @@ class ProjectManager:
 
         project_folder = self.get_project_folder(project_info)
 
-        # Create project folders
+        # Only media/import folders live on disk. All text and project
+        # metadata are stored in SQLite as the single source of truth.
         folders = [
             project_folder,
-            project_folder / "Assets",
             project_folder / "Assets" / "Images",
             project_folder / "Assets" / "Videos",
             project_folder / "Assets" / "Music",
             project_folder / "Assets" / "SFX",
+            project_folder / "Assets" / "Overlays",
+            project_folder / "Assets" / "Thumbnails",
             project_folder / "CapCut",
             project_folder / "Export",
             project_folder / "Voice"
@@ -63,44 +64,7 @@ class ProjectManager:
         for folder in folders:
             folder.mkdir(parents=True, exist_ok=True)
 
-        # Create/save text files
-        text_files = {
-            "Script.txt": script,
-            "Description.txt": description,
-            "Pinned Comment.txt": pinned_comment,
-            "Notes.txt": notes
-        }
-
-        for filename, content in text_files.items():
-
-            (project_folder / filename).write_text(
-                content,
-                encoding="utf-8"
-            )
-
         created = datetime.now().strftime("%Y-%m-%d %H:%M")
-
-        project_info = {
-            "title": title,
-            "category": category,
-            "status": status,
-            "created": created,
-            "folder": str(project_folder)
-        }
-
-        # Save project metadata
-        with open(
-            project_folder / "project.json",
-            "w",
-            encoding="utf-8"
-        ) as f:
-
-            json.dump(
-                project_info,
-                f,
-                indent=4,
-                ensure_ascii=False
-            )
 
         # Save project to database
         self.db.add_project(

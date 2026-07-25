@@ -284,40 +284,6 @@ class TemplatesPage(BasePage):
 
         folder.mkdir(parents=True)
 
-        defaults = {
-
-            "Script.txt": """HOOK
-
-    INTRO
-
-    FACT 1
-
-    FACT 2
-
-    OUTRO
-    """,
-
-            "Description.txt": """Write your description here...
-    """,
-
-            "Notes.txt": """Ideas
-
-    Research
-
-    Checklist
-    """,
-
-            "Pinned Comment.txt": """Thanks for watching!
-    """
-        }
-
-        for filename, content in defaults.items():
-
-            (folder / filename).write_text(
-                content,
-                encoding="utf-8"
-            )
-
         self.load_templates()
 
     def rename_template(self, template):

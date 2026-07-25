@@ -1,5 +1,6 @@
 import customtkinter as ctk
 import os
+from pathlib import Path
 from tkinter import messagebox
 from pages.dashboard_page import DashboardPage
 from pages.new_fact_page import NewFactPage
@@ -13,13 +14,67 @@ from pages.edit_template_page import EditTemplatePage
 from pages.voice_studio_page import VoiceStudioPage
 from common.settings_manager import SettingsManager
 from common.app_info import AppInfo
+from widgets.update_dialog import UpdateDialog
+from common.update_manager import UpdateManager
+from pages.fact_notes_page import FactNotesPage
+import ctypes
+from PIL import Image, ImageTk
+from pages.project_viewer_page import ProjectViewerPage
 
 class Dashboard(ctk.CTk):
 
     def __init__(self):
         super().__init__()
         self.app_info = AppInfo()
-        self.settings = SettingsManager()
+        self.settings = SettingsManager()        
+        self.ensure_app_icon()
+
+        icon_path = Path("assets") / "icons" / "app.ico"
+        # Set Windows taskbar/app icon
+        try:
+
+            app_id = "mark.factvaultmanager.app"
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                app_id
+            )
+
+        except Exception as e:
+
+            print(
+                f"Could not set AppUserModelID: {e}"
+            )
+
+        png_icon_path = Path("assets") / "icons" / "app.png"
+
+        try:
+
+            if png_icon_path.exists():
+
+                icon_image = Image.open(
+                    png_icon_path
+                )
+
+                self.taskbar_icon = ImageTk.PhotoImage(
+                    icon_image
+                )
+
+                self.iconphoto(
+                    True,
+                    self.taskbar_icon
+                )
+
+        except Exception as e:
+
+            print(
+                f"Could not set app icon: {e}"
+            )
+            
+        if icon_path.exists():
+
+            self.iconbitmap(
+                icon_path
+            )
+
         ctk.set_appearance_mode(
             self.settings.get(
                 "general",
@@ -29,7 +84,9 @@ class Dashboard(ctk.CTk):
         )
         self.minsize(1200, 700)
         self.pm = ProjectManager()
-
+        self.pm.db.complete_due_scheduled_projects()
+        self.check_scheduled_projects_loop()
+        
         if self.settings.get(
             "general",
             "start_maximized",
@@ -89,6 +146,11 @@ class Dashboard(ctk.CTk):
         )
 
         self.add_sidebar_button(
+            "📝 Fact Notes",
+            self.show_fact_notes
+        )
+
+        self.add_sidebar_button(
             "🗂 Templates",
             self.show_templates
         )
@@ -126,7 +188,10 @@ class Dashboard(ctk.CTk):
         self.current_page = None
 
         self.show_dashboard()
-
+        self.after(
+            1500,
+            self.check_updates_on_startup
+        )
     # ==================================
 
     def add_sidebar_button(self, text, command):
@@ -161,6 +226,21 @@ class Dashboard(ctk.CTk):
             expand=True
         )
 
+    def show_project_viewer(self, project_id):
+
+        self.clear_page()
+
+        self.current_page = ProjectViewerPage(
+            self.content,
+            self.pm,
+            self,
+            project_id
+        )
+
+        self.current_page.pack(
+            fill="both",
+            expand=True
+        )
     # ==================================
 
     def clear_page(self):
@@ -171,6 +251,29 @@ class Dashboard(ctk.CTk):
 
             self.current_page = None
 
+    def check_scheduled_projects_loop(self):
+
+        try:
+
+            changed_count = self.pm.db.complete_due_scheduled_projects()
+
+            if changed_count > 0:
+
+                if hasattr(self.current_page, "load_projects"):
+
+                    self.current_page.load_projects()
+
+        except Exception as e:
+
+            print(
+                f"Scheduled project check failed: {e}"
+            )
+
+        self.after(
+            60000,
+            self.check_scheduled_projects_loop
+        )
+        
     # ==================================
 
     def load_page(self, page_class, *args):
@@ -202,6 +305,10 @@ class Dashboard(ctk.CTk):
 
         self.load_page(ProjectsPage, self)
 
+    def show_fact_notes(self):
+
+        self.load_page(FactNotesPage, self)
+        
     def show_statistics(self):
 
         self.load_page(StatisticsPage, self)
@@ -247,7 +354,354 @@ class Dashboard(ctk.CTk):
                 str(e)
             )
 
+    def open_project_viewer(self, project):
 
+        # ======================================
+        # Load latest project data
+        # ======================================
+
+        project_id = project["id"]
+
+        project = self.pm.db.get_project(
+            project_id
+        )
+
+        if project is None:
+
+            messagebox.showerror(
+                "Project",
+                "Could not load this project."
+            )
+
+            return
+
+        folder = Path(
+            project["folder"]
+        )
+
+        def read_project_file(filename):
+
+            file_path = folder / filename
+
+            if not file_path.exists():
+                return ""
+
+            try:
+
+                return file_path.read_text(
+                    encoding="utf-8"
+                )
+
+            except Exception:
+
+                return ""
+
+        script = project["script"] or ""
+        description = project["description"] or ""
+        pinned_comment = project["pinned_comment"] or ""
+        notes = project["notes"] or ""
+
+        on_screen_text = read_project_file(
+            "On Screen Text.txt"
+        )
+
+        visual_plan = read_project_file(
+            "Visual Plan.txt"
+        )
+
+        # ======================================
+        # Window
+        # ======================================
+
+        window = ctk.CTkToplevel(self)
+        window.title(project["title"])
+        window.geometry("1000x750")
+        window.transient(self)
+        window.grab_set()
+
+        window.lift()
+        window.focus_force()
+
+        # ======================================
+        # Header
+        # ======================================
+
+        header = ctk.CTkFrame(
+            window,
+            fg_color="transparent"
+        )
+
+        header.pack(
+            fill="x",
+            padx=20,
+            pady=(20, 10)
+        )
+
+        ctk.CTkLabel(
+            header,
+            text=project["title"],
+            font=("Segoe UI", 28, "bold")
+        ).pack(
+            side="left"
+        )
+
+        ctk.CTkButton(
+            header,
+            text="✏ Edit",
+            width=100,
+            command=lambda: self.open_viewer_edit_project(
+                window,
+                project["id"]
+            )
+        ).pack(
+            side="right",
+            padx=(8, 0)
+        )
+
+        ctk.CTkButton(
+            header,
+            text="Close",
+            width=100,
+            command=window.destroy
+        ).pack(
+            side="right"
+        )
+
+        # ======================================
+        # Tabs
+        # ======================================
+
+        tabs = ctk.CTkTabview(
+            window
+        )
+
+        tabs.pack(
+            fill="both",
+            expand=True,
+            padx=20,
+            pady=(0, 20)
+        )
+
+        tab_data = [
+            (
+                "Script",
+                script
+            ),
+            (
+                "On-Screen Text",
+                on_screen_text
+            ),
+            (
+                "Visual Plan",
+                visual_plan
+            ),
+            (
+                "Description",
+                description
+            ),
+            (
+                "Pinned Comment",
+                pinned_comment
+            ),
+            (
+                "Notes",
+                notes
+            )
+        ]
+
+        for tab_name, tab_text in tab_data:
+
+            tabs.add(
+                tab_name
+            )
+
+            self.add_project_viewer_tab(
+                tabs.tab(tab_name),
+                tab_name,
+                tab_text
+            )
+
+    def ensure_app_icon(self):
+
+        png_icon_path = Path("assets") / "icons" / "app.png"
+        ico_icon_path = Path("assets") / "icons" / "app.ico"
+
+        if not png_icon_path.exists():
+
+            print(
+                f"Could not find icon PNG: {png_icon_path}"
+            )
+
+            return
+
+        try:
+
+            from PIL import ImageFilter, ImageOps
+
+            image = Image.open(
+                png_icon_path
+            ).convert(
+                "RGBA"
+            )
+
+            # Crop/fit the image into a perfect square.
+            # This helps Windows stop squeezing it weirdly.
+            image = ImageOps.fit(
+                image,
+                (
+                    1024,
+                    1024
+                ),
+                method=Image.Resampling.LANCZOS,
+                centering=(
+                    0.5,
+                    0.45
+                )
+            )
+
+            icon_sizes = [
+                16,
+                24,
+                32,
+                48,
+                64,
+                128,
+                256
+            ]
+
+            resized_icons = []
+
+            for size in icon_sizes:
+
+                resized = image.resize(
+                    (
+                        size,
+                        size
+                    ),
+                    Image.Resampling.LANCZOS
+                )
+
+                resized = resized.filter(
+                    ImageFilter.UnsharpMask(
+                        radius=1,
+                        percent=180,
+                        threshold=2
+                    )
+                )
+
+                resized_icons.append(
+                    resized
+                )
+
+            resized_icons[0].save(
+                ico_icon_path,
+                format="ICO",
+                sizes=[
+                    (
+                        size,
+                        size
+                    )
+                    for size in icon_sizes
+                ],
+                append_images=resized_icons[1:]
+            )
+
+            print(
+                f"Created sharp icon: {ico_icon_path}"
+            )
+
+        except Exception as e:
+
+            print(
+                f"Could not create ICO icon: {e}"
+            )
+            
+    def add_project_viewer_tab(self, parent, label, text):
+
+        top = ctk.CTkFrame(
+            parent,
+            fg_color="transparent"
+        )
+
+        top.pack(
+            fill="x",
+            padx=10,
+            pady=(10, 5)
+        )
+
+        ctk.CTkLabel(
+            top,
+            text=label,
+            font=("Segoe UI", 22, "bold")
+        ).pack(
+            side="left"
+        )
+
+        ctk.CTkButton(
+            top,
+            text="📋 Copy",
+            width=100,
+            command=lambda: self.copy_project_viewer_text(
+                text
+            )
+        ).pack(
+            side="right"
+        )
+
+        box = ctk.CTkTextbox(
+            parent,
+            font=("Segoe UI Emoji", 15),
+            wrap="word"
+        )
+
+        box.pack(
+            fill="both",
+            expand=True,
+            padx=10,
+            pady=(0, 10)
+        )
+
+        if text.strip():
+
+            box.insert(
+                "1.0",
+                text
+            )
+
+        else:
+
+            box.insert(
+                "1.0",
+                "Nothing added yet."
+            )
+
+        box.configure(
+            state="disabled"
+        )
+
+    def copy_project_viewer_text(self, text):
+
+        self.clipboard_clear()
+
+        self.clipboard_append(
+            text
+        )
+
+        self.update()
+
+        messagebox.showinfo(
+            "Copied",
+            "Copied to clipboard."
+        )
+
+    def open_viewer_edit_project(self, window, project_id):
+
+        window.destroy()
+
+        self.show_edit_project(
+            project_id
+        )
+ 
     def delete_project(self, project):
 
         import shutil
@@ -299,3 +753,37 @@ class Dashboard(ctk.CTk):
         self.app_title.configure(
             text=name
         )
+
+    def check_updates_on_startup(self):
+
+        check_enabled = self.settings.get(
+            "general",
+            "check_updates",
+            True
+        )
+
+        if not check_enabled:
+            return
+
+        try:
+
+            updater = UpdateManager()
+            info = updater.check_for_updates()
+
+            if not info["update_available"]:
+                return
+
+            UpdateDialog(
+                self,
+                self.app_info.get("name", "Fact Vault Manager"),
+                info,
+                lambda: updater.open_download_page(
+                    info.get("download_url", "")
+                )
+            )
+
+        except Exception as e:
+
+            print(
+                f"Startup update check failed: {e}"
+            )

@@ -1,8 +1,5 @@
 ﻿from pages.base_page import BasePage
 import customtkinter as ctk
-import os
-import shutil
-from tkinter import messagebox
 from widgets.project_card import ProjectCard
 
 class ProjectsPage(BasePage):
@@ -37,7 +34,7 @@ class ProjectsPage(BasePage):
         filters = ctk.CTkFrame(self.content)
         filters.pack(fill="x", pady=(0, 10))
 
-        for status in ["All", "In Progress", "Scheduled", "Completed"]:
+        for status in ["All", "In Progress", "Scheduled", "Completed", "Published"]:
 
             ctk.CTkButton(
                 filters,
@@ -56,36 +53,82 @@ class ProjectsPage(BasePage):
         self.current_status = status
 
         self.load_projects()
-
     def load_projects(self):
 
         for widget in self.project_list.winfo_children():
+
             widget.destroy()
 
-        search = self.search.get().lower()
+        search_text = self.search.get().lower().strip()
 
         projects = self.pm.get_all_projects()
 
-        # Filter by status
-        if self.current_status != "All":
-            projects = [
-                p for p in projects
-                if p["status"] == self.current_status
-            ]
+        filtered_projects = []
 
         for project in projects:
 
-            title = project["title"]
+            title = project["title"].lower()
+            category = project["category"].lower()
+            status = project["status"]
 
-            if search not in title.lower():
-                continue
+            matches_search = (
+                search_text in title
+                or search_text in category
+            )
 
-            ProjectCard(
+            matches_status = (
+                self.current_status == "All"
+                or status == self.current_status
+            )
+
+            if matches_search and matches_status:
+
+                filtered_projects.append(
+                    project
+                )
+
+        if not filtered_projects:
+
+            ctk.CTkLabel(
+                self.project_list,
+                text="No projects found.",
+                text_color="gray"
+            ).grid(
+                row=0,
+                column=0,
+                padx=20,
+                pady=20,
+                sticky="w"
+            )
+
+            return
+
+        for index, project in enumerate(filtered_projects):
+
+            row = index // 2
+            column = index % 2
+
+            card = ProjectCard(
                 self.project_list,
                 project,
-                self.app
-            ).pack(
-                fill="x",
-                padx=10,
+                self.app,
+                self.load_projects
+            )
+
+            card.grid(
+                row=row,
+                column=column,
+                sticky="nsew",
+                padx=8,
                 pady=8
             )
+
+        self.project_list.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        self.project_list.grid_columnconfigure(
+            1,
+            weight=1
+        )

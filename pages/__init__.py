@@ -7,6 +7,6 @@ class Page(ctk.CTkFrame):
 
         ctk.CTkLabel(
             self,
-            text="pages\__init__.py",
+            text=r"pages\__init__.py",
             font=("Segoe UI",24,"bold")
         ).pack(pady=30)
