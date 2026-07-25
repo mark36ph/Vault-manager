@@ -123,8 +123,24 @@ class ProjectManager:
         return self.db.count_projects()
 
     def delete_project(self, project_id):
+        project = self.db.get_project(project_id)
 
-        self.db.delete_project(project_id)
+        if project is None:
+            return False
+
+        project_folder = self.resolve_project_folder(project)
+
+        if project_folder.exists():
+            shutil.rmtree(project_folder)
+
+        try:
+            self.db.delete_project(project_id)
+        except Exception:
+            # Best-effort rollback is not possible after permanent folder deletion,
+            # so surface the error clearly.
+            raise
+
+        return True
 
     # ==========================================
     # Templates
