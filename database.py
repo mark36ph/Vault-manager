@@ -707,71 +707,63 @@ class Database:
 
         self.conn.commit()
 
-    def update_project_status(self, project_id, status):
+    def update_project_status_and_folder(
+        self,
+        project_id,
+        status,
+        folder,
+        scheduled_for=""
+    ):
+        """Update status, folder and scheduling details atomically."""
 
         updated = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        scheduled_for = ""
-
-        if status == "Scheduled":
-
-            project = self.get_project(
-                project_id
-            )
-
-            if project is not None:
-
-                try:
-
-                    scheduled_for = project["scheduled_for"] or ""
-
-                except Exception:
-
-                    scheduled_for = ""
-
-        self.conn.execute("""
-
+        self.conn.execute(
+            """
             UPDATE projects
-
-            SET status=?,
-                updated=?,
-                scheduled_for=?
-
-            WHERE id=?
-
-        """,
-
-        (
-            status,
-            updated,
-            scheduled_for,
-            project_id
-        ))
+            SET status = ?,
+                folder = ?,
+                updated = ?,
+                scheduled_for = ?
+            WHERE id = ?
+            """,
+            (
+                status,
+                folder,
+                updated,
+                scheduled_for,
+                project_id,
+            ),
+        )
 
         self.conn.commit()
-        
-    def complete_due_scheduled_projects(self):
+    
+    def update_project_folder(self, project_id, folder):
+        """Update only the folder path for a project."""
+        self.conn.execute(
+            """
+            UPDATE projects
+            SET folder = ?
+            WHERE id = ?
+            """,
+            (folder, project_id),
+        )
+        self.conn.commit()
+    
+    def get_due_scheduled_project_ids(self):
+        """Return scheduled projects whose publish time has arrived."""
 
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        cursor = self.conn.execute("""
+        rows = self.conn.execute(
+            """
+            SELECT id
+            FROM projects
+            WHERE status = 'Scheduled'
+              AND scheduled_for != ''
+              AND scheduled_for <= ?
+            """,
+            (now,),
+        ).fetchall()
 
-            UPDATE projects
-
-            SET status='Published',
-                updated=?
-
-            WHERE status='Scheduled'
-            AND scheduled_for != ''
-            AND scheduled_for <= ?
-
-        """,
-
-        (
-            now,
-            now
-        ))
-
-        self.conn.commit()
-
-        return cursor.rowcount
+        return [row["id"] for row in rows]

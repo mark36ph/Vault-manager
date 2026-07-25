@@ -265,10 +265,17 @@ class EditProjectPage(BasePage):
 
     def open_folder(self):
         try:
-            folder = self.pm.get_project_folder(self.project)
-            os.startfile(folder)
+            folder = self.pm.resolve_project_folder(self.project)
+
+            if not folder.exists():
+                raise FileNotFoundError(
+                    f"Project folder could not be found:\n{folder}"
+                )
+
+            os.startfile(str(folder))
+
         except Exception as e:
-            messagebox.showerror("Error",str(e))
+            messagebox.showerror("Error", str(e))
 
     def load_project(self):
         self.title_entry.insert(0,self.project["title"])
@@ -294,39 +301,55 @@ class EditProjectPage(BasePage):
 
         try:
 
-            # Current folder
+            # Use the folder path stored in the database.
+            old_folder = self.pm.resolve_project_folder(self.project)
 
-            old_folder = None
-
-            settings = self.settings.section("general")
-            root = Path(settings["projects_folder"])
-
-            # Look for the project in every status folder
-            for status in ["In Progress", "Scheduled", "Completed", "Published"]:
-                candidate = root / status / self.project["title"]
-                if candidate.exists():
-                    old_folder = candidate
-                    break
-
-            if old_folder is None:
-                raise Exception("Project folder could not be found.")
+            if not old_folder.exists():
+                raise FileNotFoundError(
+                    f"Project folder could not be found:\n{old_folder}"
+                )
 
             # New project details
+            new_title = self.title_entry.get().strip()
+            new_status = self.status.get()
+
             new_project = {
-                "title": self.title_entry.get().strip(),
-                "status": self.status.get()
+                "title": new_title,
+                "status": new_status,
             }
 
-            # Calculate where the folder should be
             new_folder = self.pm.get_project_folder(new_project)
-            # Move folder if needed
-            if old_folder != new_folder:
 
+            messagebox.showinfo(
+                "Move Debug",
+                f"Code file:\n{Path(__file__).resolve()}\n\n"
+                f"Projects root:\n{self.pm.get_projects_root()}\n\n"
+                f"Selected status:\n{new_status!r}\n\n"
+                f"Old folder:\n{old_folder}\n"
+                f"Exists: {old_folder.exists()}\n\n"
+                f"New folder:\n{new_folder}\n"
+                f"Exists: {new_folder.exists()}"
+            )
+
+            old_resolved = old_folder.resolve()
+            new_resolved = new_folder.resolve()
+
+            if old_resolved != new_resolved:
                 new_folder.parent.mkdir(parents=True, exist_ok=True)
 
-                shutil.move(
-                    str(old_folder),
-                    str(new_folder)
+                if new_folder.exists():
+                    raise FileExistsError(
+                        "A project folder already exists at the destination:\n"
+                        f"{new_folder}"
+                    )
+
+                shutil.move(str(old_folder), str(new_folder))
+
+                messagebox.showinfo(
+                    "Move Result",
+                    f"Old exists: {old_folder.exists()}\n"
+                    f"New exists: {new_folder.exists()}\n\n"
+                    f"Destination:\n{new_folder}"
                 )
 
             # Save all text and workflow state to the database.
@@ -335,7 +358,7 @@ class EditProjectPage(BasePage):
                 self.title_entry.get().strip(),
                 self.category.get(),
                 self.status.get(),
-                str(new_folder),
+                str(self.pm.get_relative_project_folder(new_folder)),
                 self.script.get("1.0", "end").strip(),
                 self.description.get("1.0", "end").strip(),
                 self.pinned_comment.get("1.0", "end").strip(),
@@ -351,6 +374,7 @@ class EditProjectPage(BasePage):
                 narration_duration=self.narration_duration.get().strip() or 0,
                 pipeline={key: var.get() for key, var in self.pipeline_vars.items()}
             )
+            self.project = self.pm.db.get_project(self.project_id)
             if self.status.get() == "Scheduled":
 
                 self.pm.db.update_project_schedule(

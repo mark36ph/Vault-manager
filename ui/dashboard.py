@@ -84,7 +84,7 @@ class Dashboard(ctk.CTk):
         )
         self.minsize(1200, 700)
         self.pm = ProjectManager()
-        self.pm.db.complete_due_scheduled_projects()
+        self.pm.complete_due_scheduled_projects()
         self.check_scheduled_projects_loop()
         
         if self.settings.get(
@@ -255,7 +255,7 @@ class Dashboard(ctk.CTk):
 
         try:
 
-            changed_count = self.pm.db.complete_due_scheduled_projects()
+            changed_count = self.pm.complete_due_scheduled_projects()
 
             if changed_count > 0:
 

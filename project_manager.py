@@ -67,11 +67,13 @@ class ProjectManager:
         created = datetime.now().strftime("%Y-%m-%d %H:%M")
 
         # Save project to database
+        relative_folder = self.get_relative_project_folder(project_folder)
+
         self.db.add_project(
             title,
             category,
             status,
-            str(project_folder),
+            str(relative_folder),
             created,
             script,
             description,
@@ -156,23 +158,63 @@ class ProjectManager:
 
         return self.db.count_projects_by_status(status)
         
-    def get_project_folder(self, project):
-
+    def get_projects_root(self):
+        """Return the configured Projects folder as an absolute path."""
         settings = self.settings.section("general")
+        root = settings.get("projects_folder", "").strip()
 
-        root = Path(settings["projects_folder"])
+        if not root:
+            raise Exception(
+                "Please select your Projects Folder in Settings."
+            )
 
-        return root / project["status"] / project["title"]
+        return Path(root).resolve()
+
+
+    def resolve_project_folder(self, project):
+        """
+        Convert the project's stored folder value into a full path.
+
+        New records store relative paths such as:
+            Published\\Project Title
+
+        Old records may still contain absolute paths.
+        """
+        stored_folder = project["folder"] if "folder" in project else ""
+
+        if stored_folder:
+            stored_path = Path(stored_folder)
+
+            if stored_path.is_absolute():
+                return stored_path
+
+            return self.get_projects_root() / stored_path
+
+        return self.get_project_folder(project)
+    
+    def get_project_folder(self, project):
+        return (
+            self.get_projects_root()
+            / project["status"]
+            / project["title"]
+        )
+    
+    def get_relative_project_folder(self, project_folder):
+        """Convert a full project folder path into a database-safe relative path."""
+        project_folder = Path(project_folder).resolve()
+        projects_root = self.get_projects_root()
+
+        try:
+            return project_folder.relative_to(projects_root)
+        except ValueError as error:
+            raise Exception(
+                f"Project folder must be inside the configured Projects folder:\n"
+                f"{projects_root}"
+            ) from error
 
     def get_voice_folder(self, project):
 
-        if "folder" in project and project["folder"]:
-
-            folder = Path(project["folder"])
-
-        else:
-
-            folder = self.get_project_folder(project)
+        folder = self.resolve_project_folder(project)
 
         voice_folder = folder / "Voice"
 
@@ -182,3 +224,120 @@ class ProjectManager:
         )
 
         return voice_folder
+
+    def change_project_status(
+        self,
+        project_id,
+        new_status,
+        scheduled_for=""
+    ):
+        """
+        Move a project into its new status folder and update the database.
+
+        Returns the refreshed project row.
+        """
+
+        project = self.db.get_project(project_id)
+
+        if project is None:
+            raise ValueError(f"Project {project_id} was not found.")
+
+        old_folder = self.resolve_project_folder(project)
+
+        destination_project = {
+            "title": project["title"],
+            "status": new_status,
+        }
+
+        new_folder = self.get_project_folder(destination_project)
+
+        old_resolved = old_folder.resolve()
+        new_resolved = new_folder.resolve()
+
+        folder_moved = False
+
+        try:
+            if old_resolved != new_resolved:
+
+                if not old_folder.exists():
+                    raise FileNotFoundError(
+                        f"The current project folder does not exist:\n{old_folder}"
+                    )
+
+                if new_folder.exists():
+                    raise FileExistsError(
+                        f"The destination folder already exists:\n{new_folder}"
+                    )
+
+                new_folder.parent.mkdir(
+                    parents=True,
+                    exist_ok=True
+                )
+
+                shutil.move(
+                    str(old_folder),
+                    str(new_folder)
+                )
+
+                folder_moved = True
+
+            relative_folder = str(
+                self.get_relative_project_folder(new_folder)
+            )
+
+            if new_status != "Scheduled":
+                scheduled_for = ""
+
+            self.db.update_project_status_and_folder(
+                project_id=project_id,
+                status=new_status,
+                folder=relative_folder,
+                scheduled_for=scheduled_for,
+            )
+
+        except Exception:
+
+            # Restore the folder if the move succeeded but the database update failed.
+            if (
+                folder_moved
+                and new_folder.exists()
+                and not old_folder.exists()
+            ):
+                old_folder.parent.mkdir(
+                    parents=True,
+                    exist_ok=True
+                )
+
+                shutil.move(
+                    str(new_folder),
+                    str(old_folder)
+                )
+
+            raise
+
+        return self.db.get_project(project_id)
+        
+    def complete_due_scheduled_projects(self):
+        """Publish all due scheduled projects using the normal move logic."""
+
+        project_ids = self.db.get_due_scheduled_project_ids()
+
+        completed_count = 0
+
+        for project_id in project_ids:
+            try:
+                self.change_project_status(
+                    project_id=project_id,
+                    new_status="Published",
+                    scheduled_for="",
+                )
+
+                completed_count += 1
+
+            except Exception as error:
+                print(
+                    f"Could not publish scheduled project "
+                    f"{project_id}: {error}"
+                )
+
+        return completed_count

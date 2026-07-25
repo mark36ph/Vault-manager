@@ -275,10 +275,18 @@ class ProjectCard(ctk.CTkFrame):
             
     def change_status(self, new_status):
 
+        from tkinter import messagebox
+
+        scheduled_value = ""
+
         if new_status == "Scheduled":
 
             dialog = ctk.CTkInputDialog(
-                text="When is this scheduled for?\n\nUse: DD/MM/YYYY HH:MM\nExample: 25/07/2026 18:00",
+                text=(
+                    "When is this scheduled for?\n\n"
+                    "Use: DD/MM/YYYY HH:MM\n"
+                    "Example: 25/07/2026 18:00"
+                ),
                 title="Schedule Project"
             )
 
@@ -287,7 +295,6 @@ class ProjectCard(ctk.CTkFrame):
             if not scheduled_text:
 
                 if self.refresh_callback:
-
                     self.refresh_callback()
 
                 return
@@ -298,39 +305,42 @@ class ProjectCard(ctk.CTkFrame):
 
             if scheduled_value is None:
 
-                from tkinter import messagebox
-
                 messagebox.showerror(
                     "Invalid Date",
-                    "Please enter the date like this:\n\n25/07/2026 18:00"
+                    (
+                        "Please enter the date like this:\n\n"
+                        "25/07/2026 18:00"
+                    )
                 )
 
                 if self.refresh_callback:
-
                     self.refresh_callback()
 
                 return
 
-            self.app.pm.db.update_project_status(
-                self.project["id"],
-                new_status
+        try:
+
+            self.project = self.app.pm.change_project_status(
+                project_id=self.project["id"],
+                new_status=new_status,
+                scheduled_for=scheduled_value,
             )
 
-            self.app.pm.db.update_project_schedule(
-                self.project["id"],
-                scheduled_value
+        except Exception as error:
+
+            messagebox.showerror(
+                "Status Change Failed",
+                str(error)
             )
 
-        else:
+            if self.refresh_callback:
+                self.refresh_callback()
 
-            self.app.pm.db.update_project_status(
-                self.project["id"],
-                new_status
-            )
+            return
 
         if self.refresh_callback:
-
             self.refresh_callback()
+            
             
     def toggle_pin(self):
 
