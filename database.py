@@ -7,10 +7,15 @@ DB_PATH = Path("data") / "factvault.db"
 
 class Database:
 
-    def __init__(self):
-        DB_PATH.parent.mkdir(exist_ok=True)
+    def __init__(self, db_path=None):
+        self.db_path = Path(db_path) if db_path else DB_PATH
 
-        self.conn = sqlite3.connect(DB_PATH)
+        self.db_path.parent.mkdir(
+            parents=True,
+            exist_ok=True
+        )
+
+        self.conn = sqlite3.connect(self.db_path)
         self.conn.row_factory = sqlite3.Row
 
         self.create_tables()

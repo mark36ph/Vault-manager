@@ -8,11 +8,11 @@ DATA_FOLDER = Path("data")
 
 class ProjectManager:
 
-    def __init__(self):
+    def __init__(self, db=None, settings=None):
         DATA_FOLDER.mkdir(exist_ok=True)
 
-        self.db = Database()
-        self.settings = SettingsManager()
+        self.db = db or Database()
+        self.settings = settings or SettingsManager()
 
     # =====================================================
     # Create Project
@@ -341,3 +341,103 @@ class ProjectManager:
                 )
 
         return completed_count
+
+    def check_project_integrity(self):
+        """
+        Check database project rows against the project folders on disk.
+
+        Returns a list of issue dictionaries.
+        """
+
+        issues = []
+        projects_root = self.get_projects_root().resolve()
+        projects = self.db.get_projects()
+
+        referenced_folders = set()
+
+        for project in projects:
+            project_id = project["id"]
+            title = project["title"] or ""
+            status = project["status"] or ""
+            folder_value = project["folder"] or ""
+
+            if not folder_value:
+                issues.append({
+                    "type": "missing_folder_value",
+                    "project_id": project_id,
+                    "title": title,
+                    "message": "No folder path is stored in the database.",
+                })
+                continue
+
+            stored_path = Path(folder_value)
+
+            if stored_path.is_absolute():
+                issues.append({
+                    "type": "absolute_path",
+                    "project_id": project_id,
+                    "title": title,
+                    "folder": folder_value,
+                    "message": "The database still contains an absolute path.",
+                })
+
+            resolved_folder = self.resolve_project_folder(project).resolve()
+            referenced_folders.add(resolved_folder)
+
+            if not resolved_folder.exists():
+                issues.append({
+                    "type": "missing_folder",
+                    "project_id": project_id,
+                    "title": title,
+                    "folder": str(resolved_folder),
+                    "message": "The project folder does not exist.",
+                })
+
+            try:
+                relative_folder = resolved_folder.relative_to(projects_root)
+                folder_status = relative_folder.parts[0]
+            except (ValueError, IndexError):
+                issues.append({
+                    "type": "outside_projects_root",
+                    "project_id": project_id,
+                    "title": title,
+                    "folder": str(resolved_folder),
+                    "message": "The project folder is outside the Projects root.",
+                })
+                continue
+
+            if folder_status != status:
+                issues.append({
+                    "type": "status_folder_mismatch",
+                    "project_id": project_id,
+                    "title": title,
+                    "status": status,
+                    "folder_status": folder_status,
+                    "folder": str(resolved_folder),
+                    "message": (
+                        f"Database status is '{status}' but the folder "
+                        f"is under '{folder_status}'."
+                    ),
+                })
+
+        if projects_root.exists():
+            for status_folder in projects_root.iterdir():
+                if not status_folder.is_dir():
+                    continue
+
+                for project_folder in status_folder.iterdir():
+                    if not project_folder.is_dir():
+                        continue
+
+                    resolved = project_folder.resolve()
+
+                    if resolved not in referenced_folders:
+                        issues.append({
+                            "type": "orphan_folder",
+                            "folder": str(resolved),
+                            "message": (
+                                "This folder is not linked to any database project."
+                            ),
+                        })
+
+        return issues
