@@ -379,35 +379,13 @@ class Dashboard(ctk.CTk):
             project["folder"]
         )
 
-        def read_project_file(filename):
-
-            file_path = folder / filename
-
-            if not file_path.exists():
-                return ""
-
-            try:
-
-                return file_path.read_text(
-                    encoding="utf-8"
-                )
-
-            except Exception:
-
-                return ""
 
         script = project["script"] or ""
         description = project["description"] or ""
         pinned_comment = project["pinned_comment"] or ""
         notes = project["notes"] or ""
-
-        on_screen_text = read_project_file(
-            "On Screen Text.txt"
-        )
-
-        visual_plan = read_project_file(
-            "Visual Plan.txt"
-        )
+        on_screen_text = project["on_screen_text"] or ""
+        visual_plan = project["visual_plan"] or ""
 
         # ======================================
         # Window

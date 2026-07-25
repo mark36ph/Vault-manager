@@ -1,0 +1,174 @@
+Visual Timeline:
+
+0–3 sec
+
+Narration:
+The computer that helped take humans to the Moon was far less powerful than the phone in your pocket.
+
+Visual:
+Split screen showing a modern smartphone beside the Moon.
+
+Search:
+- Smartphone close up
+- Moon from space
+
+Free Sources:
+• Pexels
+• Pixabay
+• NASA Image Library
+
+────────────────────────
+
+3–8 sec
+
+Narration:
+It was called the Apollo Guidance Computer...
+
+Visual:
+Historic photo of the Apollo Guidance Computer.
+Slow zoom towards the control panel.
+
+Search:
+- Apollo Guidance Computer
+- Apollo computer
+- Apollo DSKY
+
+Free Sources:
+• NASA Image Library
+• Wikimedia Commons
+
+────────────────────────
+
+8–14 sec
+
+Narration:
+...and it guided NASA's Apollo spacecraft to the Moon.
+
+Visual:
+Saturn V launch followed by Apollo spacecraft travelling through space.
+
+Search:
+- Saturn V launch
+- Apollo spacecraft
+- Apollo mission
+
+Free Sources:
+• NASA Image Library
+
+────────────────────────
+
+14–21 sec
+
+Narration:
+By today's standards, its hardware was incredibly limited.
+
+Visual:
+Close-up of the AGC interface with simple animated labels highlighting the computer.
+
+Search:
+- Apollo DSKY
+- Apollo Guidance Computer panel
+
+Free Sources:
+• NASA
+• Wikimedia Commons
+
+────────────────────────
+
+21–29 sec
+
+Narration:
+It had just 2,048 words of erasable memory...
+
+Visual:
+Animated comparison between the Apollo computer and a modern smartphone.
+
+Show:
+• Apollo AGC
+• Smartphone
+• Memory values appearing beside each.
+
+Search:
+- Smartphone close up
+- Mobile phone
+
+Free Sources:
+• Pexels
+• Pixabay
+
+(Create the comparison graphics yourself in CapCut.)
+
+────────────────────────
+
+29–37 sec
+
+Narration:
+...and ran at about 1 MHz.
+
+Visual:
+Animated CPU graphic.
+Digital numbers counting from 1 MHz to modern GHz processors.
+
+Search:
+- Computer processor animation
+- Circuit board close up
+
+Free Sources:
+• Pixabay
+• Pexels
+
+────────────────────────
+
+37–45 sec
+
+Narration:
+Your smartphone is vastly more powerful.
+
+Visual:
+Modern phone opening apps rapidly.
+Split screen with the Apollo computer.
+
+Search:
+- Smartphone using apps
+- Mobile phone user
+
+Free Sources:
+• Pexels
+• Pixabay
+
+────────────────────────
+
+45–55 sec
+
+Narration:
+But that tiny computer helped guide astronauts, prioritised essential tasks during Apollo 11, and helped the crew land safely.
+
+Visual:
+Apollo 11 Moon landing.
+Mission Control.
+Neil Armstrong stepping onto the Moon.
+Apollo computer display.
+
+Search:
+- Apollo 11 landing
+- Mission Control Apollo
+- Moon landing NASA
+- Neil Armstrong Moon
+
+Free Sources:
+• NASA Image Library
+• Internet Archive
+• Wikimedia Commons
+
+────────────────────────
+
+55–58 sec
+
+Narration:
+(End)
+
+Visual:
+FactBurst logo animation.
+
+On Screen:
+🔓 FACT UNLOCKED

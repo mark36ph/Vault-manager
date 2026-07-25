@@ -355,41 +355,36 @@ class NewFactPage(BasePage):
             "1.0",
             """📁 New Project
 
-    Category:
-    -
+            Category:
+            -
 
-    Status:
-    -
+            Status:
+            -
 
-    Template:
-    -
+            Template:
+            -
 
-    --------------------------
+            --------------------------
 
-    Files
+            Database Records
 
-    ✔ Script.txt
+            ✔ Script
+            ✔ Description
+            ✔ Pinned Comment
+            ✔ Notes
 
-    ✔ Description.txt
+            --------------------------
 
-    ✔ Notes.txt
+            Media Folders
 
-    ✔ project.json
-
-    --------------------------
-
-    Folders
-
-    ✔ Assets
-
-    ✔ Images
-
-    ✔ Videos
-
-    ✔ Music
-
-    ✔ Export
-    """
+            ✔ Assets
+            ✔ Images
+            ✔ Videos
+            ✔ Music
+            ✔ Voice
+            ✔ CapCut
+            ✔ Export
+            """
         )
 
         self.preview.configure(
@@ -405,41 +400,36 @@ class NewFactPage(BasePage):
 
         preview = f"""📁 {title}
 
-    Category:
-    {self.category.get()}
+            Category:
+            {self.category.get()}
 
-    Status:
-    {self.status.get()}
+            Status:
+            {self.status.get()}
 
-    Template:
-    {self.template.get()}
+            Template:
+            {self.template.get()}
 
-    --------------------------
+            --------------------------
 
-    Files
+            Database Records
 
-    ✔ Script.txt
+            ✔ Script
+            ✔ Description
+            ✔ Pinned Comment
+            ✔ Notes
 
-    ✔ Description.txt
+            --------------------------
 
-    ✔ Notes.txt
+            Media Folders
 
-    ✔ project.json
-
-    --------------------------
-
-    Folders
-
-    ✔ Assets
-
-    ✔ Images
-
-    ✔ Videos
-
-    ✔ Music
-
-    ✔ Export
-    """
+            ✔ Assets
+            ✔ Images
+            ✔ Videos
+            ✔ Music
+            ✔ Voice
+            ✔ CapCut
+            ✔ Export
+            """
 
         self.preview.configure(state="normal")
         self.preview.delete("1.0", "end")

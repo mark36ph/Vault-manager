@@ -175,27 +175,6 @@ class ProjectViewerPage(BasePage):
 
     def get_tab_data(self):
 
-        folder = Path(
-            self.project["folder"]
-        )
-
-        def read_project_file(filename):
-
-            file_path = folder / filename
-
-            if not file_path.exists():
-                return ""
-
-            try:
-
-                return file_path.read_text(
-                    encoding="utf-8"
-                )
-
-            except Exception:
-
-                return ""
-
         return [
             (
                 "Script",
@@ -203,11 +182,11 @@ class ProjectViewerPage(BasePage):
             ),
             (
                 "On-Screen Text",
-                read_project_file("On Screen Text.txt")
+                self.project["on_screen_text"] or ""
             ),
             (
                 "Visual Plan",
-                read_project_file("Visual Plan.txt")
+                self.project["visual_plan"] or ""
             ),
             (
                 "Description",

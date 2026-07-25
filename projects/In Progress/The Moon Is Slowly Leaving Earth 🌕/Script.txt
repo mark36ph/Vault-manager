@@ -1,0 +1,10 @@
+HOOK
+
+    INTRO
+
+    FACT 1
+
+    FACT 2
+
+    OUTRO
+    
