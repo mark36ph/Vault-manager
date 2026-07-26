@@ -19,7 +19,7 @@ class VoicePage(BasePage):
         header = ctk.CTkFrame(self.content)
         header.pack(fill="x", padx=20, pady=20)
 
-        ctk.CTkLabel(
+        ctk.CTkLabel(        
             header,
             text="Voice Studio",
             font=("Segoe UI", 30, "bold")
@@ -124,7 +124,7 @@ class VoicePage(BasePage):
                 pady=(15, 5)
             )
 
--            buttons = ctk.CTkFrame(
+            buttons = ctk.CTkFrame(
                 card,
                 fg_color="transparent"
             )
