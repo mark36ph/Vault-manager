@@ -59,6 +59,96 @@ def test_project_integrity_detects_status_folder_mismatch(project_manager):
         for issue in issues
     )
 
+def test_integrity_detects_missing_folder_value(
+    project_manager,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        project_manager.db,
+        "get_projects",
+        lambda: [
+            {
+                "id": 1,
+                "title": "Missing Folder Project",
+                "status": "Draft",
+                "folder": "",
+            }
+        ],
+    )
+
+    issues = project_manager.check_project_integrity()
+
+    assert any(
+        issue["type"] == "missing_folder_value"
+        and issue["project_id"] == 1
+        for issue in issues
+    )
+    
+def test_integrity_detects_absolute_folder_path(
+    project_manager,
+    monkeypatch,
+):
+    absolute_folder = (
+        project_manager.get_projects_root()
+        / "Draft"
+        / "Absolute Path Project"
+    )
+    absolute_folder.mkdir(parents=True)
+
+    monkeypatch.setattr(
+        project_manager.db,
+        "get_projects",
+        lambda: [
+            {
+                "id": 1,
+                "title": "Absolute Path Project",
+                "status": "Draft",
+                "folder": str(absolute_folder.resolve()),
+            }
+        ],
+    )
+
+    issues = project_manager.check_project_integrity()
+
+    assert any(
+        issue["type"] == "absolute_path"
+        and issue["project_id"] == 1
+        for issue in issues
+    )
+
+def test_integrity_detects_folder_outside_projects_root(
+    project_manager,
+    tmp_path,
+    monkeypatch,
+):
+    outside_folder = (
+        tmp_path
+        / "Outside"
+        / "External Project"
+    )
+    outside_folder.mkdir(parents=True)
+
+    monkeypatch.setattr(
+        project_manager.db,
+        "get_projects",
+        lambda: [
+            {
+                "id": 1,
+                "title": "External Project",
+                "status": "Draft",
+                "folder": str(outside_folder.resolve()),
+            }
+        ],
+    )
+
+    issues = project_manager.check_project_integrity()
+
+    assert any(
+        issue["type"] == "outside_projects_root"
+        and issue["project_id"] == 1
+        for issue in issues
+    )
+
 def test_project_integrity_detects_orphan_folder(project_manager):
     pm = project_manager
 

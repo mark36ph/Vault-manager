@@ -1,29 +1,99 @@
 from pathlib import Path
-from database import Database
+
 import pytest
-from project_manager import ProjectManager
 
 
-@pytest.fixture
-def project_manager(tmp_path, monkeypatch):
-    test_db_path = tmp_path / "factvault_test.db"
-    test_db = Database(db_path=test_db_path)
-
-    pm = ProjectManager(db=test_db)
-
-    test_projects_root = tmp_path / "Projects"
-    test_projects_root.mkdir()
-
-    monkeypatch.setattr(
-        pm,
-        "get_projects_root",
-        lambda: test_projects_root,
+def test_status_change_restores_folder_when_database_update_fails(
+    project_manager,
+    monkeypatch,
+):
+    project_manager.create_project(
+        title="Rollback Project",
+        category="Test",
+        status="Draft",
     )
 
-    yield pm
+    project = next(
+        project
+        for project in project_manager.db.get_projects()
+        if project["title"] == "Rollback Project"
+    )
 
-    pm.db.conn.close()
+    project_id = project["id"]
+    old_folder = project_manager.resolve_project_folder(project)
 
+    new_folder = (
+        project_manager.get_projects_root()
+        / "Published"
+        / "Rollback Project"
+    )
+
+    def fail_database_update(*args, **kwargs):
+        raise RuntimeError("Simulated database failure")
+
+    monkeypatch.setattr(
+        project_manager.db,
+        "update_project_status_and_folder",
+        fail_database_update,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="Simulated database failure",
+    ):
+        project_manager.change_project_status(
+            project_id,
+            "Published",
+        )
+
+    assert old_folder.exists()
+    assert not new_folder.exists()
+
+    unchanged = project_manager.db.get_project(project_id)
+
+    assert unchanged["status"] == "Draft"
+    assert unchanged["folder"] == str(
+        Path("Draft") / "Rollback Project"
+    )
+
+def test_complete_due_projects_continues_after_failure(
+    project_manager,
+    monkeypatch,
+    capsys,
+):
+    monkeypatch.setattr(
+        project_manager.db,
+        "get_due_scheduled_project_ids",
+        lambda: [101, 102, 103],
+    )
+
+    completed = []
+
+    def fake_change_status(
+        project_id,
+        new_status,
+        scheduled_for="",
+    ):
+        if project_id == 102:
+            raise RuntimeError("Publish failed")
+
+        completed.append(project_id)
+
+    monkeypatch.setattr(
+        project_manager,
+        "change_project_status",
+        fake_change_status,
+    )
+
+    result = project_manager.complete_due_scheduled_projects()
+
+    assert result == 2
+    assert completed == [101, 103]
+
+    output = capsys.readouterr().out
+    assert "Could not publish scheduled project 102" in output
+    assert "Publish failed" in output
+    
 
 def test_change_project_status_moves_folder_and_updates_database(
     project_manager,
