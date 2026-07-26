@@ -33,10 +33,6 @@ class ProjectViewerPage(BasePage):
 
     def build(self):
 
-        # ======================================
-        # Header
-        # ======================================
-
         header = ctk.CTkFrame(
             self.content,
             fg_color="transparent"
@@ -126,10 +122,6 @@ class ProjectViewerPage(BasePage):
             side="right"
         )
 
-        # ======================================
-        # Project details
-        # ======================================
-
         details = ctk.CTkFrame(
             self.content
         )
@@ -157,10 +149,6 @@ class ProjectViewerPage(BasePage):
             pady=12
         )
 
-        # ======================================
-        # Tabs
-        # ======================================
-
         tabs = ctk.CTkTabview(
             self.content
         )
@@ -175,11 +163,7 @@ class ProjectViewerPage(BasePage):
         tab_data = self.get_tab_data()
 
         for tab_name, tab_text in tab_data:
-
-            tabs.add(
-                tab_name
-            )
-
+            tabs.add(tab_name)
             self.add_viewer_tab(
                 tabs.tab(tab_name),
                 tab_name,
@@ -204,12 +188,20 @@ class ProjectViewerPage(BasePage):
 
             missing = result["missing"]
             image_count = result["image_count"]
+            caption_count = result["caption_count"]
+            caption_source = result["caption_source"]
+
+            caption_summary = (
+                f"✓ Draft captions ({caption_count}, from {caption_source})"
+                if caption_count
+                else "✗ Captions"
+            )
 
             summary_lines = [
                 f"{'✓' if 'script' not in missing else '✗'} Script",
                 f"{'✓' if 'voiceover' not in missing else '✗'} Voiceover",
                 f"{'✓' if 'images' not in missing else '✗'} Images ({image_count})",
-                "• Captions not generated yet",
+                caption_summary,
                 "✓ Title and description file",
                 "✓ Source notes file",
             ]
@@ -221,7 +213,10 @@ class ProjectViewerPage(BasePage):
 
             messagebox.showinfo(
                 "Prepare for CapCut",
-                heading + "\n\n" + "\n".join(summary_lines)
+                heading
+                + "\n\n"
+                + "\n".join(summary_lines)
+                + "\n\nCaption timings are estimates and may need aligning in CapCut."
             )
 
             os.startfile(Path(result["folder"]))
@@ -308,14 +303,11 @@ class ProjectViewerPage(BasePage):
         )
 
         if text.strip():
-
             box.insert(
                 "1.0",
                 text
             )
-
         else:
-
             box.insert(
                 "1.0",
                 "Nothing added yet."
