@@ -1,7 +1,9 @@
+import os
 from pathlib import Path
 from tkinter import messagebox
 import customtkinter as ctk
 
+from capcut_exporter import prepare_capcut_package
 from pages.base_page import BasePage
 from common.ui_fonts import EMOJI_FONT, EMOJI_BUTTON_FONT
 
@@ -93,6 +95,17 @@ class ProjectViewerPage(BasePage):
 
         ctk.CTkButton(
             header,
+            text="🎬 Prepare for CapCut",
+            width=165,
+            font=EMOJI_BUTTON_FONT,
+            command=self.prepare_for_capcut
+        ).pack(
+            side="right",
+            padx=(8, 0)
+        )
+
+        ctk.CTkButton(
+            header,
             text="📂 Folder",
             width=100,
             font=EMOJI_BUTTON_FONT,
@@ -171,6 +184,52 @@ class ProjectViewerPage(BasePage):
                 tabs.tab(tab_name),
                 tab_name,
                 tab_text
+            )
+
+    def prepare_for_capcut(self):
+        """Build the CapCut package, show readiness, and open its folder."""
+
+        try:
+            self.project = self.pm.db.get_project(self.project_id)
+
+            if self.project is None:
+                raise ValueError("Project could not be found.")
+
+            project_folder = self.pm.resolve_project_folder(self.project)
+            result = prepare_capcut_package(
+                self.project,
+                project_folder,
+                replace=True
+            )
+
+            missing = result["missing"]
+            image_count = result["image_count"]
+
+            summary_lines = [
+                f"{'✓' if 'script' not in missing else '✗'} Script",
+                f"{'✓' if 'voiceover' not in missing else '✗'} Voiceover",
+                f"{'✓' if 'images' not in missing else '✗'} Images ({image_count})",
+                "• Captions not generated yet",
+                "✓ Title and description file",
+                "✓ Source notes file",
+            ]
+
+            if result["ready"]:
+                heading = "CapCut package is ready."
+            else:
+                heading = "CapCut package created with missing items."
+
+            messagebox.showinfo(
+                "Prepare for CapCut",
+                heading + "\n\n" + "\n".join(summary_lines)
+            )
+
+            os.startfile(Path(result["folder"]))
+
+        except Exception as error:
+            messagebox.showerror(
+                "Prepare for CapCut",
+                str(error)
             )
 
     def get_tab_data(self):
@@ -269,11 +328,9 @@ class ProjectViewerPage(BasePage):
     def copy_text(self, text):
 
         self.clipboard_clear()
-
         self.clipboard_append(
             text
         )
-
         self.update()
 
         messagebox.showinfo(
