@@ -30,7 +30,7 @@ Thumbs.db
 data/factvault.db
 
 # Settings (optional)
-#data/settings.json
+data/settings.json
 
 # Logs
 *.log
