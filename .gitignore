@@ -45,4 +45,4 @@ voices/temp/
 voices/samples/
 
 # Piper executable (optional)
-piper/
+piper/data/settings.json
