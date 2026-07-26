@@ -24,6 +24,48 @@ def _project_value(project, key, default=""):
     return default if value is None else value
 
 
+def _caption_lines(text):
+    """Turn project text into short caption cues."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+
+    if len(lines) > 1:
+        return lines
+
+    return [
+        sentence.strip()
+        for sentence in re.split(r"(?<=[.!?])\s+", text.strip())
+        if sentence.strip()
+    ]
+
+
+def _format_srt_time(seconds):
+    """Format floating-point seconds as an SRT timestamp."""
+    milliseconds = round(seconds * 1000)
+    hours, milliseconds = divmod(milliseconds, 3_600_000)
+    minutes, milliseconds = divmod(milliseconds, 60_000)
+    whole_seconds, milliseconds = divmod(milliseconds, 1000)
+    return f"{hours:02d}:{minutes:02d}:{whole_seconds:02d},{milliseconds:03d}"
+
+
+def _build_srt(text, words_per_second=2.5):
+    """Create estimated SRT cues from text without requiring media libraries."""
+    cues = []
+    current_time = 0.0
+
+    for index, caption in enumerate(_caption_lines(text), start=1):
+        word_count = max(1, len(caption.split()))
+        duration = min(5.0, max(1.5, word_count / words_per_second))
+        end_time = current_time + duration
+        cues.append(
+            f"{index}\n"
+            f"{_format_srt_time(current_time)} --> {_format_srt_time(end_time)}\n"
+            f"{caption}\n"
+        )
+        current_time = end_time
+
+    return "\n".join(cues), len(cues)
+
+
 def prepare_capcut_package(project, project_folder, replace=True):
     """
     Build a CapCut-ready folder from one FactVaultManager project.
@@ -33,12 +75,13 @@ def prepare_capcut_package(project, project_folder, replace=True):
         01-script.txt
         02-voiceover.<original extension>
         03-images/01.<ext>, 02.<ext>, ...
+        04-captions.srt
         05-title-and-description.txt
         06-source-notes.txt
 
-    Existing database text remains the source of truth. Media is copied from
-    ``Assets/Images`` and ``Voice``. The function returns a result dictionary
-    suitable for a UI readiness summary.
+    Captions use on-screen text when available and otherwise fall back to the
+    script. Their timings are estimates intended as a useful starting point in
+    CapCut, where they can be aligned to the final voiceover.
     """
     project_folder = Path(project_folder)
 
@@ -113,6 +156,22 @@ def prepare_capcut_package(project, project_folder, replace=True):
     if not image_files:
         missing.append("images")
 
+    on_screen_text = str(
+        _project_value(project, "on_screen_text", "")
+    ).strip()
+    caption_text = on_screen_text or script
+    caption_source = "on-screen text" if on_screen_text else "script"
+    caption_count = 0
+
+    if caption_text:
+        srt_text, caption_count = _build_srt(caption_text)
+        captions_path = destination / "04-captions.srt"
+        captions_path.write_text(srt_text, encoding="utf-8")
+        copied.append(captions_path)
+    else:
+        caption_source = None
+        missing.append("captions")
+
     title = str(_project_value(project, "title", "")).strip()
     description = str(_project_value(project, "description", "")).strip()
     pinned_comment = str(
@@ -143,7 +202,11 @@ def prepare_capcut_package(project, project_folder, replace=True):
         f"{'OK' if script else 'MISSING'} - Script",
         f"{'OK' if audio_files else 'MISSING'} - Voiceover",
         f"{'OK' if image_files else 'MISSING'} - Images ({len(image_files)})",
-        "NOT YET GENERATED - Captions",
+        (
+            f"OK - Draft captions ({caption_count}, from {caption_source})"
+            if caption_count
+            else "MISSING - Captions"
+        ),
         "OK - Title and description file",
         "OK - Source notes file",
     ]
@@ -159,6 +222,8 @@ def prepare_capcut_package(project, project_folder, replace=True):
         "copied_files": copied,
         "missing": missing,
         "image_count": len(image_files),
+        "caption_count": caption_count,
+        "caption_source": caption_source,
         "audio_source": audio_files[0] if audio_files else None,
         "ready": not missing,
     }
