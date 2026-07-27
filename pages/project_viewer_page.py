@@ -6,7 +6,7 @@ import customtkinter as ctk
 from capcut_exporter import prepare_capcut_package
 from pages.base_page import BasePage
 from common.ui_fonts import EMOJI_FONT, EMOJI_BUTTON_FONT
-
+from widgets.image_search_window import ImageSearchWindow
 
 class ProjectViewerPage(BasePage):
 
@@ -98,6 +98,17 @@ class ProjectViewerPage(BasePage):
         ).pack(
             side="right",
             padx=(8, 0)
+        )
+
+        ctk.CTkButton(
+            header,
+            text="🔍 Images",
+            width=110,
+            font=EMOJI_BUTTON_FONT,
+            command=self.open_image_search,
+        ).pack(
+            side="right",
+            padx=(8, 0),
         )
 
         ctk.CTkButton(
@@ -315,6 +326,12 @@ class ProjectViewerPage(BasePage):
 
         box.configure(
             state="disabled"
+        )
+
+    def open_image_search(self):
+        ImageSearchWindow(
+            self,
+            self.project,
         )
 
     def copy_text(self, text):

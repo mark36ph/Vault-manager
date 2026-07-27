@@ -1,0 +1,17 @@
+Did you know the world's first computer bug was an actual bug?
+
+It happened on September 9th, 1947, when engineers were working on the Harvard Mark II computer.
+
+Suddenly, the machine stopped working.
+
+After searching through thousands of electrical components, they discovered the problem...
+
+A moth had become trapped inside one of the computer's relays.
+
+The engineers carefully removed it and taped the moth into their logbook with the note, "First actual case of bug being found."
+
+Although the word "bug" had already been used by engineers to describe mechanical problems, this unusual discovery made the term famous in the world of computing.
+
+Believe it or not, that original logbook—with the moth still attached—is preserved at the Smithsonian Institution today.
+
+Sometimes, the biggest problems really do start with the smallest bugs.

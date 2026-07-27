@@ -21,6 +21,13 @@ DEFAULT_SETTINGS = {
         "default_export_folder": ""
     },
 
+    "images": {
+        "provider": "Pixabay",
+        "pixabay_api_key": "",
+        "pexels_api_key": "",
+        "default_orientation": "vertical",
+    },
+
     "voice": {
         "engine": "Piper",
         "default_voice": "",

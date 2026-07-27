@@ -23,65 +23,22 @@ def _project_value(project, key, default=""):
         value = default
     return default if value is None else value
 
-
-def _caption_lines(text):
-    """Turn project text into short caption cues."""
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
-
-    if len(lines) > 1:
-        return lines
-
-    return [
-        sentence.strip()
-        for sentence in re.split(r"(?<=[.!?])\s+", text.strip())
-        if sentence.strip()
-    ]
-
-
-def _format_srt_time(seconds):
-    """Format floating-point seconds as an SRT timestamp."""
-    milliseconds = round(seconds * 1000)
-    hours, milliseconds = divmod(milliseconds, 3_600_000)
-    minutes, milliseconds = divmod(milliseconds, 60_000)
-    whole_seconds, milliseconds = divmod(milliseconds, 1000)
-    return f"{hours:02d}:{minutes:02d}:{whole_seconds:02d},{milliseconds:03d}"
-
-
-def _build_srt(text, words_per_second=2.5):
-    """Create estimated SRT cues from text without requiring media libraries."""
-    cues = []
-    current_time = 0.0
-
-    for index, caption in enumerate(_caption_lines(text), start=1):
-        word_count = max(1, len(caption.split()))
-        duration = min(5.0, max(1.5, word_count / words_per_second))
-        end_time = current_time + duration
-        cues.append(
-            f"{index}\n"
-            f"{_format_srt_time(current_time)} --> {_format_srt_time(end_time)}\n"
-            f"{caption}\n"
-        )
-        current_time = end_time
-
-    return "\n".join(cues), len(cues)
-
-
 def prepare_capcut_package(project, project_folder, replace=True):
     """
     Build a CapCut-ready folder from one FactVaultManager project.
 
     The package is written to ``<project>/CapCut/Ready`` and contains:
 
-        01-script.txt
-        02-voiceover.<original extension>
-        03-images/01.<ext>, 02.<ext>, ...
-        04-captions.srt
-        05-title-and-description.txt
-        06-source-notes.txt
+    00-workflow.txt
+    01-script.txt
+    02-voiceover.<original extension>
+    03-images/01.<ext>, 02.<ext>, ...
+    04-title-and-description.txt
+    05-caption-text.txt
+    06-source-notes.txt
 
-    Captions use on-screen text when available and otherwise fall back to the
-    script. Their timings are estimates intended as a useful starting point in
-    CapCut, where they can be aligned to the final voiceover.
+    Caption text uses on-screen text when available and otherwise falls back
+    to the script. Voice and automatic captions are generated inside CapCut.
     """
     project_folder = Path(project_folder)
 
@@ -131,8 +88,6 @@ def prepare_capcut_package(project, project_folder, replace=True):
         audio_path = destination / f"02-voiceover{source_audio.suffix.lower()}"
         shutil.copy2(source_audio, audio_path)
         copied.append(audio_path)
-    else:
-        missing.append("voiceover")
 
     images_folder = project_folder / "Assets" / "Images"
     image_files = []
@@ -159,18 +114,16 @@ def prepare_capcut_package(project, project_folder, replace=True):
     on_screen_text = str(
         _project_value(project, "on_screen_text", "")
     ).strip()
+
     caption_text = on_screen_text or script
     caption_source = "on-screen text" if on_screen_text else "script"
-    caption_count = 0
 
-    if caption_text:
-        srt_text, caption_count = _build_srt(caption_text)
-        captions_path = destination / "04-captions.srt"
-        captions_path.write_text(srt_text, encoding="utf-8")
-        copied.append(captions_path)
-    else:
-        caption_source = None
-        missing.append("captions")
+    caption_path = destination / "05-caption-text.txt"
+    caption_path.write_text(
+        (caption_text or "No caption text has been added.") + "\n",
+        encoding="utf-8",
+    )
+    copied.append(caption_path)
 
     title = str(_project_value(project, "title", "")).strip()
     description = str(_project_value(project, "description", "")).strip()
@@ -183,7 +136,7 @@ def prepare_capcut_package(project, project_folder, replace=True):
         f"DESCRIPTION\n{description or '[Add description]'}",
         f"PINNED COMMENT\n{pinned_comment or '[Add pinned comment]'}",
     ]
-    publishing_path = destination / "05-title-and-description.txt"
+    publishing_path = destination / "04-title-and-description.txt"
     publishing_path.write_text(
         "\n\n".join(publishing_text) + "\n",
         encoding="utf-8",
@@ -198,31 +151,44 @@ def prepare_capcut_package(project, project_folder, replace=True):
     )
     copied.append(notes_path)
 
-    checklist_lines = [
-        f"{'OK' if script else 'MISSING'} - Script",
-        f"{'OK' if audio_files else 'MISSING'} - Voiceover",
-        f"{'OK' if image_files else 'MISSING'} - Images ({len(image_files)})",
+    workflow_lines = [
+        "FACTVAULTMANAGER -> CAPCUT",
+        "",
+        "PACKAGE STATUS",
+        "",
+        f"{'OK' if script else 'MISSING'} - Script exported",
+        f"{'OK' if image_files else 'MISSING'} - Images copied ({len(image_files)})",
         (
-            f"OK - Draft captions ({caption_count}, from {caption_source})"
-            if caption_count
-            else "MISSING - Captions"
+            f"OK - Caption text exported from {caption_source}"
+            if caption_text
+            else "MISSING - Caption text"
         ),
-        "OK - Title and description file",
-        "OK - Source notes file",
+        "OK - Title and description exported",
+        "OK - Source notes exported",
+        "",
+        "CAPCUT STEPS",
+        "",
+        "1. Import the images from 03-images.",
+        "2. Copy the narration from 01-script.txt.",
+        "3. Generate the AI voice inside CapCut.",
+        "4. Generate automatic captions from the voiceover.",
+        "5. Review and correct the captions.",
+        "6. Add music, transitions, and effects.",
+        "7. Export the finished video.",
     ]
-    checklist_path = destination / "00-readiness-checklist.txt"
-    checklist_path.write_text(
-        "\n".join(checklist_lines) + "\n",
+
+    workflow_path = destination / "00-workflow.txt"
+    workflow_path.write_text(
+        "\n".join(workflow_lines) + "\n",
         encoding="utf-8",
     )
-    copied.append(checklist_path)
+    copied.append(workflow_path)
 
     return {
         "folder": destination,
         "copied_files": copied,
         "missing": missing,
         "image_count": len(image_files),
-        "caption_count": caption_count,
         "caption_source": caption_source,
         "audio_source": audio_files[0] if audio_files else None,
         "ready": not missing,
