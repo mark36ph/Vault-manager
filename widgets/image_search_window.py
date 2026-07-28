@@ -175,18 +175,30 @@ class ImageSearchWindow(ctk.CTkToplevel):
             lambda event: self.start_search(),
         )
 
-        self.status_label = ctk.CTkLabel(
+        self.status_frame = ctk.CTkFrame(
             self,
+            corner_radius=8,
+        )
+
+        self.status_frame.pack(
+            fill="x",
+            padx=20,
+            pady=(0, 10),
+        )
+
+        self.status_label = ctk.CTkLabel(
+            self.status_frame,
             text=(
                 "Enter a search term, "
                 "then select Search."
             ),
-            text_color="gray",
+            anchor="w",
         )
+
         self.status_label.pack(
             fill="x",
-            padx=25,
-            pady=(0, 8),
+            padx=14,
+            pady=10,
         )
 
         self.results_frame = (
@@ -269,10 +281,9 @@ class ImageSearchWindow(ctk.CTkToplevel):
             text="Searching...",
         )
 
-        self.status_label.configure(
-            text=(
-                f'Searching Pixabay for "{query}"...'
-            ),
+        self._set_status(
+            f'Searching {provider} for "{query}"...',
+            "info",
         )
 
         worker = threading.Thread(
@@ -348,10 +359,9 @@ class ImageSearchWindow(ctk.CTkToplevel):
         )
 
         if not results:
-            self.status_label.configure(
-                text=(
-                    "No matching images were found."
-                ),
+            self._set_status(
+                "No matching images were found.",
+                "warning",
             )
             return
 
@@ -578,10 +588,9 @@ class ImageSearchWindow(ctk.CTkToplevel):
         self,
         result,
     ):
-        self.status_label.configure(
-            text=(
-                "Saving image to the project..."
-            ),
+        self._set_status(
+            "Saving image to the project...",
+            "info",
         )
 
         worker = threading.Thread(
