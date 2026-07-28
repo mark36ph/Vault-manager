@@ -4,7 +4,6 @@ import urllib.request
 import webbrowser
 from io import BytesIO
 from pathlib import Path
-from tkinter import messagebox
 
 import customtkinter as ctk
 from PIL import Image
@@ -13,9 +12,8 @@ from common.settings_manager import SettingsManager
 from image_search import (
     ImageSearchError,
     download_image_to_project,
-    search_pixabay_images,
+    search_images,
 )
-
 
 THUMBNAIL_SIZE = (
     240,
@@ -129,16 +127,6 @@ class ImageSearchWindow(ctk.CTkToplevel):
             sticky="ew",
         )
 
-        initial_query = (
-            self._initial_search_query()
-        )
-
-        if initial_query:
-            self.search_entry.insert(
-                0,
-                initial_query,
-            )
-
         self.orientation = ctk.StringVar(
             value=self.settings.get(
                 "images",
@@ -220,38 +208,27 @@ class ImageSearchWindow(ctk.CTkToplevel):
                 uniform="image-result",
             )
 
-    def _initial_search_query(self):
-        title = str(
-            self.project["title"] or ""
-        ).strip()
-
-        prefixes = (
-            "why ",
-            "how ",
-            "what ",
-            "when ",
-            "where ",
-            "the ",
-        )
-
-        lowered = title.lower()
-
-        for prefix in prefixes:
-            if lowered.startswith(prefix):
-                title = title[
-                    len(prefix):
-                ]
-                break
-
-        return title
-
     def start_search(self):
         query = self.search_entry.get().strip()
+
+        provider = str(
+            self.settings.get(
+                "images",
+                "provider",
+                "Pixabay",
+            )
+            or "Pixabay"
+        ).strip()
+
+        key_setting = {
+            "Pixabay": "pixabay_api_key",
+            "Pexels": "pexels_api_key",
+        }.get(provider)
 
         api_key = str(
             self.settings.get(
                 "images",
-                "pixabay_api_key",
+                key_setting,
                 "",
             )
             or ""
@@ -262,22 +239,20 @@ class ImageSearchWindow(ctk.CTkToplevel):
         )
 
         if not query:
-            messagebox.showwarning(
-                "Image Search",
+            self._set_status(
                 "Enter an image search term.",
-                parent=self,
+                "warning",
             )
+            self.search_entry.focus_set()
             return
 
         if not api_key:
-            messagebox.showwarning(
-                "Image Search",
+            self._set_status(
                 (
-                    "No Pixabay API key has been configured.\n\n"
-                    "Open Settings → Images and enter "
-                    "your Pixabay API key."
+                    f"No {provider} API key is configured. "
+                    "Open Settings → Images and enter the key."
                 ),
-                parent=self,
+                "error",
             )
             return
 
@@ -304,7 +279,7 @@ class ImageSearchWindow(ctk.CTkToplevel):
             target=self._perform_search,
             args=(
                 query,
-                api_key,
+                provider,
                 orientation,
             ),
             daemon=True,
@@ -314,13 +289,15 @@ class ImageSearchWindow(ctk.CTkToplevel):
     def _perform_search(
         self,
         query,
-        api_key,
+        provider,
         orientation,
     ):
         try:
-            results = search_pixabay_images(
-                query,
-                api_key,
+            results = search_images(
+                provider_name=provider,
+                settings=self.settings,
+                query=query,
+                page=1,
                 per_page=18,
                 orientation=orientation,
             )
@@ -340,9 +317,7 @@ class ImageSearchWindow(ctk.CTkToplevel):
             return
 
         except Exception as exc:
-            message = (
-                f"Image search failed: {exc}"
-            )
+            message = f"Image search failed: {exc}"
 
             self.after(
                 0,
@@ -355,13 +330,15 @@ class ImageSearchWindow(ctk.CTkToplevel):
         self.after(
             0,
             lambda: self._display_results(
-                results
+                results,
+                provider,
             ),
         )
 
     def _display_results(
         self,
         results,
+        provider,
     ):
         self.results = results
 
@@ -378,11 +355,12 @@ class ImageSearchWindow(ctk.CTkToplevel):
             )
             return
 
-        self.status_label.configure(
-            text=(
+        self._set_status(
+            (
                 f"{len(results)} images found. "
-                "Results provided by Pixabay."
+                f"Results provided by {provider}."
             ),
+            "success",
         )
 
         for index, result in enumerate(
@@ -660,17 +638,12 @@ class ImageSearchWindow(ctk.CTkToplevel):
         self,
         image_path,
     ):
-        self.status_label.configure(
-            text=f"Saved: {image_path.name}",
-        )
-
-        messagebox.showinfo(
-            "Image Saved",
+        self._set_status(
             (
-                "The image and its source information "
-                f"were saved to:\n\n{image_path.parent}"
+                f"Saved {image_path.name} to "
+                f"{image_path.parent}"
             ),
-            parent=self,
+            "success",
         )
 
     def _show_search_error(
@@ -682,30 +655,60 @@ class ImageSearchWindow(ctk.CTkToplevel):
             text="🔍 Search",
         )
 
-        self.status_label.configure(
-            text="Search failed.",
-        )
-
-        messagebox.showerror(
-            "Image Search",
+        self._set_status(
             message,
-            parent=self,
+            "error",
         )
 
     def _show_download_error(
         self,
         message,
     ):
-        self.status_label.configure(
-            text="Image download failed.",
-        )
-
-        messagebox.showerror(
-            "Image Download",
+        self._set_status(
             message,
-            parent=self,
+            "error",
         )
 
+    def _set_status(
+        self,
+        message,
+        status_type="info",
+    ):
+        colours = {
+            "info": (
+                "#DBEAFE",
+                "#1E3A5F",
+            ),
+            "success": (
+                "#DCFCE7",
+                "#14532D",
+            ),
+            "warning": (
+                "#FEF3C7",
+                "#78350F",
+            ),
+            "error": (
+                "#FEE2E2",
+                "#7F1D1D",
+            ),
+        }
+
+        light_colour, dark_colour = colours.get(
+            status_type,
+            colours["info"],
+        )
+
+        self.status_frame.configure(
+            fg_color=(
+                light_colour,
+                dark_colour,
+            ),
+        )
+
+        self.status_label.configure(
+            text=message,
+        )
+    
     def _clear_results(self):
         self.results = []
         self.thumbnail_references.clear()
@@ -719,14 +722,11 @@ class ImageSearchWindow(ctk.CTkToplevel):
         self,
         url,
     ):
+
         if not url:
-            messagebox.showwarning(
-                "Image Source",
-                (
-                    "This result does not have "
-                    "a source page."
-                ),
-                parent=self,
+            self._set_status(
+                "This result does not have a source page.",
+                "warning",
             )
             return
 
