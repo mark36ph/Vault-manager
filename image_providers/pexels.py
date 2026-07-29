@@ -9,21 +9,15 @@ from image_providers.errors import ImageSearchError
 
 
 PEXELS_API_URL = "https://api.pexels.com/v1/search"
+PEXELS_VIDEO_API_URL = "https://api.pexels.com/v1/videos/search"
 USER_AGENT = "FactVaultManager/1.0"
 
 
 class PexelsProvider(ImageProvider):
-    """Pexels image-search provider."""
+    """Pexels image and video search provider."""
 
     provider_name = "Pexels"
-
-    VALID_ORIENTATIONS = {
-        "all",
-        "horizontal",
-        "vertical",
-        "square",
-    }
-
+    VALID_ORIENTATIONS = {"all", "horizontal", "vertical", "square"}
     ORIENTATION_MAP = {
         "all": None,
         "horizontal": "landscape",
@@ -34,65 +28,56 @@ class PexelsProvider(ImageProvider):
     def __init__(self, api_key):
         self.api_key = str(api_key or "").strip()
 
-    def search(
-        self,
-        query,
-        *,
-        page=1,
-        per_page=20,
-        orientation="vertical",
-    ):
-        """Search Pexels and return normalised image results."""
-        query = str(query or "").strip()
-
-        orientation = str(
-            orientation or "vertical"
-        ).strip().lower()
-
-        if not query:
-            raise ValueError(
-                "Enter an image search term."
-            )
-
-        if not self.api_key:
-            raise ValueError(
-                "A Pexels API key is required."
-            )
-
-        if orientation not in self.VALID_ORIENTATIONS:
-            raise ValueError(
-                "Invalid image orientation."
-            )
-
-        page = self._normalise_page(page)
-        per_page = self._normalise_per_page(per_page)
-
+    def search(self, query, *, page=1, per_page=20, orientation="vertical"):
+        query, orientation = self._validate(query, orientation)
         parameters = {
             "query": query,
-            "page": page,
-            "per_page": per_page,
+            "page": max(1, int(page)),
+            "per_page": max(1, min(int(per_page), 80)),
         }
+        mapped = self.ORIENTATION_MAP[orientation]
+        if mapped:
+            parameters["orientation"] = mapped
+        payload = self._send_request(self._request(PEXELS_API_URL, parameters))
+        results = []
+        for item in payload.get("photos", []):
+            result = self._parse_image(item, query)
+            if result:
+                results.append(result)
+        return results
 
-        pexels_orientation = self.ORIENTATION_MAP[
-            orientation
-        ]
+    def search_videos(self, query, *, page=1, per_page=20, orientation="vertical"):
+        query, orientation = self._validate(query, orientation)
+        parameters = {
+            "query": query,
+            "page": max(1, int(page)),
+            "per_page": max(1, min(int(per_page), 80)),
+        }
+        mapped = self.ORIENTATION_MAP[orientation]
+        if mapped:
+            parameters["orientation"] = mapped
+        payload = self._send_request(self._request(PEXELS_VIDEO_API_URL, parameters))
+        results = []
+        for item in payload.get("videos", []):
+            result = self._parse_video(item, query, orientation)
+            if result:
+                results.append(result)
+        return results
 
-        if pexels_orientation:
-            parameters["orientation"] = (
-                pexels_orientation
-            )
+    def _validate(self, query, orientation):
+        query = str(query or "").strip()
+        orientation = str(orientation or "vertical").strip().lower()
+        if not query:
+            raise ValueError("Enter a media search term.")
+        if not self.api_key:
+            raise ValueError("A Pexels API key is required.")
+        if orientation not in self.VALID_ORIENTATIONS:
+            raise ValueError("Invalid media orientation.")
+        return query, orientation
 
-        encoded_parameters = urllib.parse.urlencode(
-            parameters
-        )
-
-        url = (
-            f"{PEXELS_API_URL}"
-            f"?{encoded_parameters}"
-        )
-
-        request = urllib.request.Request(
-            url,
+    def _request(self, endpoint, parameters):
+        return urllib.request.Request(
+            f"{endpoint}?{urllib.parse.urlencode(parameters)}",
             headers={
                 "Authorization": self.api_key,
                 "User-Agent": USER_AGENT,
@@ -100,269 +85,94 @@ class PexelsProvider(ImageProvider):
             },
         )
 
-        payload = self._send_request(
-            request
-        )
-
-        return self._parse_results(
-            payload,
-            query=query,
-        )
-
     def _send_request(self, request):
         try:
-            with urllib.request.urlopen(
-                request,
-                timeout=20,
-            ) as response:
+            with urllib.request.urlopen(request, timeout=20) as response:
                 return json.load(response)
-
         except urllib.error.HTTPError as exc:
-            message = self._read_http_error(
-                exc
-            )
-
+            message = self._read_http_error(exc)
             if exc.code == 401:
-                message = (
-                    "Pexels rejected the API key. "
-                    "Check the key in Settings → Images."
-                )
-
+                message = "Pexels rejected the API key. Check the key in Settings → Images."
             elif exc.code == 429:
-                message = (
-                    "The Pexels API request limit "
-                    "has been reached."
-                )
-
-            raise ImageSearchError(
-                message
-                or (
-                    "Pexels returned "
-                    f"HTTP {exc.code}."
-                )
-            ) from exc
-
+                message = "The Pexels API request limit has been reached."
+            raise ImageSearchError(message or f"Pexels returned HTTP {exc.code}.") from exc
         except urllib.error.URLError as exc:
-            raise ImageSearchError(
-                "Could not connect to Pexels: "
-                f"{exc.reason}"
-            ) from exc
-
+            raise ImageSearchError(f"Could not connect to Pexels: {exc.reason}") from exc
         except TimeoutError as exc:
-            raise ImageSearchError(
-                "The Pexels request timed out."
-            ) from exc
+            raise ImageSearchError("The Pexels request timed out.") from exc
+        except (json.JSONDecodeError, TypeError, ValueError) as exc:
+            raise ImageSearchError("Pexels returned an invalid response.") from exc
 
-        except (
-            json.JSONDecodeError,
-            TypeError,
-            ValueError,
-        ) as exc:
-            raise ImageSearchError(
-                "Pexels returned an invalid response."
-            ) from exc
-
-    def _parse_results(
-        self,
-        payload,
-        *,
-        query,
-    ):
-        if not isinstance(payload, dict):
-            raise ImageSearchError(
-                "Pexels returned an invalid response."
-            )
-
-        photos = payload.get(
-            "photos",
-            [],
-        )
-
-        if not isinstance(photos, list):
-            raise ImageSearchError(
-                "Pexels returned an invalid photo list."
-            )
-
-        results = []
-
-        for item in photos:
-            result = self._parse_result(
-                item,
-                query=query,
-            )
-
-            if result is not None:
-                results.append(
-                    result
-                )
-
-        return results
-
-    def _parse_result(
-        self,
-        item,
-        *,
-        query,
-    ):
-        if not isinstance(item, dict):
+    def _parse_image(self, item, query):
+        src = item.get("src") or {}
+        preview = src.get("medium") or src.get("small") or src.get("tiny") or ""
+        download = src.get("large2x") or src.get("large") or src.get("original") or preview
+        if not preview or not download:
             return None
-
-        source_images = item.get(
-            "src",
-            {},
-        )
-
-        if not isinstance(source_images, dict):
-            return None
-
-        preview_url = (
-            source_images.get("medium")
-            or source_images.get("small")
-            or source_images.get("tiny")
-            or ""
-        )
-
-        download_url = (
-            source_images.get("large2x")
-            or source_images.get("large")
-            or source_images.get("original")
-            or preview_url
-        )
-
-        if not preview_url or not download_url:
-            return None
-
-        creator = str(
-            item.get("photographer")
-            or "Unknown"
-        )
-
-        image_id = self._safe_int(
-            item.get("id")
-        )
-
-        width = self._safe_int(
-            item.get("width")
-        )
-
-        height = self._safe_int(
-            item.get("height")
-        )
-
-        alt_text = str(
-            item.get("alt")
-            or ""
-        ).strip()
-
-        tags = (
-            alt_text
-            or query
-        )
-
+        creator = str(item.get("photographer") or "Unknown")
         return ImageSearchResult(
-            image_id=image_id,
-            preview_url=str(
-                preview_url
-            ),
-            download_url=str(
-                download_url
-            ),
-            page_url=str(
-                item.get("url")
-                or ""
-            ),
+            image_id=int(item.get("id") or 0),
+            preview_url=str(preview),
+            download_url=str(download),
+            page_url=str(item.get("url") or ""),
             creator=creator,
-            creator_url=str(
-                item.get("photographer_url")
-                or ""
-            ),
-            tags=tags,
-            width=width,
-            height=height,
+            creator_url=str(item.get("photographer_url") or ""),
+            tags=str(item.get("alt") or query),
+            width=int(item.get("width") or 0),
+            height=int(item.get("height") or 0),
             provider=self.provider_name,
-            attribution=(
-                f"Photo by {creator} on Pexels"
-            ),
+            attribution=f"Photo by {creator} on Pexels",
+            media_type="image",
         )
 
-    @staticmethod
-    def _normalise_page(page):
-        try:
-            return max(
-                1,
-                int(page),
-            )
-        except (
-            TypeError,
-            ValueError,
-        ) as exc:
-            raise ValueError(
-                "The page number must be an integer."
-            ) from exc
-
-    @staticmethod
-    def _normalise_per_page(per_page):
-        try:
-            value = int(
-                per_page
-            )
-        except (
-            TypeError,
-            ValueError,
-        ) as exc:
-            raise ValueError(
-                "The results-per-page value "
-                "must be an integer."
-            ) from exc
-
-        return max(
-            1,
-            min(
-                value,
-                80,
-            ),
+    def _parse_video(self, item, query, orientation):
+        choices = []
+        for file_info in item.get("video_files", []):
+            if file_info.get("file_type") != "video/mp4":
+                continue
+            width = int(file_info.get("width") or 0)
+            height = int(file_info.get("height") or 0)
+            if orientation == "vertical" and width > height:
+                continue
+            if orientation == "horizontal" and height > width:
+                continue
+            link = str(file_info.get("link") or "")
+            if link:
+                choices.append((width * height, file_info))
+        if not choices:
+            return None
+        _, selected = max(choices, key=lambda value: value[0])
+        user = item.get("user") or {}
+        creator = str(user.get("name") or "Unknown")
+        preview = str(item.get("image") or "")
+        if not preview:
+            return None
+        return ImageSearchResult(
+            image_id=int(item.get("id") or 0),
+            preview_url=preview,
+            download_url=str(selected.get("link") or ""),
+            page_url=str(item.get("url") or ""),
+            creator=creator,
+            creator_url=str(user.get("url") or ""),
+            tags=query,
+            width=int(selected.get("width") or 0),
+            height=int(selected.get("height") or 0),
+            provider=self.provider_name,
+            attribution=f"Video by {creator} on Pexels",
+            media_type="video",
+            duration=int(item.get("duration") or 0),
         )
-
-    @staticmethod
-    def _safe_int(value):
-        try:
-            return int(
-                value or 0
-            )
-        except (
-            TypeError,
-            ValueError,
-        ):
-            return 0
 
     @staticmethod
     def _read_http_error(exc):
         try:
-            body = exc.read().decode(
-                "utf-8",
-                errors="replace",
-            ).strip()
+            body = exc.read().decode("utf-8", errors="replace").strip()
         except Exception:
             return ""
-
         if not body:
             return ""
-
         try:
-            payload = json.loads(
-                body
-            )
-        except (
-            json.JSONDecodeError,
-            TypeError,
-        ):
+            payload = json.loads(body)
+        except (json.JSONDecodeError, TypeError):
             return body
-
-        if not isinstance(payload, dict):
-            return body
-
-        return str(
-            payload.get("error")
-            or payload.get("message")
-            or body
-        )
+        return str(payload.get("error") or payload.get("message") or body) if isinstance(payload, dict) else body
