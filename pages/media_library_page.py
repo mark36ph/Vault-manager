@@ -9,7 +9,11 @@ from tkinter import messagebox
 import customtkinter as ctk
 from PIL import Image
 
-from image_search import get_media_library_root
+from image_search import (
+    get_library_metadata_path,
+    get_media_library_root,
+    migrate_library_metadata,
+)
 from pages.base_page import BasePage
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
@@ -30,6 +34,7 @@ class LibraryAsset:
 
 def scan_media_library(library_root=None):
     root = get_media_library_root(library_root)
+    migrate_library_metadata(root)
     assets = []
     for folder_name, media_type, extensions in (
         ("Images", "Image", IMAGE_EXTENSIONS),
@@ -40,7 +45,7 @@ def scan_media_library(library_root=None):
             continue
         for path in folder.iterdir():
             if path.is_file() and path.suffix.lower() in extensions:
-                source = path.with_suffix(".source.txt")
+                source = get_library_metadata_path(path, root)
                 assets.append(LibraryAsset(path, media_type, source if source.exists() else None))
     return sorted(assets, key=lambda item: (item.media_type, item.name.lower()))
 
@@ -67,7 +72,6 @@ def copy_library_asset_to_project(asset, project_folder):
         shutil.copy2(asset.source_path, metadata_destination)
         if not metadata_destination.is_file():
             raise OSError(f"The source metadata could not be copied to:\n{metadata_destination}")
-
     return destination
 
 
@@ -97,18 +101,15 @@ class MediaLibraryPage(BasePage):
     def build(self):
         toolbar = ctk.CTkFrame(self.content)
         toolbar.pack(fill="x", pady=(0, 12))
-
         self.search = ctk.CTkEntry(toolbar, placeholder_text="Search library...")
         self.search.pack(side="left", fill="x", expand=True, padx=12, pady=12)
         self.search.bind("<KeyRelease>", lambda _event: self.apply_filter())
-
         ctk.CTkSegmentedButton(
             toolbar,
             values=["All", "Images", "Videos"],
             variable=self.filter_value,
             command=lambda _value: self.apply_filter(),
         ).pack(side="left", padx=8)
-
         ctk.CTkButton(toolbar, text="Refresh", width=100, command=self.refresh).pack(side="right", padx=12)
 
         body = ctk.CTkFrame(self.content, fg_color="transparent")
@@ -116,7 +117,6 @@ class MediaLibraryPage(BasePage):
         body.grid_rowconfigure(0, weight=1)
         body.grid_columnconfigure(0, weight=2)
         body.grid_columnconfigure(1, weight=3)
-
         self.list_frame = ctk.CTkScrollableFrame(body)
         self.list_frame.grid(row=0, column=0, padx=(0, 8), sticky="nsew")
 
@@ -124,7 +124,6 @@ class MediaLibraryPage(BasePage):
         preview.grid(row=0, column=1, padx=(8, 0), sticky="nsew")
         preview.grid_columnconfigure(0, weight=1)
         preview.grid_rowconfigure(1, weight=1)
-
         ctk.CTkLabel(preview, text="Library Preview", font=("Segoe UI", 22, "bold")).grid(
             row=0, column=0, padx=18, pady=(18, 10), sticky="w"
         )
@@ -138,9 +137,7 @@ class MediaLibraryPage(BasePage):
         project_row.grid_columnconfigure(0, weight=1)
         self.project_menu = ctk.CTkOptionMenu(project_row, values=["No projects available"])
         self.project_menu.grid(row=0, column=0, padx=(0, 8), sticky="ew")
-        self.add_button = ctk.CTkButton(
-            project_row, text="Add to Project", state="disabled", command=self.add_to_project
-        )
+        self.add_button = ctk.CTkButton(project_row, text="Add to Project", state="disabled", command=self.add_to_project)
         self.add_button.grid(row=0, column=1)
 
         action_row = ctk.CTkFrame(preview, fg_color="transparent")
@@ -148,9 +145,7 @@ class MediaLibraryPage(BasePage):
         action_row.grid_columnconfigure((0, 1), weight=1)
         self.open_button = ctk.CTkButton(action_row, text="Open", state="disabled", command=self.open_selected)
         self.open_button.grid(row=0, column=0, padx=(0, 5), sticky="ew")
-        self.folder_button = ctk.CTkButton(
-            action_row, text="Open Folder", state="disabled", command=self.open_folder
-        )
+        self.folder_button = ctk.CTkButton(action_row, text="Open Folder", state="disabled", command=self.open_folder)
         self.folder_button.grid(row=0, column=1, padx=(5, 0), sticky="ew")
 
     def refresh(self):
@@ -167,8 +162,7 @@ class MediaLibraryPage(BasePage):
         wanted_type = {"Images": "Image", "Videos": "Video"}.get(self.filter_value.get())
         self.visible_assets = [
             asset for asset in self.assets
-            if (wanted_type is None or asset.media_type == wanted_type)
-            and query in asset.name.lower()
+            if (wanted_type is None or asset.media_type == wanted_type) and query in asset.name.lower()
         ]
         self.render_list()
 
@@ -180,14 +174,13 @@ class MediaLibraryPage(BasePage):
             self.clear_selection()
             return
         for asset in self.visible_assets:
-            button = ctk.CTkButton(
+            ctk.CTkButton(
                 self.list_frame,
                 text=f"{'🖼' if asset.media_type == 'Image' else '▶'}  {asset.name}",
                 anchor="w",
                 height=42,
                 command=lambda item=asset: self.select_asset(item),
-            )
-            button.pack(fill="x", padx=8, pady=4)
+            ).pack(fill="x", padx=8, pady=4)
 
     def select_asset(self, asset):
         self.selected_asset = asset
