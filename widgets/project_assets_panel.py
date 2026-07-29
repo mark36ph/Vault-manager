@@ -3,18 +3,20 @@ import subprocess
 import sys
 import threading
 from dataclasses import dataclass
-from io import BytesIO
 from pathlib import Path
-from tkinter import Menu, messagebox, simpledialog
+from tkinter import Menu, messagebox
 
 import customtkinter as ctk
 from PIL import Image
+
+from widgets.text_input_dialog import ask_text
 
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v"}
 THUMBNAIL_SIZE = (210, 140)
 PREVIEW_SIZE = (420, 390)
+INVALID_FILENAME_CHARACTERS = set('<>:"/\\|?*')
 
 
 @dataclass(frozen=True)
@@ -61,10 +63,7 @@ def scan_project_assets(project_folder):
 
     return sorted(
         assets,
-        key=lambda asset: (
-            asset.media_type,
-            asset.name.lower(),
-        ),
+        key=lambda asset: (asset.media_type, asset.name.lower()),
     )
 
 
@@ -129,6 +128,30 @@ def _open_path(path):
         subprocess.Popen(["open", path])
     else:
         subprocess.Popen(["xdg-open", path])
+
+
+def _validate_rename_value(asset, value):
+    value = str(value or "").strip()
+    if not value:
+        return "Enter a file name."
+    if value in {".", ".."}:
+        return "Enter a valid file name."
+    if any(character in INVALID_FILENAME_CHARACTERS for character in value):
+        return 'File names cannot contain < > : " / \\ | ? *.'
+    if value.endswith((" ", ".")):
+        return "A file name cannot end with a space or full stop."
+
+    requested = Path(value)
+    if requested.name != value:
+        return "Enter a file name without folders."
+    if requested.suffix and requested.suffix.lower() != asset.path.suffix.lower():
+        return f"The file extension must remain {asset.path.suffix}."
+
+    target_name = requested.name if requested.suffix else f"{requested.name}{asset.path.suffix}"
+    target = asset.path.with_name(target_name)
+    if target != asset.path and target.exists():
+        return f"{target.name} already exists."
+    return ""
 
 
 class ProjectAssetsPanel(ctk.CTkFrame):
@@ -274,7 +297,8 @@ class ProjectAssetsPanel(ctk.CTkFrame):
         selection = self.filter_value.get()
         media_type = {"Images": "Image", "Videos": "Video"}.get(selection)
         self.visible_assets = [
-            asset for asset in self.assets
+            asset
+            for asset in self.assets
             if media_type is None or asset.media_type == media_type
         ]
         self._render_assets()
@@ -434,7 +458,10 @@ class ProjectAssetsPanel(ctk.CTkFrame):
         menu.add_separator()
         menu.add_command(label="Rename", command=self.rename_selected)
         menu.add_command(label="Delete", command=self.delete_selected)
-        menu.tk_popup(event.x_root, event.y_root)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
 
     def open_selected(self):
         if self.selected_asset:
@@ -448,19 +475,26 @@ class ProjectAssetsPanel(ctk.CTkFrame):
         asset = self.selected_asset
         if asset is None:
             return
-        new_name = simpledialog.askstring(
-            "Rename Asset",
-            "New file name:",
-            initialvalue=asset.path.stem,
-            parent=self,
+
+        new_name = ask_text(
+            self,
+            title="Rename Asset",
+            prompt="Enter a new name for this asset:",
+            initial_value=asset.path.stem,
+            confirm_text="Rename",
+            helper_text=f"The {asset.path.suffix} extension will be kept automatically.",
+            validator=lambda value: _validate_rename_value(asset, value),
+            width=580,
         )
         if new_name is None:
             return
+
         try:
             renamed = rename_project_asset(asset, new_name)
         except (ValueError, FileExistsError, OSError) as exc:
             messagebox.showerror("Rename Asset", str(exc), parent=self)
             return
+
         self.refresh_assets()
         for candidate in self.assets:
             if candidate.path == renamed.path:
