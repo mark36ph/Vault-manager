@@ -1,4 +1,5 @@
 import re
+import shutil
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -11,6 +12,7 @@ from image_providers.pexels import PexelsProvider
 
 USER_AGENT = "FactVaultManager/1.0"
 PROVIDERS = {"pixabay": PixabayProvider, "pexels": PexelsProvider}
+MEDIA_LIBRARY_ROOT = Path("data") / "Media Library"
 
 
 def get_provider(provider_name, settings):
@@ -51,18 +53,53 @@ def search_pixabay_images(query, api_key, *, page=1, per_page=20, orientation="v
     )
 
 
-def download_media_to_project(result, project_folder):
+def get_media_library_root(library_root=None):
+    """Return the shared media-library folder used by all projects."""
+    return Path(library_root) if library_root is not None else MEDIA_LIBRARY_ROOT
+
+
+def download_media_to_project(result, project_folder, *, library_root=None):
+    """Save media in the shared library, then copy it into a project.
+
+    The shared library is the single download location. Existing library items
+    are reused when their provider and media ID match, while each project still
+    receives its own copy so the current project workflow remains unchanged.
+    """
     project_folder = Path(project_folder)
     media_type = str(getattr(result, "media_type", "image") or "image").lower()
     folder_name = "Videos" if media_type == "video" else "Images"
-    media_folder = project_folder / "Assets" / folder_name
-    media_folder.mkdir(parents=True, exist_ok=True)
 
-    extension = _extension_from_url(result.download_url, media_type)
-    first_tag = result.tags.split(",")[0] if result.tags else f"{result.provider}-{media_type}"
-    stem = f"{_safe_filename(first_tag)}-{result.image_id}"
-    media_path = _available_path(media_folder, stem, extension)
+    library_folder = get_media_library_root(library_root) / folder_name
+    library_folder.mkdir(parents=True, exist_ok=True)
+    library_path = _find_library_media(result, library_folder)
 
+    if library_path is None:
+        extension = _extension_from_url(result.download_url, media_type)
+        first_tag = result.tags.split(",")[0] if result.tags else f"{result.provider}-{media_type}"
+        stem = f"{_safe_filename(first_tag)}-{result.image_id}"
+        library_path = _available_path(library_folder, stem, extension)
+        _download_to_path(result, library_path, media_type)
+        _write_source_file(result, library_path)
+
+    project_media_folder = project_folder / "Assets" / folder_name
+    project_media_folder.mkdir(parents=True, exist_ok=True)
+    project_path = _available_path(
+        project_media_folder,
+        library_path.stem,
+        library_path.suffix,
+    )
+    shutil.copy2(library_path, project_path)
+
+    library_source = library_path.with_suffix(".source.txt")
+    if library_source.exists():
+        shutil.copy2(library_source, project_path.with_suffix(".source.txt"))
+    else:
+        _write_source_file(result, project_path)
+
+    return project_path
+
+
+def _download_to_path(result, media_path, media_type):
     request = urllib.request.Request(
         result.download_url,
         headers={"User-Agent": USER_AGENT},
@@ -79,12 +116,29 @@ def download_media_to_project(result, project_folder):
     except TimeoutError as exc:
         raise ImageSearchError(f"The {media_type} download timed out.") from exc
 
-    _write_source_file(result, media_path)
-    return media_path
+
+def _find_library_media(result, library_folder):
+    provider_line = f"Provider: {getattr(result, 'provider', '') or 'Unknown'}"
+    id_line = f"Media ID: {result.image_id}"
+    for source_file in library_folder.glob("*.source.txt"):
+        try:
+            text = source_file.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if provider_line not in text or id_line not in text:
+            continue
+        media_path = source_file.with_suffix("")
+        if media_path.exists():
+            return media_path
+    return None
 
 
-def download_image_to_project(result, project_folder):
-    return download_media_to_project(result, project_folder)
+def download_image_to_project(result, project_folder, *, library_root=None):
+    return download_media_to_project(
+        result,
+        project_folder,
+        library_root=library_root,
+    )
 
 
 def is_media_saved(result, project_folder):
@@ -155,8 +209,10 @@ def _available_path(folder, stem, extension):
 __all__ = [
     "ImageSearchError",
     "ImageSearchResult",
+    "MEDIA_LIBRARY_ROOT",
     "download_image_to_project",
     "download_media_to_project",
+    "get_media_library_root",
     "get_provider",
     "is_media_saved",
     "search_images",
