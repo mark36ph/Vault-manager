@@ -90,18 +90,24 @@ def test_search_pixabay_images_reports_network_error(monkeypatch):
         search_pixabay_images("Mars", "test-key")
 
 
-def test_download_image_to_project_saves_image_and_source(monkeypatch, tmp_path):
-    result = ImageSearchResult(
-        image_id=456,
+def _image_result(image_id=456, tags="red planet, mars"):
+    return ImageSearchResult(
+        image_id=image_id,
         preview_url="https://example.com/preview.jpg",
         download_url="https://example.com/full.jpg",
-        page_url="https://pixabay.com/photos/example-456/",
+        page_url=f"https://pixabay.com/photos/example-{image_id}/",
         creator="Example Creator",
         creator_url="",
-        tags="red planet, mars",
+        tags=tags,
         width=1920,
         height=1080,
     )
+
+
+def test_download_image_to_project_saves_library_project_copy_and_source(monkeypatch, tmp_path):
+    result = _image_result()
+    library_root = tmp_path / "Library"
+    project_root = tmp_path / "Project"
 
     def fake_urlopen(request, timeout):
         return FakeResponse(b"image-bytes")
@@ -112,31 +118,66 @@ def test_download_image_to_project_saves_image_and_source(monkeypatch, tmp_path)
         fake_urlopen,
     )
 
-    image_path = download_image_to_project(result, tmp_path)
+    image_path = download_image_to_project(
+        result,
+        project_root,
+        library_root=library_root,
+    )
 
-    assert image_path.parent == tmp_path / "Assets" / "Images"
+    assert image_path.parent == project_root / "Assets" / "Images"
     assert image_path.read_bytes() == b"image-bytes"
 
-    source_path = image_path.with_suffix(".source.txt")
-    source_text = source_path.read_text(encoding="utf-8")
+    library_path = library_root / "Images" / "red-planet-456.jpg"
+    assert library_path.read_bytes() == b"image-bytes"
 
+    source_path = image_path.with_suffix(".source.txt")
+    library_source = library_path.with_suffix(".source.txt")
+    assert source_path.read_text(encoding="utf-8") == library_source.read_text(encoding="utf-8")
+    source_text = source_path.read_text(encoding="utf-8")
     assert "Provider: Pixabay" in source_text
     assert "Creator: Example Creator" in source_text
     assert result.page_url in source_text
 
 
-def test_download_image_avoids_duplicate_filenames(monkeypatch, tmp_path):
-    result = ImageSearchResult(
-        image_id=789,
-        preview_url="https://example.com/preview.jpg",
-        download_url="https://example.com/full.jpg",
-        page_url="https://pixabay.com/photos/example-789/",
-        creator="Creator",
-        creator_url="",
-        tags="moon",
-        width=1000,
-        height=1000,
+def test_download_reuses_library_copy_without_downloading_again(monkeypatch, tmp_path):
+    result = _image_result(image_id=789, tags="moon")
+    library_root = tmp_path / "Library"
+    first_project = tmp_path / "Project One"
+    second_project = tmp_path / "Project Two"
+    download_count = 0
+
+    def fake_urlopen(request, timeout):
+        nonlocal download_count
+        download_count += 1
+        return FakeResponse(b"shared-image")
+
+    monkeypatch.setattr(
+        image_search.urllib.request,
+        "urlopen",
+        fake_urlopen,
     )
+
+    first = download_image_to_project(
+        result,
+        first_project,
+        library_root=library_root,
+    )
+    second = download_image_to_project(
+        result,
+        second_project,
+        library_root=library_root,
+    )
+
+    assert download_count == 1
+    assert first.read_bytes() == b"shared-image"
+    assert second.read_bytes() == b"shared-image"
+    assert len(list((library_root / "Images").glob("*.jpg"))) == 1
+
+
+def test_download_image_avoids_duplicate_project_filenames(monkeypatch, tmp_path):
+    result = _image_result(image_id=987, tags="moon")
+    library_root = tmp_path / "Library"
+    project_root = tmp_path / "Project"
 
     def fake_urlopen(request, timeout):
         return FakeResponse(b"image")
@@ -147,8 +188,17 @@ def test_download_image_avoids_duplicate_filenames(monkeypatch, tmp_path):
         fake_urlopen,
     )
 
-    first = download_image_to_project(result, tmp_path)
-    second = download_image_to_project(result, tmp_path)
+    first = download_image_to_project(
+        result,
+        project_root,
+        library_root=library_root,
+    )
+    second = download_image_to_project(
+        result,
+        project_root,
+        library_root=library_root,
+    )
 
-    assert first.name == "moon-789.jpg"
-    assert second.name == "moon-789-2.jpg"
+    assert first.name == "moon-987.jpg"
+    assert second.name == "moon-987-2.jpg"
+    assert len(list((library_root / "Images").glob("*.jpg"))) == 1
