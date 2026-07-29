@@ -127,9 +127,13 @@ def _find_library_media(result, library_folder):
             continue
         if provider_line not in text or id_line not in text:
             continue
-        media_path = source_file.with_suffix("")
-        if media_path.exists():
-            return media_path
+
+        stem = source_file.name.removesuffix(".source.txt")
+        for media_path in library_folder.glob(f"{stem}.*"):
+            if media_path == source_file or media_path.name.endswith(".source.txt"):
+                continue
+            if media_path.is_file():
+                return media_path
     return None
 
 
