@@ -8,6 +8,7 @@ from capcut_exporter import prepare_capcut_package
 from common.ui_fonts import EMOJI_BUTTON_FONT, EMOJI_FONT
 from pages.base_page import BasePage
 from widgets.media_search_panel import MediaSearchPanel
+from widgets.project_assets_panel import ProjectAssetsPanel
 
 
 class ProjectViewerPage(BasePage):
@@ -61,6 +62,13 @@ class ProjectViewerPage(BasePage):
         ).pack(side="right", padx=(8, 0))
         ctk.CTkButton(
             header,
+            text="🗂 Assets",
+            width=110,
+            font=EMOJI_BUTTON_FONT,
+            command=self.show_assets,
+        ).pack(side="right", padx=(8, 0))
+        ctk.CTkButton(
+            header,
             text="🔍 Media",
             width=110,
             font=EMOJI_BUTTON_FONT,
@@ -100,8 +108,9 @@ class ProjectViewerPage(BasePage):
             self.tabs.add(tab_name)
             self.add_viewer_tab(self.tabs.tab(tab_name), tab_name, tab_text)
 
-        self.tabs.add("Media")
         project_folder = self.pm.resolve_project_folder(self.project)
+
+        self.tabs.add("Media")
         self.media_search_panel = MediaSearchPanel(
             self.tabs.tab("Media"),
             self.project,
@@ -109,9 +118,20 @@ class ProjectViewerPage(BasePage):
         )
         self.media_search_panel.pack(fill="both", expand=True)
 
+        self.tabs.add("Assets")
+        self.assets_panel = ProjectAssetsPanel(
+            self.tabs.tab("Assets"),
+            project_folder=project_folder,
+        )
+        self.assets_panel.pack(fill="both", expand=True)
+
     def show_media_search(self):
         self.tabs.set("Media")
         self.media_search_panel.search_entry.focus_set()
+
+    def show_assets(self):
+        self.assets_panel.refresh_assets()
+        self.tabs.set("Assets")
 
     def prepare_for_capcut(self):
         try:
