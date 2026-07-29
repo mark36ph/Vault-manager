@@ -16,7 +16,7 @@ from image_search import (
 )
 
 THUMBNAIL_SIZE = (210, 140)
-PREVIEW_SIZE = (380, 390)
+PREVIEW_SIZE = (380, 300)
 PROVIDERS = ("Both", "Pixabay", "Pexels")
 MEDIA_TYPES = ("Images", "Videos")
 
@@ -106,7 +106,9 @@ class MediaSearchPanel(ctk.CTkFrame):
         preview = ctk.CTkFrame(content)
         preview.grid(row=0, column=1, padx=(8, 0), sticky="nsew")
         preview.grid_columnconfigure(0, weight=1)
-        preview.grid_rowconfigure(1, weight=1)
+        preview.grid_rowconfigure(1, weight=3)
+        preview.grid_rowconfigure(2, weight=1)
+
         ctk.CTkLabel(preview, text="Preview", font=("Segoe UI", 20, "bold")).grid(
             row=0, column=0, padx=16, pady=(16, 10), sticky="w"
         )
@@ -114,27 +116,44 @@ class MediaSearchPanel(ctk.CTkFrame):
             preview, text="Select a result to preview it here.", wraplength=340
         )
         self.preview_image_label.grid(
-            row=1, column=0, padx=16, pady=10, sticky="nsew"
+            row=1, column=0, padx=16, pady=(0, 8), sticky="nsew"
         )
-        self.preview_title_label = ctk.CTkLabel(
+
+        self.preview_details_frame = ctk.CTkScrollableFrame(
             preview,
+            height=130,
+            label_text="Details",
+        )
+        self.preview_details_frame.grid(
+            row=2, column=0, padx=16, pady=(0, 10), sticky="nsew"
+        )
+        self.preview_details_frame.grid_columnconfigure(0, weight=1)
+
+        self.preview_title_label = ctk.CTkLabel(
+            self.preview_details_frame,
             text="",
             font=("Segoe UI", 16, "bold"),
-            wraplength=360,
+            wraplength=330,
             justify="left",
             anchor="w",
         )
         self.preview_title_label.grid(
-            row=2, column=0, padx=16, pady=(8, 4), sticky="ew"
+            row=0, column=0, padx=6, pady=(4, 8), sticky="ew"
         )
         self.preview_details_label = ctk.CTkLabel(
-            preview, text="", text_color="gray", justify="left", anchor="w"
+            self.preview_details_frame,
+            text="",
+            text_color="gray",
+            wraplength=330,
+            justify="left",
+            anchor="w",
         )
         self.preview_details_label.grid(
-            row=3, column=0, padx=16, pady=(0, 12), sticky="ew"
+            row=1, column=0, padx=6, pady=(0, 8), sticky="ew"
         )
+
         buttons = ctk.CTkFrame(preview, fg_color="transparent")
-        buttons.grid(row=4, column=0, padx=16, pady=(0, 16), sticky="ew")
+        buttons.grid(row=3, column=0, padx=16, pady=(0, 16), sticky="ew")
         buttons.grid_columnconfigure(0, weight=1)
         self.save_button = ctk.CTkButton(
             buttons, text="Save to Project", state="disabled", command=self.save_selected
@@ -219,7 +238,10 @@ class MediaSearchPanel(ctk.CTkFrame):
         self.results = results
         self.search_button.configure(state="normal", text="🔍 Search")
         if not results:
-            self._set_status("No matching media was found." + (" " + " | ".join(errors) if errors else ""), "warning")
+            message = "No matching media was found."
+            if errors:
+                message += " " + " | ".join(errors)
+            self._set_status(message, "warning")
             return
         message = f"{len(results)} {media_type}s found from {' and '.join(providers)}."
         if missing:
@@ -251,7 +273,10 @@ class MediaSearchPanel(ctk.CTkFrame):
             duration = f" • {result.duration}s" if result.duration else ""
             details = ctk.CTkLabel(
                 card,
-                text=f"{result.provider} • {result.creator}{duration}\n{result.width} × {result.height}",
+                text=(
+                    f"{result.provider} • {result.creator}{duration}\n"
+                    f"{result.width} × {result.height}"
+                ),
                 text_color="gray",
                 justify="left",
                 anchor="w",
@@ -267,8 +292,14 @@ class MediaSearchPanel(ctk.CTkFrame):
             badge.pack(fill="x", padx=12, pady=(0, 8))
             self.saved_badges[id(result)] = badge
             for widget in (card, image_label, title, details, badge):
-                widget.bind("<Button-1>", lambda _e, selected=result: self.select_result(selected))
-                widget.bind("<Double-Button-1>", lambda _e, selected=result: self.start_download(selected))
+                widget.bind(
+                    "<Button-1>",
+                    lambda _event, selected=result: self.select_result(selected),
+                )
+                widget.bind(
+                    "<Double-Button-1>",
+                    lambda _event, selected=result: self.start_download(selected),
+                )
             self._load_image_async(result.preview_url, image_label, THUMBNAIL_SIZE, False)
         self.select_result(results[0])
 
@@ -303,13 +334,17 @@ class MediaSearchPanel(ctk.CTkFrame):
 
     def _fetch_image(self, url, label, size, preview):
         try:
-            request = urllib.request.Request(url, headers={"User-Agent": "FactVaultManager/1.0"})
+            request = urllib.request.Request(
+                url, headers={"User-Agent": "FactVaultManager/1.0"}
+            )
             with urllib.request.urlopen(request, timeout=20) as response:
                 image = Image.open(BytesIO(response.read())).convert("RGB")
             image.thumbnail(size, Image.Resampling.LANCZOS)
-            rendered = ctk.CTkImage(light_image=image, dark_image=image, size=image.size)
+            rendered = ctk.CTkImage(
+                light_image=image, dark_image=image, size=image.size
+            )
         except (urllib.error.URLError, urllib.error.HTTPError, OSError):
-            self.after(0, lambda: label.configure(text="Preview unavailable"))
+            self.after(0, lambda: label.configure(image=None, text="Preview unavailable"))
             return
         self.after(0, lambda: self._set_image(label, rendered, preview))
 
@@ -330,7 +365,7 @@ class MediaSearchPanel(ctk.CTkFrame):
         if is_media_saved(result, self.project_folder):
             self.select_result(result)
             return
-        self._set_status(f"Saving {result.media_type} to the project...", "info")
+        self._set_status(f"Saving {result.media_type} to the library and project...", "info")
         self.save_button.configure(state="disabled", text="Saving...")
         threading.Thread(target=self._perform_download, args=(result,), daemon=True).start()
 
@@ -347,7 +382,7 @@ class MediaSearchPanel(ctk.CTkFrame):
         if badge:
             badge.configure(text="✓ Saved")
         self.select_result(result)
-        self._set_status(f"Saved {path.name} to {path.parent}", "success")
+        self._set_status(f"Saved {path.name} from the Media Library to {path.parent}", "success")
 
     def _download_error(self, message):
         self.save_button.configure(state="normal", text="Save to Project")
@@ -362,7 +397,9 @@ class MediaSearchPanel(ctk.CTkFrame):
         self.saved_badges.clear()
         for child in self.results_frame.winfo_children():
             child.destroy()
-        self.preview_image_label.configure(image=None, text="Select a result to preview it here.")
+        self.preview_image_label.configure(
+            image=None, text="Select a result to preview it here."
+        )
         self.preview_title_label.configure(text="")
         self.preview_details_label.configure(text="")
         self.save_button.configure(state="disabled", text="Save to Project")
