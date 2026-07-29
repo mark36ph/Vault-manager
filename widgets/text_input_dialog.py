@@ -1,4 +1,35 @@
+from tkinter import TclError
+
 import customtkinter as ctk
+
+
+# CustomTkinter can leave a deleted Tk image name attached to a CTkLabel when
+# an image reference is released immediately before the label is reconfigured.
+# Recover by clearing that stale native image and retrying the requested update.
+_original_label_configure = ctk.CTkLabel.configure
+
+
+def _safe_label_configure(self, require_redraw=False, **kwargs):
+    try:
+        return _original_label_configure(
+            self,
+            require_redraw=require_redraw,
+            **kwargs,
+        )
+    except TclError as exc:
+        if "image" not in str(exc) or "doesn't exist" not in str(exc):
+            raise
+        self._label.configure(image="")
+        self._image = None
+        return _original_label_configure(
+            self,
+            require_redraw=require_redraw,
+            **kwargs,
+        )
+
+
+if ctk.CTkLabel.configure is not _safe_label_configure:
+    ctk.CTkLabel.configure = _safe_label_configure
 
 
 class TextInputDialog(ctk.CTkToplevel):
@@ -109,7 +140,7 @@ class TextInputDialog(ctk.CTkToplevel):
         if not self.winfo_exists():
             return
         self.entry.focus_set()
-        self.entry.selection_range(0, "end")
+        self.entry.select_range(0, "end")
         self.entry.icursor("end")
 
     def confirm(self):
