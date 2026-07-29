@@ -47,6 +47,9 @@ def scan_media_library(library_root=None):
 
 def copy_library_asset_to_project(asset, project_folder):
     project_folder = Path(project_folder)
+    if not asset.path.is_file():
+        raise FileNotFoundError(f"Library media file does not exist:\n{asset.path}")
+
     destination_folder = project_folder / "Assets" / ("Videos" if asset.media_type == "Video" else "Images")
     destination_folder.mkdir(parents=True, exist_ok=True)
     destination = destination_folder / asset.name
@@ -54,9 +57,17 @@ def copy_library_asset_to_project(asset, project_folder):
     while destination.exists():
         destination = destination_folder / f"{asset.path.stem}-{counter}{asset.path.suffix}"
         counter += 1
+
     shutil.copy2(asset.path, destination)
+    if not destination.is_file():
+        raise OSError(f"The media file could not be copied to:\n{destination}")
+
     if asset.source_path and asset.source_path.exists():
-        shutil.copy2(asset.source_path, destination.with_suffix(".source.txt"))
+        metadata_destination = destination.with_suffix(".source.txt")
+        shutil.copy2(asset.source_path, metadata_destination)
+        if not metadata_destination.is_file():
+            raise OSError(f"The source metadata could not be copied to:\n{metadata_destination}")
+
     return destination
 
 
@@ -219,13 +230,14 @@ class MediaLibraryPage(BasePage):
             messagebox.showwarning("Media Library", "Select a project first.", parent=self)
             return
         try:
-            destination = copy_library_asset_to_project(self.selected_asset, project["folder"])
+            project_folder = self.pm.resolve_project_folder(project)
+            destination = copy_library_asset_to_project(self.selected_asset, project_folder)
         except Exception as exc:
             messagebox.showerror("Media Library", str(exc), parent=self)
             return
         messagebox.showinfo(
             "Media Library",
-            f"Added {destination.name} to {project['title']}.",
+            f"Added {destination.name} to {project['title']}.\n\n{destination}",
             parent=self,
         )
 
