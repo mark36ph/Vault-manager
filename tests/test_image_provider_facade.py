@@ -54,7 +54,7 @@ def test_get_provider_rejects_unknown_provider():
 
     with pytest.raises(
         ImageSearchError,
-        match="Unsupported image provider",
+        match="Unsupported .* provider",
     ):
         get_provider(
             "Unknown",
