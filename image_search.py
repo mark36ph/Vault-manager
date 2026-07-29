@@ -70,6 +70,7 @@ def migrate_library_metadata(library_root=None):
 
 
 def download_media_to_project(result, project_folder, *, library_root=None):
+    """Store a result once in the library and reuse its existing project copy."""
     project_folder = Path(project_folder)
     root = get_media_library_root(library_root)
     migrate_library_metadata(root)
@@ -80,7 +81,7 @@ def download_media_to_project(result, project_folder, *, library_root=None):
     library_folder.mkdir(parents=True, exist_ok=True)
     metadata_folder = get_library_metadata_folder(folder_name, root)
 
-    library_path = _find_library_media(result, library_folder, metadata_folder)
+    library_path = _find_media_from_metadata(result, library_folder, metadata_folder)
     if library_path is None:
         extension = _extension_from_url(result.download_url, media_type)
         first_tag = result.tags.split(",")[0] if result.tags else f"{result.provider}-{media_type}"
@@ -91,6 +92,15 @@ def download_media_to_project(result, project_folder, *, library_root=None):
 
     project_media_folder = project_folder / "Assets" / folder_name
     project_media_folder.mkdir(parents=True, exist_ok=True)
+
+    existing_project_path = _find_media_from_metadata(
+        result,
+        project_media_folder,
+        project_media_folder,
+    )
+    if existing_project_path is not None:
+        return existing_project_path
+
     project_path = _available_path(project_media_folder, library_path.stem, library_path.suffix)
     shutil.copy2(library_path, project_path)
 
@@ -115,7 +125,13 @@ def _download_to_path(result, media_path, media_type):
         raise ImageSearchError(f"The {media_type} download timed out.") from exc
 
 
-def _find_library_media(result, library_folder, metadata_folder):
+def _find_media_from_metadata(result, media_folder, metadata_folder):
+    """Return the media file identified by provider and media ID metadata."""
+    media_folder = Path(media_folder)
+    metadata_folder = Path(metadata_folder)
+    if not media_folder.exists() or not metadata_folder.exists():
+        return None
+
     provider_line = f"Provider: {getattr(result, 'provider', '') or 'Unknown'}"
     id_line = f"Media ID: {result.image_id}"
     for source_file in metadata_folder.glob("*.source.txt"):
@@ -126,10 +142,14 @@ def _find_library_media(result, library_folder, metadata_folder):
         if provider_line not in text or id_line not in text:
             continue
         stem = source_file.name.removesuffix(".source.txt")
-        for media_path in library_folder.glob(f"{stem}.*"):
-            if media_path.is_file():
+        for media_path in media_folder.glob(f"{stem}.*"):
+            if media_path.is_file() and not media_path.name.endswith(".source.txt"):
                 return media_path
     return None
+
+
+def _find_library_media(result, library_folder, metadata_folder):
+    return _find_media_from_metadata(result, library_folder, metadata_folder)
 
 
 def download_image_to_project(result, project_folder, *, library_root=None):
@@ -140,18 +160,7 @@ def is_media_saved(result, project_folder):
     media_type = str(getattr(result, "media_type", "image") or "image").lower()
     folder_name = "Videos" if media_type == "video" else "Images"
     folder = Path(project_folder) / "Assets" / folder_name
-    if not folder.exists():
-        return False
-    provider_line = f"Provider: {result.provider}"
-    id_line = f"Media ID: {result.image_id}"
-    for source_file in folder.glob("*.source.txt"):
-        try:
-            text = source_file.read_text(encoding="utf-8")
-        except OSError:
-            continue
-        if provider_line in text and id_line in text:
-            return True
-    return False
+    return _find_media_from_metadata(result, folder, folder) is not None
 
 
 def _write_source_file(result, source_path):
