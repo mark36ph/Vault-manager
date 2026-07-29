@@ -131,19 +131,25 @@ def test_download_reuses_library_copy_without_downloading_again(monkeypatch, tmp
     assert len(list((library_root / "Images").glob("*.jpg"))) == 1
 
 
-def test_download_image_avoids_duplicate_project_filenames(monkeypatch, tmp_path):
+def test_download_reuses_existing_project_copy(monkeypatch, tmp_path):
     result = _image_result(image_id=987, tags="moon")
     library_root = tmp_path / "Library"
     project_root = tmp_path / "Project"
-    monkeypatch.setattr(
-        image_search.urllib.request,
-        "urlopen",
-        lambda request, timeout: FakeResponse(b"image"),
-    )
+    download_count = 0
+
+    def fake_urlopen(request, timeout):
+        nonlocal download_count
+        download_count += 1
+        return FakeResponse(b"image")
+
+    monkeypatch.setattr(image_search.urllib.request, "urlopen", fake_urlopen)
 
     first = download_image_to_project(result, project_root, library_root=library_root)
     second = download_image_to_project(result, project_root, library_root=library_root)
 
+    assert download_count == 1
+    assert first == second
     assert first.name == "moon-987.jpg"
-    assert second.name == "moon-987-2.jpg"
+    assert len(list((project_root / "Assets" / "Images").glob("*.jpg"))) == 1
+    assert len(list((project_root / "Assets" / "Images").glob("*.source.txt"))) == 1
     assert len(list((library_root / "Images").glob("*.jpg"))) == 1
