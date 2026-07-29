@@ -13,7 +13,15 @@ class ImageSearchResult:
     width: int
     height: int
 
-    # Provider-neutral fields for future providers.
+    # Provider-neutral fields shared by image and video results.
     provider: str = "Pixabay"
     attribution: str = ""
     download_tracking_url: str = ""
+    media_type: str = "image"
+    duration: int = 0
+    file_size: int = 0
+
+    @property
+    def media_id(self):
+        """Provider-neutral alias retained alongside the legacy image_id field."""
+        return self.image_id
