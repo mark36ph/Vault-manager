@@ -2,18 +2,28 @@
 
 from .builder import TimelineBuilder
 from .models import Clip, ClipKind, Scene, Timeline, Track, TrackKind, Transition
+from .storage import (
+    ProjectTimelineStore,
+    TIMELINE_FILENAME,
+    TimelineStorageError,
+    ensure_project_timeline,
+)
 from .validator import TimelineValidationError, TimelineValidator, ValidationIssue
 
 __all__ = [
     "Clip",
     "ClipKind",
+    "ProjectTimelineStore",
     "Scene",
+    "TIMELINE_FILENAME",
     "Timeline",
     "TimelineBuilder",
+    "TimelineStorageError",
     "TimelineValidationError",
     "TimelineValidator",
     "Track",
     "TrackKind",
     "Transition",
     "ValidationIssue",
+    "ensure_project_timeline",
 ]
