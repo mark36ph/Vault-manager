@@ -47,6 +47,16 @@ DEFAULT_SETTINGS = {
         "api_key": "",
         "model": "",
         "temperature": 0.7
+    },
+
+    "resolve": {
+        "application_path": "",
+        "scripting_module_path": "",
+        "integration_mode": "external",
+        "timeline_width": 1080,
+        "timeline_height": 1920,
+        "frame_rate": 30,
+        "default_project_name": "Fact Vault Video",
     }
 }
 
@@ -84,7 +94,6 @@ class SettingsManager:
             if section not in self.settings:
 
                 self.settings[section] = deepcopy(values)
-
                 updated = True
 
                 continue
@@ -94,11 +103,9 @@ class SettingsManager:
                 if key not in self.settings[section]:
 
                     self.settings[section][key] = value
-
                     updated = True
 
         if updated:
-
             self.save()
 
     # ======================================
