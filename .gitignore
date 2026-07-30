@@ -35,6 +35,11 @@ data/settings.json
 # Logs
 *.log
 
+.pytest_cache/
+.test-temp/
+__pycache__/
+*.pyc
+
 # Installed voice models
 voices/installed/
 
