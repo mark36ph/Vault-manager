@@ -22,6 +22,7 @@ class ResolveTimelineAdapter:
         ClipKind.SUBTITLE,
         ClipKind.MARKER,
     }
+    FILE_BACKED_CLIPS = {ClipKind.IMAGE, ClipKind.VIDEO, ClipKind.AUDIO}
 
     def __init__(self, timeline: Timeline, *, project_folder: str | Path | None = None) -> None:
         if not isinstance(timeline, Timeline):
@@ -47,9 +48,13 @@ class ResolveTimelineAdapter:
                 seen_ids.add(clip.id)
                 if clip.kind not in self.SUPPORTED_CLIPS:
                     issues.append(f"unsupported clip kind: {clip.kind.value}")
-                if clip.kind is not ClipKind.MARKER and not clip.source:
+                if clip.kind in self.FILE_BACKED_CLIPS and not clip.source:
                     issues.append(f"clip has no source: {clip.id}")
-                if clip.source and self.project_folder is not None:
+                if (
+                    clip.kind in self.FILE_BACKED_CLIPS
+                    and clip.source
+                    and self.project_folder is not None
+                ):
                     candidate = Path(clip.source)
                     if not candidate.is_absolute():
                         candidate = self.project_folder / candidate
