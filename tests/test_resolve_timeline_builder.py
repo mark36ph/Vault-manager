@@ -176,7 +176,7 @@ def test_builder_creates_project_and_applies_vertical_settings():
     assert result.project_name == "Fact Timeline"
     assert project.settings["timelineResolutionWidth"] == "1080"
     assert project.settings["timelineResolutionHeight"] == "1920"
-    assert project.settings["timelineFrameRate"] == "30.0"
+    assert float(project.settings["timelineFrameRate"]) == 30.0
 
 
 def test_builder_reuses_matching_current_project():
