@@ -8,6 +8,11 @@ from .assets import (
     AssetStatus,
 )
 from .builder import TimelineBuilder
+from .materializer import (
+    ClipMaterializationError,
+    TimelineClipMaterializer,
+    materialize_timeline_clips,
+)
 from .models import Clip, ClipKind, Scene, Timeline, Track, TrackKind, Transition
 from .scene_builder import SceneBuilder, build_project_timeline
 from .storage import (
@@ -26,12 +31,14 @@ __all__ = [
     "AssetStatus",
     "Clip",
     "ClipKind",
+    "ClipMaterializationError",
     "ProjectTimelineStore",
     "Scene",
     "SceneBuilder",
     "TIMELINE_FILENAME",
     "Timeline",
     "TimelineBuilder",
+    "TimelineClipMaterializer",
     "TimelineStorageError",
     "TimelineValidationError",
     "TimelineValidator",
@@ -41,4 +48,5 @@ __all__ = [
     "ValidationIssue",
     "build_project_timeline",
     "ensure_project_timeline",
+    "materialize_timeline_clips",
 ]
