@@ -2,6 +2,7 @@
 
 from .builder import TimelineBuilder
 from .models import Clip, ClipKind, Scene, Timeline, Track, TrackKind, Transition
+from .scene_builder import SceneBuilder, build_project_timeline
 from .storage import (
     ProjectTimelineStore,
     TIMELINE_FILENAME,
@@ -15,6 +16,7 @@ __all__ = [
     "ClipKind",
     "ProjectTimelineStore",
     "Scene",
+    "SceneBuilder",
     "TIMELINE_FILENAME",
     "Timeline",
     "TimelineBuilder",
@@ -25,5 +27,6 @@ __all__ = [
     "TrackKind",
     "Transition",
     "ValidationIssue",
+    "build_project_timeline",
     "ensure_project_timeline",
 ]
