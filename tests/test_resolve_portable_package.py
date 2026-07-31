@@ -37,8 +37,8 @@ def project_data():
 def make_timeline(tmp_path: Path, *, include_subtitle=True):
     image = tmp_path / "Assets" / "ocean.jpg"
     audio = tmp_path / "Voice" / "narration.wav"
-    image.parent.mkdir(parents=True)
-    audio.parent.mkdir(parents=True)
+    image.parent.mkdir(parents=True, exist_ok=True)
+    audio.parent.mkdir(parents=True, exist_ok=True)
     image.write_bytes(b"image data")
     audio.write_bytes(b"audio data")
 
