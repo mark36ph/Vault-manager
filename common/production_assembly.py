@@ -47,10 +47,34 @@ def _asset_path(asset: Any) -> str:
     return str(value or "")
 
 
+def _absolute_media_path(value: Any, project_folder: str | Path | None = None) -> str:
+    """Return an absolute media path suitable for Resolve validation/import."""
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    path = Path(text).expanduser()
+    if path.is_absolute():
+        return str(path.resolve())
+
+    # Acquired assets currently contain a project-root-relative path such as
+    # ``In Progress/Project/Assets/...``. Resolve validation is performed from
+    # another working directory, so preserving that relative path makes a real
+    # file appear missing. Resolve it against the current application folder
+    # first; support paths relative to the project folder as a fallback.
+    cwd_candidate = path.resolve()
+    if cwd_candidate.exists() or project_folder is None:
+        return str(cwd_candidate)
+
+    folder_candidate = (Path(project_folder).expanduser().resolve() / path).resolve()
+    return str(folder_candidate)
+
+
 def assemble_timeline(
     timeline: Timeline,
     assets: Iterable[Any] | None,
     voice: Any = None,
+    *,
+    project_folder: str | Path | None = None,
 ) -> Timeline:
     """Attach one acquired visual per scene and one narration clip to a timeline."""
     items = [asset for asset in (assets or []) if _asset_path(asset)]
@@ -61,12 +85,13 @@ def assemble_timeline(
         for index, scene in enumerate(timeline.scenes):
             asset = items[index % len(items)]
             kind = str(_asset_value(asset, "kind", "image"))
+            source = _absolute_media_path(_asset_path(asset), project_folder)
             clip = visual_track.add_clip(
                 Clip(
                     kind=ClipKind.VIDEO if kind == "video" else ClipKind.IMAGE,
                     start=scene.start,
                     duration=scene.duration,
-                    source=_asset_path(asset),
+                    source=source,
                     name=str(_asset_value(asset, "title", "") or scene.title),
                     metadata={
                         "provider": str(_asset_value(asset, "provider", "")),
@@ -78,7 +103,7 @@ def assemble_timeline(
             if clip.id not in scene.clip_ids:
                 scene.clip_ids.append(clip.id)
 
-    voice_path = str(voice or "").strip()
+    voice_path = _absolute_media_path(voice, project_folder)
     if voice_path and timeline.duration > 0:
         narration_track = timeline.get_track("Narration")
         if narration_track is None:
