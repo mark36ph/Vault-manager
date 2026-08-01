@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import shutil
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -46,8 +47,23 @@ Downloader = Callable[[str, Path], None]
 ProgressCallback = Callable[[str, int, int, str], None]
 
 
+def _download_headers(url: str) -> dict[str, str]:
+    """Return conservative browser-compatible headers for media CDNs."""
+    headers = {
+        "User-Agent": "FactVaultManager/1.0 (+desktop media downloader)",
+        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,video/*;q=0.9,*/*;q=0.8",
+    }
+    host = urllib.parse.urlparse(url).hostname or ""
+    if host == "pixabay.com" or host.endswith(".pixabay.com") or host.endswith(".pixabay.com"):
+        headers["Referer"] = "https://pixabay.com/"
+    elif host == "pexels.com" or host.endswith(".pexels.com"):
+        headers["Referer"] = "https://www.pexels.com/"
+    return headers
+
+
 def _default_downloader(url: str, destination: Path) -> None:
-    with urllib.request.urlopen(url, timeout=30) as response, destination.open("wb") as output:
+    request = urllib.request.Request(url, headers=_download_headers(url))
+    with urllib.request.urlopen(request, timeout=30) as response, destination.open("wb") as output:
         shutil.copyfileobj(response, output)
 
 
