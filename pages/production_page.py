@@ -85,7 +85,7 @@ class ProductionPage(BasePage):
         self._load_selected_project()
 
     def _build_controls(self, parent):
-        panel = ctk.CTkFrame(parent)
+        panel = ctk.CTkScrollableFrame(parent)
         panel.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
 
         ctk.CTkLabel(panel, text="Production Setup", font=("Segoe UI", 22, "bold")).pack(
