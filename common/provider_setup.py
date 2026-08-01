@@ -15,6 +15,7 @@ from common.provider_integrations import (
     PexelsAssetProvider,
     PixabayAssetProvider,
 )
+from common.settings_manager import SettingsManager
 
 
 class ProviderSetupError(RuntimeError):
@@ -100,8 +101,32 @@ class CredentialStatus:
     source: str
 
 
+def credentials_from_app_settings(
+    app_settings: Any | None = None,
+    *,
+    environment: Mapping[str, str] | None = None,
+) -> dict[str, str]:
+    """Combine saved app credentials with environment-variable fallbacks.
+
+    Values stored in the app take priority. Environment variables remain useful
+    for portable/headless runs and for users who deliberately avoid saving keys.
+    """
+    settings = app_settings or SettingsManager()
+    get = getattr(settings, "get", lambda section, key, default=None: default)
+    env = os.environ if environment is None else environment
+    stored = {
+        "OPENAI_API_KEY": str(get("ai", "api_key", "") or "").strip(),
+        "PEXELS_API_KEY": str(get("images", "pexels_api_key", "") or "").strip(),
+        "PIXABAY_API_KEY": str(get("images", "pixabay_api_key", "") or "").strip(),
+    }
+    return {
+        name: value or str(env.get(name, "") or "").strip()
+        for name, value in stored.items()
+    }
+
+
 class ProviderCredentials:
-    """Read API keys from an injected mapping or the process environment."""
+    """Read API keys from app settings, an injected mapping, or the environment."""
 
     NAMES = {
         "openai": "OPENAI_API_KEY",
@@ -110,7 +135,7 @@ class ProviderCredentials:
     }
 
     def __init__(self, values: Mapping[str, str] | None = None) -> None:
-        self.values = os.environ if values is None else values
+        self.values = credentials_from_app_settings() if values is None else values
 
     def get(self, provider: str, *, required: bool = True) -> str:
         variable = self.NAMES.get(provider)
@@ -234,5 +259,6 @@ __all__ = [
     "ProviderSettingsStore",
     "ProviderSetupError",
     "build_configured_providers",
+    "credentials_from_app_settings",
     "test_provider_credentials",
 ]
