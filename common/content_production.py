@@ -99,6 +99,7 @@ class ProductionCheckpointStore:
             "script": context.script,
             "image_prompts": context.image_prompts,
             "voice": context.voice,
+            "timeline": context.timeline.to_dict() if context.timeline is not None else None,
             "completed_stages": list(context.completed_stages),
             "warnings": list(context.warnings),
         })
@@ -118,8 +119,26 @@ class ProductionCheckpointStore:
         for name in ("topic", "research", "facts", "script", "image_prompts", "voice"):
             if name in payload:
                 setattr(context, name, payload[name])
+
+        timeline_payload = payload.get("timeline")
+        if isinstance(timeline_payload, Mapping):
+            try:
+                context.timeline = Timeline.from_dict(dict(timeline_payload))
+            except (KeyError, TypeError, ValueError) as error:
+                raise ContentProductionError("could not restore timeline from production checkpoint") from error
+
         context.completed_stages = [name for name in payload.get("completed_stages", []) if name in STAGES]
         context.warnings = list(payload.get("warnings", []))
+
+        # Older checkpoints marked the timeline complete without storing it. In
+        # that case, rebuild the timeline from the saved script/assets before
+        # attempting Resolve instead of skipping directly to a missing object.
+        if "timeline" in context.completed_stages and context.timeline is None:
+            timeline_index = STAGES.index("timeline")
+            context.completed_stages = [
+                name for name in context.completed_stages
+                if STAGES.index(name) < timeline_index
+            ]
         return context
 
     def clear(self) -> None:
