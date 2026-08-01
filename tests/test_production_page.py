@@ -56,3 +56,9 @@ def test_production_settings_read_resolve_values():
         "timeline_height": 3840,
         "frame_rate": 60.0,
     }
+
+
+def test_ai_settings_page_is_available():
+    from pages.settings.ai_page import AIPage
+
+    assert AIPage.__name__ == "AIPage"
