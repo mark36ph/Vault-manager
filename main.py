@@ -54,24 +54,23 @@ def install_production_settings_links():
 
     def build_controls(page, parent):
         original(page, parent)
-        children = parent.winfo_children()
-        if not children:
-            return
-        panel = children[0]
-        links = ctk.CTkFrame(panel, fg_color="transparent")
-        links.pack(fill="x", padx=14, pady=(0, 18))
+
+        # The existing action buttons all use pack inside this frame. Adding the
+        # shortcuts there avoids mixing pack and grid in CustomTkinter's
+        # scrollable-frame internals.
+        buttons = page.open_button.master
         ctk.CTkLabel(
-            links,
+            buttons,
             text="Update API keys",
             font=("Segoe UI", 14, "bold"),
-        ).pack(anchor="w", pady=(0, 6))
+        ).pack(anchor="w", pady=(12, 6))
         ctk.CTkButton(
-            links,
+            buttons,
             text="🤖 Open AI Settings",
             command=lambda: open_settings_section(page.app, "ai"),
         ).pack(fill="x", pady=3)
         ctk.CTkButton(
-            links,
+            buttons,
             text="🖼 Open Image API Settings",
             command=lambda: open_settings_section(page.app, "images"),
         ).pack(fill="x", pady=3)
