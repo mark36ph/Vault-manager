@@ -60,6 +60,44 @@ def test_checkpoint_restores_serialized_asset_results(tmp_path):
     assert restored.image_prompts[0]["candidate"]["kind"] == "image"
 
 
+def test_checkpoint_round_trips_completed_timeline(tmp_path):
+    context = ProductionContext({}, tmp_path, {})
+    context.timeline = timeline_with_scenes()
+    context.completed_stages = [
+        "research", "facts", "script", "image_prompts", "voice", "timeline"
+    ]
+    store = ProductionCheckpointStore(tmp_path)
+    store.save(context)
+
+    restored = store.load_into(ProductionContext({}, tmp_path, {}))
+
+    assert restored.timeline is not None
+    assert restored.timeline.name == "Video"
+    assert len(restored.timeline.scenes) == 2
+    assert "timeline" in restored.completed_stages
+
+
+def test_legacy_checkpoint_rebuilds_missing_completed_timeline(tmp_path):
+    checkpoint = tmp_path / "production_checkpoint.json"
+    checkpoint.write_text(json.dumps({
+        "script": "Sentence one. Sentence two.",
+        "image_prompts": [],
+        "voice": None,
+        "completed_stages": [
+            "research", "facts", "script", "image_prompts", "voice", "timeline"
+        ],
+    }), encoding="utf-8")
+
+    restored = ProductionCheckpointStore(tmp_path).load_into(
+        ProductionContext({}, tmp_path, {})
+    )
+
+    assert restored.timeline is None
+    assert restored.completed_stages == [
+        "research", "facts", "script", "image_prompts", "voice"
+    ]
+
+
 def test_assemble_timeline_adds_visual_for_each_scene(tmp_path):
     timeline = assemble_timeline(
         timeline_with_scenes(),
