@@ -9,6 +9,7 @@ from common.provider_setup import (
     ProviderSettingsStore,
     ProviderSetupError,
     build_configured_providers,
+    credentials_from_app_settings,
     test_provider_credentials as credential_statuses,
 )
 
@@ -21,6 +22,14 @@ def credentials(**overrides):
     }
     values.update(overrides)
     return ProviderCredentials(values)
+
+
+class AppSettings:
+    def __init__(self, values=None):
+        self.values = values or {}
+
+    def get(self, section, key, default=None):
+        return self.values.get((section, key), default)
 
 
 def test_default_settings_are_valid():
@@ -99,6 +108,47 @@ def test_credentials_can_report_optional_missing_key():
 def test_credentials_reject_unknown_provider():
     with pytest.raises(ValueError, match="unknown provider"):
         credentials().get("other")
+
+
+def test_saved_app_credentials_are_used():
+    settings = AppSettings({
+        ("ai", "api_key"): "saved-openai",
+        ("images", "pexels_api_key"): "saved-pexels",
+        ("images", "pixabay_api_key"): "saved-pixabay",
+    })
+    values = credentials_from_app_settings(settings, environment={})
+    assert values == {
+        "OPENAI_API_KEY": "saved-openai",
+        "PEXELS_API_KEY": "saved-pexels",
+        "PIXABAY_API_KEY": "saved-pixabay",
+    }
+
+
+def test_environment_is_fallback_for_blank_saved_credentials():
+    settings = AppSettings()
+    values = credentials_from_app_settings(settings, environment={
+        "OPENAI_API_KEY": "env-openai",
+        "PEXELS_API_KEY": "env-pexels",
+        "PIXABAY_API_KEY": "env-pixabay",
+    })
+    assert values["OPENAI_API_KEY"] == "env-openai"
+    assert values["PEXELS_API_KEY"] == "env-pexels"
+    assert values["PIXABAY_API_KEY"] == "env-pixabay"
+
+
+def test_saved_credentials_take_priority_over_environment():
+    settings = AppSettings({
+        ("ai", "api_key"): "saved-openai",
+        ("images", "pexels_api_key"): "saved-pexels",
+    })
+    values = credentials_from_app_settings(settings, environment={
+        "OPENAI_API_KEY": "env-openai",
+        "PEXELS_API_KEY": "env-pexels",
+        "PIXABAY_API_KEY": "env-pixabay",
+    })
+    assert values["OPENAI_API_KEY"] == "saved-openai"
+    assert values["PEXELS_API_KEY"] == "saved-pexels"
+    assert values["PIXABAY_API_KEY"] == "env-pixabay"
 
 
 def test_credential_statuses_only_include_selected_services():
