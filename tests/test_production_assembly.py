@@ -68,8 +68,8 @@ def test_assemble_timeline_adds_visual_for_each_scene(tmp_path):
     visuals = timeline.get_track("Visuals")
     assert visuals is not None
     assert [clip.source for clip in visuals.clips] == [
-        str(tmp_path / "one.jpg"),
-        str(tmp_path / "two.mp4"),
+        str((tmp_path / "one.jpg").resolve()),
+        str((tmp_path / "two.mp4").resolve()),
     ]
     assert all(scene.clip_ids for scene in timeline.scenes)
 
@@ -87,8 +87,31 @@ def test_assemble_timeline_adds_narration_track(tmp_path):
     timeline = assemble_timeline(timeline_with_scenes(), [], str(voice))
     narration = timeline.get_track("Narration")
     assert narration is not None
-    assert narration.clips[0].source == str(voice)
+    assert narration.clips[0].source == str(voice.resolve())
     assert narration.clips[0].duration == 7
+
+
+def test_assemble_timeline_resolves_relative_project_media_paths(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    project = Path("In Progress") / "Tower"
+    image = project / "Assets" / "Acquired" / "tower.jpg"
+    voice = project / "Voice" / "narration.mp3"
+    image.parent.mkdir(parents=True)
+    voice.parent.mkdir(parents=True)
+    image.write_bytes(b"image")
+    voice.write_bytes(b"voice")
+
+    timeline = assemble_timeline(
+        timeline_with_scenes(),
+        [acquired(image)],
+        str(voice),
+        project_folder=project,
+    )
+
+    assert Path(timeline.get_track("Visuals").clips[0].source).is_absolute()
+    assert Path(timeline.get_track("Visuals").clips[0].source).is_file()
+    assert Path(timeline.get_track("Narration").clips[0].source).is_absolute()
+    assert Path(timeline.get_track("Narration").clips[0].source).is_file()
 
 
 def test_assemble_timeline_does_not_duplicate_narration(tmp_path):
