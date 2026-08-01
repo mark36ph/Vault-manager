@@ -158,7 +158,12 @@ class ContentProductionEngine:
                 context.script,
                 name=str(context.project.get("title") or context.topic or "Fact Vault Video"),
             )
-            return assemble_timeline(timeline, context.image_prompts, context.voice)
+            return assemble_timeline(
+                timeline,
+                context.image_prompts,
+                context.voice,
+                project_folder=context.project_folder,
+            )
         if stage == "resolve":
             if context.timeline is None:
                 raise ContentProductionError("resolve stage requires a timeline")
