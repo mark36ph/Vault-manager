@@ -35,13 +35,14 @@ def test_regenerate_narration_passes_exact_database_script_to_provider(tmp_path)
         destination.write_bytes(b"audio")
         return destination
 
-    result = regenerate_narration(tmp_path, script, provider)
+    result = regenerate_narration(tmp_path, script, provider, duration_reader=lambda path: 44.0)
 
     assert seen["script"] == script
     assert result.audio_path.read_bytes() == b"audio"
     assert result.script_path.read_text(encoding="utf-8") == script + "\n"
     assert result.hash_path.read_text(encoding="utf-8").strip() == script_digest(script)
     assert result.word_count == 11
+    assert result.duration == 44.0
     assert narration_matches_script(tmp_path, script) is True
 
 
@@ -53,7 +54,7 @@ def test_narration_match_becomes_false_when_database_script_changes(tmp_path):
         destination.write_bytes(b"audio")
         return destination
 
-    regenerate_narration(tmp_path, original, provider)
+    regenerate_narration(tmp_path, original, provider, duration_reader=lambda path: 2.0)
     assert narration_matches_script(tmp_path, "Updated script") is False
 
 
@@ -63,4 +64,5 @@ def test_regenerate_narration_rejects_missing_audio(tmp_path):
             tmp_path,
             "Script from database",
             lambda context: tmp_path / "Voice" / "missing.mp3",
+            duration_reader=lambda path: 1.0,
         )
