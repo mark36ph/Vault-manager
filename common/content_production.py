@@ -1,15 +1,13 @@
-"""Typed, resumable content-production orchestration.
-
-The engine keeps provider integrations replaceable while connecting research,
-script, scene, asset, voice, timeline, and Resolve production stages.
-"""
+"""Typed, resumable content-production orchestration."""
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping, MutableMapping
+from typing import Any, Callable, Mapping
 
+from common.production_assembly import assemble_timeline, json_safe
 from common.resolve_production import ResolveProductionResult, ResolveProductionService
 from timeline import SceneBuilder, Timeline
 
@@ -63,8 +61,6 @@ class ContentProductionResult:
 
 
 class ProviderRegistry:
-    """Small provider registry used to swap production integrations."""
-
     def __init__(self, providers: Mapping[str, Provider] | None = None) -> None:
         self._providers: dict[str, Provider] = {}
         for name, provider in dict(providers or {}).items():
@@ -88,7 +84,7 @@ class ProviderRegistry:
 
 
 class ProductionCheckpointStore:
-    """Persist resumable production state without serializing service objects."""
+    """Persist resumable production state using only JSON-safe values."""
 
     FILENAME = "production_checkpoint.json"
 
@@ -96,16 +92,17 @@ class ProductionCheckpointStore:
         self.path = Path(project_folder) / self.FILENAME
 
     def save(self, context: ProductionContext) -> Path:
-        payload = {
+        payload = json_safe({
             "topic": context.topic,
             "research": context.research,
             "facts": context.facts,
             "script": context.script,
             "image_prompts": context.image_prompts,
             "voice": context.voice,
+            "timeline": context.timeline.to_dict() if context.timeline is not None else None,
             "completed_stages": list(context.completed_stages),
             "warnings": list(context.warnings),
-        }
+        })
         self.path.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.path.with_suffix(".tmp")
         temporary.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -122,8 +119,26 @@ class ProductionCheckpointStore:
         for name in ("topic", "research", "facts", "script", "image_prompts", "voice"):
             if name in payload:
                 setattr(context, name, payload[name])
+
+        timeline_payload = payload.get("timeline")
+        if isinstance(timeline_payload, Mapping):
+            try:
+                context.timeline = Timeline.from_dict(dict(timeline_payload))
+            except (KeyError, TypeError, ValueError) as error:
+                raise ContentProductionError("could not restore timeline from production checkpoint") from error
+
         context.completed_stages = [name for name in payload.get("completed_stages", []) if name in STAGES]
         context.warnings = list(payload.get("warnings", []))
+
+        # Older checkpoints marked the timeline complete without storing it. In
+        # that case, rebuild the timeline from the saved script/assets before
+        # attempting Resolve instead of skipping directly to a missing object.
+        if "timeline" in context.completed_stages and context.timeline is None:
+            timeline_index = STAGES.index("timeline")
+            context.completed_stages = [
+                name for name in context.completed_stages
+                if STAGES.index(name) < timeline_index
+            ]
         return context
 
     def clear(self) -> None:
@@ -131,8 +146,6 @@ class ProductionCheckpointStore:
 
 
 class ContentProductionEngine:
-    """Run a complete production with checkpointed stage recovery."""
-
     def __init__(
         self,
         providers: ProviderRegistry | Mapping[str, Provider],
@@ -154,10 +167,22 @@ class ContentProductionEngine:
         provider = self.providers.get(stage)
         if provider is not None:
             return provider(context)
+        if stage == "voice":
+            context.warnings.append("Narration generation is disabled")
+            return None
         if stage == "timeline":
             if not context.script.strip():
                 raise ContentProductionError("timeline stage requires a script")
-            return self.scene_builder.build(context.script, name=str(context.project.get("title") or context.topic or "Fact Vault Video"))
+            timeline = self.scene_builder.build(
+                context.script,
+                name=str(context.project.get("title") or context.topic or "Fact Vault Video"),
+            )
+            return assemble_timeline(
+                timeline,
+                context.image_prompts,
+                context.voice,
+                project_folder=context.project_folder,
+            )
         if stage == "resolve":
             if context.timeline is None:
                 raise ContentProductionError("resolve stage requires a timeline")
@@ -191,6 +216,7 @@ class ContentProductionEngine:
         folder = Path(project_folder)
         if not folder.is_dir():
             raise FileNotFoundError(folder)
+        started_at = datetime.now(timezone.utc).isoformat()
         context = ProductionContext(
             project=dict(project),
             project_folder=folder,
@@ -226,7 +252,7 @@ class ContentProductionEngine:
             checkpoints.clear()
         return ContentProductionResult(
             context=context,
-            started_at=context.completed_stages[0] if context.completed_stages else "",
+            started_at=started_at,
             completed=tuple(context.completed_stages),
         )
 
