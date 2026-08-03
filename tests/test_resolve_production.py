@@ -61,13 +61,16 @@ def test_rejects_missing_project_folder(tmp_path):
         ResolveProductionService().run(project_data(), tmp_path / "missing", settings())
 
 
-def test_builds_portable_package_and_saves_timeline(tmp_path):
+def test_builds_portable_package_fcpxml_and_saves_timeline(tmp_path):
     result = ResolveProductionService().run(
         project_data(), tmp_path, settings(), timeline=timeline_for(tmp_path), materialize=False
     )
     assert result.timeline_path == tmp_path / "timeline.json"
     assert result.timeline_path.is_file()
     assert result.package.package_folder.is_dir()
+    assert result.fcpxml.path.is_file()
+    assert result.fcpxml.path.suffix == ".fcpxml"
+    assert (result.package.package_folder / "IMPORT_IN_RESOLVE_FREE.txt").is_file()
     assert result.launched is False
 
 
@@ -80,16 +83,11 @@ def test_reports_package_warnings(tmp_path):
 
 def test_launches_generated_runner(tmp_path):
     calls = []
-
     def runner(command, **kwargs):
         calls.append((command, kwargs))
         return object()
-
-    result = ResolveProductionService(
-        process_runner=runner, python_executable="python-test"
-    ).run(
-        project_data(), tmp_path, settings(), timeline=timeline_for(tmp_path),
-        materialize=False, launch=True,
+    result = ResolveProductionService(process_runner=runner, python_executable="python-test").run(
+        project_data(), tmp_path, settings(), timeline=timeline_for(tmp_path), materialize=False, launch=True
     )
     assert result.launched is True
     assert result.command[0] == "python-test"
@@ -100,11 +98,9 @@ def test_launches_generated_runner(tmp_path):
 def test_wraps_launch_os_error(tmp_path):
     def runner(*args, **kwargs):
         raise OSError("blocked")
-
     with pytest.raises(ResolveProductionError, match="Could not launch"):
         ResolveProductionService(process_runner=runner).run(
-            project_data(), tmp_path, settings(), timeline=timeline_for(tmp_path),
-            materialize=False, launch=True,
+            project_data(), tmp_path, settings(), timeline=timeline_for(tmp_path), materialize=False, launch=True
         )
 
 
@@ -113,19 +109,17 @@ def test_emits_progress_in_order(tmp_path):
     service = ResolveProductionService(
         progress_callback=lambda stage, fraction, message: events.append((stage, fraction, message))
     )
-    service.run(
-        project_data(), tmp_path, settings(), timeline=timeline_for(tmp_path), materialize=False
-    )
-    assert [event[0] for event in events] == ["timeline", "package", "complete"]
+    service.run(project_data(), tmp_path, settings(), timeline=timeline_for(tmp_path), materialize=False)
+    assert [event[0] for event in events] == ["timeline", "package", "fcpxml", "complete"]
     assert events[-1][1] == 1.0
 
 
 def test_materialize_progress_is_reported(tmp_path):
     events = []
-    empty = Timeline(name="Empty")
+    timeline = timeline_for(tmp_path)
     ResolveProductionService(
         progress_callback=lambda stage, fraction, message: events.append(message)
-    ).run(project_data(), tmp_path, settings(), timeline=empty, materialize=True, strict=False)
+    ).run(project_data(), tmp_path, settings(), timeline=timeline, materialize=True, strict=False)
     assert "Materializing assigned assets" in events
 
 
@@ -133,10 +127,9 @@ def test_loads_existing_timeline_when_not_supplied(tmp_path):
     original = timeline_for(tmp_path)
     from timeline import ProjectTimelineStore
     ProjectTimelineStore(tmp_path).save(original)
-    result = ResolveProductionService().run(
-        project_data(), tmp_path, settings(), materialize=False
-    )
+    result = ResolveProductionService().run(project_data(), tmp_path, settings(), materialize=False)
     assert result.timeline_path.is_file()
+    assert result.fcpxml.path.is_file()
 
 
 def test_convenience_function_builds_package(tmp_path):
@@ -144,6 +137,7 @@ def test_convenience_function_builds_package(tmp_path):
         project_data(), tmp_path, settings(), timeline=timeline_for(tmp_path), materialize=False
     )
     assert result.package.package_folder.exists()
+    assert result.fcpxml.path.exists()
 
 
 def test_workflow_service_reads_project_from_context(tmp_path):
