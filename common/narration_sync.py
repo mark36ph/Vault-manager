@@ -7,6 +7,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable
 
+from mutagen import File as MutagenFile
+
+from timeline import ClipKind, ProjectTimelineStore, TrackKind
+
 
 class NarrationSyncError(RuntimeError):
     """Raised when narration cannot be regenerated from the saved project script."""
@@ -19,6 +23,7 @@ class NarrationSyncResult:
     hash_path: Path
     script_hash: str
     word_count: int
+    duration: float
 
 
 def normalize_script(text: str) -> str:
@@ -36,6 +41,44 @@ def require_project_script(script: str) -> str:
     if not normalized:
         raise NarrationSyncError("The selected project's database script is empty")
     return normalized
+
+
+def audio_duration(path: str | Path) -> float:
+    """Read the real duration of generated narration audio."""
+    media = MutagenFile(str(path))
+    info = getattr(media, "info", None)
+    duration = float(getattr(info, "length", 0) or 0)
+    if duration <= 0:
+        raise NarrationSyncError(f"Could not determine narration duration: {path}")
+    return duration
+
+
+def sync_timeline_to_narration(project_folder: str | Path, audio_path: str | Path, duration: float) -> Path | None:
+    """Scale the existing edit so its end matches the regenerated narration."""
+    store = ProjectTimelineStore(project_folder)
+    if not store.exists():
+        return None
+    timeline = store.load()
+    previous_duration = timeline.duration
+    if previous_duration <= 0:
+        return None
+    scale = duration / previous_duration
+
+    for track in timeline.tracks:
+        for clip in track.clips:
+            if track.kind == TrackKind.AUDIO and clip.kind == ClipKind.AUDIO:
+                clip.source = str(Path(audio_path).resolve())
+                clip.start = 0.0
+                clip.source_in = 0.0
+                clip.duration = duration
+            elif track.kind == TrackKind.VIDEO:
+                clip.start *= scale
+                clip.duration *= scale
+    for scene in timeline.scenes:
+        scene.start *= scale
+        scene.duration *= scale
+    timeline.metadata["narration_duration"] = duration
+    return store.save(timeline)
 
 
 def regenerate_narration(
@@ -59,12 +102,15 @@ def regenerate_narration(
     if not result.is_file() or result.stat().st_size == 0:
         raise NarrationSyncError(f"Narration provider did not create usable audio: {result}")
 
+    duration = audio_duration(result)
+    sync_timeline_to_narration(folder, result, duration)
     return NarrationSyncResult(
         audio_path=result,
         script_path=script_path,
         hash_path=hash_path,
         script_hash=digest,
         word_count=len(script.split()),
+        duration=duration,
     )
 
 
@@ -82,9 +128,11 @@ def narration_matches_script(project_folder: str | Path, script: str) -> bool:
 __all__ = [
     "NarrationSyncError",
     "NarrationSyncResult",
+    "audio_duration",
     "narration_matches_script",
     "normalize_script",
     "regenerate_narration",
     "require_project_script",
     "script_digest",
+    "sync_timeline_to_narration",
 ]
