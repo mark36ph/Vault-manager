@@ -54,7 +54,7 @@ def audio_duration(path: str | Path) -> float:
 
 
 def sync_timeline_to_narration(project_folder: str | Path, audio_path: str | Path, duration: float) -> Path | None:
-    """Scale the existing edit so its end matches the regenerated narration."""
+    """Scale every timed timeline item so the whole edit ends with narration."""
     store = ProjectTimelineStore(project_folder)
     if not store.exists():
         return None
@@ -71,13 +71,15 @@ def sync_timeline_to_narration(project_folder: str | Path, audio_path: str | Pat
                 clip.start = 0.0
                 clip.source_in = 0.0
                 clip.duration = duration
-            elif track.kind == TrackKind.VIDEO:
+            else:
                 clip.start *= scale
                 clip.duration *= scale
+                clip.source_in *= scale
     for scene in timeline.scenes:
         scene.start *= scale
         scene.duration *= scale
     timeline.metadata["narration_duration"] = duration
+    timeline.metadata["duration_synced_to_narration"] = True
     return store.save(timeline)
 
 
