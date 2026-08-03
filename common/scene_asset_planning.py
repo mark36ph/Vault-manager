@@ -36,9 +36,8 @@ def _scene_fallback(topic: str, scene, index: int) -> str:
 
 
 def plan_visual_queries(script: str, raw_queries: str | Iterable[str], *, topic: str = "") -> VisualQueryPlan:
-    """Return exactly one non-empty query per scene, using scene text as fallback."""
+    """Return enough unique queries to cover every scene, adding fallbacks as needed."""
     scenes = SceneBuilder().build(str(script or ""), name=str(topic or "Visual Plan")).scenes
-    target = max(1, len(scenes))
     lines = str(raw_queries or "").splitlines() if isinstance(raw_queries, str) else list(raw_queries or ())
 
     queries: list[str] = []
@@ -49,9 +48,9 @@ def plan_visual_queries(script: str, raw_queries: str | Iterable[str], *, topic:
         if query and key not in seen:
             queries.append(query)
             seen.add(key)
-        if len(queries) >= target:
-            break
 
+    scene_count = max(1, len(scenes))
+    target = max(scene_count, len(queries))
     fallbacks = 0
     while len(queries) < target:
         index = len(queries)
@@ -67,7 +66,7 @@ def plan_visual_queries(script: str, raw_queries: str | Iterable[str], *, topic:
         seen.add(candidate.casefold())
         fallbacks += 1
 
-    return VisualQueryPlan(scene_count=target, queries=tuple(queries), generated_fallbacks=fallbacks)
+    return VisualQueryPlan(scene_count=scene_count, queries=tuple(queries), generated_fallbacks=fallbacks)
 
 
 __all__ = ["VisualQueryPlan", "clean_visual_query", "plan_visual_queries"]
