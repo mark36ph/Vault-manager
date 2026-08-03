@@ -9,7 +9,9 @@ from common.narration_sync import (
     regenerate_narration,
     require_project_script,
     script_digest,
+    sync_timeline_to_narration,
 )
+from timeline import Clip, ClipKind, ProjectTimelineStore, Timeline, Track, TrackKind
 
 
 def test_normalize_script_preserves_words_and_normalizes_line_endings():
@@ -32,6 +34,7 @@ def test_regenerate_narration_passes_exact_database_script_to_provider(tmp_path)
     def provider(context):
         seen["script"] = context.script
         destination = Path(context.project_folder) / "Voice" / "narration.mp3"
+        destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(b"audio")
         return destination
 
@@ -51,6 +54,7 @@ def test_narration_match_becomes_false_when_database_script_changes(tmp_path):
 
     def provider(context):
         destination = Path(context.project_folder) / "Voice" / "narration.mp3"
+        destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(b"audio")
         return destination
 
@@ -66,3 +70,28 @@ def test_regenerate_narration_rejects_missing_audio(tmp_path):
             lambda context: tmp_path / "Voice" / "missing.mp3",
             duration_reader=lambda path: 1.0,
         )
+
+
+def test_sync_scales_subtitles_and_entire_timeline_to_narration(tmp_path):
+    audio = tmp_path / "Voice" / "narration.mp3"
+    audio.parent.mkdir(parents=True)
+    audio.write_bytes(b"audio")
+    image = tmp_path / "Assets" / "image.jpg"
+    image.parent.mkdir(parents=True)
+    image.write_bytes(b"image")
+
+    video = Track(kind=TrackKind.VIDEO, name="Visuals")
+    video.add_clip(Clip(kind=ClipKind.IMAGE, start=0, duration=105, source=str(image)))
+    narration = Track(kind=TrackKind.AUDIO, name="Narration")
+    narration.add_clip(Clip(kind=ClipKind.AUDIO, start=0, duration=105, source=str(audio)))
+    subtitles = Track(kind=TrackKind.SUBTITLE, name="Captions")
+    subtitles.add_clip(Clip(kind=ClipKind.SUBTITLE, start=90, duration=15, name="Last caption"))
+    timeline = Timeline(name="Long", tracks=[video, narration, subtitles])
+    ProjectTimelineStore(tmp_path).save(timeline)
+
+    sync_timeline_to_narration(tmp_path, audio, 44.0)
+    synced = ProjectTimelineStore(tmp_path).load()
+
+    assert synced.duration == pytest.approx(44.0)
+    assert synced.get_track("Captions").clips[0].end == pytest.approx(44.0)
+    assert synced.get_track("Narration").clips[0].duration == pytest.approx(44.0)
