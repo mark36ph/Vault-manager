@@ -18,6 +18,7 @@ from common.provider_setup import (
     build_configured_providers,
     test_provider_credentials,
 )
+from common.resolve_production import ResolveProductionService
 from pages.base_page import BasePage
 
 STAGE_LABELS = {
@@ -137,6 +138,12 @@ class ProductionPage(BasePage):
         self.start_button.pack(fill="x", pady=4)
         self.resume_button = ctk.CTkButton(buttons, text="↻ Resume Production", command=self.resume_production)
         self.resume_button.pack(fill="x", pady=4)
+        self.export_resolve_button = ctk.CTkButton(
+            buttons,
+            text="⬆ Export to Resolve Free",
+            command=self.export_to_resolve_free,
+        )
+        self.export_resolve_button.pack(fill="x", pady=4)
         self.cancel_button = ctk.CTkButton(buttons, text="■ Cancel", fg_color="#8B2E2E", command=self.cancel_production)
         self.cancel_button.pack(fill="x", pady=4)
         self.open_button = ctk.CTkButton(buttons, text="📂 Open Project Folder", command=self.open_project_folder)
@@ -204,6 +211,7 @@ class ProductionPage(BasePage):
             self.credential_label.configure(text="Create a project before starting production.")
             self.start_button.configure(state="disabled")
             self.resume_button.configure(state="disabled")
+            self.export_resolve_button.configure(state="disabled")
             return
         self.topic_entry.delete(0, "end")
         self.topic_entry.insert(0, str(project.get("topic") or project.get("title") or ""))
@@ -214,6 +222,7 @@ class ProductionPage(BasePage):
         self.voice_enabled.set(saved.voice_provider != "none")
         self._refresh_credentials(saved)
         self.resume_button.configure(state="normal" if (folder / "production_checkpoint.json").is_file() else "disabled")
+        self.export_resolve_button.configure(state="normal" if (folder / "timeline.json").is_file() else "disabled")
 
     def _provider_settings(self) -> ProviderSettings:
         return ProviderSettings(
@@ -302,6 +311,45 @@ class ProductionPage(BasePage):
 
     def resume_production(self):
         self._start(resume=True)
+
+    def export_to_resolve_free(self):
+        project = self._selected_project()
+        folder = self._project_folder()
+        if project is None or folder is None:
+            messagebox.showerror("Resolve Free Export", "Select a valid project.")
+            return
+        timeline_path = folder / "timeline.json"
+        if not timeline_path.is_file():
+            messagebox.showerror(
+                "Resolve Free Export",
+                "This project does not have a completed timeline yet.",
+            )
+            return
+        self.export_resolve_button.configure(state="disabled", text="Exporting...")
+        self.update_idletasks()
+        try:
+            result = ResolveProductionService().run(
+                project,
+                folder,
+                production_settings_from_app(self.app.settings),
+                materialize=False,
+                launch=False,
+            )
+        except Exception as error:
+            self._append_log(f"Resolve Free export failed: {error}")
+            messagebox.showerror("Resolve Free Export", str(error))
+        else:
+            self._append_log(f"Resolve Free timeline created: {result.fcpxml.path}")
+            messagebox.showinfo(
+                "Resolve Free Export",
+                f"FCPXML created successfully:\n\n{result.fcpxml.path}",
+            )
+            try:
+                os.startfile(result.fcpxml.path.parent)
+            except Exception:
+                pass
+        finally:
+            self.export_resolve_button.configure(state="normal", text="⬆ Export to Resolve Free")
 
     def cancel_production(self):
         if self.controller is not None:
