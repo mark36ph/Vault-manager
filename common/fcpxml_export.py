@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import quote
 import xml.etree.ElementTree as ET
 
 from timeline import ClipKind, Timeline, TrackKind
@@ -26,8 +25,8 @@ def _time(seconds: float, fps: float) -> str:
 
 
 def _file_url(path: Path) -> str:
-    resolved = path.resolve()
-    return "file://localhost/" + quote(resolved.as_posix(), safe="/:~!$&'()*+,;=@")
+    """Return the standards-compliant file URI Resolve expects on Windows."""
+    return path.resolve().as_uri()
 
 
 def export_fcpxml(timeline: Timeline, destination: str | Path) -> FCPXMLExportResult:
@@ -68,11 +67,13 @@ def export_fcpxml(timeline: Timeline, destination: str | Path) -> FCPXMLExportRe
             media_clips.append((track, clip, source.resolve()))
 
     asset_ids: dict[str, str] = {}
-    for index, (_track, clip, source) in enumerate(media_clips, start=2):
+    next_asset_id = 2
+    for _track, clip, source in media_clips:
         key = str(source)
         if key in asset_ids:
             continue
-        asset_id = f"r{index}"
+        asset_id = f"r{next_asset_id}"
+        next_asset_id += 1
         asset_ids[key] = asset_id
         attrs = {
             "id": asset_id,

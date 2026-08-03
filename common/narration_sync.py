@@ -1,4 +1,4 @@
-"""Keep generated narration tied to the exact script shown in the project."""
+"""Keep generated narration tied to the exact script stored for a project."""
 from __future__ import annotations
 
 import hashlib
@@ -6,6 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable
+
+from mutagen import File as MutagenFile
+
+from timeline import ClipKind, ProjectTimelineStore, TrackKind
 
 
 class NarrationSyncError(RuntimeError):
@@ -19,6 +23,7 @@ class NarrationSyncResult:
     hash_path: Path
     script_hash: str
     word_count: int
+    duration: float
 
 
 def normalize_script(text: str) -> str:
@@ -30,23 +35,64 @@ def script_digest(script: str) -> str:
     return hashlib.sha256(normalize_script(script).encode("utf-8")).hexdigest()
 
 
-def load_project_script(project_folder: str | Path) -> str:
-    path = Path(project_folder) / "Script.txt"
-    if not path.is_file():
-        raise NarrationSyncError(f"Project script could not be found: {path}")
-    script = normalize_script(path.read_text(encoding="utf-8"))
-    if not script:
-        raise NarrationSyncError("Project Script.txt is empty")
-    return script
+def require_project_script(script: str) -> str:
+    """Validate and normalize script text loaded from the projects database."""
+    normalized = normalize_script(script)
+    if not normalized:
+        raise NarrationSyncError("The selected project's database script is empty")
+    return normalized
+
+
+def audio_duration(path: str | Path) -> float:
+    """Read the real duration of generated narration audio."""
+    media = MutagenFile(str(path))
+    info = getattr(media, "info", None)
+    duration = float(getattr(info, "length", 0) or 0)
+    if duration <= 0:
+        raise NarrationSyncError(f"Could not determine narration duration: {path}")
+    return duration
+
+
+def sync_timeline_to_narration(project_folder: str | Path, audio_path: str | Path, duration: float) -> Path | None:
+    """Scale every timed timeline item so the whole edit ends with narration."""
+    store = ProjectTimelineStore(project_folder)
+    if not store.exists():
+        return None
+    timeline = store.load()
+    previous_duration = timeline.duration
+    if previous_duration <= 0:
+        return None
+    scale = duration / previous_duration
+
+    for track in timeline.tracks:
+        for clip in track.clips:
+            if track.kind == TrackKind.AUDIO and clip.kind == ClipKind.AUDIO:
+                clip.source = str(Path(audio_path).resolve())
+                clip.start = 0.0
+                clip.source_in = 0.0
+                clip.duration = duration
+            else:
+                clip.start *= scale
+                clip.duration *= scale
+                clip.source_in *= scale
+    for scene in timeline.scenes:
+        scene.start *= scale
+        scene.duration *= scale
+    timeline.metadata["narration_duration"] = duration
+    timeline.metadata["duration_synced_to_narration"] = True
+    return store.save(timeline)
 
 
 def regenerate_narration(
     project_folder: str | Path,
+    script: str,
     speech_provider: Callable[[Any], str | Path],
+    *,
+    duration_reader: Callable[[str | Path], float] = audio_duration,
 ) -> NarrationSyncResult:
-    """Regenerate narration using exactly the current Script.txt contents."""
+    """Regenerate narration using exactly the script stored in the database."""
     folder = Path(project_folder)
-    script = load_project_script(folder)
+    script = require_project_script(script)
     voice_folder = folder / "Voice"
     voice_folder.mkdir(parents=True, exist_ok=True)
 
@@ -60,20 +106,25 @@ def regenerate_narration(
     if not result.is_file() or result.stat().st_size == 0:
         raise NarrationSyncError(f"Narration provider did not create usable audio: {result}")
 
+    duration = float(duration_reader(result))
+    if duration <= 0:
+        raise NarrationSyncError(f"Could not determine narration duration: {result}")
+    sync_timeline_to_narration(folder, result, duration)
     return NarrationSyncResult(
         audio_path=result,
         script_path=script_path,
         hash_path=hash_path,
         script_hash=digest,
         word_count=len(script.split()),
+        duration=duration,
     )
 
 
-def narration_matches_script(project_folder: str | Path) -> bool:
+def narration_matches_script(project_folder: str | Path, script: str) -> bool:
     folder = Path(project_folder)
     hash_path = folder / "Voice" / "narration_script.sha256"
     try:
-        expected = script_digest(load_project_script(folder))
+        expected = script_digest(require_project_script(script))
         actual = hash_path.read_text(encoding="utf-8").strip()
     except (OSError, UnicodeError, NarrationSyncError):
         return False
@@ -83,9 +134,11 @@ def narration_matches_script(project_folder: str | Path) -> bool:
 __all__ = [
     "NarrationSyncError",
     "NarrationSyncResult",
-    "load_project_script",
+    "audio_duration",
     "narration_matches_script",
     "normalize_script",
     "regenerate_narration",
+    "require_project_script",
     "script_digest",
+    "sync_timeline_to_narration",
 ]

@@ -41,7 +41,7 @@ def test_writes_vertical_format_and_file_urls(tmp_path):
     assert fmt.attrib["width"] == "1080"
     assert fmt.attrib["height"] == "1920"
     assets = root.findall("./resources/asset")
-    assert all(asset.attrib["src"].startswith("file://localhost/") for asset in assets)
+    assert all(asset.attrib["src"].startswith("file:///") for asset in assets)
     assert any("tower%20image.jpg" in asset.attrib["src"] for asset in assets)
 
 
