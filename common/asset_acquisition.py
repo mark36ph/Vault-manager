@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping, Protocol, Sequence
 
+from common.scene_asset_planning import plan_visual_queries
+
 
 class AssetAcquisitionError(RuntimeError):
     """Raised when no provider can acquire a usable asset."""
@@ -48,13 +50,12 @@ ProgressCallback = Callable[[str, int, int, str], None]
 
 
 def _download_headers(url: str) -> dict[str, str]:
-    """Return conservative browser-compatible headers for media CDNs."""
     headers = {
         "User-Agent": "FactVaultManager/1.0 (+desktop media downloader)",
         "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,video/*;q=0.9,*/*;q=0.8",
     }
     host = urllib.parse.urlparse(url).hostname or ""
-    if host == "pixabay.com" or host.endswith(".pixabay.com") or host.endswith(".pixabay.com"):
+    if host == "pixabay.com" or host.endswith(".pixabay.com"):
         headers["Referer"] = "https://pixabay.com/"
     elif host == "pexels.com" or host.endswith(".pexels.com"):
         headers["Referer"] = "https://www.pexels.com/"
@@ -115,14 +116,7 @@ class AssetAcquisitionEngine:
 
         return sorted(unique.values(), key=ranking, reverse=True)
 
-    def search(
-        self,
-        query: str,
-        *,
-        kind: str = "image",
-        limit: int = 20,
-        target_ratio: float | None = None,
-    ) -> list[AssetCandidate]:
+    def search(self, query: str, *, kind: str = "image", limit: int = 20, target_ratio: float | None = None) -> list[AssetCandidate]:
         if not str(query).strip():
             raise ValueError("query is required")
         collected: list[AssetCandidate] = []
@@ -134,9 +128,7 @@ class AssetAcquisitionEngine:
             except Exception as error:
                 errors.append(f"{provider.name}: {error}")
                 continue
-            for result in results:
-                if result.kind == kind and result.url:
-                    collected.append(result)
+            collected.extend(result for result in results if result.kind == kind and result.url)
         ranked = self.rank(collected, target_ratio=target_ratio)
         if not ranked and errors:
             raise AssetAcquisitionError("; ".join(errors))
@@ -149,16 +141,25 @@ class AssetAcquisitionEngine:
         stem = _safe_filename(candidate.title or candidate.id, "asset")
         return folder / f"{stem}_{digest}{suffix}"
 
-    def acquire(
-        self,
-        query: str,
-        destination_folder: str | Path,
-        *,
-        kind: str = "image",
-        limit: int = 20,
-        target_ratio: float | None = None,
-        attempts: int = 3,
-    ) -> AcquiredAsset:
+    def _download_candidate(self, candidate: AssetCandidate, folder: Path, index: int, total: int) -> AcquiredAsset:
+        destination = self._destination(candidate, folder)
+        if destination.is_file() and destination.stat().st_size > 0:
+            self._progress("download", index, total, f"Reusing {destination.name}")
+            return AcquiredAsset(candidate=candidate, path=destination, reused=True)
+        temporary = destination.with_suffix(destination.suffix + ".part")
+        temporary.unlink(missing_ok=True)
+        self._progress("download", index, total, f"Downloading from {candidate.provider}")
+        try:
+            self.downloader(candidate.url, temporary)
+            if not temporary.is_file() or temporary.stat().st_size == 0:
+                raise OSError("downloaded file is empty")
+            temporary.replace(destination)
+            return AcquiredAsset(candidate=candidate, path=destination, reused=False)
+        except Exception:
+            temporary.unlink(missing_ok=True)
+            raise
+
+    def acquire(self, query: str, destination_folder: str | Path, *, kind: str = "image", limit: int = 20, target_ratio: float | None = None, attempts: int = 3, excluded: set[str] | None = None) -> AcquiredAsset:
         if attempts < 1:
             raise ValueError("attempts must be at least 1")
         folder = Path(destination_folder)
@@ -166,64 +167,53 @@ class AssetAcquisitionEngine:
         candidates = self.search(query, kind=kind, limit=limit, target_ratio=target_ratio)
         if not candidates:
             raise AssetAcquisitionError(f"no {kind} assets found for: {query}")
-
+        blocked = excluded or set()
+        distinct = [item for item in candidates if _candidate_key(item) not in blocked and item.url not in blocked]
+        pool = distinct or candidates
         failures: list[str] = []
-        for index, candidate in enumerate(candidates[:attempts], start=1):
-            destination = self._destination(candidate, folder)
-            if destination.is_file() and destination.stat().st_size > 0:
-                self._progress("download", index, attempts, f"Reusing {destination.name}")
-                return AcquiredAsset(candidate=candidate, path=destination, reused=True)
-            temporary = destination.with_suffix(destination.suffix + ".part")
-            temporary.unlink(missing_ok=True)
-            self._progress("download", index, attempts, f"Downloading from {candidate.provider}")
+        for index, candidate in enumerate(pool[:attempts], start=1):
             try:
-                self.downloader(candidate.url, temporary)
-                if not temporary.is_file() or temporary.stat().st_size == 0:
-                    raise OSError("downloaded file is empty")
-                temporary.replace(destination)
-                return AcquiredAsset(candidate=candidate, path=destination, reused=False)
+                return self._download_candidate(candidate, folder, index, min(attempts, len(pool)))
             except Exception as error:
-                temporary.unlink(missing_ok=True)
                 failures.append(f"{candidate.provider}/{candidate.id}: {error}")
         raise AssetAcquisitionError("all asset downloads failed: " + "; ".join(failures))
 
-    def acquire_many(
-        self,
-        queries: Iterable[str],
-        destination_folder: str | Path,
-        **options: Any,
-    ) -> list[AcquiredAsset]:
+    def acquire_many(self, queries: Iterable[str], destination_folder: str | Path, *, unique: bool = False, **options: Any) -> list[AcquiredAsset]:
         items = [str(query).strip() for query in queries if str(query).strip()]
         results: list[AcquiredAsset] = []
+        used: set[str] = set()
         for index, query in enumerate(items, start=1):
             self._progress("acquire", index, len(items), query)
-            results.append(self.acquire(query, destination_folder, **options))
+            result = self.acquire(query, destination_folder, excluded=used if unique else None, **options)
+            results.append(result)
+            if unique:
+                used.add(_candidate_key(result.candidate))
+                used.add(result.candidate.url)
         return results
 
 
-def make_asset_acquisition_provider(
-    engine: AssetAcquisitionEngine,
-    destination_folder: str | Path,
-    *,
-    kind: str = "image",
-):
-    """Return a ContentProductionEngine-compatible image-prompts provider."""
+def make_asset_acquisition_provider(engine: AssetAcquisitionEngine, destination_folder: str | Path, *, kind: str = "image"):
+    """Return a production provider that prepares and acquires one visual per scene."""
     def run(context):
         prompts = context.image_prompts
-        if prompts is None:
-            prompts = [scene.narration or scene.title for scene in context.timeline.scenes] if context.timeline else []
         if isinstance(prompts, str):
-            prompts = [prompts]
-        return engine.acquire_many(prompts or [], destination_folder, kind=kind)
+            prompts = prompts.splitlines()
+        plan = plan_visual_queries(
+            str(getattr(context, "script", "") or ""),
+            prompts or (),
+            topic=str(getattr(context, "topic", "") or ""),
+        )
+        context.image_prompts = list(plan.queries)
+        if hasattr(context, "warnings") and plan.generated_fallbacks:
+            context.warnings.append(
+                f"Generated {plan.generated_fallbacks} fallback visual searches for {plan.scene_count} scenes"
+            )
+        return engine.acquire_many(plan.queries, destination_folder, kind=kind, unique=True)
 
     return run
 
 
 __all__ = [
-    "AcquiredAsset",
-    "AssetAcquisitionEngine",
-    "AssetAcquisitionError",
-    "AssetCandidate",
-    "AssetProvider",
-    "make_asset_acquisition_provider",
+    "AcquiredAsset", "AssetAcquisitionEngine", "AssetAcquisitionError", "AssetCandidate",
+    "AssetProvider", "make_asset_acquisition_provider",
 ]
