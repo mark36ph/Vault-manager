@@ -1,5 +1,10 @@
-import customtkinter as ctk
+import time
 
+import customtkinter as ctk
+from tkinter import messagebox
+
+from common.narration_sync import NarrationSyncError, regenerate_narration
+from common.provider_setup import ProviderSettingsStore, build_configured_providers
 from pages.media_library_page import MediaLibraryPage
 from pages.production_page import ProductionPage
 from pages.settings_page import SettingsPage
@@ -45,8 +50,33 @@ def open_settings_section(app, section):
         page.select_page(section, callback)
 
 
+def regenerate_saved_narration(page):
+    """Rebuild narration from the exact Script.txt currently shown by the app."""
+    folder = page._project_folder()
+    if folder is None:
+        messagebox.showerror("Narration", "Select a valid project.")
+        return
+    try:
+        settings = ProviderSettingsStore(folder).load()
+        configured = build_configured_providers(folder, settings)
+        speech_provider = configured.registry.require("voice")
+        page._append_log("Regenerating narration from the saved project script")
+        result = regenerate_narration(folder, speech_provider)
+        page._append_log(
+            f"Narration regenerated from {result.word_count} words: {result.audio_path.name}"
+        )
+        messagebox.showinfo(
+            "Narration regenerated",
+            "Narration now matches Script.txt exactly.\n\n"
+            "Use Export to Resolve Free again to rebuild the portable package.",
+        )
+    except (NarrationSyncError, OSError, RuntimeError, ValueError) as error:
+        page._append_log(f"Narration regeneration failed: {error}")
+        messagebox.showerror("Narration", str(error))
+
+
 def install_production_settings_links():
-    """Add provider-settings shortcuts to the Production setup panel."""
+    """Add provider-settings and narration shortcuts to Production."""
     if getattr(ProductionPage, "_settings_links_installed", False):
         return
 
@@ -55,10 +85,12 @@ def install_production_settings_links():
     def build_controls(page, parent):
         original(page, parent)
 
-        # The existing action buttons all use pack inside this frame. Adding the
-        # shortcuts there avoids mixing pack and grid in CustomTkinter's
-        # scrollable-frame internals.
         buttons = page.open_button.master
+        ctk.CTkButton(
+            buttons,
+            text="🎙 Regenerate Narration from Script",
+            command=lambda: regenerate_saved_narration(page),
+        ).pack(fill="x", pady=3)
         ctk.CTkLabel(
             buttons,
             text="Update API keys",
