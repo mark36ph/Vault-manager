@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from common.fcpxml_export import FCPXMLExportResult, export_fcpxml
+from common.fcpxml_export import FCPXMLExportResult
+from common.resolve_export_v2 import export_resolve_free_v2
 from common.resolve_live import LiveResolveResult, LiveResolveService
 from common.resolve_portable_package import PortableResolvePackageResult, export_portable_resolve_package
 from timeline import ProjectTimelineStore, Timeline, materialize_timeline_clips
@@ -31,7 +32,7 @@ class ResolveProductionResult:
 
 
 class ResolveProductionService:
-    """Prepare a portable package and an importable Resolve Free timeline."""
+    """Prepare a self-contained portable package and Resolve Free timeline."""
 
     def __init__(
         self,
@@ -89,24 +90,26 @@ class ResolveProductionService:
             materialize_timeline_clips(current)
         timeline_path = store.save(current)
 
-        self._progress("package", 0.48, "Building portable Resolve package")
+        self._progress("package", 0.48, "Building self-contained Resolve package")
         package = export_portable_resolve_package(
             project, folder, dict(settings), current, strict=strict, overwrite=overwrite
         )
 
-        self._progress("fcpxml", 0.68, "Creating Resolve Free timeline export")
+        self._progress("fcpxml", 0.68, "Creating validated Resolve Free timeline")
         fcpxml_path = package.package_folder / f"{self._project_title(project)}.fcpxml"
-        fcpxml = export_fcpxml(current, fcpxml_path)
+        export_v2 = export_resolve_free_v2(current, package, fcpxml_path)
+        fcpxml = export_v2.fcpxml
 
         readme = package.package_folder / "IMPORT_IN_RESOLVE_FREE.txt"
         readme.write_text(
             "DaVinci Resolve Free Import\n"
             "===========================\n\n"
-            "1. Open DaVinci Resolve and create or open a project.\n"
-            "2. Choose File > Import > Timeline.\n"
-            f"3. Select {fcpxml.path.name}.\n"
-            "4. Keep this Portable package folder in place so Resolve can find the media.\n"
-            "5. In the import dialog, keep source sizing enabled and confirm the timeline settings.\n",
+            "1. Keep this entire Portable package folder together.\n"
+            "2. Open DaVinci Resolve and create or open a project.\n"
+            "3. Choose File > Import > Timeline.\n"
+            f"4. Select {fcpxml.path.name}.\n"
+            "5. The FCPXML references only files inside this package's Media folder.\n"
+            f"6. Validated media files: {len(export_v2.validated_media)}.\n",
             encoding="utf-8",
         )
 
@@ -136,7 +139,7 @@ class ResolveProductionService:
         warnings = list(package.warnings)
         if live is not None:
             warnings.extend(live.warnings)
-        self._progress("complete", 1.0, "Resolve Free timeline export is ready")
+        self._progress("complete", 1.0, "Validated Resolve Free export is ready")
         return ResolveProductionResult(
             project_folder=folder,
             timeline_path=timeline_path,
@@ -155,11 +158,13 @@ def build_resolve_production(project, project_folder, settings, **options):
 
 def make_resolve_workflow_service(project_folder, settings, *, service=None, **options):
     producer = service or ResolveProductionService()
+
     def run(context):
         project = context.get("project")
         if not isinstance(project, Mapping):
             raise ResolveProductionError("workflow context does not contain a project mapping")
         return producer.run(project, project_folder, settings, **options)
+
     return run
 
 
