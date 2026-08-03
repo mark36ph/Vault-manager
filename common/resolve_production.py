@@ -1,12 +1,12 @@
-"""Orchestrate timeline preparation, portable packaging, and live Resolve creation."""
+"""Orchestrate timeline preparation, portable packaging, FCPXML, and live Resolve creation."""
 from __future__ import annotations
 
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+from common.fcpxml_export import FCPXMLExportResult, export_fcpxml
 from common.resolve_live import LiveResolveResult, LiveResolveService
 from common.resolve_portable_package import PortableResolvePackageResult, export_portable_resolve_package
 from timeline import ProjectTimelineStore, Timeline, materialize_timeline_clips
@@ -23,6 +23,7 @@ class ResolveProductionResult:
     project_folder: Path
     timeline_path: Path
     package: PortableResolvePackageResult
+    fcpxml: FCPXMLExportResult
     launched: bool
     command: tuple[str, ...] | None
     warnings: tuple[str, ...]
@@ -30,7 +31,7 @@ class ResolveProductionResult:
 
 
 class ResolveProductionService:
-    """Prepare, persist, package, and optionally build inside live Resolve."""
+    """Prepare a portable package and an importable Resolve Free timeline."""
 
     def __init__(
         self,
@@ -84,13 +85,29 @@ class ResolveProductionService:
         if not isinstance(current, Timeline):
             raise TypeError("timeline must be a Timeline")
         if materialize:
-            self._progress("timeline", 0.3, "Materializing assigned assets")
+            self._progress("timeline", 0.25, "Materializing assigned assets")
             materialize_timeline_clips(current)
         timeline_path = store.save(current)
 
-        self._progress("package", 0.55, "Building portable Resolve package")
+        self._progress("package", 0.48, "Building portable Resolve package")
         package = export_portable_resolve_package(
             project, folder, dict(settings), current, strict=strict, overwrite=overwrite
+        )
+
+        self._progress("fcpxml", 0.68, "Creating Resolve Free timeline export")
+        fcpxml_path = package.package_folder / f"{self._project_title(project)}.fcpxml"
+        fcpxml = export_fcpxml(current, fcpxml_path)
+
+        readme = package.package_folder / "IMPORT_IN_RESOLVE_FREE.txt"
+        readme.write_text(
+            "DaVinci Resolve Free Import\n"
+            "===========================\n\n"
+            "1. Open DaVinci Resolve and create or open a project.\n"
+            "2. Choose File > Import > Timeline.\n"
+            f"3. Select {fcpxml.path.name}.\n"
+            "4. Keep this Portable package folder in place so Resolve can find the media.\n"
+            "5. In the import dialog, keep source sizing enabled and confirm the timeline settings.\n",
+            encoding="utf-8",
         )
 
         live = None
@@ -99,28 +116,32 @@ class ResolveProductionService:
         if launch and self.legacy_runner is not None:
             runner = package.package_folder / "build_resolve_timeline.py"
             command = (self.python_executable, str(runner))
-            self._progress("launch", 0.78, "Launching Resolve timeline builder")
+            self._progress("launch", 0.82, "Launching Resolve timeline builder")
             try:
                 self.legacy_runner(command, cwd=package.package_folder)
             except OSError as error:
                 raise ResolveProductionError(f"Could not launch Resolve builder: {error}") from error
             launched = True
         elif launch:
-            self._progress("launch", 0.78, "Connecting to DaVinci Resolve")
+            self._progress("launch", 0.82, "Connecting to DaVinci Resolve Studio")
             try:
                 live = self.live_service.build_package(package.package_folder, settings, launch_if_needed=True)
             except Exception as error:
-                raise ResolveProductionError(f"Could not build the live Resolve project: {error}") from error
+                raise ResolveProductionError(
+                    "Live Resolve scripting is unavailable. Import the generated FCPXML in Resolve Free instead: "
+                    f"{fcpxml.path}. Details: {error}"
+                ) from error
             launched = True
 
         warnings = list(package.warnings)
         if live is not None:
             warnings.extend(live.warnings)
-        self._progress("complete", 1.0, "Resolve project is ready" if live else "Resolve package is ready")
+        self._progress("complete", 1.0, "Resolve Free timeline export is ready")
         return ResolveProductionResult(
             project_folder=folder,
             timeline_path=timeline_path,
             package=package,
+            fcpxml=fcpxml,
             launched=launched,
             command=command,
             warnings=tuple(warnings),
