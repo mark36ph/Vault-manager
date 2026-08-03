@@ -1,6 +1,8 @@
 """Orchestrate timeline preparation, portable packaging, and live Resolve creation."""
 from __future__ import annotations
 
+import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -34,10 +36,13 @@ class ResolveProductionService:
         self,
         *,
         live_service: LiveResolveService | None = None,
+        process_runner: Callable[..., Any] | None = None,
+        python_executable: str | None = None,
         progress_callback: ProgressCallback | None = None,
-        **_legacy_options: Any,
     ) -> None:
         self.live_service = live_service or LiveResolveService()
+        self.legacy_runner = process_runner
+        self.python_executable = python_executable or sys.executable
         self.progress_callback = progress_callback
 
     def _progress(self, stage: str, fraction: float, message: str) -> None:
@@ -89,16 +94,24 @@ class ResolveProductionService:
         )
 
         live = None
-        if launch:
+        command = None
+        launched = False
+        if launch and self.legacy_runner is not None:
+            runner = package.package_folder / "build_resolve_timeline.py"
+            command = (self.python_executable, str(runner))
+            self._progress("launch", 0.78, "Launching Resolve timeline builder")
+            try:
+                self.legacy_runner(command, cwd=package.package_folder)
+            except OSError as error:
+                raise ResolveProductionError(f"Could not launch Resolve builder: {error}") from error
+            launched = True
+        elif launch:
             self._progress("launch", 0.78, "Connecting to DaVinci Resolve")
             try:
-                live = self.live_service.build_package(
-                    package.package_folder,
-                    settings,
-                    launch_if_needed=True,
-                )
+                live = self.live_service.build_package(package.package_folder, settings, launch_if_needed=True)
             except Exception as error:
                 raise ResolveProductionError(f"Could not build the live Resolve project: {error}") from error
+            launched = True
 
         warnings = list(package.warnings)
         if live is not None:
@@ -108,8 +121,8 @@ class ResolveProductionService:
             project_folder=folder,
             timeline_path=timeline_path,
             package=package,
-            launched=live is not None,
-            command=None,
+            launched=launched,
+            command=command,
             warnings=tuple(warnings),
             live=live,
         )
