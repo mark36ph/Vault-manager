@@ -1,17 +1,12 @@
-"""Orchestrate timeline preparation and portable Resolve package creation."""
-
+"""Orchestrate timeline preparation, portable packaging, and live Resolve creation."""
 from __future__ import annotations
 
-import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from common.resolve_portable_package import (
-    PortableResolvePackageResult,
-    export_portable_resolve_package,
-)
+from common.resolve_live import LiveResolveResult, LiveResolveService
+from common.resolve_portable_package import PortableResolvePackageResult, export_portable_resolve_package
 from timeline import ProjectTimelineStore, Timeline, materialize_timeline_clips
 
 ProgressCallback = Callable[[str, float, str], None]
@@ -29,20 +24,20 @@ class ResolveProductionResult:
     launched: bool
     command: tuple[str, ...] | None
     warnings: tuple[str, ...]
+    live: LiveResolveResult | None = None
 
 
 class ResolveProductionService:
-    """Prepare, persist, package, and optionally launch a Resolve production."""
+    """Prepare, persist, package, and optionally build inside live Resolve."""
 
     def __init__(
         self,
         *,
-        process_runner: Callable[..., Any] = subprocess.Popen,
-        python_executable: str | None = None,
+        live_service: LiveResolveService | None = None,
         progress_callback: ProgressCallback | None = None,
+        **_legacy_options: Any,
     ) -> None:
-        self.process_runner = process_runner
-        self.python_executable = python_executable or sys.executable
+        self.live_service = live_service or LiveResolveService()
         self.progress_callback = progress_callback
 
     def _progress(self, stage: str, fraction: float, message: str) -> None:
@@ -83,7 +78,6 @@ class ResolveProductionService:
         )
         if not isinstance(current, Timeline):
             raise TypeError("timeline must be a Timeline")
-
         if materialize:
             self._progress("timeline", 0.3, "Materializing assigned assets")
             materialize_timeline_clips(current)
@@ -91,72 +85,51 @@ class ResolveProductionService:
 
         self._progress("package", 0.55, "Building portable Resolve package")
         package = export_portable_resolve_package(
-            project,
-            folder,
-            dict(settings),
-            current,
-            strict=strict,
-            overwrite=overwrite,
+            project, folder, dict(settings), current, strict=strict, overwrite=overwrite
         )
 
-        launched = False
-        command: tuple[str, ...] | None = None
+        live = None
         if launch:
-            runner = package.package_folder / "build_resolve_timeline.py"
-            if not runner.is_file():
-                raise ResolveProductionError(f"Resolve runner was not created: {runner}")
-            command = (self.python_executable, str(runner))
-            self._progress("launch", 0.9, "Launching Resolve timeline builder")
+            self._progress("launch", 0.78, "Connecting to DaVinci Resolve")
             try:
-                self.process_runner(command, cwd=package.package_folder)
-            except OSError as error:
-                raise ResolveProductionError(f"Could not launch Resolve builder: {error}") from error
-            launched = True
+                live = self.live_service.build_package(
+                    package.package_folder,
+                    settings,
+                    launch_if_needed=True,
+                )
+            except Exception as error:
+                raise ResolveProductionError(f"Could not build the live Resolve project: {error}") from error
 
-        self._progress("complete", 1.0, "Resolve production is ready")
+        warnings = list(package.warnings)
+        if live is not None:
+            warnings.extend(live.warnings)
+        self._progress("complete", 1.0, "Resolve project is ready" if live else "Resolve package is ready")
         return ResolveProductionResult(
             project_folder=folder,
             timeline_path=timeline_path,
             package=package,
-            launched=launched,
-            command=command,
-            warnings=tuple(package.warnings),
+            launched=live is not None,
+            command=None,
+            warnings=tuple(warnings),
+            live=live,
         )
 
 
-def build_resolve_production(
-    project: Mapping[str, Any],
-    project_folder: str | Path,
-    settings: Mapping[str, Any],
-    **options: Any,
-) -> ResolveProductionResult:
-    """Build a portable Resolve production using the default service."""
+def build_resolve_production(project, project_folder, settings, **options):
     return ResolveProductionService().run(project, project_folder, settings, **options)
 
 
-def make_resolve_workflow_service(
-    project_folder: str | Path,
-    settings: Mapping[str, Any],
-    *,
-    service: ResolveProductionService | None = None,
-    **options: Any,
-):
-    """Return a ProjectWorkflow-compatible timeline service."""
+def make_resolve_workflow_service(project_folder, settings, *, service=None, **options):
     producer = service or ResolveProductionService()
-
     def run(context):
         project = context.get("project")
         if not isinstance(project, Mapping):
             raise ResolveProductionError("workflow context does not contain a project mapping")
         return producer.run(project, project_folder, settings, **options)
-
     return run
 
 
 __all__ = [
-    "ResolveProductionError",
-    "ResolveProductionResult",
-    "ResolveProductionService",
-    "build_resolve_production",
-    "make_resolve_workflow_service",
+    "ResolveProductionError", "ResolveProductionResult", "ResolveProductionService",
+    "build_resolve_production", "make_resolve_workflow_service",
 ]
