@@ -1,4 +1,4 @@
-"""Keep generated narration tied to the exact script shown in the project."""
+"""Keep generated narration tied to the exact script stored for a project."""
 from __future__ import annotations
 
 import hashlib
@@ -30,23 +30,22 @@ def script_digest(script: str) -> str:
     return hashlib.sha256(normalize_script(script).encode("utf-8")).hexdigest()
 
 
-def load_project_script(project_folder: str | Path) -> str:
-    path = Path(project_folder) / "Script.txt"
-    if not path.is_file():
-        raise NarrationSyncError(f"Project script could not be found: {path}")
-    script = normalize_script(path.read_text(encoding="utf-8"))
-    if not script:
-        raise NarrationSyncError("Project Script.txt is empty")
-    return script
+def require_project_script(script: str) -> str:
+    """Validate and normalize script text loaded from the projects database."""
+    normalized = normalize_script(script)
+    if not normalized:
+        raise NarrationSyncError("The selected project's database script is empty")
+    return normalized
 
 
 def regenerate_narration(
     project_folder: str | Path,
+    script: str,
     speech_provider: Callable[[Any], str | Path],
 ) -> NarrationSyncResult:
-    """Regenerate narration using exactly the current Script.txt contents."""
+    """Regenerate narration using exactly the script stored in the database."""
     folder = Path(project_folder)
-    script = load_project_script(folder)
+    script = require_project_script(script)
     voice_folder = folder / "Voice"
     voice_folder.mkdir(parents=True, exist_ok=True)
 
@@ -69,11 +68,11 @@ def regenerate_narration(
     )
 
 
-def narration_matches_script(project_folder: str | Path) -> bool:
+def narration_matches_script(project_folder: str | Path, script: str) -> bool:
     folder = Path(project_folder)
     hash_path = folder / "Voice" / "narration_script.sha256"
     try:
-        expected = script_digest(load_project_script(folder))
+        expected = script_digest(require_project_script(script))
         actual = hash_path.read_text(encoding="utf-8").strip()
     except (OSError, UnicodeError, NarrationSyncError):
         return False
@@ -83,9 +82,9 @@ def narration_matches_script(project_folder: str | Path) -> bool:
 __all__ = [
     "NarrationSyncError",
     "NarrationSyncResult",
-    "load_project_script",
     "narration_matches_script",
     "normalize_script",
     "regenerate_narration",
+    "require_project_script",
     "script_digest",
 ]
