@@ -85,6 +85,8 @@ def regenerate_narration(
     project_folder: str | Path,
     script: str,
     speech_provider: Callable[[Any], str | Path],
+    *,
+    duration_reader: Callable[[str | Path], float] = audio_duration,
 ) -> NarrationSyncResult:
     """Regenerate narration using exactly the script stored in the database."""
     folder = Path(project_folder)
@@ -102,7 +104,9 @@ def regenerate_narration(
     if not result.is_file() or result.stat().st_size == 0:
         raise NarrationSyncError(f"Narration provider did not create usable audio: {result}")
 
-    duration = audio_duration(result)
+    duration = float(duration_reader(result))
+    if duration <= 0:
+        raise NarrationSyncError(f"Could not determine narration duration: {result}")
     sync_timeline_to_narration(folder, result, duration)
     return NarrationSyncResult(
         audio_path=result,
