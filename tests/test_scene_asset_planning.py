@@ -20,6 +20,6 @@ def test_plan_produces_one_query_per_scene_and_removes_duplicates():
     assert plan.generated_fallbacks == 2
 
 
-def test_plan_ignores_extra_queries_beyond_scene_count():
+def test_plan_preserves_extra_distinct_queries():
     plan = plan_visual_queries("One scene only.", ["one", "two", "three"], topic="Topic")
-    assert plan.queries == ("one",)
+    assert plan.queries == ("one", "two", "three")
