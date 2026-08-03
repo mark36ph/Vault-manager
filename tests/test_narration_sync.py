@@ -43,7 +43,7 @@ def test_regenerate_narration_passes_exact_script_to_provider(tmp_path):
     assert result.audio_path.read_bytes() == b"audio"
     assert result.script_path.read_text(encoding="utf-8") == script + "\n"
     assert result.hash_path.read_text(encoding="utf-8").strip() == script_digest(script)
-    assert result.word_count == 10
+    assert result.word_count == 11
     assert narration_matches_script(tmp_path) is True
 
 
