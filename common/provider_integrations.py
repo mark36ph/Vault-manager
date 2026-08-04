@@ -12,7 +12,7 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
-
+import urllib.error
 from common.asset_acquisition import AssetCandidate
 
 JsonTransport = Callable[[urllib.request.Request], Mapping[str, Any]]
@@ -22,15 +22,28 @@ BytesTransport = Callable[[urllib.request.Request], bytes]
 class ProviderIntegrationError(RuntimeError):
     """Raised when a configured external provider returns unusable data."""
 
-
 def _json_transport(request: urllib.request.Request) -> Mapping[str, Any]:
     try:
         with urllib.request.urlopen(request, timeout=45) as response:
             payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        body = ""
+        try:
+            body = error.read().decode("utf-8", errors="replace")
+        except Exception:
+            pass
+
+        raise ProviderIntegrationError(
+            f"HTTP {error.code}\n"
+            f"URL: {request.full_url}\n"
+            f"Response:\n{body}"
+        ) from error
     except Exception as error:
         raise ProviderIntegrationError(str(error)) from error
+
     if not isinstance(payload, Mapping):
         raise ProviderIntegrationError("provider response must be a JSON object")
+
     return payload
 
 
@@ -49,13 +62,24 @@ def _required(value: str | None, name: str) -> str:
     return text
 
 
-def _json_request(url: str, *, headers: Mapping[str, str] | None = None, body: Mapping[str, Any] | None = None) -> urllib.request.Request:
+def _json_request(
+    url: str,
+    *,
+    headers: Mapping[str, str] | None = None,
+    body: Mapping[str, Any] | None = None,
+) -> urllib.request.Request:
     data = None if body is None else json.dumps(body).encode("utf-8")
-    merged = {"Accept": "application/json", **dict(headers or {})}
+
+    merged = {
+        "Accept": "application/json",
+        "User-Agent": "FactVaultManager/1.0 (+desktop media downloader)",
+        **dict(headers or {}),
+    }
+
     if data is not None:
         merged["Content-Type"] = "application/json"
-    return urllib.request.Request(url, data=data, headers=merged)
 
+    return urllib.request.Request(url, data=data, headers=merged)
 
 class PexelsAssetProvider:
     name = "pexels"
@@ -70,6 +94,14 @@ class PexelsAssetProvider:
             return []
         endpoint = "https://api.pexels.com/v1/search" if kind == "image" else "https://api.pexels.com/v1/videos/search"
         params = urllib.parse.urlencode({"query": query, "per_page": max(1, min(int(limit), 80)), "orientation": "portrait"})
+       
+       
+        print("=" * 80)
+        print("PEXELS QUERY:", query)
+        print("URL:", f"{endpoint}?{params}")
+        print("KEY LENGTH:", len(self.api_key))
+       
+       
         payload = self.transport(_json_request(f"{endpoint}?{params}", headers={"Authorization": self.api_key}))
         items = payload.get("photos" if kind == "image" else "videos", [])
         results: list[AssetCandidate] = []

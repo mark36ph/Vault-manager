@@ -10,7 +10,11 @@ from image_providers.errors import ImageSearchError
 
 PEXELS_API_URL = "https://api.pexels.com/v1/search"
 PEXELS_VIDEO_API_URL = "https://api.pexels.com/v1/videos/search"
-USER_AGENT = "FactVaultManager/1.0"
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/138.0.0.0 Safari/537.36"
+)
 
 
 class PexelsProvider(ImageProvider):
@@ -91,17 +95,23 @@ class PexelsProvider(ImageProvider):
                 return json.load(response)
         except urllib.error.HTTPError as exc:
             message = self._read_http_error(exc)
+
             if exc.code == 401:
-                message = "Pexels rejected the API key. Check the key in Settings → Images."
-            elif exc.code == 429:
-                message = "The Pexels API request limit has been reached."
+                raise ImageSearchError(
+                    "Pexels rejected the API key. Check the key in Settings → Images."
+                ) from exc
+
+            if exc.code == 429:
+                raise ImageSearchError(
+                    "The Pexels API request limit has been reached."
+                ) from exc
+
+            # Cloudflare / browser signature block
+            if exc.code == 403:
+                print(f"Pexels unavailable ({message}). Falling back to next provider.")
+                return []
+
             raise ImageSearchError(message or f"Pexels returned HTTP {exc.code}.") from exc
-        except urllib.error.URLError as exc:
-            raise ImageSearchError(f"Could not connect to Pexels: {exc.reason}") from exc
-        except TimeoutError as exc:
-            raise ImageSearchError("The Pexels request timed out.") from exc
-        except (json.JSONDecodeError, TypeError, ValueError) as exc:
-            raise ImageSearchError("Pexels returned an invalid response.") from exc
 
     def _parse_image(self, item, query):
         src = item.get("src") or {}
