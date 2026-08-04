@@ -1,8 +1,0 @@
-TITLE
-testing123
-
-DESCRIPTION
-[Add description]
-
-PINNED COMMENT
-[Add pinned comment]

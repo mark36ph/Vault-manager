@@ -35,6 +35,29 @@ data/settings.json
 # Logs
 *.log
 
+# User project data
+In Progress/
+Completed/
+Archive/
+
+# Downloaded assets
+**/Assets/Acquired/
+**/Assets/Cache/
+
+# User projects
+projects/
+Published/
+In Progress/
+Completed/
+Archive/
+
+# Render outputs
+**/Render/
+**/Exports/
+
+# Local databases (if generated locally)
+*.db
+
 .pytest_cache/
 .test-temp/
 __pycache__/

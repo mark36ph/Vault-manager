@@ -1,9 +1,0 @@
-Provider: Pixabay
-Media Type: image
-Media ID: 913046
-Creator: fill
-Creator URL: https://cdn.pixabay.com/user/2025/03/20/13-39-28-886_250x250.png
-Source page: https://pixabay.com/photos/night-stars-moon-human-universe-913046/
-Tags: night, stars, moon, human, universe, starry sky, big car, constellation, star constellation, black wallpaper, black, night, night, stars, moon, moon, moon, moon, moon, black wallpaper, black wallpaper, black
-Dimensions: 4000 x 6000
-Attribution: Image by fill from Pixabay
