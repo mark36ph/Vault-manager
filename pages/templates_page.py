@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from tkinter import simpledialog, messagebox
+from tkinter import messagebox
 from pathlib import Path
 import shutil
 from dialogs.input_dialog import InputDialog
@@ -179,7 +179,7 @@ class TemplatesPage(BasePage):
                 hover_color="#8B0000",
                 command=lambda t=template: self.delete_template(t)
             ).pack(side="right", padx=5)
-            
+
     def open_template(self, template):
 
         folder = Path("templates") / template
@@ -194,9 +194,6 @@ class TemplatesPage(BasePage):
             return
 
         os.startfile(folder)
-
-    def edit_template(self, template):
-        print("Edit:", template)
 
     def duplicate_template(self, template):
 
