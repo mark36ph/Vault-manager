@@ -182,10 +182,18 @@ def fake_asset_response(request):
                     "id": 1,
                     "width": 1080,
                     "height": 1920,
-                    "alt": "vertical image",
+                    "alt": "first query second query vertical image",
                     "photographer": "A",
-                    "src": {"portrait": "https://cdn.example/image.jpg"},
-                }
+                    "src": {"portrait": "https://cdn.example/image-1.jpg"},
+                },
+                {
+                    "id": 2,
+                    "width": 1080,
+                    "height": 1920,
+                    "alt": "first query second query vertical image",
+                    "photographer": "B",
+                    "src": {"portrait": "https://cdn.example/image-2.jpg"},
+                },
             ]
         }
     return {"hits": []}
@@ -230,6 +238,7 @@ def test_image_prompt_stage_generates_queries_and_downloads_assets(tmp_path):
     assert context.image_prompts == ["first query", "second query"]
     assert len(results) == 2
     assert all(result.path.is_file() for result in results)
+    assert len({result.candidate.id for result in results}) == 2
 
 
 def test_build_requires_key_for_selected_asset_provider(tmp_path):
