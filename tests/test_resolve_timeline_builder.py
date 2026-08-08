@@ -7,6 +7,15 @@ from common.resolve_timeline_builder import (
 )
 
 
+@pytest.fixture(autouse=True)
+def stub_still_preparation(monkeypatch):
+    monkeypatch.setattr(
+        ResolveTimelineBuilder,
+        "_prepare_still_video",
+        lambda self, clip, fps: str(clip.get("source") or ""),
+    )
+
+
 class FakeTimeline:
     def __init__(self):
         self.markers = []
