@@ -1,313 +1,262 @@
-import customtkinter as ctk
-from tkinter import messagebox
-from pathlib import Path
-import shutil
-from dialogs.input_dialog import InputDialog
 import os
+import shutil
+from pathlib import Path
+from tkinter import messagebox
+
+import customtkinter as ctk
+
+from dialogs.input_dialog import InputDialog
 from pages.base_page import BasePage
 
 
 class TemplatesPage(BasePage):
+    """Manage reusable project templates in a compact card layout."""
 
     def __init__(self, parent, pm, app):
         super().__init__(parent, pm, "Templates")
-
         self.app = app
+
+        self.header.configure(font=("Segoe UI", 24, "bold"))
+        self.header.pack_configure(padx=24, pady=(20, 4))
+
+        self.subtitle = ctk.CTkLabel(
+            self,
+            text="Create and manage reusable project structures.",
+            font=("Segoe UI", 13),
+            text_color=("#667085", "#8F96A3"),
+            anchor="w",
+        )
+        self.subtitle.pack(fill="x", padx=24, pady=(0, 14), before=self.content)
+        self.content.pack_configure(padx=24, pady=(0, 20))
 
         self.build()
 
     def build(self):
+        toolbar = ctk.CTkFrame(self.content, fg_color="transparent")
+        toolbar.pack(fill="x", pady=(0, 10))
 
-        ctk.CTkLabel(
-            self.content,
-            text="Template Manager",
-            font=("Segoe UI", 28, "bold")
-        ).pack(
-            anchor="w",
-            padx=20,
-            pady=(20,10)
+        self.count_label = ctk.CTkLabel(
+            toolbar,
+            text="0 templates",
+            font=("Segoe UI", 12),
+            text_color=("#667085", "#8F96A3"),
         )
-
-        top = ctk.CTkFrame(
-            self.content,
-            fg_color="transparent"
-        )
-
-        top.pack(
-            fill="x",
-            padx=20,
-            pady=(0,10)
-        )
+        self.count_label.pack(side="left")
 
         ctk.CTkButton(
-            top,
-            text="➕ New Template",
-            command=self.new_template
-        ).pack(side="left")
+            toolbar,
+            text="+ New Template",
+            width=120,
+            height=36,
+            corner_radius=7,
+            command=self.new_template,
+        ).pack(side="right")
 
         self.template_list = ctk.CTkScrollableFrame(
-            self.content
+            self.content,
+            fg_color="transparent",
         )
-
-        self.template_list.pack(
-            fill="both",
-            expand=True,
-            padx=20,
-            pady=10
-        )
+        self.template_list.pack(fill="both", expand=True)
 
         self.load_templates()
 
     def load_templates(self):
-
         for widget in self.template_list.winfo_children():
             widget.destroy()
 
         templates = self.pm.get_templates()
+        count = len(templates)
+        self.count_label.configure(text=f"{count} template{'s' if count != 1 else ''}")
+
+        if not templates:
+            empty = ctk.CTkFrame(
+                self.template_list,
+                corner_radius=8,
+                fg_color=("#FFFFFF", "#181B21"),
+                border_width=1,
+                border_color=("#E4E7EC", "#2A2F38"),
+            )
+            empty.pack(fill="x", pady=4)
+            ctk.CTkLabel(
+                empty,
+                text="No templates yet",
+                font=("Segoe UI", 15, "bold"),
+            ).pack(anchor="w", padx=16, pady=(16, 3))
+            ctk.CTkLabel(
+                empty,
+                text="Create a template to reuse the same project file structure.",
+                font=("Segoe UI", 12),
+                text_color=("#667085", "#8F96A3"),
+            ).pack(anchor="w", padx=16, pady=(0, 16))
+            return
 
         for template in templates:
-
             folder = Path("templates") / template
-
-            files = len(
-                [
-                    f for f in folder.iterdir()
-                    if f.is_file()
-                ]
-            ) if folder.exists() else 0
+            file_names = sorted(
+                [f.name for f in folder.iterdir() if f.is_file()],
+                key=str.lower,
+            ) if folder.exists() else []
 
             card = ctk.CTkFrame(
                 self.template_list,
-                corner_radius=10
+                corner_radius=8,
+                fg_color=("#FFFFFF", "#181B21"),
+                border_width=1,
+                border_color=("#E4E7EC", "#2A2F38"),
             )
+            card.pack(fill="x", pady=4)
 
-            card.pack(
-                fill="x",
-                padx=10,
-                pady=8
-            )
+            header = ctk.CTkFrame(card, fg_color="transparent")
+            header.pack(fill="x", padx=14, pady=(12, 4))
 
             ctk.CTkLabel(
-                card,
-                text=f"📁 {template}",
-                font=("Segoe UI",22,"bold")
-            ).pack(
+                header,
+                text=template,
+                font=("Segoe UI", 15, "bold"),
                 anchor="w",
-                padx=20,
-                pady=(15,5)
-            )
+            ).pack(side="left", fill="x", expand=True)
 
-            file_names = sorted(
-                [
-                    f.name
-                    for f in folder.iterdir()
-                    if f.is_file()
-                ],
-                key=str.lower
-            )
-
-            preview = "\n".join(file_names[:5])
-
-            if len(file_names) > 5:
-                preview += "\n..."
-
+            files = len(file_names)
             ctk.CTkLabel(
-                card,
+                header,
                 text=f"{files} file{'s' if files != 1 else ''}",
-                text_color="gray"
-            ).pack(
-                anchor="w",
-                padx=20
-            )
+                font=("Segoe UI", 11),
+                text_color=("#667085", "#8F96A3"),
+            ).pack(side="right")
+
+            preview = "  •  ".join(file_names[:4]) or "Empty template"
+            if len(file_names) > 4:
+                preview += "  •  …"
 
             ctk.CTkLabel(
                 card,
                 text=preview,
                 justify="left",
-                text_color="gray70",
-                font=("Segoe UI", 12)
-            ).pack(
                 anchor="w",
-                padx=20,
-                pady=(5, 10)
-            )
+                font=("Segoe UI", 12),
+                text_color=("#667085", "#8F96A3"),
+            ).pack(fill="x", padx=14, pady=(0, 10))
 
-            buttons = ctk.CTkFrame(
-                card,
-                fg_color="transparent"
-            )
+            buttons = ctk.CTkFrame(card, fg_color="transparent")
+            buttons.pack(fill="x", padx=14, pady=(0, 12))
 
-            buttons.pack(
-                fill="x",
-                padx=15,
-                pady=15
-            )
-
-            ctk.CTkButton(
-                buttons,
-                text="📂 Open",
-                width=90,
-                command=lambda t=template: self.open_template(t)
-            ).pack(side="left", padx=5)
+            secondary = {
+                "height": 32,
+                "corner_radius": 6,
+                "fg_color": "transparent",
+                "border_width": 1,
+                "border_color": ("#D0D5DD", "#3A404A"),
+                "text_color": ("#344054", "#D0D5DD"),
+                "hover_color": ("#F2F4F7", "#252A33"),
+            }
 
             ctk.CTkButton(
                 buttons,
-                text="✏ Rename",
-                width=90,
-                command=lambda t=template: self.rename_template(t)
-            ).pack(side="left", padx=5)
+                text="Open",
+                width=70,
+                command=lambda t=template: self.open_template(t),
+                **secondary,
+            ).pack(side="left", padx=(0, 5))
 
             ctk.CTkButton(
                 buttons,
-                text="✏ Edit",
-                width=90,
-                command=lambda t=template: self.app.show_edit_template(t)
-            ).pack(side="left", padx=5)
+                text="Edit",
+                width=70,
+                command=lambda t=template: self.app.show_edit_template(t),
+                **secondary,
+            ).pack(side="left", padx=(0, 5))
 
             ctk.CTkButton(
                 buttons,
-                text="📄 Duplicate",
-                width=110,
-                command=lambda t=template: self.duplicate_template(t)
-            ).pack(side="left", padx=5)
+                text="Rename",
+                width=78,
+                command=lambda t=template: self.rename_template(t),
+                **secondary,
+            ).pack(side="left", padx=(0, 5))
 
             ctk.CTkButton(
                 buttons,
-                text="🗑 Delete",
-                width=90,
-                fg_color="#B22222",
-                hover_color="#8B0000",
-                command=lambda t=template: self.delete_template(t)
-            ).pack(side="right", padx=5)
+                text="Duplicate",
+                width=86,
+                command=lambda t=template: self.duplicate_template(t),
+                **secondary,
+            ).pack(side="left")
+
+            ctk.CTkButton(
+                buttons,
+                text="Delete",
+                width=72,
+                height=32,
+                corner_radius=6,
+                fg_color="transparent",
+                border_width=1,
+                border_color=("#FDA29B", "#7A3030"),
+                text_color=("#B42318", "#FDA29B"),
+                hover_color=("#FEF3F2", "#3A2222"),
+                command=lambda t=template: self.delete_template(t),
+            ).pack(side="right")
 
     def open_template(self, template):
-
         folder = Path("templates") / template
-
         if not folder.exists():
-
-            messagebox.showerror(
-                "Error",
-                "Template folder not found."
-            )
-
+            messagebox.showerror("Error", "Template folder not found.")
             return
-
         os.startfile(folder)
 
     def duplicate_template(self, template):
-
         source = Path("templates") / template
-
         if not source.exists():
-            messagebox.showerror(
-                "Error",
-                "Template not found."
-            )
+            messagebox.showerror("Error", "Template not found.")
             return
 
-        dialog = InputDialog(
-            self,
-            "Duplicate Template",
-            "Enter the new template name:"
-        )
-
+        dialog = InputDialog(self, "Duplicate Template", "Enter the new template name:")
         self.wait_window(dialog)
-
         new_name = dialog.result
-
         if not new_name:
             return
 
         destination = Path("templates") / new_name
-
         if destination.exists():
-
-            messagebox.showerror(
-                "Error",
-                "A template with that name already exists."
-            )
-
+            messagebox.showerror("Error", "A template with that name already exists.")
             return
 
         shutil.copytree(source, destination)
-
         self.load_templates()
 
     def delete_template(self, template):
-
         folder = Path("templates") / template
-
-        answer = messagebox.askyesno(
-            "Delete Template",
-            f"Delete '{template}'?"
-        )
-
-        if not answer:
+        if not messagebox.askyesno("Delete Template", f"Delete '{template}'?"):
             return
-
         shutil.rmtree(folder)
-
         self.load_templates()
 
     def new_template(self):
-
-        dialog = InputDialog(
-            self,
-            "New Template",
-            "Enter the template name"
-        )
-
+        dialog = InputDialog(self, "New Template", "Enter the template name")
         self.wait_window(dialog)
-
         name = dialog.result
-
         if not name:
             return
 
         folder = Path("templates") / name
-
         if folder.exists():
-
-            messagebox.showerror(
-                "Exists",
-                "A template with that name already exists."
-            )
-
+            messagebox.showerror("Exists", "A template with that name already exists.")
             return
 
         folder.mkdir(parents=True)
-
         self.load_templates()
 
     def rename_template(self, template):
-
         source = Path("templates") / template
-
-        dialog = InputDialog(
-            self,
-            "Rename Template",
-            "Enter the new template name:"
-        )
-
+        dialog = InputDialog(self, "Rename Template", "Enter the new template name:")
         self.wait_window(dialog)
-
         new_name = dialog.result
-
         if not new_name:
             return
 
         destination = Path("templates") / new_name
-
         if destination.exists():
-
-            messagebox.showerror(
-                "Error",
-                "That template already exists."
-            )
-
+            messagebox.showerror("Error", "That template already exists.")
             return
 
         source.rename(destination)
-
         self.load_templates()
