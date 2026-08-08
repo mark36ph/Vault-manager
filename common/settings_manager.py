@@ -29,7 +29,6 @@ DEFAULT_SETTINGS = {
     },
 
     "voice": {
-        "engine": "Piper",
         "default_voice": "",
         "speech_rate": 1.0,
         "speech_pitch": 1.0,
