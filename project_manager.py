@@ -61,7 +61,6 @@ class ProjectManager:
             project_folder / "Assets" / "SFX",
             project_folder / "Assets" / "Overlays",
             project_folder / "Assets" / "Thumbnails",
-            project_folder / "CapCut",
             project_folder / "Export",
             project_folder / "Voice"
         ]
