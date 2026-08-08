@@ -95,58 +95,142 @@ class MediaLibraryPage(BasePage):
         self.preview_reference = None
         self.filter_value = ctk.StringVar(value="All")
         self.project_by_title = {}
+
+        self.header.configure(font=("Segoe UI", 24, "bold"))
+        self.header.pack_configure(padx=24, pady=(20, 4))
+        self.subtitle = ctk.CTkLabel(
+            self,
+            text="Browse reusable images and videos, preview them, and add them to projects.",
+            font=("Segoe UI", 13),
+            text_color=("#667085", "#8F96A3"),
+            anchor="w",
+        )
+        self.subtitle.pack(fill="x", padx=24, pady=(0, 14), before=self.content)
+
         self.build()
         self.refresh()
 
     def build(self):
-        toolbar = ctk.CTkFrame(self.content)
-        toolbar.pack(fill="x", pady=(0, 12))
-        self.search = ctk.CTkEntry(toolbar, placeholder_text="Search library...")
-        self.search.pack(side="left", fill="x", expand=True, padx=12, pady=12)
+        toolbar = ctk.CTkFrame(self.content, fg_color="transparent")
+        toolbar.pack(fill="x", pady=(0, 10))
+
+        self.search = ctk.CTkEntry(
+            toolbar,
+            placeholder_text="Search library...",
+            height=36,
+        )
+        self.search.pack(side="left", fill="x", expand=True, padx=(0, 8))
         self.search.bind("<KeyRelease>", lambda _event: self.apply_filter())
+
         ctk.CTkSegmentedButton(
             toolbar,
             values=["All", "Images", "Videos"],
             variable=self.filter_value,
             command=lambda _value: self.apply_filter(),
+            height=34,
         ).pack(side="left", padx=8)
-        ctk.CTkButton(toolbar, text="Refresh", width=100, command=self.refresh).pack(side="right", padx=12)
+
+        ctk.CTkButton(
+            toolbar,
+            text="Refresh",
+            width=88,
+            height=34,
+            fg_color="transparent",
+            border_width=1,
+            text_color=("#344054", "#D0D5DD"),
+            command=self.refresh,
+        ).pack(side="right")
 
         body = ctk.CTkFrame(self.content, fg_color="transparent")
         body.pack(fill="both", expand=True)
         body.grid_rowconfigure(0, weight=1)
         body.grid_columnconfigure(0, weight=2)
         body.grid_columnconfigure(1, weight=3)
-        self.list_frame = ctk.CTkScrollableFrame(body)
-        self.list_frame.grid(row=0, column=0, padx=(0, 8), sticky="nsew")
 
-        preview = ctk.CTkFrame(body)
-        preview.grid(row=0, column=1, padx=(8, 0), sticky="nsew")
+        self.list_frame = ctk.CTkScrollableFrame(
+            body,
+            corner_radius=8,
+            fg_color=("#FFFFFF", "#181B21"),
+            border_width=1,
+            border_color=("#E4E7EC", "#2A2F38"),
+        )
+        self.list_frame.grid(row=0, column=0, padx=(0, 6), sticky="nsew")
+
+        preview = ctk.CTkFrame(
+            body,
+            corner_radius=8,
+            fg_color=("#FFFFFF", "#181B21"),
+            border_width=1,
+            border_color=("#E4E7EC", "#2A2F38"),
+        )
+        preview.grid(row=0, column=1, padx=(6, 0), sticky="nsew")
         preview.grid_columnconfigure(0, weight=1)
         preview.grid_rowconfigure(1, weight=1)
-        ctk.CTkLabel(preview, text="Library Preview", font=("Segoe UI", 22, "bold")).grid(
-            row=0, column=0, padx=18, pady=(18, 10), sticky="w"
+
+        ctk.CTkLabel(
+            preview,
+            text="Preview",
+            font=("Segoe UI", 15, "bold"),
+        ).grid(row=0, column=0, padx=16, pady=(14, 8), sticky="w")
+
+        self.preview_label = ctk.CTkLabel(
+            preview,
+            text="Select an image or video.",
+            wraplength=420,
+            text_color=("#667085", "#8F96A3"),
         )
-        self.preview_label = ctk.CTkLabel(preview, text="Select an image or video.", wraplength=420)
-        self.preview_label.grid(row=1, column=0, padx=18, pady=10, sticky="nsew")
-        self.details_label = ctk.CTkLabel(preview, text="", justify="left", anchor="w", wraplength=430)
-        self.details_label.grid(row=2, column=0, padx=18, pady=(4, 10), sticky="ew")
+        self.preview_label.grid(row=1, column=0, padx=16, pady=8, sticky="nsew")
+
+        self.details_label = ctk.CTkLabel(
+            preview,
+            text="",
+            justify="left",
+            anchor="w",
+            wraplength=430,
+            font=("Segoe UI", 12),
+            text_color=("#667085", "#8F96A3"),
+        )
+        self.details_label.grid(row=2, column=0, padx=16, pady=(4, 8), sticky="ew")
 
         project_row = ctk.CTkFrame(preview, fg_color="transparent")
-        project_row.grid(row=3, column=0, padx=18, pady=8, sticky="ew")
+        project_row.grid(row=3, column=0, padx=16, pady=6, sticky="ew")
         project_row.grid_columnconfigure(0, weight=1)
-        self.project_menu = ctk.CTkOptionMenu(project_row, values=["No projects available"])
+        self.project_menu = ctk.CTkOptionMenu(project_row, values=["No projects available"], height=34)
         self.project_menu.grid(row=0, column=0, padx=(0, 8), sticky="ew")
-        self.add_button = ctk.CTkButton(project_row, text="Add to Project", state="disabled", command=self.add_to_project)
+        self.add_button = ctk.CTkButton(
+            project_row,
+            text="Add to Project",
+            height=34,
+            state="disabled",
+            command=self.add_to_project,
+        )
         self.add_button.grid(row=0, column=1)
 
         action_row = ctk.CTkFrame(preview, fg_color="transparent")
-        action_row.grid(row=4, column=0, padx=18, pady=(6, 18), sticky="ew")
+        action_row.grid(row=4, column=0, padx=16, pady=(6, 16), sticky="ew")
         action_row.grid_columnconfigure((0, 1), weight=1)
-        self.open_button = ctk.CTkButton(action_row, text="Open", state="disabled", command=self.open_selected)
-        self.open_button.grid(row=0, column=0, padx=(0, 5), sticky="ew")
-        self.folder_button = ctk.CTkButton(action_row, text="Open Folder", state="disabled", command=self.open_folder)
-        self.folder_button.grid(row=0, column=1, padx=(5, 0), sticky="ew")
+        self.open_button = ctk.CTkButton(
+            action_row,
+            text="Open",
+            height=34,
+            state="disabled",
+            fg_color="transparent",
+            border_width=1,
+            text_color=("#344054", "#D0D5DD"),
+            command=self.open_selected,
+        )
+        self.open_button.grid(row=0, column=0, padx=(0, 4), sticky="ew")
+        self.folder_button = ctk.CTkButton(
+            action_row,
+            text="Open Folder",
+            height=34,
+            state="disabled",
+            fg_color="transparent",
+            border_width=1,
+            text_color=("#344054", "#D0D5DD"),
+            command=self.open_folder,
+        )
+        self.folder_button.grid(row=0, column=1, padx=(4, 0), sticky="ew")
 
     def refresh(self):
         self.assets = scan_media_library()
@@ -161,26 +245,38 @@ class MediaLibraryPage(BasePage):
         query = self.search.get().strip().lower()
         wanted_type = {"Images": "Image", "Videos": "Video"}.get(self.filter_value.get())
         self.visible_assets = [
-            asset for asset in self.assets
-            if (wanted_type is None or asset.media_type == wanted_type) and query in asset.name.lower()
+            asset
+            for asset in self.assets
+            if (wanted_type is None or asset.media_type == wanted_type)
+            and query in asset.name.lower()
         ]
         self.render_list()
 
     def render_list(self):
         for child in self.list_frame.winfo_children():
             child.destroy()
+
         if not self.visible_assets:
-            ctk.CTkLabel(self.list_frame, text="No matching library media found.", text_color="gray").pack(pady=30)
+            ctk.CTkLabel(
+                self.list_frame,
+                text="No matching library media found.",
+                text_color=("#667085", "#8F96A3"),
+            ).pack(anchor="w", padx=12, pady=20)
             self.clear_selection()
             return
+
         for asset in self.visible_assets:
             ctk.CTkButton(
                 self.list_frame,
-                text=f"{'🖼' if asset.media_type == 'Image' else '▶'}  {asset.name}",
+                text=f"{'Image' if asset.media_type == 'Image' else 'Video'}  ·  {asset.name}",
                 anchor="w",
-                height=42,
+                height=36,
+                corner_radius=6,
+                fg_color="transparent",
+                hover_color=("#F2F4F7", "#252A33"),
+                text_color=("#344054", "#D0D5DD"),
                 command=lambda item=asset: self.select_asset(item),
-            ).pack(fill="x", padx=8, pady=4)
+            ).pack(fill="x", padx=6, pady=2)
 
     def select_asset(self, asset):
         self.selected_asset = asset
@@ -194,14 +290,22 @@ class MediaLibraryPage(BasePage):
             except Exception:
                 self.preview_label.configure(image=None, text="Preview unavailable")
         else:
-            self.preview_label.configure(image=None, text="▶ VIDEO\n\nUse Open to play this file.", font=("Segoe UI", 24, "bold"))
+            self.preview_label.configure(
+                image=None,
+                text="VIDEO\n\nUse Open to play this file.",
+                font=("Segoe UI", 18, "bold"),
+            )
+
         metadata = ""
         if asset.source_path:
             try:
                 metadata = asset.source_path.read_text(encoding="utf-8").strip()
             except OSError:
                 metadata = ""
-        self.details_label.configure(text=f"{asset.name}\n{asset.media_type}\n\n{metadata}")
+
+        self.details_label.configure(
+            text=f"{asset.name}\n{asset.media_type}\n\n{metadata}"
+        )
         self.open_button.configure(state="normal")
         self.folder_button.configure(state="normal")
         self.add_button.configure(state="normal" if self.project_by_title else "disabled")
