@@ -32,12 +32,7 @@ class SettingsPage(BasePage):
         self.add_button("general", "📁 General", self.show_general)
         self.add_button("images", "🖼 Images", self.show_images)
         self.add_button("resolve", "🎞 DaVinci Resolve", self.show_resolve)
-        self.add_button("voice", "🎤 Voice", lambda: None)
         self.add_button("ai", "🤖 AI", self.show_ai)
-        self.add_button("youtube", "🎬 YouTube", lambda: None)
-        self.add_button("appearance", "🎨 Appearance", lambda: None)
-        self.add_button("projects", "📂 Projects", lambda: None)
-        self.add_button("advanced", "🔧 Advanced", lambda: None)
         self.add_button("about", "ℹ About", self.show_about)
         self.select_page("general", self.show_general)
 
