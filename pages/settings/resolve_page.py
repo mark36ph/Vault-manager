@@ -10,8 +10,6 @@ from common.settings_manager import SettingsManager
 class ResolvePage(ctk.CTkFrame):
     def __init__(self, parent, pm, app):
         super().__init__(parent)
-        self.pm = pm
-        self.app = app
         self.settings = SettingsManager()
         self.build()
 
@@ -25,8 +23,8 @@ class ResolvePage(ctk.CTkFrame):
         ctk.CTkLabel(
             self,
             text=(
-                "Configure the local Resolve installation and test the Python "
-                "scripting connection. Resolve does not require an API key."
+                "Configure Resolve export settings. The normal Resolve Free workflow creates "
+                "an FCPXML package for manual import; the scripting connection is optional."
             ),
             text_color="gray",
             wraplength=760,
@@ -49,7 +47,7 @@ class ResolvePage(ctk.CTkFrame):
             container,
             row=2,
             title="Scripting Modules folder",
-            placeholder="Leave blank to detect DaVinciResolveScript automatically",
+            placeholder="Optional: leave blank unless using Resolve scripting",
             setting_key="scripting_module_path",
             browse_command=self.browse_module_folder,
         )
@@ -83,14 +81,14 @@ class ResolvePage(ctk.CTkFrame):
         self.save_button.pack(side="left")
         self.test_button = ctk.CTkButton(
             actions,
-            text="Test Resolve Connection",
+            text="Test Optional Scripting Connection",
             command=self.start_test,
         )
         self.test_button.pack(side="left", padx=(10, 0))
 
         self.status_label = ctk.CTkLabel(
             container,
-            text="Save the settings, start Resolve, then test the connection.",
+            text="Save export settings here. Test scripting only if you intend to use it.",
             justify="left",
             anchor="w",
             wraplength=760,
@@ -154,7 +152,7 @@ class ResolvePage(ctk.CTkFrame):
                 "frame_rate": frame_rate,
             },
         )
-        self.status_label.configure(text="Resolve settings saved.")
+        self.status_label.configure(text="Resolve export settings saved.")
 
     def start_test(self):
         self.save_settings()
@@ -174,5 +172,5 @@ class ResolvePage(ctk.CTkFrame):
         self.after(0, lambda: self._show_test_result("\n".join(details)))
 
     def _show_test_result(self, message):
-        self.test_button.configure(state="normal", text="Test Resolve Connection")
+        self.test_button.configure(state="normal", text="Test Optional Scripting Connection")
         self.status_label.configure(text=message)
