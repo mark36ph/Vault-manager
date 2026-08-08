@@ -10,8 +10,6 @@ class AboutPage(ctk.CTkFrame):
         super().__init__(parent)
         self.app_info = AppInfo()
         self.updater = UpdateManager()
-        self.pm = pm
-        self.app = app
         self.build()
 
     def build(self):
