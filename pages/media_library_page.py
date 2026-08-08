@@ -42,11 +42,18 @@ def _asset_from_path(path, *, project_title=""):
         media_type = "Video"
     else:
         return None
-    return LibraryAsset(path, media_type, project_title=project_title)
+
+    source = path.with_suffix(".source.txt")
+    return LibraryAsset(
+        path,
+        media_type,
+        source if source.exists() else None,
+        project_title=str(project_title or ""),
+    )
 
 
 def scan_media_library(library_root=None, project_media=None):
-    """Return shared-library media plus optional production-acquired project media."""
+    """Return shared-library media plus media stored anywhere under project Assets."""
     root = get_media_library_root(library_root)
     migrate_library_metadata(root)
     assets = []
@@ -81,7 +88,7 @@ def scan_media_library(library_root=None, project_media=None):
         for path in folder.rglob("*"):
             if not path.is_file():
                 continue
-            asset = _asset_from_path(path, project_title=str(project_title or ""))
+            asset = _asset_from_path(path, project_title=project_title)
             if asset is None:
                 continue
             try:
@@ -298,9 +305,7 @@ class MediaLibraryPage(BasePage):
                 project_folder = self.pm.resolve_project_folder(project)
             except Exception:
                 continue
-            project_media.append(
-                (project["title"], Path(project_folder) / "Assets" / "Acquired")
-            )
+            project_media.append((project["title"], Path(project_folder) / "Assets"))
 
         self.assets = scan_media_library(project_media=project_media)
         self.apply_filter()
