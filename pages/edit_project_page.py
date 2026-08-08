@@ -10,11 +10,7 @@ from common.ui_fonts import EMOJI_FONT, EMOJI_FONT_BOLD
 
 
 class EditProjectPage(BasePage):
-    """Edit project content, publishing metadata, and high-level workflow state.
-
-    Production itself is handled from the Production page. This page intentionally
-    avoids duplicate voice, asset, caption, or Resolve-generation controls.
-    """
+    """Edit project content, publishing metadata, and high-level workflow state."""
 
     PIPELINE_STAGES = [
         ("research_complete", "Research"),
@@ -31,6 +27,7 @@ class EditProjectPage(BasePage):
         self.app = app
         self.project_id = project_id
         self.project = self.pm.db.get_project(project_id)
+        self._saved_snapshot = None
 
         if not self.project:
             messagebox.showerror("Error", "Project not found.")
@@ -46,20 +43,9 @@ class EditProjectPage(BasePage):
         self.load_project()
 
     def build(self):
-        self.form = ctk.CTkScrollableFrame(
-            self.content,
-            fg_color="transparent",
-        )
-        self.form.pack(
-            fill="both",
-            expand=True,
-            padx=15,
-            pady=15,
-        )
+        self.form = ctk.CTkScrollableFrame(self.content, fg_color="transparent")
+        self.form.pack(fill="both", expand=True, padx=15, pady=15)
 
-        # ==============================
-        # Project details
-        # ==============================
         details = ctk.CTkFrame(self.form)
         details.pack(fill="x", padx=10, pady=(0, 15))
 
@@ -67,122 +53,133 @@ class EditProjectPage(BasePage):
             details,
             text="Project Details",
             font=("Segoe UI", 22, "bold"),
-        ).pack(anchor="w", padx=20, pady=(15, 10))
+        ).pack(anchor="w", padx=20, pady=(15, 6))
 
         ctk.CTkLabel(
             details,
             text=(
-                "Edit the project content and publishing information here. "
-                "Run assets, voice, captions, and the Resolve package from the Production page."
+                "Edit the content and publishing information here. "
+                "Run assets, voice, captions, and Resolve export from Production."
             ),
             justify="left",
-            wraplength=980,
+            wraplength=1050,
             text_color="gray",
         ).pack(anchor="w", padx=20, pady=(0, 12))
 
         row = ctk.CTkFrame(details, fg_color="transparent")
         row.pack(fill="x", padx=20, pady=(0, 15))
 
-        self.title_entry = ctk.CTkEntry(
-            row,
-            width=420,
-            placeholder_text="Project title...",
-        )
-        self.title_entry.pack(side="left", padx=(0, 10))
+        self.title_entry = ctk.CTkEntry(row, width=380, placeholder_text="Project title...")
+        self.title_entry.pack(side="left", padx=(0, 8))
 
         self.category = ctk.CTkOptionMenu(
             row,
             values=self.pm.db.get_categories() or ["Misc"],
-            width=180,
+            width=150,
         )
-        self.category.pack(side="left", padx=10)
+        self.category.pack(side="left", padx=8)
 
         self.status = ctk.CTkOptionMenu(
             row,
-            values=[
-                "In Progress",
-                "Scheduled",
-                "Completed",
-                "Published",
-            ],
-            width=180,
+            values=["In Progress", "Scheduled", "Completed", "Published"],
+            width=150,
             command=self.on_status_changed,
         )
-        self.status.pack(side="left", padx=10)
+        self.status.pack(side="left", padx=8)
+
+        ctk.CTkButton(
+            row,
+            text="🎬 Production",
+            command=self.go_to_production,
+            width=125,
+        ).pack(side="right", padx=5)
+
+        ctk.CTkButton(
+            row,
+            text="📂 Folder",
+            command=self.open_folder,
+            width=105,
+        ).pack(side="right", padx=5)
 
         ctk.CTkButton(
             row,
             text="💾 Save",
             command=self.save_project,
-        ).pack(side="right", padx=5)
-
-        ctk.CTkButton(
-            row,
-            text="📂 Open Folder",
-            command=self.open_folder,
+            width=95,
         ).pack(side="right", padx=5)
 
         ctk.CTkButton(
             row,
             text="← Back",
-            command=self.app.show_projects,
+            command=self.go_back,
+            width=90,
         ).pack(side="right", padx=5)
 
-        # ==============================
-        # Main two-column layout
-        # ==============================
         columns = ctk.CTkFrame(self.form, fg_color="transparent")
         columns.pack(fill="both", expand=True, padx=10)
 
         left = ctk.CTkFrame(columns)
         left.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
-        right = ctk.CTkFrame(columns, width=400)
+        right = ctk.CTkFrame(columns, width=410)
         right.pack(side="right", fill="y", padx=(10, 0))
         right.pack_propagate(False)
 
-        # Left: content used by the current production pipeline.
         ctk.CTkLabel(
             left,
             text="Production Content",
             font=("Segoe UI", 18, "bold"),
         ).pack(anchor="w", padx=15, pady=(15, 0))
 
-        self.add_textbox(left, "Script", "script", 320)
-        self.add_textbox(left, "On-Screen Text", "on_screen_text", 260)
+        self.add_textbox(left, "Script", "script", 320, show_counter=True)
+        self.add_textbox(
+            left,
+            "On-Screen Text",
+            "on_screen_text",
+            260,
+            show_counter=True,
+        )
 
-        # Right: publishing metadata.
         ctk.CTkLabel(
             right,
             text="Publishing",
             font=("Segoe UI", 18, "bold"),
         ).pack(anchor="w", padx=15, pady=(15, 0))
 
-        self.add_textbox(right, "Description", "description", 130)
-        self.add_textbox(right, "Pinned Comment", "pinned_comment", 110)
-        self.add_textbox(right, "Tags", "tags", 90)
-        self.add_textbox(right, "Sources", "sources", 120)
-        self.add_textbox(right, "Thumbnail Prompt", "thumbnail_prompt", 110)
-        self.add_textbox(right, "Notes", "notes", 130)
+        self.add_textbox(right, "Description", "description", 125)
+        self.add_textbox(right, "Pinned Comment", "pinned_comment", 105)
+        self.add_textbox(right, "Tags", "tags", 85)
+        self.add_textbox(right, "Sources", "sources", 110)
+        self.add_textbox(right, "Thumbnail Prompt", "thumbnail_prompt", 105)
+        self.add_textbox(right, "Notes", "notes", 120)
 
-        duration_row = ctk.CTkFrame(right, fg_color="transparent")
-        duration_row.pack(fill="x", padx=15, pady=(10, 5))
+        info_frame = ctk.CTkFrame(right)
+        info_frame.pack(fill="x", padx=15, pady=(15, 5))
 
         ctk.CTkLabel(
-            duration_row,
-            text="Narration Duration (seconds)",
-            font=EMOJI_FONT_BOLD,
-        ).pack(anchor="w")
+            info_frame,
+            text="Project Info",
+            font=("Segoe UI", 18, "bold"),
+        ).pack(anchor="w", padx=15, pady=(12, 7))
 
-        self.narration_duration = ctk.CTkEntry(
-            duration_row,
-            placeholder_text="e.g. 44.4",
+        self.info_narration = ctk.CTkLabel(info_frame, text="Narration: —", anchor="w")
+        self.info_narration.pack(fill="x", padx=15, pady=2)
+
+        self.info_updated = ctk.CTkLabel(info_frame, text="Updated: —", anchor="w")
+        self.info_updated.pack(fill="x", padx=15, pady=2)
+
+        self.info_scheduled = ctk.CTkLabel(info_frame, text="Scheduled: —", anchor="w")
+        self.info_scheduled.pack(fill="x", padx=15, pady=2)
+
+        self.info_folder = ctk.CTkLabel(
+            info_frame,
+            text="Folder: —",
+            anchor="w",
+            justify="left",
+            wraplength=340,
         )
-        self.narration_duration.pack(fill="x", pady=(5, 0))
+        self.info_folder.pack(fill="x", padx=15, pady=(2, 12))
 
-        # ==============================
-        # Current production milestones
-        # ==============================
         pipeline_frame = ctk.CTkFrame(right)
         pipeline_frame.pack(fill="x", padx=15, pady=(15, 15))
 
@@ -194,16 +191,13 @@ class EditProjectPage(BasePage):
 
         ctk.CTkLabel(
             pipeline_frame,
-            text=(
-                "Milestones only. Production tasks are run from the Production page."
-            ),
+            text="Milestones only. Production work is run from the Production page.",
             justify="left",
-            wraplength=330,
+            wraplength=340,
             text_color="gray",
         ).pack(anchor="w", padx=15, pady=(0, 8))
 
         self.pipeline_vars = {}
-
         for key, label in self.PIPELINE_STAGES:
             var = ctk.IntVar(value=0)
             self.pipeline_vars[key] = var
@@ -213,38 +207,67 @@ class EditProjectPage(BasePage):
                 variable=var,
             ).pack(anchor="w", padx=15, pady=4)
 
-        ctk.CTkFrame(
-            pipeline_frame,
-            height=8,
-            fg_color="transparent",
-        ).pack()
+        ctk.CTkFrame(pipeline_frame, height=8, fg_color="transparent").pack()
 
-    def add_textbox(self, parent, label, attr, height):
+    def add_textbox(self, parent, label, attr, height, show_counter=False):
+        header = ctk.CTkFrame(parent, fg_color="transparent")
+        header.pack(fill="x", padx=15, pady=(15, 5))
+
         ctk.CTkLabel(
-            parent,
+            header,
             text=label,
             font=EMOJI_FONT_BOLD,
-        ).pack(anchor="w", padx=15, pady=(15, 5))
+        ).pack(side="left")
 
-        box = ctk.CTkTextbox(
-            parent,
-            height=height,
-            font=EMOJI_FONT,
-        )
-        box.pack(fill="x", padx=15, pady=(0, 5))
+        ctk.CTkButton(
+            header,
+            text="Copy",
+            width=58,
+            height=25,
+            command=lambda name=attr: self.copy_textbox(name),
+        ).pack(side="right")
+
+        box = ctk.CTkTextbox(parent, height=height, font=EMOJI_FONT)
+        box.pack(fill="x", padx=15, pady=(0, 3))
         setattr(self, attr, box)
+
+        if show_counter:
+            counter = ctk.CTkLabel(
+                parent,
+                text="Words: 0 | Characters: 0",
+                text_color="gray",
+                anchor="e",
+            )
+            counter.pack(fill="x", padx=15, pady=(0, 2))
+            setattr(self, f"{attr}_counter", counter)
+            box.bind(
+                "<KeyRelease>",
+                lambda _event, name=attr: self.update_text_counter(name),
+            )
+
+    def copy_textbox(self, attr):
+        box = getattr(self, attr, None)
+        if box is None:
+            return
+        text = box.get("1.0", "end").strip()
+        self.clipboard_clear()
+        self.clipboard_append(text)
+
+    def update_text_counter(self, attr):
+        box = getattr(self, attr, None)
+        counter = getattr(self, f"{attr}_counter", None)
+        if box is None or counter is None:
+            return
+        text = box.get("1.0", "end").strip()
+        words = len(text.split()) if text else 0
+        counter.configure(text=f"Words: {words} | Characters: {len(text)}")
 
     def open_folder(self):
         try:
             folder = self.pm.resolve_project_folder(self.project)
-
             if not folder.exists():
-                raise FileNotFoundError(
-                    f"Project folder could not be found:\n{folder}"
-                )
-
+                raise FileNotFoundError(f"Project folder could not be found:\n{folder}")
             os.startfile(str(folder))
-
         except Exception as error:
             messagebox.showerror("Error", str(error))
 
@@ -254,25 +277,13 @@ class EditProjectPage(BasePage):
         self.status.set(self.project["status"] or "In Progress")
 
         self.script.insert("1.0", self.project["script"] or "")
-        self.on_screen_text.insert(
-            "1.0",
-            self.project["on_screen_text"] or "",
-        )
+        self.on_screen_text.insert("1.0", self.project["on_screen_text"] or "")
         self.description.insert("1.0", self.project["description"] or "")
-        self.pinned_comment.insert(
-            "1.0",
-            self.project["pinned_comment"] or "",
-        )
+        self.pinned_comment.insert("1.0", self.project["pinned_comment"] or "")
         self.tags.insert("1.0", self.project["tags"] or "")
         self.sources.insert("1.0", self.project["sources"] or "")
-        self.thumbnail_prompt.insert(
-            "1.0",
-            self.project["thumbnail_prompt"] or "",
-        )
+        self.thumbnail_prompt.insert("1.0", self.project["thumbnail_prompt"] or "")
         self.notes.insert("1.0", self.project["notes"] or "")
-
-        narration_duration = self.project["narration_duration"] or ""
-        self.narration_duration.insert(0, str(narration_duration))
 
         for key, var in self.pipeline_vars.items():
             try:
@@ -280,19 +291,97 @@ class EditProjectPage(BasePage):
             except Exception:
                 var.set(0)
 
-    def _pipeline_values_for_save(self):
-        """Return current milestones while preserving legacy hidden flags."""
-        pipeline = {
-            key: var.get()
-            for key, var in self.pipeline_vars.items()
-        }
+        self.update_text_counter("script")
+        self.update_text_counter("on_screen_text")
+        self.refresh_project_info()
+        self._saved_snapshot = self._current_snapshot()
 
-        # These fields remain in the database for backwards compatibility, but
-        # are no longer presented as separate workflow steps on this page.
-        for legacy_key in (
-            "subtitles_complete",
-            "capcut_complete",
-        ):
+    def refresh_project_info(self):
+        try:
+            narration = float(self.project["narration_duration"] or 0)
+        except Exception:
+            narration = 0.0
+
+        narration_text = f"{narration:g} sec" if narration else "Not recorded"
+        self.info_narration.configure(text=f"Narration: {narration_text}")
+
+        try:
+            updated = self.project["updated"] or "—"
+        except Exception:
+            updated = "—"
+        self.info_updated.configure(text=f"Updated: {updated}")
+
+        scheduled = self.scheduled_for or "Not scheduled"
+        self.info_scheduled.configure(text=f"Scheduled: {scheduled}")
+
+        try:
+            folder = self.pm.resolve_project_folder(self.project)
+            folder_text = str(folder)
+        except Exception:
+            folder_text = str(self.project["folder"] or "—")
+        self.info_folder.configure(text=f"Folder: {folder_text}")
+
+    def _current_snapshot(self):
+        return (
+            self.title_entry.get().strip(),
+            self.category.get(),
+            self.status.get(),
+            self.scheduled_for,
+            self.script.get("1.0", "end").strip(),
+            self.on_screen_text.get("1.0", "end").strip(),
+            self.description.get("1.0", "end").strip(),
+            self.pinned_comment.get("1.0", "end").strip(),
+            self.tags.get("1.0", "end").strip(),
+            self.sources.get("1.0", "end").strip(),
+            self.thumbnail_prompt.get("1.0", "end").strip(),
+            self.notes.get("1.0", "end").strip(),
+            tuple((key, var.get()) for key, var in self.pipeline_vars.items()),
+        )
+
+    def has_unsaved_changes(self):
+        return self._saved_snapshot is not None and self._current_snapshot() != self._saved_snapshot
+
+    def confirm_leave_with_unsaved_changes(self):
+        if not self.has_unsaved_changes():
+            return True
+
+        answer = messagebox.askyesnocancel(
+            "Unsaved Changes",
+            "This project has unsaved changes.\n\nSave them before leaving?",
+        )
+
+        if answer is None:
+            return False
+        if answer:
+            return self.save_project(show_message=False)
+        return True
+
+    def go_back(self):
+        if self.confirm_leave_with_unsaved_changes():
+            self.app.show_projects()
+
+    def go_to_production(self):
+        if not self.confirm_leave_with_unsaved_changes():
+            return
+
+        from pages.production_page import ProductionPage, project_choice
+
+        self.app.load_page(ProductionPage, self.app)
+        page = self.app.current_page
+
+        for project in getattr(page, "projects", []):
+            if int(project.get("id", -1)) != int(self.project_id):
+                continue
+            choice = project_choice(project)
+            if choice in getattr(page, "project_lookup", {}):
+                page.project_menu.set(choice)
+                page._load_selected_project()
+            break
+
+    def _pipeline_values_for_save(self):
+        pipeline = {key: var.get() for key, var in self.pipeline_vars.items()}
+
+        for legacy_key in ("subtitles_complete", "capcut_complete"):
             try:
                 pipeline[legacy_key] = int(self.project[legacy_key] or 0)
             except Exception:
@@ -300,43 +389,34 @@ class EditProjectPage(BasePage):
 
         return pipeline
 
-    def save_project(self):
+    def save_project(self, show_message=True):
         try:
             old_folder = self.pm.resolve_project_folder(self.project)
-
             if not old_folder.exists():
-                raise FileNotFoundError(
-                    f"Project folder could not be found:\n{old_folder}"
-                )
+                raise FileNotFoundError(f"Project folder could not be found:\n{old_folder}")
 
             new_title = self.title_entry.get().strip()
             if not new_title:
                 raise ValueError("Project title cannot be empty.")
 
             new_status = self.status.get()
-            new_project = {
-                "title": new_title,
-                "status": new_status,
-            }
+            new_project = {"title": new_title, "status": new_status}
             new_folder = self.pm.get_project_folder(new_project)
 
-            old_resolved = old_folder.resolve()
-            new_resolved = new_folder.resolve()
-
-            if old_resolved != new_resolved:
+            if old_folder.resolve() != new_folder.resolve():
                 new_folder.parent.mkdir(parents=True, exist_ok=True)
-
                 if new_folder.exists():
                     raise FileExistsError(
                         "A project folder already exists at the destination:\n"
                         f"{new_folder}"
                     )
-
                 shutil.move(str(old_folder), str(new_folder))
 
-            # Keep older planning fields unchanged. They remain in the database
-            # for compatibility, but the current Resolve production workflow no
-            # longer requires editing them on this page.
+            try:
+                narration_duration = self.project["narration_duration"] or 0
+            except Exception:
+                narration_duration = 0
+
             self.pm.db.update_project(
                 self.project_id,
                 new_title,
@@ -351,40 +431,31 @@ class EditProjectPage(BasePage):
                 visual_plan=self.project["visual_plan"] or "",
                 search_terms=self.project["search_terms"] or "",
                 broll_plan=self.project["broll_plan"] or "",
-                thumbnail_prompt=self.thumbnail_prompt.get(
-                    "1.0",
-                    "end",
-                ).strip(),
+                thumbnail_prompt=self.thumbnail_prompt.get("1.0", "end").strip(),
                 tags=self.tags.get("1.0", "end").strip(),
                 sources=self.sources.get("1.0", "end").strip(),
                 subtitle_text=self.project["subtitle_text"] or "",
-                narration_duration=(
-                    self.narration_duration.get().strip() or 0
-                ),
+                narration_duration=narration_duration,
                 pipeline=self._pipeline_values_for_save(),
             )
 
-            self.project = self.pm.db.get_project(self.project_id)
-
             if new_status == "Scheduled":
-                self.pm.db.update_project_schedule(
-                    self.project["id"],
-                    self.scheduled_for,
-                )
+                self.pm.db.update_project_schedule(self.project_id, self.scheduled_for)
             else:
-                self.pm.db.update_project_schedule(
-                    self.project["id"],
-                    "",
-                )
+                self.scheduled_for = ""
+                self.pm.db.update_project_schedule(self.project_id, "")
 
-            messagebox.showinfo(
-                "Saved",
-                "Project updated successfully.",
-            )
-            self.app.show_projects()
+            self.project = self.pm.db.get_project(self.project_id)
+            self.refresh_project_info()
+            self._saved_snapshot = self._current_snapshot()
+
+            if show_message:
+                messagebox.showinfo("Saved", "Project updated successfully.")
+            return True
 
         except Exception as error:
             messagebox.showerror("Error", str(error))
+            return False
 
     def on_status_changed(self, value):
         if value != "Scheduled":
@@ -400,13 +471,11 @@ class EditProjectPage(BasePage):
         )
 
         scheduled_text = dialog.get_input()
-
         if not scheduled_text:
             self.status.set(self.project["status"])
             return
 
         scheduled_value = self.parse_schedule_date(scheduled_text)
-
         if scheduled_value is None:
             messagebox.showerror(
                 "Invalid Date",
@@ -416,11 +485,11 @@ class EditProjectPage(BasePage):
             return
 
         self.scheduled_for = scheduled_value
+        self.info_scheduled.configure(text=f"Scheduled: {scheduled_value}")
 
     @staticmethod
     def parse_schedule_date(value):
         value = str(value or "").strip()
-
         try:
             date = datetime.strptime(value, "%d/%m/%Y %H:%M")
             return date.strftime("%Y-%m-%d %H:%M")
