@@ -67,7 +67,7 @@ def test_pixabay_image_search_maps_fields_and_key():
 
 
 def test_pixabay_video_search_selects_largest_version():
-    payload = {"hits": [{"id": 2, "videos": {"tiny": {"url": "tiny.mp4", "width": 640, "height": 360}, "medium": {"url": "medium.mp4", "width": 1920, "height": 1080}}, "duration": 8}]}
+    payload = {"hits": [{"id": 2, "videos": {"tiny": {"url": "tiny.mp4", "width": 640, "height": 360}, "medium": {"url": "medium.mp4", "width": 1920, "height": 1080}}, "duration": 8, "tags": "clouds, sky", "pageURL": "https://pixabay.test/clouds"}]}
     result = PixabayAssetProvider("key", transport=lambda request: payload).search("clouds", kind="video", limit=3)
     assert result[0].url == "medium.mp4"
     assert result[0].width == 1920
@@ -118,16 +118,19 @@ def test_openai_speech_writes_audio_atomically(tmp_path):
     seen = {}
 
     def transport(request):
-        seen["body"] = request_json(request)
+        seen.setdefault("bodies", []).append(request_json(request))
         return b"audio bytes"
 
     context = SimpleNamespace(script="Narration text", project_folder=tmp_path)
     result = OpenAISpeechProvider("key", voice="nova", response_format="mp3", transport=transport)(context)
     path = Path(result)
     assert path.read_bytes() == b"audio bytes"
-    assert path.name == "narration.mp3"
-    assert seen["body"]["voice"] == "nova"
-    assert not path.with_suffix(".mp3.part").exists()
+    assert path.name.startswith("narration_")
+    assert path.name.endswith(".mp3")
+    assert len(path.stem.removeprefix("narration_")) == 12
+    assert seen["bodies"][0]["voice"] == "nova"
+    assert not path.with_suffix(path.suffix + ".part").exists()
+    assert (path.parent / f"{path.stem}.txt").read_text(encoding="utf-8") == "Narration text"
 
 
 def test_openai_speech_rejects_empty_audio(tmp_path):
