@@ -18,6 +18,7 @@ from pages.base_page import BasePage
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v"}
+PROJECT_STATUSES = ("In Progress", "Scheduled", "Completed", "Published")
 PREVIEW_SIZE = (460, 380)
 
 
@@ -108,6 +109,42 @@ def scan_media_library(library_root=None, project_media=None):
             item.name.lower(),
         ),
     )
+
+
+def discover_project_media_roots(*roots):
+    """Find real project Assets folders from current and legacy project layouts."""
+    found = []
+    seen = set()
+
+    for root in roots:
+        if root is None:
+            continue
+        root = Path(root)
+        if not root.exists():
+            continue
+
+        for status in PROJECT_STATUSES:
+            status_folder = root / status
+            if not status_folder.is_dir():
+                continue
+
+            for project_folder in status_folder.iterdir():
+                if not project_folder.is_dir():
+                    continue
+                assets_folder = project_folder / "Assets"
+                if not assets_folder.is_dir():
+                    continue
+
+                try:
+                    key = assets_folder.resolve()
+                except OSError:
+                    key = assets_folder
+                if key in seen:
+                    continue
+                seen.add(key)
+                found.append((project_folder.name, assets_folder))
+
+    return found
 
 
 def copy_library_asset_to_project(asset, project_folder):
@@ -300,12 +337,34 @@ class MediaLibraryPage(BasePage):
         self.project_menu.set(values[0])
 
         project_media = []
+        seen_folders = set()
+
+        def add_project_media(title, assets_folder):
+            assets_folder = Path(assets_folder)
+            try:
+                key = assets_folder.resolve()
+            except OSError:
+                key = assets_folder
+            if key in seen_folders:
+                return
+            seen_folders.add(key)
+            project_media.append((str(title or assets_folder.parent.name), assets_folder))
+
         for project in projects:
             try:
                 project_folder = self.pm.resolve_project_folder(project)
             except Exception:
                 continue
-            project_media.append((project["title"], Path(project_folder) / "Assets"))
+            add_project_media(project["title"], Path(project_folder) / "Assets")
+
+        discovery_roots = [Path.cwd(), Path.cwd() / "projects"]
+        try:
+            discovery_roots.append(self.pm.get_projects_root())
+        except Exception:
+            pass
+
+        for title, assets_folder in discover_project_media_roots(*discovery_roots):
+            add_project_media(title, assets_folder)
 
         self.assets = scan_media_library(project_media=project_media)
         self.apply_filter()
@@ -422,4 +481,10 @@ class MediaLibraryPage(BasePage):
             _open_path(self.selected_asset.path.parent)
 
 
-__all__ = ["LibraryAsset", "MediaLibraryPage", "copy_library_asset_to_project", "scan_media_library"]
+__all__ = [
+    "LibraryAsset",
+    "MediaLibraryPage",
+    "copy_library_asset_to_project",
+    "discover_project_media_roots",
+    "scan_media_library",
+]
