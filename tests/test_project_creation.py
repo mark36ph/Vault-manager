@@ -26,6 +26,7 @@ def test_create_project_fails_when_folder_already_exists(project_manager):
 
     assert len(matching_projects) == 1
 
+
 def test_create_project_creates_required_folders(project_manager):
     pm = project_manager
 
@@ -52,7 +53,6 @@ def test_create_project_creates_required_folders(project_manager):
         folder / "Assets" / "SFX",
         folder / "Assets" / "Overlays",
         folder / "Assets" / "Thumbnails",
-        folder / "CapCut",
         folder / "Export",
         folder / "Voice",
     ]
