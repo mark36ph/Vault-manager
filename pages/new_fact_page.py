@@ -16,8 +16,6 @@ class NewFactPage(BasePage):
         self.build()
 
     def build(self):
-        # BasePage already provides the page title, so keep this screen focused
-        # on the form itself and avoid duplicating a second large heading.
         self.header.configure(font=("Segoe UI", 24, "bold"))
 
         subtitle = ctk.CTkLabel(
@@ -59,6 +57,7 @@ class NewFactPage(BasePage):
 
         self.build_right_panel()
         self.build_left_panel()
+        self.after(50, self.title_entry.focus_set)
 
     def build_left_panel(self):
         header = ctk.CTkFrame(self.left_panel, fg_color="transparent")
@@ -70,7 +69,7 @@ class NewFactPage(BasePage):
             font=("Segoe UI", 16, "bold"),
         ).pack(side="left")
 
-        ctk.CTkButton(
+        self.create_button = ctk.CTkButton(
             header,
             text="Create Fact",
             height=36,
@@ -78,7 +77,17 @@ class NewFactPage(BasePage):
             corner_radius=7,
             font=("Segoe UI", 13, "bold"),
             command=self.create_project,
-        ).pack(side="right")
+        )
+        self.create_button.pack(side="right")
+
+        self.status_label = ctk.CTkLabel(
+            self.left_panel,
+            text="",
+            font=("Segoe UI", 11),
+            text_color=("#667085", "#8F96A3"),
+            anchor="w",
+        )
+        self.status_label.pack(fill="x", padx=16, pady=(0, 6))
 
         self.form = ctk.CTkScrollableFrame(
             self.left_panel,
@@ -340,8 +349,21 @@ class NewFactPage(BasePage):
         title = self.title_entry.get().strip()
 
         if not title:
-            messagebox.showerror("Missing Title", "Please enter a project title.")
+            self.status_label.configure(text="Enter a project title before creating the fact.")
+            self.title_entry.focus_set()
+            messagebox.showerror("Missing Title", "Please enter a project title.", parent=self)
             return
+
+        try:
+            self.pm.get_projects_root()
+        except Exception as exc:
+            self.status_label.configure(text="Projects Folder needs to be configured first.")
+            messagebox.showerror("Projects Folder", str(exc), parent=self)
+            return
+
+        self.create_button.configure(state="disabled", text="Creating...")
+        self.status_label.configure(text="Creating project...")
+        self.update_idletasks()
 
         try:
             folder = self.pm.create_project(
@@ -353,28 +375,46 @@ class NewFactPage(BasePage):
                 self.pinned_comment.get("1.0", "end").strip(),
                 self.notes.get("1.0", "end").strip(),
             )
+        except Exception as exc:
+            self.create_button.configure(state="normal", text="Create Fact")
+            self.status_label.configure(text="Project was not created.")
+            messagebox.showerror("Create Project", str(exc), parent=self)
+            return
 
+        template_warning = ""
+        try:
             self.pm.apply_template(folder, self.template.get())
+        except Exception as exc:
+            template_warning = str(exc)
 
-            messagebox.showinfo("Success", "Project created successfully!")
+        self.status_label.configure(text="Project created successfully.")
 
-            if self.open_after.get():
-                project = self.pm.db.get_latest_project()
-                if project:
-                    self.app.show_edit_project(project["id"])
-                else:
-                    self.app.show_projects()
+        if template_warning:
+            messagebox.showwarning(
+                "Project Created",
+                "The project was created, but its template could not be applied.\n\n"
+                f"{template_warning}",
+                parent=self,
+            )
+        else:
+            messagebox.showinfo("Success", "Project created successfully!", parent=self)
+
+        if self.open_after.get():
+            project = self.pm.db.get_latest_project()
+            if project:
+                self.app.show_edit_project(project["id"])
             else:
                 self.app.show_projects()
-
-        except Exception as exc:
-            messagebox.showerror("Error", str(exc))
+        else:
+            self.app.show_projects()
 
     def import_chatgpt_text(self):
         raw_text = self.import_box.get("1.0", "end").strip()
 
         if not raw_text:
-            messagebox.showerror("Import", "Please paste text from ChatGPT first.")
+            self.status_label.configure(text="Paste ChatGPT text before importing.")
+            self.import_box.focus_set()
+            messagebox.showerror("Import", "Please paste text from ChatGPT first.", parent=self)
             return
 
         data = ChatGPTImportParser.parse(raw_text)
@@ -389,6 +429,7 @@ class NewFactPage(BasePage):
         if data["template"]:
             self.template.set(data["template"])
 
+        imported_fields = 0
         for key in [
             "script",
             "description",
@@ -400,8 +441,17 @@ class NewFactPage(BasePage):
             if not hasattr(self, key):
                 continue
 
+            value = data[key]
             box = getattr(self, key)
             box.delete("1.0", "end")
-            box.insert("1.0", data[key])
+            box.insert("1.0", value)
+            if str(value or "").strip():
+                imported_fields += 1
 
         self.update_preview()
+        self.status_label.configure(
+            text=f"ChatGPT content imported ({imported_fields} content field{'s' if imported_fields != 1 else ''})."
+        )
+
+        if not self.title_entry.get().strip():
+            self.title_entry.focus_set()
