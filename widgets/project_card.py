@@ -1,6 +1,156 @@
 import customtkinter as ctk
-from datetime import datetime
+from datetime import datetime, timedelta
 from tkinter import messagebox
+
+
+class ScheduleDialog(ctk.CTkToplevel):
+    """Small date/time picker used when moving a project to Scheduled."""
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.result = None
+
+        self.title("Schedule Project")
+        self.geometry("430x315")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        tomorrow = datetime.now() + timedelta(days=1)
+
+        ctk.CTkLabel(
+            self,
+            text="Schedule Project",
+            font=("Segoe UI", 20, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=22, pady=(20, 4))
+
+        ctk.CTkLabel(
+            self,
+            text="Choose the date and time separately.",
+            font=("Segoe UI", 12),
+            text_color=("#667085", "#98A2B3"),
+            anchor="w",
+        ).pack(fill="x", padx=22, pady=(0, 16))
+
+        fields = ctk.CTkFrame(self, fg_color="transparent")
+        fields.pack(fill="x", padx=22)
+        fields.grid_columnconfigure((0, 1), weight=1)
+
+        ctk.CTkLabel(
+            fields,
+            text="Date",
+            font=("Segoe UI", 11, "bold"),
+            anchor="w",
+        ).grid(row=0, column=0, sticky="w", padx=(0, 6), pady=(0, 5))
+
+        ctk.CTkLabel(
+            fields,
+            text="Time",
+            font=("Segoe UI", 11, "bold"),
+            anchor="w",
+        ).grid(row=0, column=1, sticky="w", padx=(6, 0), pady=(0, 5))
+
+        self.date_entry = ctk.CTkEntry(
+            fields,
+            height=36,
+            placeholder_text="DD/MM/YYYY",
+        )
+        self.date_entry.grid(row=1, column=0, sticky="ew", padx=(0, 6))
+        self.date_entry.insert(0, tomorrow.strftime("%d/%m/%Y"))
+
+        times = [f"{hour:02d}:{minute:02d}" for hour in range(0, 24) for minute in (0, 30)]
+        self.time_menu = ctk.CTkOptionMenu(
+            fields,
+            values=times,
+            height=36,
+        )
+        self.time_menu.grid(row=1, column=1, sticky="ew", padx=(6, 0))
+        self.time_menu.set("18:00")
+
+        quick = ctk.CTkFrame(self, fg_color="transparent")
+        quick.pack(fill="x", padx=22, pady=(14, 0))
+
+        ctk.CTkLabel(
+            quick,
+            text="Quick date:",
+            font=("Segoe UI", 11),
+            text_color=("#667085", "#98A2B3"),
+        ).pack(side="left", padx=(0, 8))
+
+        for label, days in (("Tomorrow", 1), ("+3 days", 3), ("+7 days", 7)):
+            ctk.CTkButton(
+                quick,
+                text=label,
+                width=78,
+                height=28,
+                fg_color="transparent",
+                border_width=1,
+                border_color=("#D0D5DD", "#3A404B"),
+                text_color=("#344054", "#D0D5DD"),
+                command=lambda offset=days: self._set_date(offset),
+            ).pack(side="left", padx=3)
+
+        self.error_label = ctk.CTkLabel(
+            self,
+            text="",
+            font=("Segoe UI", 11),
+            text_color=("#B42318", "#FDA29B"),
+            anchor="w",
+        )
+        self.error_label.pack(fill="x", padx=22, pady=(12, 0))
+
+        buttons = ctk.CTkFrame(self, fg_color="transparent")
+        buttons.pack(side="bottom", fill="x", padx=22, pady=20)
+
+        ctk.CTkButton(
+            buttons,
+            text="Cancel",
+            width=96,
+            height=34,
+            fg_color="transparent",
+            border_width=1,
+            border_color=("#D0D5DD", "#3A404B"),
+            text_color=("#344054", "#D0D5DD"),
+            command=self._cancel,
+        ).pack(side="right", padx=(8, 0))
+
+        ctk.CTkButton(
+            buttons,
+            text="Schedule",
+            width=104,
+            height=34,
+            command=self._confirm,
+        ).pack(side="right")
+
+        self.protocol("WM_DELETE_WINDOW", self._cancel)
+        self.bind("<Escape>", lambda _event: self._cancel())
+        self.bind("<Return>", lambda _event: self._confirm())
+        self.date_entry.focus_set()
+
+    def _set_date(self, days):
+        value = datetime.now() + timedelta(days=days)
+        self.date_entry.delete(0, "end")
+        self.date_entry.insert(0, value.strftime("%d/%m/%Y"))
+
+    def _confirm(self):
+        raw = f"{self.date_entry.get().strip()} {self.time_menu.get().strip()}"
+        try:
+            value = datetime.strptime(raw, "%d/%m/%Y %H:%M")
+        except ValueError:
+            self.error_label.configure(text="Enter a valid date in DD/MM/YYYY format.")
+            return
+
+        if value <= datetime.now():
+            self.error_label.configure(text="Choose a future date and time.")
+            return
+
+        self.result = value
+        self.destroy()
+
+    def _cancel(self):
+        self.result = None
+        self.destroy()
 
 
 class ProjectCard(ctk.CTkFrame):
@@ -167,8 +317,7 @@ class ProjectCard(ctk.CTkFrame):
     def parse_schedule_date(self, value):
         value = value.strip()
         try:
-            date = datetime.strptime(value, "%d/%m/%Y %H:%M")
-            return date
+            return datetime.strptime(value, "%d/%m/%Y %H:%M")
         except Exception:
             return None
 
@@ -180,38 +329,11 @@ class ProjectCard(ctk.CTkFrame):
         scheduled_value = ""
 
         if new_status == "Scheduled":
-            dialog = ctk.CTkInputDialog(
-                text=(
-                    "When is this scheduled for?\n\n"
-                    "Use: DD/MM/YYYY HH:MM\n"
-                    "Example: 25/07/2026 18:00"
-                ),
-                title="Schedule Project",
-            )
-            scheduled_text = dialog.get_input()
+            dialog = ScheduleDialog(self)
+            self.wait_window(dialog)
+            scheduled_date = dialog.result
 
-            if not scheduled_text:
-                if self.refresh_callback:
-                    self.refresh_callback()
-                return
-
-            scheduled_date = self.parse_schedule_date(scheduled_text)
             if scheduled_date is None:
-                messagebox.showerror(
-                    "Invalid Date",
-                    "Please enter the date like this:\n\n25/07/2026 18:00",
-                    parent=self,
-                )
-                if self.refresh_callback:
-                    self.refresh_callback()
-                return
-
-            if scheduled_date <= datetime.now():
-                messagebox.showerror(
-                    "Schedule Project",
-                    "Please choose a future date and time.",
-                    parent=self,
-                )
                 if self.refresh_callback:
                     self.refresh_callback()
                 return
