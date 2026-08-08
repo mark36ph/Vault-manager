@@ -382,7 +382,6 @@ class NewFactPage(BasePage):
             ✔ Videos
             ✔ Music
             ✔ Voice
-            ✔ CapCut
             ✔ Export
             """
         )
@@ -427,7 +426,6 @@ class NewFactPage(BasePage):
             ✔ Videos
             ✔ Music
             ✔ Voice
-            ✔ CapCut
             ✔ Export
             """
 
