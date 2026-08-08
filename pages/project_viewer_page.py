@@ -1,10 +1,8 @@
 import os
-from pathlib import Path
 from tkinter import messagebox
 
 import customtkinter as ctk
 
-from capcut_exporter import prepare_capcut_package
 from common.ui_fonts import EMOJI_BUTTON_FONT, EMOJI_FONT
 from pages.base_page import BasePage
 from widgets.media_search_panel import MediaSearchPanel
@@ -52,13 +50,6 @@ class ProjectViewerPage(BasePage):
             width=100,
             font=EMOJI_BUTTON_FONT,
             command=lambda: self.app.show_edit_project(self.project_id),
-        ).pack(side="right", padx=(8, 0))
-        ctk.CTkButton(
-            header,
-            text="🎬 Prepare for CapCut",
-            width=165,
-            font=EMOJI_BUTTON_FONT,
-            command=self.prepare_for_capcut,
         ).pack(side="right", padx=(8, 0))
         ctk.CTkButton(
             header,
@@ -132,50 +123,6 @@ class ProjectViewerPage(BasePage):
     def show_assets(self):
         self.assets_panel.refresh_assets()
         self.tabs.set("Assets")
-
-    def prepare_for_capcut(self):
-        try:
-            self.project = self.pm.db.get_project(self.project_id)
-            if self.project is None:
-                raise ValueError("Project could not be found.")
-            project_folder = self.pm.resolve_project_folder(self.project)
-            result = prepare_capcut_package(
-                self.project,
-                project_folder,
-                replace=True,
-            )
-            missing = result["missing"]
-            image_count = result["image_count"]
-            caption_count = result["caption_count"]
-            caption_source = result["caption_source"]
-            caption_summary = (
-                f"✓ Draft captions ({caption_count}, from {caption_source})"
-                if caption_count
-                else "✗ Captions"
-            )
-            summary_lines = [
-                f"{'✓' if 'script' not in missing else '✗'} Script",
-                f"{'✓' if 'voiceover' not in missing else '✗'} Voiceover",
-                f"{'✓' if 'images' not in missing else '✗'} Images ({image_count})",
-                caption_summary,
-                "✓ Title and description file",
-                "✓ Source notes file",
-            ]
-            heading = (
-                "CapCut package is ready."
-                if result["ready"]
-                else "CapCut package created with missing items."
-            )
-            messagebox.showinfo(
-                "Prepare for CapCut",
-                heading
-                + "\n\n"
-                + "\n".join(summary_lines)
-                + "\n\nCaption timings are estimates and may need aligning in CapCut.",
-            )
-            os.startfile(Path(result["folder"]))
-        except Exception as error:
-            messagebox.showerror("Prepare for CapCut", str(error))
 
     def get_tab_data(self):
         return [
