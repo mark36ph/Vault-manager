@@ -9,6 +9,9 @@ from dialogs.input_dialog import InputDialog
 from pages.base_page import BasePage
 
 
+INVALID_TEMPLATE_CHARS = '<>:"/\\|?*'
+
+
 class TemplatesPage(BasePage):
     """Manage reusable project templates in a compact card layout."""
 
@@ -64,7 +67,13 @@ class TemplatesPage(BasePage):
         for widget in self.template_list.winfo_children():
             widget.destroy()
 
-        templates = self.pm.get_templates()
+        try:
+            templates = self.pm.get_templates()
+        except Exception as error:
+            self.count_label.configure(text="Templates unavailable")
+            messagebox.showerror("Templates", str(error), parent=self)
+            return
+
         count = len(templates)
         self.count_label.configure(text=f"{count} template{'s' if count != 1 else ''}")
 
@@ -92,10 +101,13 @@ class TemplatesPage(BasePage):
 
         for template in templates:
             folder = Path("templates") / template
-            file_names = sorted(
-                [f.name for f in folder.iterdir() if f.is_file()],
-                key=str.lower,
-            ) if folder.exists() else []
+            try:
+                file_names = sorted(
+                    [f.name for f in folder.iterdir() if f.is_file()],
+                    key=str.lower,
+                ) if folder.exists() else []
+            except OSError:
+                file_names = []
 
             card = ctk.CTkFrame(
                 self.template_list,
@@ -196,67 +208,148 @@ class TemplatesPage(BasePage):
                 command=lambda t=template: self.delete_template(t),
             ).pack(side="right")
 
+    @staticmethod
+    def _validate_template_name(name):
+        name = str(name or "").strip()
+        if not name:
+            return "Please enter a template name."
+        if any(char in name for char in INVALID_TEMPLATE_CHARS):
+            return f"Template names cannot contain: {INVALID_TEMPLATE_CHARS}"
+        if name.endswith(".") or name.endswith(" "):
+            return "Template names cannot end with a space or period."
+        return ""
+
+    def _show_name_error(self, message):
+        messagebox.showerror("Template Name", message, parent=self)
+
     def open_template(self, template):
         folder = Path("templates") / template
         if not folder.exists():
-            messagebox.showerror("Error", "Template folder not found.")
+            messagebox.showerror("Templates", "Template folder not found.", parent=self)
+            self.load_templates()
             return
-        os.startfile(folder)
+        try:
+            os.startfile(folder)
+        except Exception as error:
+            messagebox.showerror("Templates", str(error), parent=self)
 
     def duplicate_template(self, template):
         source = Path("templates") / template
         if not source.exists():
-            messagebox.showerror("Error", "Template not found.")
+            messagebox.showerror("Templates", "Template not found.", parent=self)
+            self.load_templates()
             return
 
-        dialog = InputDialog(self, "Duplicate Template", "Enter the new template name:")
+        dialog = InputDialog(
+            self,
+            "Duplicate Template",
+            "Enter the new template name:",
+            initial_value=f"{template} Copy",
+            button_text="Duplicate",
+        )
         self.wait_window(dialog)
         new_name = dialog.result
         if not new_name:
             return
 
-        destination = Path("templates") / new_name
-        if destination.exists():
-            messagebox.showerror("Error", "A template with that name already exists.")
+        error = self._validate_template_name(new_name)
+        if error:
+            self._show_name_error(error)
             return
 
-        shutil.copytree(source, destination)
+        destination = Path("templates") / new_name
+        if destination.exists():
+            self._show_name_error("A template with that name already exists.")
+            return
+
+        try:
+            shutil.copytree(source, destination)
+        except Exception as error:
+            messagebox.showerror("Duplicate Template", str(error), parent=self)
+            return
+
         self.load_templates()
 
     def delete_template(self, template):
         folder = Path("templates") / template
-        if not messagebox.askyesno("Delete Template", f"Delete '{template}'?"):
+        if not folder.exists():
+            messagebox.showerror("Delete Template", "Template folder not found.", parent=self)
+            self.load_templates()
             return
-        shutil.rmtree(folder)
+        if not messagebox.askyesno(
+            "Delete Template",
+            f"Delete '{template}'?\n\nThis cannot be undone.",
+            parent=self,
+        ):
+            return
+        try:
+            shutil.rmtree(folder)
+        except Exception as error:
+            messagebox.showerror("Delete Template", str(error), parent=self)
+            return
         self.load_templates()
 
     def new_template(self):
-        dialog = InputDialog(self, "New Template", "Enter the template name")
+        dialog = InputDialog(
+            self,
+            "New Template",
+            "Enter the template name:",
+            button_text="Create",
+        )
         self.wait_window(dialog)
         name = dialog.result
         if not name:
             return
 
-        folder = Path("templates") / name
-        if folder.exists():
-            messagebox.showerror("Exists", "A template with that name already exists.")
+        error = self._validate_template_name(name)
+        if error:
+            self._show_name_error(error)
             return
 
-        folder.mkdir(parents=True)
+        folder = Path("templates") / name
+        if folder.exists():
+            self._show_name_error("A template with that name already exists.")
+            return
+
+        try:
+            folder.mkdir(parents=True)
+        except Exception as error:
+            messagebox.showerror("New Template", str(error), parent=self)
+            return
         self.load_templates()
 
     def rename_template(self, template):
         source = Path("templates") / template
-        dialog = InputDialog(self, "Rename Template", "Enter the new template name:")
+        if not source.exists():
+            messagebox.showerror("Rename Template", "Template folder not found.", parent=self)
+            self.load_templates()
+            return
+
+        dialog = InputDialog(
+            self,
+            "Rename Template",
+            "Enter the new template name:",
+            initial_value=template,
+            button_text="Rename",
+        )
         self.wait_window(dialog)
         new_name = dialog.result
-        if not new_name:
+        if not new_name or new_name == template:
+            return
+
+        error = self._validate_template_name(new_name)
+        if error:
+            self._show_name_error(error)
             return
 
         destination = Path("templates") / new_name
         if destination.exists():
-            messagebox.showerror("Error", "That template already exists.")
+            self._show_name_error("That template already exists.")
             return
 
-        source.rename(destination)
+        try:
+            source.rename(destination)
+        except Exception as error:
+            messagebox.showerror("Rename Template", str(error), parent=self)
+            return
         self.load_templates()
