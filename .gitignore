@@ -6,6 +6,7 @@ __pycache__/
 # Virtual environments
 venv/
 .venv/
+.venv-clean/
 env/
 
 # Build artifacts
@@ -13,10 +14,11 @@ build/
 dist/
 *.spec
 
-# Coverage
+# Coverage and tests
 .coverage
 htmlcov/
 .pytest_cache/
+.test-temp/
 
 # IDE
 .vscode/
@@ -27,22 +29,13 @@ Thumbs.db
 .DS_Store
 
 # Database
-data/factvault.db
+*.db
 
-# Settings (optional)
+# Settings
 data/settings.json
 
 # Logs
 *.log
-
-# User project data
-In Progress/
-Completed/
-Archive/
-
-# Downloaded assets
-**/Assets/Acquired/
-**/Assets/Cache/
 
 # User projects
 projects/
@@ -51,26 +44,10 @@ In Progress/
 Completed/
 Archive/
 
+# Downloaded assets
+**/Assets/Acquired/
+**/Assets/Cache/
+
 # Render outputs
 **/Render/
 **/Exports/
-
-# Local databases (if generated locally)
-*.db
-
-.pytest_cache/
-.test-temp/
-__pycache__/
-*.pyc
-
-# Installed voice models
-voices/installed/
-
-# Generated audio
-voices/output/
-voices/cache/
-voices/temp/
-voices/samples/
-
-# Piper executable (optional)
-piper/data/settings.json
