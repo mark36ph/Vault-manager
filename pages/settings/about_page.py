@@ -64,10 +64,8 @@ class AboutPage(ctk.CTkFrame):
                 anchor="w"
             ).pack(side="left")
 
-        name = self.app_info.get("name", "Fact Vault Manager")
         version = self.app_info.get("version", "1.0.0")
         build = self.app_info.get("build", 1)
-        developer = self.app_info.get("developer", "Mark")
 
         ctk.CTkLabel(
             frame,
