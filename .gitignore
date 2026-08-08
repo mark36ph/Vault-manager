@@ -53,6 +53,7 @@ Archive/
 # Downloaded assets
 **/Assets/Acquired/
 **/Assets/Cache/
+data/Media Library/
 
 # Render outputs
 **/Render/
