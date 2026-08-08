@@ -40,6 +40,9 @@ data/settings.json
 # Local voice files
 voices/
 
+# Legacy local Piper runtime
+piper/
+
 # User projects
 projects/
 Published/
