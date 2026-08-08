@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+import common.resolve_production as resolve_production
 from common.resolve_production import (
     ResolveProductionError,
     ResolveProductionService,
@@ -9,6 +10,11 @@ from common.resolve_production import (
     make_resolve_workflow_service,
 )
 from timeline import Clip, ClipKind, Timeline, Track, TrackKind
+
+
+@pytest.fixture(autouse=True)
+def stub_media_duration(monkeypatch):
+    monkeypatch.setattr(resolve_production, "_media_duration", lambda path: 2.0)
 
 
 def project_data():
