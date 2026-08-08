@@ -28,7 +28,7 @@ STAGE_LABELS = {
     "image_prompts": "Find Visuals",
     "voice": "Generate Voice",
     "timeline": "Build Timeline",
-    "resolve": "Build Resolve Package",
+    "resolve": "Create Resolve Export",
 }
 
 
@@ -87,7 +87,10 @@ class ProductionPage(BasePage):
         ctk.CTkLabel(header, text="Produce Video", font=("Segoe UI", 28, "bold")).pack(anchor="w")
         ctk.CTkLabel(
             header,
-            text="Create, monitor, and resume a complete factual video production.",
+            text=(
+                "Create, monitor, and resume production, then create an FCPXML "
+                "export for DaVinci Resolve Free."
+            ),
             font=("Segoe UI", 15),
             text_color="gray70",
         ).pack(anchor="w", pady=(3, 0))
@@ -123,8 +126,6 @@ class ProductionPage(BasePage):
         self.asset_kind.pack(fill="x", padx=14, pady=8)
         self.voice_enabled = ctk.BooleanVar(value=True)
         ctk.CTkCheckBox(panel, text="Generate OpenAI narration", variable=self.voice_enabled).pack(anchor="w", padx=14, pady=8)
-        self.launch_resolve = ctk.BooleanVar(value=False)
-        ctk.CTkCheckBox(panel, text="Launch Resolve when complete", variable=self.launch_resolve).pack(anchor="w", padx=14, pady=8)
 
         credentials = ctk.CTkFrame(panel)
         credentials.pack(fill="x", padx=14, pady=(10, 6))
@@ -140,7 +141,7 @@ class ProductionPage(BasePage):
         self.resume_button.pack(fill="x", pady=4)
         self.export_resolve_button = ctk.CTkButton(
             buttons,
-            text="⬆ Export to Resolve Free",
+            text="⬆ Create Resolve Export",
             command=self.export_to_resolve_free,
         )
         self.export_resolve_button.pack(fill="x", pady=4)
@@ -304,7 +305,7 @@ class ProductionPage(BasePage):
             action = self.controller.resume if resume else self.controller.start
             options = {
                 "topic": topic,
-                "launch_resolve": self.launch_resolve.get(),
+                "launch_resolve": False,
             }
 
             if not resume:
@@ -329,16 +330,16 @@ class ProductionPage(BasePage):
         project = self._selected_project()
         folder = self._project_folder()
         if project is None or folder is None:
-            messagebox.showerror("Resolve Free Export", "Select a valid project.")
+            messagebox.showerror("Resolve Export", "Select a valid project.")
             return
         timeline_path = folder / "timeline.json"
         if not timeline_path.is_file():
             messagebox.showerror(
-                "Resolve Free Export",
+                "Resolve Export",
                 "This project does not have a completed timeline yet.",
             )
             return
-        self.export_resolve_button.configure(state="disabled", text="Exporting...")
+        self.export_resolve_button.configure(state="disabled", text="Creating export...")
         self.update_idletasks()
         try:
             result = ResolveProductionService().run(
@@ -349,20 +350,24 @@ class ProductionPage(BasePage):
                 launch=False,
             )
         except Exception as error:
-            self._append_log(f"Resolve Free export failed: {error}")
-            messagebox.showerror("Resolve Free Export", str(error))
+            self._append_log(f"Resolve export failed: {error}")
+            messagebox.showerror("Resolve Export", str(error))
         else:
-            self._append_log(f"Resolve Free timeline created: {result.fcpxml.path}")
+            self._append_log(f"Resolve FCPXML created: {result.fcpxml.path}")
             messagebox.showinfo(
-                "Resolve Free Export",
-                f"FCPXML created successfully:\n\n{result.fcpxml.path}",
+                "Resolve Export",
+                (
+                    "FCPXML created successfully.\n\n"
+                    f"{result.fcpxml.path}\n\n"
+                    "Import this file in DaVinci Resolve using File > Import > Timeline."
+                ),
             )
             try:
                 os.startfile(result.fcpxml.path.parent)
             except Exception:
                 pass
         finally:
-            self.export_resolve_button.configure(state="normal", text="⬆ Export to Resolve Free")
+            self.export_resolve_button.configure(state="normal", text="⬆ Create Resolve Export")
 
     def cancel_production(self):
         if self.controller is not None:
