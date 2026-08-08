@@ -436,8 +436,6 @@ class NewFactPage(BasePage):
 
     def create_project(self):
 
-        from tkinter import messagebox
-
         title = self.title_entry.get().strip()
 
         if not title:
