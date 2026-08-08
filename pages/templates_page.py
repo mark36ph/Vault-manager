@@ -60,9 +60,6 @@ class TemplatesPage(BasePage):
 
     def load_templates(self):
 
-        import os
-        from pathlib import Path
-
         for widget in self.template_list.winfo_children():
             widget.destroy()
 
