@@ -35,6 +35,8 @@ CARD_FG = ("#FFFFFF", "#171A20")
 CARD_BORDER = ("#E4E7EC", "#292D36")
 MUTED_TEXT = ("#667085", "#8F96A3")
 SOFT_HOVER = ("#F2F4F7", "#252A33")
+READY_TEXT = ("#027A48", "#75E0A7")
+WARNING_TEXT = ("#B54708", "#FEC84B")
 
 
 def project_choice(project: Mapping[str, Any]) -> str:
@@ -154,31 +156,43 @@ class ProductionPage(BasePage):
         )
         self.topic_entry.pack(fill="x", padx=14, pady=(0, 8))
 
-        self._section_label(panel, "MEDIA")
-        provider_box = ctk.CTkFrame(
+        self.project_status_label = ctk.CTkLabel(
             panel,
-            fg_color="transparent",
+            text="Select a project to check production readiness.",
+            font=("Segoe UI", 11),
+            text_color=MUTED_TEXT,
+            anchor="w",
+            justify="left",
+            wraplength=300,
         )
+        self.project_status_label.pack(fill="x", padx=14, pady=(0, 4))
+
+        self._section_label(panel, "MEDIA")
+        provider_box = ctk.CTkFrame(panel, fg_color="transparent")
         provider_box.pack(fill="x", padx=14, pady=(0, 4))
 
         self.use_pexels = ctk.BooleanVar(value=True)
         self.use_pixabay = ctk.BooleanVar(value=True)
-        ctk.CTkCheckBox(
+        self.pexels_checkbox = ctk.CTkCheckBox(
             provider_box,
             text="Pexels",
             variable=self.use_pexels,
             checkbox_width=18,
             checkbox_height=18,
             font=("Segoe UI", 13),
-        ).pack(side="left", padx=(0, 18))
-        ctk.CTkCheckBox(
+            command=self._settings_changed,
+        )
+        self.pexels_checkbox.pack(side="left", padx=(0, 18))
+        self.pixabay_checkbox = ctk.CTkCheckBox(
             provider_box,
             text="Pixabay",
             variable=self.use_pixabay,
             checkbox_width=18,
             checkbox_height=18,
             font=("Segoe UI", 13),
-        ).pack(side="left")
+            command=self._settings_changed,
+        )
+        self.pixabay_checkbox.pack(side="left")
 
         self.asset_kind = ctk.CTkSegmentedButton(
             panel,
@@ -186,19 +200,22 @@ class ProductionPage(BasePage):
             height=32,
             corner_radius=7,
             font=("Segoe UI", 12),
+            command=lambda _value: self._settings_changed(),
         )
         self.asset_kind.set("image")
         self.asset_kind.pack(fill="x", padx=14, pady=(8, 6))
 
         self.voice_enabled = ctk.BooleanVar(value=True)
-        ctk.CTkCheckBox(
+        self.voice_checkbox = ctk.CTkCheckBox(
             panel,
             text="Generate OpenAI narration",
             variable=self.voice_enabled,
             checkbox_width=18,
             checkbox_height=18,
             font=("Segoe UI", 13),
-        ).pack(anchor="w", padx=14, pady=(4, 8))
+            command=self._settings_changed,
+        )
+        self.voice_checkbox.pack(anchor="w", padx=14, pady=(4, 8))
 
         self._section_label(panel, "PROVIDER STATUS")
         credentials = ctk.CTkFrame(
@@ -272,6 +289,7 @@ class ProductionPage(BasePage):
             text_color=("#B42318", "#FDA29B"),
             font=("Segoe UI", 12),
             command=self.cancel_production,
+            state="disabled",
         )
         self.cancel_button.pack(fill="x", pady=3)
 
@@ -384,12 +402,26 @@ class ProductionPage(BasePage):
         )
         log_frame.grid(row=3, column=0, sticky="nsew", padx=16, pady=(0, 16))
 
+        log_header = ctk.CTkFrame(log_frame, fg_color="transparent")
+        log_header.pack(fill="x", padx=10, pady=(8, 4))
         ctk.CTkLabel(
-            log_frame,
+            log_header,
             text="Production log",
             font=("Segoe UI", 12, "bold"),
             anchor="w",
-        ).pack(fill="x", padx=10, pady=(8, 4))
+        ).pack(side="left")
+        ctk.CTkButton(
+            log_header,
+            text="Clear",
+            width=54,
+            height=24,
+            fg_color="transparent",
+            border_width=1,
+            border_color=CARD_BORDER,
+            text_color=("#344054", "#D0D5DD"),
+            hover_color=SOFT_HOVER,
+            command=self._clear_log,
+        ).pack(side="right")
 
         self.log_box = ctk.CTkTextbox(
             log_frame,
@@ -410,37 +442,95 @@ class ProductionPage(BasePage):
         project = self._selected_project()
         if project is None:
             return None
-        folder = project.get("folder")
-        if folder:
-            return Path(folder)
         try:
-            return Path(self.pm.get_project_folder(project))
+            return Path(self.pm.resolve_project_folder(project))
         except Exception:
-            return None
+            try:
+                return Path(self.pm.get_project_folder(project))
+            except Exception:
+                return None
+
+    def _settings_changed(self):
+        if self.controller is not None and self.controller.state.running:
+            return
+        try:
+            settings = self._provider_settings()
+            settings.validate()
+        except Exception as error:
+            self.credential_label.configure(text=f"Setup incomplete: {error}")
+            self.start_button.configure(state="disabled")
+            return
+        self._refresh_credentials(settings)
+
+    def _set_setup_enabled(self, enabled: bool):
+        state = "normal" if enabled else "disabled"
+        self.project_menu.configure(state=state)
+        self.topic_entry.configure(state=state)
+        self.pexels_checkbox.configure(state=state)
+        self.pixabay_checkbox.configure(state=state)
+        self.asset_kind.configure(state=state)
+        self.voice_checkbox.configure(state=state)
+        self.open_button.configure(state="normal" if self._project_folder() is not None else "disabled")
 
     def _load_selected_project(self):
         project = self._selected_project()
         folder = self._project_folder()
         if project is None or folder is None:
             self.credential_label.configure(text="Create a project before starting production.")
+            self.project_status_label.configure(
+                text="No valid project selected.",
+                text_color=WARNING_TEXT,
+            )
             self.start_button.configure(state="disabled")
             self.resume_button.configure(state="disabled")
             self.export_resolve_button.configure(state="disabled")
+            self.open_button.configure(state="disabled")
             return
 
         self.topic_entry.delete(0, "end")
         self.topic_entry.insert(0, str(project.get("topic") or project.get("title") or ""))
-        saved = ProviderSettingsStore(folder).load()
+
+        if not folder.exists():
+            self.project_status_label.configure(
+                text=f"Project folder not found: {folder}",
+                text_color=WARNING_TEXT,
+            )
+            self.start_button.configure(state="disabled")
+            self.resume_button.configure(state="disabled")
+            self.export_resolve_button.configure(state="disabled")
+            self.open_button.configure(state="disabled")
+            return
+
+        self.open_button.configure(state="normal")
+        try:
+            saved = ProviderSettingsStore(folder).load()
+        except Exception as error:
+            self.project_status_label.configure(
+                text=f"Could not load saved production settings: {error}",
+                text_color=WARNING_TEXT,
+            )
+            self.start_button.configure(state="disabled")
+            return
+
         self.use_pexels.set("pexels" in saved.asset_providers)
         self.use_pixabay.set("pixabay" in saved.asset_providers)
         self.asset_kind.set(saved.asset_kind)
         self.voice_enabled.set(saved.voice_provider != "none")
         self._refresh_credentials(saved)
-        self.resume_button.configure(
-            state="normal" if (folder / "production_checkpoint.json").is_file() else "disabled"
-        )
-        self.export_resolve_button.configure(
-            state="normal" if (folder / "timeline.json").is_file() else "disabled"
+
+        checkpoint_exists = (folder / "production_checkpoint.json").is_file()
+        timeline_exists = (folder / "timeline.json").is_file()
+        self.resume_button.configure(state="normal" if checkpoint_exists else "disabled")
+        self.export_resolve_button.configure(state="normal" if timeline_exists else "disabled")
+
+        readiness = ["Project folder ready"]
+        if checkpoint_exists:
+            readiness.append("resume available")
+        if timeline_exists:
+            readiness.append("Resolve export available")
+        self.project_status_label.configure(
+            text=" • ".join(readiness),
+            text_color=READY_TEXT,
         )
 
     def _provider_settings(self) -> ProviderSettings:
@@ -460,11 +550,17 @@ class ProductionPage(BasePage):
                 credentials=ProviderCredentials(),
             )
             lines = [f"{'✓' if item.configured else '✗'} {item.source}" for item in statuses]
-            ready = all(item.configured for item in statuses)
-            self.credential_label.configure(text="\n".join(lines))
+            ready = bool(statuses) and all(item.configured for item in statuses)
+            self.credential_label.configure(
+                text="\n".join(lines) if lines else "No providers selected.",
+                text_color=READY_TEXT if ready else WARNING_TEXT,
+            )
             self.start_button.configure(state="normal" if ready else "disabled")
         except Exception as error:
-            self.credential_label.configure(text=f"Provider setup error: {error}")
+            self.credential_label.configure(
+                text=f"Provider setup error: {error}",
+                text_color=WARNING_TEXT,
+            )
             self.start_button.configure(state="disabled")
 
     def _make_controller(
@@ -481,6 +577,12 @@ class ProductionPage(BasePage):
     def _queue_state(self, state: ProductionViewState):
         self.after(0, lambda: self._apply_state(state))
 
+    def _clear_log(self):
+        self.log_box.configure(state="normal")
+        self.log_box.delete("1.0", "end")
+        self.log_box.configure(state="disabled")
+        self.last_log_key = None
+
     def _append_log(self, text: str):
         self.log_box.configure(state="normal")
         self.log_box.insert("end", f"{time.strftime('%H:%M:%S')}  {text}\n")
@@ -495,6 +597,7 @@ class ProductionPage(BasePage):
         self.start_button.configure(state="normal" if state.can_start else "disabled")
         self.resume_button.configure(state="normal" if state.can_resume else "disabled")
         self.cancel_button.configure(state="normal" if state.can_cancel else "disabled")
+        self._set_setup_enabled(not state.running)
 
         icons = {
             "pending": "○",
@@ -520,9 +623,11 @@ class ProductionPage(BasePage):
             self.last_log_key = log_key
 
         if not state.running and self.run_started_at is not None:
-            self.elapsed_label.configure(
-                text=f"Completed in {format_elapsed(time.monotonic() - self.run_started_at)}"
-            )
+            elapsed = format_elapsed(time.monotonic() - self.run_started_at)
+            prefix = "Stopped after" if state.error else "Completed in"
+            self.elapsed_label.configure(text=f"{prefix} {elapsed}")
+            self.run_started_at = None
+            self.after(0, self._load_selected_project)
 
     def _tick_elapsed(self):
         if (
@@ -539,12 +644,28 @@ class ProductionPage(BasePage):
         project = self._selected_project()
         folder = self._project_folder()
         if project is None or folder is None:
-            messagebox.showerror("Production", "Select a valid project.")
+            messagebox.showerror("Production", "Select a valid project.", parent=self)
+            return
+        if not folder.exists():
+            messagebox.showerror(
+                "Production",
+                f"The project folder could not be found:\n\n{folder}",
+                parent=self,
+            )
             return
 
         topic = self.topic_entry.get().strip()
         if not topic:
-            messagebox.showerror("Production", "Enter a topic.")
+            messagebox.showerror("Production", "Enter a topic.", parent=self)
+            self.topic_entry.focus_set()
+            return
+
+        if self.controller is not None and self.controller.state.running:
+            messagebox.showwarning(
+                "Production",
+                "Production is already running for this page.",
+                parent=self,
+            )
             return
 
         try:
@@ -558,6 +679,11 @@ class ProductionPage(BasePage):
             self.controller = self._make_controller(folder, provider_settings)
             self.run_started_at = time.monotonic()
             self.last_log_key = None
+            self.elapsed_label.configure(text="Elapsed 00:00")
+            self._set_setup_enabled(False)
+            self.start_button.configure(state="disabled")
+            self.resume_button.configure(state="disabled")
+            self.cancel_button.configure(state="normal")
             self._append_log(
                 f"{'Resuming' if resume else 'Starting'} production for: {topic}"
             )
@@ -579,7 +705,12 @@ class ProductionPage(BasePage):
                 **options,
             )
         except (ProviderSetupError, ValueError, OSError) as error:
-            messagebox.showerror("Production Setup", str(error))
+            self.run_started_at = None
+            self._set_setup_enabled(True)
+            self.cancel_button.configure(state="disabled")
+            self._append_log(f"Production setup failed: {error}")
+            messagebox.showerror("Production Setup", str(error), parent=self)
+            self._load_selected_project()
 
     def start_production(self):
         self._start(resume=False)
@@ -591,7 +722,7 @@ class ProductionPage(BasePage):
         project = self._selected_project()
         folder = self._project_folder()
         if project is None or folder is None:
-            messagebox.showerror("Resolve Export", "Select a valid project.")
+            messagebox.showerror("Resolve Export", "Select a valid project.", parent=self)
             return
 
         timeline_path = folder / "timeline.json"
@@ -599,6 +730,7 @@ class ProductionPage(BasePage):
             messagebox.showerror(
                 "Resolve Export",
                 "This project does not have a completed timeline yet.",
+                parent=self,
             )
             return
 
@@ -606,6 +738,8 @@ class ProductionPage(BasePage):
             state="disabled",
             text="Creating export...",
         )
+        self.status_label.configure(text="Creating Resolve export...")
+        self._append_log("Creating Resolve export...")
         self.update_idletasks()
 
         try:
@@ -617,9 +751,11 @@ class ProductionPage(BasePage):
                 launch=False,
             )
         except Exception as error:
+            self.status_label.configure(text="Resolve export failed")
             self._append_log(f"Resolve export failed: {error}")
-            messagebox.showerror("Resolve Export", str(error))
+            messagebox.showerror("Resolve Export", str(error), parent=self)
         else:
+            self.status_label.configure(text="Resolve export ready")
             self._append_log(f"Resolve FCPXML created: {result.fcpxml.path}")
             messagebox.showinfo(
                 "Resolve Export",
@@ -628,6 +764,7 @@ class ProductionPage(BasePage):
                     f"{result.fcpxml.path}\n\n"
                     "Import this file in DaVinci Resolve using File > Import > Timeline."
                 ),
+                parent=self,
             )
             try:
                 os.startfile(result.fcpxml.path.parent)
@@ -640,17 +777,31 @@ class ProductionPage(BasePage):
             )
 
     def cancel_production(self):
-        if self.controller is not None:
+        if self.controller is None or not self.controller.state.running:
+            return
+        self.cancel_button.configure(state="disabled", text="Cancelling...")
+        self._append_log("Cancellation requested...")
+        try:
             self.controller.cancel()
+        finally:
+            self.cancel_button.configure(text="■ Cancel")
 
     def open_project_folder(self):
         folder = self._project_folder()
         if folder is None:
+            messagebox.showerror("Project Folder", "Select a valid project.", parent=self)
+            return
+        if not folder.exists():
+            messagebox.showerror(
+                "Project Folder",
+                f"The project folder could not be found:\n\n{folder}",
+                parent=self,
+            )
             return
         try:
             os.startfile(folder)
         except Exception as error:
-            messagebox.showerror("Project Folder", str(error))
+            messagebox.showerror("Project Folder", str(error), parent=self)
 
     def destroy(self):
         if self.controller is not None:
