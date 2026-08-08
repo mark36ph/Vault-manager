@@ -2,12 +2,20 @@ import customtkinter as ctk
 
 
 class InputDialog(ctk.CTkToplevel):
-    def __init__(self, parent, title, prompt):
+    def __init__(
+        self,
+        parent,
+        title,
+        prompt,
+        *,
+        initial_value="",
+        button_text="Continue",
+    ):
         super().__init__(parent)
         self.result = None
 
         self.title(title)
-        self.geometry("420x210")
+        self.geometry("420x228")
         self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
@@ -43,8 +51,20 @@ class InputDialog(ctk.CTkToplevel):
             shell,
             height=36,
         )
-        self.entry.pack(fill="x", padx=16, pady=(14, 12))
+        self.entry.pack(fill="x", padx=16, pady=(14, 6))
+        if initial_value:
+            self.entry.insert(0, str(initial_value))
+            self.entry.select_range(0, "end")
         self.entry.focus()
+
+        self.validation_label = ctk.CTkLabel(
+            shell,
+            text="",
+            font=("Segoe UI", 11),
+            text_color=("#B42318", "#FDA29B"),
+            anchor="w",
+        )
+        self.validation_label.pack(fill="x", padx=16, pady=(0, 4))
 
         buttons = ctk.CTkFrame(shell, fg_color="transparent")
         buttons.pack(fill="x", padx=16, pady=(0, 16))
@@ -62,7 +82,7 @@ class InputDialog(ctk.CTkToplevel):
 
         ctk.CTkButton(
             buttons,
-            text="Continue",
+            text=button_text,
             width=96,
             height=34,
             command=self.ok,
@@ -70,9 +90,16 @@ class InputDialog(ctk.CTkToplevel):
 
         self.bind("<Return>", lambda _event: self.ok())
         self.bind("<Escape>", lambda _event: self.cancel())
+        self.protocol("WM_DELETE_WINDOW", self.cancel)
 
     def ok(self):
-        self.result = self.entry.get().strip()
+        value = self.entry.get().strip()
+        if not value:
+            self.validation_label.configure(text="Please enter a value.")
+            self.entry.focus()
+            return
+
+        self.result = value
         self.destroy()
 
     def cancel(self):
