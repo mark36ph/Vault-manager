@@ -13,8 +13,18 @@ from timeline import Clip, ClipKind, Timeline, Track, TrackKind
 
 
 @pytest.fixture(autouse=True)
-def stub_media_duration(monkeypatch):
+def stub_export_media_preprocessing(monkeypatch):
     monkeypatch.setattr(resolve_production, "_media_duration", lambda path: 2.0)
+    monkeypatch.setattr(
+        resolve_production,
+        "_convert_stills_to_video",
+        lambda timeline, project_folder, onscreen_text, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        resolve_production,
+        "_add_fact_unlocked_outro",
+        lambda timeline, project_folder: timeline,
+    )
 
 
 def project_data():
@@ -116,7 +126,7 @@ def test_emits_progress_in_order(tmp_path):
         progress_callback=lambda stage, fraction, message: events.append((stage, fraction, message))
     )
     service.run(project_data(), tmp_path, settings(), timeline=timeline_for(tmp_path), materialize=False)
-    assert [event[0] for event in events] == ["timeline", "package", "fcpxml", "complete"]
+    assert [event[0] for event in events] == ["timeline", "timeline", "package", "fcpxml", "complete"]
     assert events[-1][1] == 1.0
 
 
