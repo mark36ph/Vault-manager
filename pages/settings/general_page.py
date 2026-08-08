@@ -7,8 +7,6 @@ class GeneralPage(ctk.CTkFrame):
     def __init__(self, parent, pm, app):
 
         super().__init__(parent)
-        self.pm = pm
-        self.app = app
         self.settings = SettingsManager()
         self.build()
 
