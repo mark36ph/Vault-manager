@@ -28,14 +28,6 @@ DEFAULT_SETTINGS = {
         "default_orientation": "vertical",
     },
 
-    "voice": {
-        "default_voice": "",
-        "speech_rate": 1.0,
-        "speech_pitch": 1.0,
-        "volume": 1.0,
-        "output_format": "wav"
-    },
-
     "youtube": {
         "default_channel": "",
         "export_folder": ""
