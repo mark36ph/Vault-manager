@@ -11,7 +11,6 @@ from pages.edit_project_page import EditProjectPage
 from project_manager import ProjectManager
 from pages.templates_page import TemplatesPage
 from pages.edit_template_page import EditTemplatePage
-from pages.voice_studio_page import VoiceStudioPage
 from common.settings_manager import SettingsManager
 from common.app_info import AppInfo
 from widgets.update_dialog import UpdateDialog
@@ -158,11 +157,6 @@ class Dashboard(ctk.CTk):
         self.add_sidebar_button(
             "📊 Statistics",
             self.show_statistics
-        )
-
-        self.add_sidebar_button(
-            "🎤 Voice Studio",
-            self.show_voice_studio
         )
 
         self.add_sidebar_button(
@@ -316,13 +310,6 @@ class Dashboard(ctk.CTk):
     def show_settings(self):
 
         self.load_page(SettingsPage, self)
-
-    def show_voice_studio(self):
-
-        self.load_page(
-            VoiceStudioPage,
-            self
-        )
     
     def show_edit_template(self, template_name):
 
