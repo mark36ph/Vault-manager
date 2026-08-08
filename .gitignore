@@ -37,6 +37,9 @@ data/settings.json
 # Logs
 *.log
 
+# Local voice files
+voices/
+
 # User projects
 projects/
 Published/
