@@ -199,7 +199,10 @@ class ProductionUIController:
         stages = current.stages
         for name in completed:
             stages = self._set_stage(stages, name, "complete")
-        succeeded = result.succeeded
+        succeeded = all(
+            stage.status == "complete"
+            for stage in stages
+        )
         self._publish(replace(
             current,
             running=False,

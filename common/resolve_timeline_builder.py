@@ -1,11 +1,12 @@
 """Execute Resolve export plans against the DaVinci Resolve scripting API."""
 
 from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
+import hashlib
+import shutil
+import subprocess
 
 class ResolveTimelineBuildError(RuntimeError):
     """Raised when a Resolve project or timeline cannot be built safely."""
@@ -50,10 +51,25 @@ class ResolveTimelineBuilder:
     def _apply_settings(self, project, plan: dict[str, Any]) -> None:
         width, height = plan.get("resolution", [1080, 1920])
         fps = plan.get("frame_rate", 30)
+        max_still_seconds = 60.0
+
+        for track in plan.get("tracks", []):
+            for clip in track.get("clips", []):
+                if str(clip.get("kind") or "").lower() == "image":
+                    max_still_seconds = max(
+                        max_still_seconds,
+                        float(clip.get("duration") or 0),
+                    )
+
+        still_frames = max(1, self._frames(max_still_seconds, float(fps)))
+
         settings = {
             "timelineResolutionWidth": str(int(width)),
             "timelineResolutionHeight": str(int(height)),
             "timelineFrameRate": str(fps),
+
+            # Resolve uses this when importing still images.
+            "standardStillDuration": str(still_frames),
         }
         for key, value in settings.items():
             if project.SetSetting(key, value) is False:
@@ -64,6 +80,63 @@ class ResolveTimelineBuilder:
             for clip in track.get("clips", []):
                 yield track, clip
 
+    def _prepare_still_video(self, clip: dict[str, Any], fps: float) -> str:
+        source = Path(str(clip.get("source") or "")).expanduser().resolve()
+
+        if not source.is_file():
+            raise ResolveTimelineBuildError(f"still image does not exist: {source}")
+
+        ffmpeg = shutil.which("ffmpeg")
+        if not ffmpeg:
+            raise ResolveTimelineBuildError("FFmpeg was not found in PATH")
+
+        duration = max(0.1, float(clip.get("duration") or 0.1))
+
+        output_folder = source.parent / "ResolveClips"
+        output_folder.mkdir(parents=True, exist_ok=True)
+
+        identity = (
+            f"{source}|{source.stat().st_mtime_ns}|"
+            f"{duration:.3f}|{fps:.3f}"
+        )
+        digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()[:12]
+        destination = output_folder / f"{source.stem[:40]}_{digest}.mp4"
+
+        if destination.is_file() and destination.stat().st_size > 0:
+            return str(destination)
+
+        command = [
+            ffmpeg,
+            "-y",
+            "-loop", "1",
+            "-framerate", str(fps),
+            "-i", str(source),
+            "-t", str(duration),
+            "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+            "-c:v", "libx264",
+            "-preset", "medium",
+            "-pix_fmt", "yuv420p",
+            "-movflags", "+faststart",
+            "-an",
+            str(destination),
+        ]
+
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+
+        if completed.returncode != 0:
+            destination.unlink(missing_ok=True)
+            message = completed.stderr.strip() or "unknown FFmpeg error"
+            raise ResolveTimelineBuildError(
+                f"could not convert still image to video: {message}"
+            )
+
+        return str(destination)
+    
     def _import_media(self, media_pool, plan: dict[str, Any]) -> dict[str, Any]:
         sources = []
         seen = set()
@@ -103,6 +176,7 @@ class ResolveTimelineBuilder:
         duration = max(1, self._frames(clip.get("duration", 0), fps))
         source_in = self._frames(clip.get("source_in", 0), fps)
         media_type = 2 if track.get("kind") == "audio" else 1
+
         payload = {
             "mediaPoolItem": item,
             "startFrame": source_in,
@@ -111,8 +185,8 @@ class ResolveTimelineBuilder:
             "mediaType": media_type,
             "trackIndex": int(track.get("index", 1)),
         }
-        result = media_pool.AppendToTimeline([payload])
-        return bool(result)
+
+        return bool(media_pool.AppendToTimeline([payload]))
 
     def _add_marker(self, timeline, clip, fps: float) -> bool:
         frame = self._frames(clip.get("start", 0), fps)
@@ -127,6 +201,13 @@ class ResolveTimelineBuilder:
             raise TypeError("plan must be a dictionary")
         name = str(project_name or plan.get("name") or "Fact Vault Video")
         fps = float(plan.get("frame_rate", 30))
+        # Convert still images into real video clips so Resolve has valid
+        # source frames for the complete scene duration.
+        for track, clip in self._all_clips(plan):
+            if str(clip.get("kind") or "").lower() == "image":
+                clip["source"] = self._prepare_still_video(clip, fps)
+                clip["kind"] = "video"
+                clip["source_in"] = 0
         if fps <= 0:
             raise ResolveTimelineBuildError("frame_rate must be greater than zero")
 

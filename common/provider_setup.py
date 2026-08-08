@@ -173,8 +173,36 @@ def _script_prompt(context: Any) -> str:
 
 
 def _image_prompt(context: Any) -> str:
-    return f"Create one concise visual search query per scene for this script:\n{context.script}"
+    topic = str(getattr(context, "topic", "") or "").strip()
+    script = str(getattr(context, "script", "") or "").strip()
 
+    return (
+        "Create one stock-photo search query for each visual scene "
+        "in the script below.\n\n"
+
+        f"Overall topic: {topic}\n\n"
+
+        "Rules:\n"
+        "- Each query must directly depict the specific idea being narrated.\n"
+        "- Keep the main subject from the overall topic in every query when relevant.\n"
+        "- Prefer literal, documentary, realistic photography.\n"
+        "- Do not use abstract metaphors unless the script specifically requires one.\n"
+        "- Do not substitute unrelated objects just because they share a keyword.\n"
+        "- Include important nouns, locations, materials, weather, objects, "
+        "or actions from that exact scene.\n"
+        "- Queries should work well on Pexels or Pixabay.\n"
+        "- Prefer portrait-friendly compositions when possible.\n"
+        "- Do not include numbering, explanations, quotation marks, or headings.\n"
+        "- Return exactly one search query per line.\n\n"
+
+        "Examples of specificity:\n"
+        "Bad: cold weather\n"
+        "Good: Eiffel Tower Paris winter snow cold weather\n\n"
+        "Bad: metal expands\n"
+        "Good: heated iron metal expansion close up engineering\n\n"
+
+        f"Script:\n{script}"
+    )
 
 def build_configured_providers(
     project_folder: str | Path,
@@ -200,10 +228,43 @@ def build_configured_providers(
 
     openai_key = keys.get("openai")
     providers: dict[str, Any] = {
-        "research": OpenAITextProvider(openai_key, instructions="Research accurately and clearly.", prompt_builder=_research_prompt, model=settings.openai_model, **text_options),
-        "facts": OpenAITextProvider(openai_key, instructions="Extract only strong factual claims.", prompt_builder=_facts_prompt, model=settings.openai_model, **text_options),
-        "script": OpenAITextProvider(openai_key, instructions="Write engaging factual narration.", prompt_builder=_script_prompt, model=settings.openai_model, **text_options),
-        "image_prompts": OpenAITextProvider(openai_key, instructions="Return concise visual search queries, one per line.", prompt_builder=_image_prompt, model=settings.openai_model, **text_options),
+        "research": OpenAITextProvider(
+            openai_key,
+            instructions="Research accurately and clearly.",
+            prompt_builder=_research_prompt,
+            model=settings.openai_model,
+            **text_options,
+        ),
+        "facts": OpenAITextProvider(
+            openai_key,
+            instructions="Extract only strong factual claims.",
+            prompt_builder=_facts_prompt,
+            model=settings.openai_model,
+            **text_options,
+        ),
+        "script": OpenAITextProvider(
+            openai_key,
+            instructions="Write engaging factual narration.",
+            prompt_builder=_script_prompt,
+            model=settings.openai_model,
+            **text_options,
+        ),
+        "image_prompts": OpenAITextProvider(
+            openai_key,
+            instructions=(
+                "Generate highly specific literal stock-photo search queries. "
+                "Every query must visually match its exact narration scene and remain "
+                "anchored to the video's main subject. Avoid generic, abstract, symbolic, "
+                "or loosely related imagery. Prefer realistic documentary photography. "
+                "Return only one search query per line. "
+                "For abstract concepts such as heat, cold, expansion, measurement, or engineering, "
+                "combine the concept with the video's main physical subject rather than searching "
+                "for the concept by itself."
+            ),
+            prompt_builder=_image_prompt,
+            model=settings.openai_model,
+            **text_options,
+        ),
     }
     if settings.voice_provider == "openai":
         providers["voice"] = OpenAISpeechProvider(openai_key, model=settings.openai_voice_model, voice=settings.openai_voice, **speech_options)
@@ -232,8 +293,29 @@ def _acquisition_stage(prompt_provider, engine, destination: Path, settings: Pro
 
     def run(context):
         raw = prompt_provider(context)
-        prompts = [line.strip(" -\t") for line in str(raw).splitlines() if line.strip()]
-        context.image_prompts = prompts
+
+        prompts = [
+            line.strip(" -\t")
+            for line in str(raw).splitlines()
+            if line.strip()
+        ]
+
+        topic = str(
+            getattr(context, "topic", "") or ""
+        ).strip()
+
+        anchored_prompts: list[str] = []
+
+        for prompt in prompts:
+            if topic:
+                anchored_prompts.append(
+                    f"{topic} {prompt}"
+                )
+            else:
+                anchored_prompts.append(prompt)
+
+        context.image_prompts = anchored_prompts
+
         return acquire(context)
 
     return run

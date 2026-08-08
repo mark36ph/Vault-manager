@@ -107,8 +107,19 @@ def export_fcpxml(timeline: Timeline, destination: str | Path) -> FCPXMLExportRe
     cursor = 0.0
     clip_count = 0
     for _track, clip, source in sorted(video_items, key=lambda item: item[1].start):
-        if clip.start > cursor:
-            ET.SubElement(spine, "gap", name="Gap", offset=_time(cursor, fps), start="0s", duration=_time(clip.start - cursor, fps))
+        gap_frames = round(
+            (float(clip.start) - float(cursor)) * fps
+        )
+
+        if gap_frames > 0:
+            ET.SubElement(
+                spine,
+                "gap",
+                name="Gap",
+                offset=_time(cursor, fps),
+                start="0s",
+                duration=f"{gap_frames}/{round(fps)}s",
+            )
         attrs = {
             "name": clip.name or source.name,
             "ref": asset_ids[str(source)],
@@ -117,7 +128,11 @@ def export_fcpxml(timeline: Timeline, destination: str | Path) -> FCPXMLExportRe
             "duration": _time(clip.duration, fps),
         }
         ET.SubElement(spine, "asset-clip", attrs)
-        cursor = max(cursor, clip.start + clip.duration)
+        clip_end_frames = (
+            round(float(clip.start) * fps)
+            + round(float(clip.duration) * fps)
+        )
+        cursor = clip_end_frames / fps
         clip_count += 1
 
     if not video_items:

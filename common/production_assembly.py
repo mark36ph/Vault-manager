@@ -108,16 +108,18 @@ def assemble_timeline(
         narration_track = timeline.get_track("Narration")
         if narration_track is None:
             narration_track = timeline.add_track(Track(kind=TrackKind.AUDIO, name="Narration"))
-        if not any(clip.source == voice_path for clip in narration_track.clips):
-            narration_track.add_clip(
-                Clip(
-                    kind=ClipKind.AUDIO,
-                    start=0.0,
-                    duration=timeline.duration,
-                    source=voice_path,
-                    name="Narration",
-                )
+        # Production should contain exactly one current narration clip.
+        narration_track.clips.clear()
+
+        narration_track.add_clip(
+            Clip(
+                kind=ClipKind.AUDIO,
+                start=0.0,
+                duration=timeline.duration,
+                source=voice_path,
+                name="Narration",
             )
+        )
 
     timeline.metadata["production_assets"] = len(items)
     timeline.metadata["narration_attached"] = bool(voice_path)

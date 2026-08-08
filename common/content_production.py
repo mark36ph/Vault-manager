@@ -222,6 +222,7 @@ class ContentProductionEngine:
             project_folder=folder,
             settings=dict(settings),
             topic=str(topic or project.get("topic") or project.get("title") or ""),
+            script=str(project.get("script") or ""),
         )
         checkpoints = ProductionCheckpointStore(folder)
         if resume:

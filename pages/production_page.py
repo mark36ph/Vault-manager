@@ -302,7 +302,20 @@ class ProductionPage(BasePage):
             self._append_log(f"{'Resuming' if resume else 'Starting'} production for: {topic}")
             self._tick_elapsed()
             action = self.controller.resume if resume else self.controller.start
-            action(project, folder, production_settings_from_app(self.app.settings), topic=topic, launch_resolve=self.launch_resolve.get())
+            options = {
+                "topic": topic,
+                "launch_resolve": self.launch_resolve.get(),
+            }
+
+            if not resume:
+                options["start_at"] = "image_prompts"
+
+            action(
+                project,
+                folder,
+                production_settings_from_app(self.app.settings),
+                **options,
+            )
         except (ProviderSetupError, ValueError, OSError) as error:
             messagebox.showerror("Production Setup", str(error))
 

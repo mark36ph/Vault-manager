@@ -14,6 +14,8 @@ from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 import urllib.error
 from common.asset_acquisition import AssetCandidate
+import hashlib
+import re
 
 JsonTransport = Callable[[urllib.request.Request], Mapping[str, Any]]
 BytesTransport = Callable[[urllib.request.Request], bytes]
@@ -81,6 +83,82 @@ def _json_request(
 
     return urllib.request.Request(url, data=data, headers=merged)
 
+_STOP_WORDS = {
+    "a",
+    "an",
+    "and",
+    "the",
+    "of",
+    "for",
+    "to",
+    "in",
+    "on",
+    "with",
+    "from",
+    "by",
+    "at",
+    "close",
+    "up",
+    "photo",
+    "photography",
+    "portrait",
+    "vertical",
+    "realistic",
+}
+
+
+def _search_keywords(value: str) -> list[str]:
+    words = re.findall(
+        r"[a-zA-Z0-9]+",
+        str(value or "").lower(),
+    )
+
+    result: list[str] = []
+
+    for word in words:
+        if len(word) < 3:
+            continue
+
+        if word in _STOP_WORDS:
+            continue
+
+        if word not in result:
+            result.append(word)
+
+    return result
+
+
+def _candidate_is_relevant(
+    query: str,
+    candidate_text: str,
+) -> bool:
+    query_words = _search_keywords(query)
+    candidate_words = set(
+        _search_keywords(candidate_text)
+    )
+
+    if not query_words:
+        return True
+
+    query_word_set = set(query_words)
+    overlap = query_word_set & candidate_words
+
+    # General relevance.
+    if len(overlap) < 1:
+        return False
+
+    # The image prompt is designed to start with the main
+    # physical subject. Require at least one of the first
+    # two meaningful query words to appear in the result.
+    anchor_words = set(query_words[:2])
+
+    if anchor_words and not (
+        anchor_words & candidate_words
+    ):
+        return False
+
+    return True
+    
 class PexelsAssetProvider:
     name = "pexels"
 
@@ -113,6 +191,18 @@ class PexelsAssetProvider:
                 media_url = str(sources.get("portrait") or sources.get("large2x") or sources.get("original") or "")
                 width, height, duration = int(item.get("width") or 0), int(item.get("height") or 0), 0.0
                 credit = str(item.get("photographer") or "")
+                candidate_text = " ".join(
+                    [
+                        str(item.get("alt") or ""),
+                        str(item.get("url") or ""),
+                    ]
+                )
+
+                if not _candidate_is_relevant(
+                    query,
+                    candidate_text,
+                ):
+                    continue
             else:
                 files = [entry for entry in item.get("video_files", []) if isinstance(entry, Mapping) and entry.get("link")]
                 files.sort(key=lambda entry: int(entry.get("width") or 0) * int(entry.get("height") or 0), reverse=True)
@@ -142,21 +232,101 @@ class PixabayAssetProvider:
         params = urllib.parse.urlencode({"key": self.api_key, "q": query[:100], "per_page": max(3, min(int(limit), 200)), "safesearch": "true", "orientation": "vertical"})
         payload = self.transport(_json_request(f"{endpoint}?{params}"))
         results: list[AssetCandidate] = []
-        for item in payload.get("hits", []) if isinstance(payload.get("hits"), list) else []:
+        for item in payload.get("hits", []) if isinstance(
+            payload.get("hits"), list
+        ) else []:
             if not isinstance(item, Mapping):
                 continue
+
             if kind == "image":
-                media_url = str(item.get("largeImageURL") or item.get("webformatURL") or "")
-                width, height, duration = int(item.get("imageWidth") or item.get("webformatWidth") or 0), int(item.get("imageHeight") or item.get("webformatHeight") or 0), 0.0
+                media_url = str(
+                    item.get("largeImageURL")
+                    or item.get("webformatURL")
+                    or ""
+                )
+
+                width = int(
+                    item.get("imageWidth")
+                    or item.get("webformatWidth")
+                    or 0
+                )
+
+                height = int(
+                    item.get("imageHeight")
+                    or item.get("webformatHeight")
+                    or 0
+                )
+
+                duration = 0.0
+
             else:
-                versions = item.get("videos") if isinstance(item.get("videos"), Mapping) else {}
-                choices = [entry for entry in versions.values() if isinstance(entry, Mapping) and entry.get("url")]
-                choices.sort(key=lambda entry: int(entry.get("width") or 0) * int(entry.get("height") or 0), reverse=True)
+                versions = (
+                    item.get("videos")
+                    if isinstance(item.get("videos"), Mapping)
+                    else {}
+                )
+
+                choices = [
+                    entry
+                    for entry in versions.values()
+                    if isinstance(entry, Mapping)
+                    and entry.get("url")
+                ]
+
+                choices.sort(
+                    key=lambda entry: (
+                        int(entry.get("width") or 0)
+                        * int(entry.get("height") or 0)
+                    ),
+                    reverse=True,
+                )
+
                 selected = choices[0] if choices else {}
+
                 media_url = str(selected.get("url") or "")
-                width, height, duration = int(selected.get("width") or 0), int(selected.get("height") or 0), float(item.get("duration") or 0)
+                width = int(selected.get("width") or 0)
+                height = int(selected.get("height") or 0)
+                duration = float(item.get("duration") or 0)
+
+            candidate_text = " ".join(
+                [
+                    str(item.get("tags") or ""),
+                    str(item.get("pageURL") or ""),
+                ]
+            )
+
+            if not _candidate_is_relevant(
+                query,
+                candidate_text,
+            ):
+                continue
+
             if media_url:
-                results.append(AssetCandidate(provider=self.name, id=str(item.get("id") or media_url), url=media_url, kind=kind, title=str(item.get("tags") or query), width=width, height=height, duration=duration, score=float(item.get("likes") or 0) + float(item.get("downloads") or 0) / 1000.0, credit=str(item.get("user") or ""), license="Pixabay Content License", metadata={"source_page": str(item.get("pageURL") or "")}))
+                results.append(
+                    AssetCandidate(
+                        provider=self.name,
+                        id=str(item.get("id") or media_url),
+                        url=media_url,
+                        kind=kind,
+                        title=str(item.get("tags") or query),
+                        width=width,
+                        height=height,
+                        duration=duration,
+                        score=(
+                            float(item.get("likes") or 0)
+                            + float(item.get("downloads") or 0)
+                            / 1000.0
+                        ),
+                        credit=str(item.get("user") or ""),
+                        license="Pixabay Content License",
+                        metadata={
+                            "source_page": str(
+                                item.get("pageURL") or ""
+                            )
+                        },
+                    )
+                )
+
         return results
 
 
@@ -200,15 +370,61 @@ class OpenAISpeechProvider:
     def __call__(self, context: Any) -> str:
         script = _required(getattr(context, "script", ""), "script")
         suffix = "." + self.response_format.lstrip(".")
-        destination = Path(context.project_folder) / "Voice" / f"narration{suffix}"
-        destination.parent.mkdir(parents=True, exist_ok=True)
+
+        script_hash = hashlib.sha256(
+            script.encode("utf-8")
+        ).hexdigest()[:12]
+
+        voice_folder = Path(context.project_folder) / "Voice"
+        voice_folder.mkdir(parents=True, exist_ok=True)
+
+        destination = voice_folder / f"narration_{script_hash}{suffix}"
+
+        # Save the exact text sent to narration for troubleshooting.
+        script_copy = voice_folder / f"narration_{script_hash}.txt"
+        script_copy.write_text(script, encoding="utf-8")
         request = _json_request("https://api.openai.com/v1/audio/speech", headers={"Authorization": f"Bearer {self.api_key}"}, body={"model": self.model, "voice": self.voice, "input": script, "response_format": self.response_format})
+        print("=" * 80)
+        print("TTS DESTINATION:", destination)
+        print("TTS SCRIPT HASH:", script_hash)
+        print("TTS SCRIPT LENGTH:", len(script))
+        print("TTS SCRIPT START:", repr(script[:300]))
+        print("=" * 80)
         data = self.transport(request)
+        print("TTS RESPONSE BYTES:", len(data) if data else 0)
         if not data:
             raise ProviderIntegrationError("OpenAI speech response was empty")
         temporary = destination.with_suffix(destination.suffix + ".part")
         temporary.write_bytes(data)
         temporary.replace(destination)
+
+        # Generate the branded outro using the same model and voice.
+        outro_destination = voice_folder / "fact_unlocked.mp3"
+
+        outro_request = _json_request(
+            "https://api.openai.com/v1/audio/speech",
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+            },
+            body={
+                "model": self.model,
+                "voice": self.voice,
+                "input": "Fact unlocked. Follow for more",
+                "response_format": "mp3",
+            },
+        )
+
+        outro_data = self.transport(outro_request)
+
+        if not outro_data:
+            raise ProviderIntegrationError(
+                "OpenAI outro speech response was empty"
+            )
+
+        outro_temporary = outro_destination.with_suffix(".mp3.part")
+        outro_temporary.write_bytes(outro_data)
+        outro_temporary.replace(outro_destination)
+
         return str(destination)
 
 

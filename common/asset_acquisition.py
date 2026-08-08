@@ -67,15 +67,25 @@ def _default_downloader(url: str, destination: Path) -> None:
     with urllib.request.urlopen(request, timeout=30) as response, destination.open("wb") as output:
         shutil.copyfileobj(response, output)
 
+def _safe_filename(
+    value: str,
+    fallback: str = "asset",
+    max_length: int = 60,
+) -> str:
+    cleaned = "".join(
+        ch if ch.isalnum() or ch in "._-" else "_"
+        for ch in str(value or "")
+    ).strip("._")
 
-def _safe_filename(value: str, fallback: str = "asset") -> str:
-    cleaned = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in value).strip("._")
+    # Collapse repeated underscores from provider tags/titles.
+    while "__" in cleaned:
+        cleaned = cleaned.replace("__", "_")
+
+    cleaned = cleaned[:max_length].rstrip("._-")
     return cleaned or fallback
-
 
 def _candidate_key(candidate: AssetCandidate) -> str:
     return f"{candidate.provider}:{candidate.id or candidate.url}"
-
 
 class AssetAcquisitionEngine:
     """Search providers, rank candidates, reuse cached files, and download safely."""
