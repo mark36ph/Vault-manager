@@ -1,4 +1,3 @@
-import os
 from tkinter import messagebox
 
 import customtkinter as ctk
