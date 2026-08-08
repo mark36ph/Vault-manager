@@ -21,7 +21,6 @@ class ProjectCard(ctk.CTkFrame):
 
         is_pinned = self._value("pinned", 0) == 1
 
-        # Header
         header = ctk.CTkFrame(self, fg_color="transparent")
         header.pack(fill="x", padx=14, pady=(12, 5))
 
@@ -38,7 +37,6 @@ class ProjectCard(ctk.CTkFrame):
             wraplength=460,
         ).pack(side="left", fill="x", expand=True)
 
-        # Metadata
         meta = ctk.CTkFrame(self, fg_color="transparent")
         meta.pack(fill="x", padx=14)
 
@@ -105,7 +103,6 @@ class ProjectCard(ctk.CTkFrame):
                 anchor="w",
             ).pack(fill="x", padx=14, pady=(2, 0))
 
-        # Actions
         actions = ctk.CTkFrame(self, fg_color="transparent")
         actions.pack(fill="x", padx=14, pady=(10, 12))
 
@@ -171,11 +168,15 @@ class ProjectCard(ctk.CTkFrame):
         value = value.strip()
         try:
             date = datetime.strptime(value, "%d/%m/%Y %H:%M")
-            return date.strftime("%Y-%m-%d %H:%M")
+            return date
         except Exception:
             return None
 
     def change_status(self, new_status):
+        current_status = str(self._value("status", "In Progress") or "In Progress")
+        if new_status == current_status:
+            return
+
         scheduled_value = ""
 
         if new_status == "Scheduled":
@@ -194,15 +195,28 @@ class ProjectCard(ctk.CTkFrame):
                     self.refresh_callback()
                 return
 
-            scheduled_value = self.parse_schedule_date(scheduled_text)
-            if scheduled_value is None:
+            scheduled_date = self.parse_schedule_date(scheduled_text)
+            if scheduled_date is None:
                 messagebox.showerror(
                     "Invalid Date",
                     "Please enter the date like this:\n\n25/07/2026 18:00",
+                    parent=self,
                 )
                 if self.refresh_callback:
                     self.refresh_callback()
                 return
+
+            if scheduled_date <= datetime.now():
+                messagebox.showerror(
+                    "Schedule Project",
+                    "Please choose a future date and time.",
+                    parent=self,
+                )
+                if self.refresh_callback:
+                    self.refresh_callback()
+                return
+
+            scheduled_value = scheduled_date.strftime("%Y-%m-%d %H:%M")
 
         try:
             self.project = self.app.pm.change_project_status(
@@ -211,7 +225,7 @@ class ProjectCard(ctk.CTkFrame):
                 scheduled_for=scheduled_value,
             )
         except Exception as error:
-            messagebox.showerror("Status Change Failed", str(error))
+            messagebox.showerror("Status Change Failed", str(error), parent=self)
             if self.refresh_callback:
                 self.refresh_callback()
             return
@@ -220,7 +234,12 @@ class ProjectCard(ctk.CTkFrame):
             self.refresh_callback()
 
     def toggle_pin(self):
-        self.app.pm.db.toggle_project_pinned(self.project["id"])
+        try:
+            self.app.pm.db.toggle_project_pinned(self.project["id"])
+        except Exception as error:
+            messagebox.showerror("Pin Project", str(error), parent=self)
+            return
+
         if self.refresh_callback:
             self.refresh_callback()
 
