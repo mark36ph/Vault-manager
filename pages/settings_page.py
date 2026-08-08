@@ -1,6 +1,5 @@
 import customtkinter as ctk
 
-from common.app_info import AppInfo
 from pages.base_page import BasePage
 from pages.settings.about_page import AboutPage
 from pages.settings.ai_page import AIPage
@@ -18,7 +17,6 @@ class SettingsPage(BasePage):
         self.nav_buttons = {}
         super().__init__(parent, pm, "Settings")
         self.app = app
-        self.app_info = AppInfo()
         self.current_page = None
 
         self.header.configure(font=("Segoe UI", 24, "bold"))
@@ -77,28 +75,7 @@ class SettingsPage(BasePage):
         self.add_button("ai", "AI", self.show_ai)
         self.add_button("about", "About", self.show_about)
 
-        footer = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        footer.pack(side="bottom", fill="x", padx=14, pady=14)
-        self.footer_label = ctk.CTkLabel(
-            footer,
-            text=self._footer_text(),
-            justify="left",
-            anchor="w",
-            font=("Segoe UI", 10),
-            text_color=("#98A2B3", "#717784"),
-        )
-        self.footer_label.pack(fill="x")
-
         self.select_page("general", self.show_general)
-
-    def _footer_text(self):
-        name = self.app_info.get("name", "Fact Vault Manager")
-        version = self.app_info.get("version", "1.0.0")
-        return f"{name}\nv{version}"
-
-    def refresh_footer(self):
-        self.app_info = AppInfo()
-        self.footer_label.configure(text=self._footer_text())
 
     def add_button(self, key, text, command):
         button = ctk.CTkButton(
