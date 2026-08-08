@@ -216,8 +216,19 @@ class MediaLibraryPage(BasePage):
             placeholder_text="Search media or project...",
             height=36,
         )
-        self.search.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        self.search.pack(side="left", fill="x", expand=True, padx=(0, 6))
         self.search.bind("<KeyRelease>", lambda _event: self.apply_filter())
+
+        ctk.CTkButton(
+            toolbar,
+            text="Clear",
+            width=62,
+            height=34,
+            fg_color="transparent",
+            border_width=1,
+            text_color=("#344054", "#D0D5DD"),
+            command=self.clear_search,
+        ).pack(side="left", padx=(0, 8))
 
         ctk.CTkSegmentedButton(
             toolbar,
@@ -226,6 +237,16 @@ class MediaLibraryPage(BasePage):
             command=lambda _value: self.apply_filter(),
             height=34,
         ).pack(side="left", padx=8)
+
+        self.result_label = ctk.CTkLabel(
+            toolbar,
+            text="0 items",
+            width=82,
+            font=("Segoe UI", 11),
+            text_color=("#667085", "#8F96A3"),
+            anchor="e",
+        )
+        self.result_label.pack(side="left", padx=(4, 8))
 
         ctk.CTkButton(
             toolbar,
@@ -330,11 +351,12 @@ class MediaLibraryPage(BasePage):
         self.folder_button.grid(row=0, column=1, padx=(4, 0), sticky="ew")
 
     def refresh(self):
+        previous_project = self.project_menu.get() if hasattr(self, "project_menu") else ""
         projects = self.pm.get_all_projects()
         self.project_by_title = {project["title"]: project for project in projects}
         values = list(self.project_by_title) or ["No projects available"]
         self.project_menu.configure(values=values)
-        self.project_menu.set(values[0])
+        self.project_menu.set(previous_project if previous_project in values else values[0])
 
         project_media = []
         seen_folders = set()
@@ -369,6 +391,11 @@ class MediaLibraryPage(BasePage):
         self.assets = scan_media_library(project_media=project_media)
         self.apply_filter()
 
+    def clear_search(self):
+        self.search.delete(0, "end")
+        self.search.focus_set()
+        self.apply_filter()
+
     def apply_filter(self):
         query = self.search.get().strip().lower()
         wanted_type = {"Images": "Image", "Videos": "Video"}.get(self.filter_value.get())
@@ -381,6 +408,11 @@ class MediaLibraryPage(BasePage):
                 or query in asset.project_title.lower()
             )
         ]
+        if len(self.visible_assets) == len(self.assets):
+            count_text = f"{len(self.assets)} item{'s' if len(self.assets) != 1 else ''}"
+        else:
+            count_text = f"{len(self.visible_assets)} of {len(self.assets)}"
+        self.result_label.configure(text=count_text)
         self.render_list()
 
     def render_list(self):
@@ -388,9 +420,10 @@ class MediaLibraryPage(BasePage):
             child.destroy()
 
         if not self.visible_assets:
+            message = "No media found yet." if not self.assets else "No media matches the current search or filter."
             ctk.CTkLabel(
                 self.list_frame,
-                text="No matching media found.",
+                text=message,
                 text_color=("#667085", "#8F96A3"),
             ).pack(anchor="w", padx=12, pady=20)
             self.clear_selection()
@@ -398,15 +431,16 @@ class MediaLibraryPage(BasePage):
 
         for asset in self.visible_assets:
             source = asset.project_title or "Shared Library"
+            selected = self.selected_asset is not None and asset.path == self.selected_asset.path
             ctk.CTkButton(
                 self.list_frame,
                 text=f"{'Image' if asset.media_type == 'Image' else 'Video'}  ·  {asset.name}  ·  {source}",
                 anchor="w",
                 height=36,
                 corner_radius=6,
-                fg_color="transparent",
+                fg_color=("#EAF2FF", "#22344D") if selected else "transparent",
                 hover_color=("#F2F4F7", "#252A33"),
-                text_color=("#344054", "#D0D5DD"),
+                text_color=("#175CD3", "#B2CCFF") if selected else ("#344054", "#D0D5DD"),
                 command=lambda item=asset: self.select_asset(item),
             ).pack(fill="x", padx=6, pady=2)
 
@@ -443,6 +477,7 @@ class MediaLibraryPage(BasePage):
         self.open_button.configure(state="normal")
         self.folder_button.configure(state="normal")
         self.add_button.configure(state="normal" if self.project_by_title else "disabled")
+        self.render_list()
 
     def clear_selection(self):
         self.selected_asset = None
@@ -460,17 +495,40 @@ class MediaLibraryPage(BasePage):
         if not project:
             messagebox.showwarning("Media Library", "Select a project first.", parent=self)
             return
+
         try:
             project_folder = self.pm.resolve_project_folder(project)
+            selected_path = self.selected_asset.path.resolve()
+            target_folder = Path(project_folder).resolve()
+            try:
+                selected_path.relative_to(target_folder)
+                messagebox.showinfo(
+                    "Media Library",
+                    "This media file already belongs to the selected project.",
+                    parent=self,
+                )
+                return
+            except ValueError:
+                pass
+
+            self.add_button.configure(state="disabled", text="Adding...")
+            self.update_idletasks()
             destination = copy_library_asset_to_project(self.selected_asset, project_folder)
         except Exception as exc:
             messagebox.showerror("Media Library", str(exc), parent=self)
             return
+        finally:
+            self.add_button.configure(
+                state="normal" if self.selected_asset and self.project_by_title else "disabled",
+                text="Add to Project",
+            )
+
         messagebox.showinfo(
             "Media Library",
             f"Added {destination.name} to {project['title']}.\n\n{destination}",
             parent=self,
         )
+        self.refresh()
 
     def open_selected(self):
         if self.selected_asset:
