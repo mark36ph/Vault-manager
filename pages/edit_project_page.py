@@ -66,53 +66,59 @@ class EditProjectPage(BasePage):
             text_color="gray",
         ).pack(anchor="w", padx=20, pady=(0, 12))
 
-        row = ctk.CTkFrame(details, fg_color="transparent")
-        row.pack(fill="x", padx=20, pady=(0, 15))
+        fields_row = ctk.CTkFrame(details, fg_color="transparent")
+        fields_row.pack(fill="x", padx=20, pady=(0, 8))
 
-        self.title_entry = ctk.CTkEntry(row, width=380, placeholder_text="Project title...")
-        self.title_entry.pack(side="left", padx=(0, 8))
+        self.title_entry = ctk.CTkEntry(
+            fields_row,
+            placeholder_text="Project title...",
+        )
+        self.title_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
 
         self.category = ctk.CTkOptionMenu(
-            row,
+            fields_row,
             values=self.pm.db.get_categories() or ["Misc"],
-            width=150,
+            width=190,
         )
         self.category.pack(side="left", padx=8)
 
         self.status = ctk.CTkOptionMenu(
-            row,
+            fields_row,
             values=["In Progress", "Scheduled", "Completed", "Published"],
-            width=150,
+            width=190,
             command=self.on_status_changed,
         )
-        self.status.pack(side="left", padx=8)
+        self.status.pack(side="left", padx=(8, 0))
+
+        actions_row = ctk.CTkFrame(details, fg_color="transparent")
+        actions_row.pack(fill="x", padx=20, pady=(0, 15))
 
         ctk.CTkButton(
-            row,
-            text="🎬 Production",
-            command=self.go_to_production,
-            width=125,
-        ).pack(side="right", padx=5)
-
-        ctk.CTkButton(
-            row,
-            text="📂 Folder",
-            command=self.open_folder,
-            width=105,
-        ).pack(side="right", padx=5)
-
-        ctk.CTkButton(
-            row,
-            text="💾 Save",
-            command=self.save_project,
-            width=95,
-        ).pack(side="right", padx=5)
-
-        ctk.CTkButton(
-            row,
+            actions_row,
             text="← Back",
             command=self.go_back,
-            width=90,
+            width=100,
+        ).pack(side="left")
+
+        ctk.CTkButton(
+            actions_row,
+            text="🎬 Production",
+            command=self.go_to_production,
+            width=135,
+        ).pack(side="right", padx=(5, 0))
+
+        ctk.CTkButton(
+            actions_row,
+            text="📂 Folder",
+            command=self.open_folder,
+            width=110,
+        ).pack(side="right", padx=5)
+
+        ctk.CTkButton(
+            actions_row,
+            text="💾 Save",
+            command=self.save_project,
+            width=100,
         ).pack(side="right", padx=5)
 
         columns = ctk.CTkFrame(self.form, fg_color="transparent")
