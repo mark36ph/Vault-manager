@@ -26,8 +26,8 @@ from widgets.update_dialog import UpdateDialog
 class Dashboard(ctk.CTk):
     """Main Fact Vault Manager application shell."""
 
-    SIDEBAR_WIDTH = 190
-    NAV_HEIGHT = 40
+    SIDEBAR_WIDTH = 178
+    NAV_HEIGHT = 38
 
     def __init__(self):
         super().__init__()
@@ -36,6 +36,7 @@ class Dashboard(ctk.CTk):
         self.sidebar_buttons = {}
         self.active_sidebar_text = None
         self.current_page = None
+        self.sidebar_logo = None
 
         self.ensure_app_icon()
         self._configure_window_icon()
@@ -44,7 +45,7 @@ class Dashboard(ctk.CTk):
             self.settings.get("general", "theme", "dark").title()
         )
 
-        self.minsize(1120, 680)
+        self.minsize(1080, 660)
         self.geometry("1400x800")
         self.title(self.app_info.get("name"))
 
@@ -86,44 +87,80 @@ class Dashboard(ctk.CTk):
             except Exception as exc:
                 print(f"Could not set window icon: {exc}")
 
+    def _brand_text(self):
+        name = self.app_info.get("name", "Fact Vault Manager")
+        if name.lower().endswith(" manager"):
+            return name[:-8].strip(), "MANAGER"
+        return name, "CONTENT WORKSPACE"
+
     def _build_sidebar(self):
         self.sidebar = ctk.CTkFrame(
             self,
             width=self.SIDEBAR_WIDTH,
             corner_radius=0,
-            fg_color=("#F7F8FA", "#17191F"),
-            border_width=1,
-            border_color=("#E4E7EC", "#292D36"),
+            fg_color=("#F8F9FB", "#15171C"),
+            border_width=0,
         )
         self.sidebar.pack(side="left", fill="y")
         self.sidebar.pack_propagate(False)
 
         brand = ctk.CTkFrame(self.sidebar, fg_color="transparent")
-        brand.pack(fill="x", padx=16, pady=(20, 18))
+        brand.pack(fill="x", padx=14, pady=(16, 18))
 
+        logo_path = Path("assets") / "icons" / "app.png"
+        if logo_path.exists():
+            try:
+                logo_image = Image.open(logo_path)
+                self.sidebar_logo = ctk.CTkImage(
+                    light_image=logo_image,
+                    dark_image=logo_image,
+                    size=(28, 28),
+                )
+                ctk.CTkLabel(
+                    brand,
+                    text="",
+                    image=self.sidebar_logo,
+                    width=30,
+                    height=30,
+                ).pack(side="left", padx=(0, 9))
+            except Exception as exc:
+                print(f"Could not load sidebar logo: {exc}")
+
+        brand_text = ctk.CTkFrame(brand, fg_color="transparent")
+        brand_text.pack(side="left", fill="x", expand=True)
+
+        primary, secondary = self._brand_text()
         self.app_title = ctk.CTkLabel(
-            brand,
-            text=self.app_info.get("name", "Fact Vault Manager"),
-            font=("Segoe UI", 18, "bold"),
+            brand_text,
+            text=primary,
+            font=("Segoe UI", 15, "bold"),
             anchor="w",
         )
         self.app_title.pack(fill="x")
 
-        ctk.CTkLabel(
-            brand,
-            text="Content workspace",
-            font=("Segoe UI", 11),
-            text_color=("#667085", "#8F96A3"),
+        self.app_subtitle = ctk.CTkLabel(
+            brand_text,
+            text=secondary,
+            font=("Segoe UI", 9, "bold"),
+            text_color=("#98A2B3", "#737A86"),
             anchor="w",
-        ).pack(fill="x", pady=(2, 0))
+        )
+        self.app_subtitle.pack(fill="x", pady=(1, 0))
+
+        ctk.CTkFrame(
+            self.sidebar,
+            height=1,
+            corner_radius=0,
+            fg_color=("#E7EAF0", "#252930"),
+        ).pack(fill="x", padx=12, pady=(0, 12))
 
         ctk.CTkLabel(
             self.sidebar,
             text="WORKSPACE",
-            font=("Segoe UI", 10, "bold"),
-            text_color=("#98A2B3", "#717784"),
+            font=("Segoe UI", 9, "bold"),
+            text_color=("#98A2B3", "#6F7681"),
             anchor="w",
-        ).pack(fill="x", padx=18, pady=(0, 6))
+        ).pack(fill="x", padx=15, pady=(0, 5))
 
         self.add_sidebar_button("🏠 Dashboard", self.show_dashboard)
         self.add_sidebar_button("➕ New Fact", self.show_new_fact)
@@ -137,27 +174,35 @@ class Dashboard(ctk.CTk):
         build = self.app_info.get("build", "")
         version_text = f"v{version}" if version else ""
         if build not in (None, ""):
-            version_text += f"  •  build {build}"
+            version_text += f"  ·  {build}"
 
         self.sidebar_footer = ctk.CTkLabel(
             self.sidebar,
             text=version_text,
-            font=("Segoe UI", 10),
-            text_color=("#98A2B3", "#717784"),
+            font=("Segoe UI", 9),
+            text_color=("#98A2B3", "#666D78"),
             anchor="w",
         )
         self.sidebar_footer.pack(
             side="bottom",
             fill="x",
-            padx=18,
-            pady=(8, 16),
+            padx=15,
+            pady=(8, 13),
         )
 
     def _build_content_area(self):
+        shell = ctk.CTkFrame(
+            self,
+            corner_radius=0,
+            fg_color=("#E6E9EF", "#252930"),
+            width=1,
+        )
+        shell.pack(side="left", fill="y")
+
         self.content = ctk.CTkFrame(
             self,
             corner_radius=0,
-            fg_color=("#F2F4F7", "#111318"),
+            fg_color=("#F5F6F8", "#101216"),
         )
         self.content.pack(side="left", fill="both", expand=True)
 
@@ -172,16 +217,16 @@ class Dashboard(ctk.CTk):
             self.sidebar,
             text=text,
             height=self.NAV_HEIGHT,
-            corner_radius=8,
+            corner_radius=6,
             border_width=0,
             fg_color="transparent",
-            hover_color=("#E8EDF5", "#252A33"),
-            text_color=("#344054", "#D0D5DD"),
-            font=("Segoe UI Emoji", 13),
+            hover_color=("#EEF1F5", "#20242B"),
+            text_color=("#475467", "#C8CDD5"),
+            font=("Segoe UI Emoji", 12),
             anchor="w",
             command=run_command,
         )
-        button.pack(fill="x", padx=10, pady=2)
+        button.pack(fill="x", padx=8, pady=1)
         self.sidebar_buttons[text] = button
         return button
 
@@ -190,15 +235,17 @@ class Dashboard(ctk.CTk):
         for label, button in self.sidebar_buttons.items():
             if label == text:
                 button.configure(
-                    fg_color=("#E4EEFF", "#24344D"),
-                    text_color=("#175CD3", "#AFCBFF"),
-                    hover_color=("#DCE8FC", "#2B3D59"),
+                    fg_color=("#E9EFF8", "#202B3B"),
+                    text_color=("#175CD3", "#B8D0FF"),
+                    hover_color=("#E1E9F5", "#263348"),
+                    font=("Segoe UI Emoji", 12, "bold"),
                 )
             else:
                 button.configure(
                     fg_color="transparent",
-                    text_color=("#344054", "#D0D5DD"),
-                    hover_color=("#E8EDF5", "#252A33"),
+                    text_color=("#475467", "#C8CDD5"),
+                    hover_color=("#EEF1F5", "#20242B"),
+                    font=("Segoe UI Emoji", 12),
                 )
 
     def show_edit_project(self, project_id):
@@ -299,46 +346,46 @@ class Dashboard(ctk.CTk):
 
         window = ctk.CTkToplevel(self)
         window.title(project["title"])
-        window.geometry("1000x750")
+        window.geometry("980x720")
         window.transient(self)
         window.grab_set()
         window.lift()
         window.focus_force()
 
         header = ctk.CTkFrame(window, fg_color="transparent")
-        header.pack(fill="x", padx=20, pady=(20, 10))
+        header.pack(fill="x", padx=18, pady=(17, 9))
 
         ctk.CTkLabel(
             header,
             text=project["title"],
-            font=("Segoe UI", 24, "bold"),
+            font=("Segoe UI", 22, "bold"),
         ).pack(side="left")
 
         ctk.CTkButton(
             header,
             text="✏ Edit",
-            width=92,
-            height=36,
-            corner_radius=8,
+            width=84,
+            height=34,
+            corner_radius=6,
             command=lambda: self.open_viewer_edit_project(
                 window,
                 project["id"],
             ),
-        ).pack(side="right", padx=(8, 0))
+        ).pack(side="right", padx=(7, 0))
 
         ctk.CTkButton(
             header,
             text="Close",
-            width=92,
-            height=36,
-            corner_radius=8,
+            width=84,
+            height=34,
+            corner_radius=6,
             fg_color="transparent",
             border_width=1,
             command=window.destroy,
         ).pack(side="right")
 
-        tabs = ctk.CTkTabview(window, corner_radius=10)
-        tabs.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        tabs = ctk.CTkTabview(window, corner_radius=8)
+        tabs.pack(fill="both", expand=True, padx=18, pady=(0, 18))
 
         tab_data = [
             ("Script", script),
@@ -405,30 +452,30 @@ class Dashboard(ctk.CTk):
 
     def add_project_viewer_tab(self, parent, label, text):
         top = ctk.CTkFrame(parent, fg_color="transparent")
-        top.pack(fill="x", padx=10, pady=(10, 5))
+        top.pack(fill="x", padx=8, pady=(8, 5))
 
         ctk.CTkLabel(
             top,
             text=label,
-            font=("Segoe UI", 18, "bold"),
+            font=("Segoe UI", 16, "bold"),
         ).pack(side="left")
 
         ctk.CTkButton(
             top,
             text="📋 Copy",
-            width=90,
-            height=34,
-            corner_radius=8,
+            width=82,
+            height=32,
+            corner_radius=6,
             command=lambda: self.copy_project_viewer_text(text),
         ).pack(side="right")
 
         box = ctk.CTkTextbox(
             parent,
-            font=("Segoe UI Emoji", 14),
+            font=("Segoe UI Emoji", 13),
             wrap="word",
-            corner_radius=8,
+            corner_radius=6,
         )
-        box.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        box.pack(fill="both", expand=True, padx=8, pady=(0, 8))
         box.insert("1.0", text if text.strip() else "Nothing added yet.")
         box.configure(state="disabled")
 
@@ -472,14 +519,18 @@ class Dashboard(ctk.CTk):
         self.app_info = AppInfo()
         name = self.app_info.get("name", "Fact Vault Manager")
         self.title(name)
-        self.app_title.configure(text=name)
+
+        primary, secondary = self._brand_text()
+        self.app_title.configure(text=primary)
+        if hasattr(self, "app_subtitle"):
+            self.app_subtitle.configure(text=secondary)
 
         if hasattr(self, "sidebar_footer"):
             version = self.app_info.get("version", "")
             build = self.app_info.get("build", "")
             version_text = f"v{version}" if version else ""
             if build not in (None, ""):
-                version_text += f"  •  build {build}"
+                version_text += f"  ·  {build}"
             self.sidebar_footer.configure(text=version_text)
 
     def check_updates_on_startup(self):
