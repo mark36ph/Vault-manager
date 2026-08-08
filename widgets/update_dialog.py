@@ -2,93 +2,109 @@ import customtkinter as ctk
 
 
 class UpdateDialog(ctk.CTkToplevel):
-
     def __init__(self, parent, app_name, info, on_download):
-
         super().__init__(parent)
-
         self.on_download = on_download
 
         self.title("Update Available")
-        self.geometry("540x430")
+        self.geometry("540x420")
         self.resizable(False, False)
-
         self.transient(parent)
         self.grab_set()
         self.focus_force()
 
-        ctk.CTkLabel(
+        shell = ctk.CTkFrame(
             self,
-            text="Update Available",
-            font=("Segoe UI", 28, "bold")
-        ).pack(pady=(25, 10))
+            corner_radius=10,
+            fg_color=("#FFFFFF", "#181B21"),
+            border_width=1,
+            border_color=("#E4E7EC", "#2A2F38"),
+        )
+        shell.pack(fill="both", expand=True, padx=14, pady=14)
 
         ctk.CTkLabel(
-            self,
-            text=f"{app_name} {info['latest_version']}",
-            font=("Segoe UI", 18, "bold")
-        ).pack(pady=(0, 10))
+            shell,
+            text="Update available",
+            font=("Segoe UI", 21, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=18, pady=(18, 4))
 
         ctk.CTkLabel(
-            self,
+            shell,
+            text=f"{app_name} {info['latest_version']} is ready to download.",
+            font=("Segoe UI", 12),
+            text_color=("#667085", "#8F96A3"),
+            anchor="w",
+        ).pack(fill="x", padx=18, pady=(0, 14))
+
+        version_card = ctk.CTkFrame(
+            shell,
+            corner_radius=8,
+            fg_color=("#F8FAFC", "#14171C"),
+            border_width=1,
+            border_color=("#E4E7EC", "#2A2F38"),
+        )
+        version_card.pack(fill="x", padx=18, pady=(0, 12))
+
+        ctk.CTkLabel(
+            version_card,
             text=(
-                f"Current Version: {info['current_version']}\n"
-                f"Latest Version: {info['latest_version']}"
+                f"Current  {info['current_version']}\n"
+                f"Latest   {info['latest_version']}"
             ),
-            font=("Segoe UI", 14)
-        ).pack(pady=(0, 15))
+            font=("Segoe UI", 12),
+            justify="left",
+            anchor="w",
+        ).pack(fill="x", padx=14, pady=12)
+
+        ctk.CTkLabel(
+            shell,
+            text="Release notes",
+            font=("Segoe UI", 13, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=18, pady=(0, 6))
 
         notes = ctk.CTkTextbox(
-            self,
-            width=460,
-            height=130
+            shell,
+            height=150,
+            font=("Segoe UI", 12),
+            corner_radius=7,
+            border_width=1,
+            border_color=("#E4E7EC", "#2A2F38"),
         )
-        notes.pack(padx=30, pady=(0, 20))
+        notes.pack(fill="both", expand=True, padx=18, pady=(0, 14))
 
-        release_notes = info.get(
-            "release_notes",
-            "No release notes available."
-        )
-
+        release_notes = info.get("release_notes", "No release notes available.")
         if isinstance(release_notes, list):
+            release_notes = "\n".join(f"• {note}" for note in release_notes)
 
-            release_notes = "\n".join(
-                f"• {note}"
-                for note in release_notes
-            )
-
-        notes.insert(
-            "1.0",
-            release_notes
-        )
-
+        notes.insert("1.0", release_notes)
         notes.configure(state="disabled")
 
-        buttons = ctk.CTkFrame(
-            self,
-            fg_color="transparent"
-        )
-        buttons.pack(pady=10)
+        buttons = ctk.CTkFrame(shell, fg_color="transparent")
+        buttons.pack(fill="x", padx=18, pady=(0, 18))
 
         ctk.CTkButton(
             buttons,
             text="Later",
-            width=140,
-            fg_color="gray",
-            command=self.destroy
-        ).pack(side="left", padx=10)
+            width=96,
+            height=34,
+            fg_color="transparent",
+            border_width=1,
+            text_color=("#344054", "#D0D5DD"),
+            command=self.destroy,
+        ).pack(side="right")
 
         ctk.CTkButton(
             buttons,
             text="Download Update",
-            width=180,
-            command=self.download
-        ).pack(side="left", padx=10)
+            width=150,
+            height=34,
+            command=self.download,
+        ).pack(side="right", padx=(0, 8))
 
-        self.bind("<Escape>", lambda e: self.destroy())
+        self.bind("<Escape>", lambda _event: self.destroy())
 
     def download(self):
-
         self.destroy()
-
         self.on_download()
