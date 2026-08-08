@@ -26,16 +26,32 @@ class LibraryAsset:
     path: Path
     media_type: str
     source_path: Path | None = None
+    project_title: str = ""
 
     @property
     def name(self):
         return self.path.name
 
 
-def scan_media_library(library_root=None):
+def _asset_from_path(path, *, project_title=""):
+    path = Path(path)
+    suffix = path.suffix.lower()
+    if suffix in IMAGE_EXTENSIONS:
+        media_type = "Image"
+    elif suffix in VIDEO_EXTENSIONS:
+        media_type = "Video"
+    else:
+        return None
+    return LibraryAsset(path, media_type, project_title=project_title)
+
+
+def scan_media_library(library_root=None, project_media=None):
+    """Return shared-library media plus optional production-acquired project media."""
     root = get_media_library_root(library_root)
     migrate_library_metadata(root)
     assets = []
+    seen = set()
+
     for folder_name, media_type, extensions in (
         ("Images", "Image", IMAGE_EXTENSIONS),
         ("Videos", "Video", VIDEO_EXTENSIONS),
@@ -46,8 +62,45 @@ def scan_media_library(library_root=None):
         for path in folder.iterdir():
             if path.is_file() and path.suffix.lower() in extensions:
                 source = get_library_metadata_path(path, root)
-                assets.append(LibraryAsset(path, media_type, source if source.exists() else None))
-    return sorted(assets, key=lambda item: (item.media_type, item.name.lower()))
+                assets.append(
+                    LibraryAsset(
+                        path,
+                        media_type,
+                        source if source.exists() else None,
+                    )
+                )
+                try:
+                    seen.add(path.resolve())
+                except OSError:
+                    seen.add(path)
+
+    for project_title, folder in project_media or ():
+        folder = Path(folder)
+        if not folder.exists():
+            continue
+        for path in folder.rglob("*"):
+            if not path.is_file():
+                continue
+            asset = _asset_from_path(path, project_title=str(project_title or ""))
+            if asset is None:
+                continue
+            try:
+                key = path.resolve()
+            except OSError:
+                key = path
+            if key in seen:
+                continue
+            seen.add(key)
+            assets.append(asset)
+
+    return sorted(
+        assets,
+        key=lambda item: (
+            item.media_type,
+            item.project_title.lower(),
+            item.name.lower(),
+        ),
+    )
 
 
 def copy_library_asset_to_project(asset, project_folder):
@@ -100,7 +153,7 @@ class MediaLibraryPage(BasePage):
         self.header.pack_configure(padx=24, pady=(20, 4))
         self.subtitle = ctk.CTkLabel(
             self,
-            text="Browse reusable images and videos, preview them, and add them to projects.",
+            text="Browse shared media and assets gathered by Production.",
             font=("Segoe UI", 13),
             text_color=("#667085", "#8F96A3"),
             anchor="w",
@@ -116,7 +169,7 @@ class MediaLibraryPage(BasePage):
 
         self.search = ctk.CTkEntry(
             toolbar,
-            placeholder_text="Search library...",
+            placeholder_text="Search media or project...",
             height=36,
         )
         self.search.pack(side="left", fill="x", expand=True, padx=(0, 8))
@@ -233,12 +286,23 @@ class MediaLibraryPage(BasePage):
         self.folder_button.grid(row=0, column=1, padx=(4, 0), sticky="ew")
 
     def refresh(self):
-        self.assets = scan_media_library()
         projects = self.pm.get_all_projects()
         self.project_by_title = {project["title"]: project for project in projects}
         values = list(self.project_by_title) or ["No projects available"]
         self.project_menu.configure(values=values)
         self.project_menu.set(values[0])
+
+        project_media = []
+        for project in projects:
+            try:
+                project_folder = self.pm.resolve_project_folder(project)
+            except Exception:
+                continue
+            project_media.append(
+                (project["title"], Path(project_folder) / "Assets" / "Acquired")
+            )
+
+        self.assets = scan_media_library(project_media=project_media)
         self.apply_filter()
 
     def apply_filter(self):
@@ -248,7 +312,10 @@ class MediaLibraryPage(BasePage):
             asset
             for asset in self.assets
             if (wanted_type is None or asset.media_type == wanted_type)
-            and query in asset.name.lower()
+            and (
+                query in asset.name.lower()
+                or query in asset.project_title.lower()
+            )
         ]
         self.render_list()
 
@@ -259,16 +326,17 @@ class MediaLibraryPage(BasePage):
         if not self.visible_assets:
             ctk.CTkLabel(
                 self.list_frame,
-                text="No matching library media found.",
+                text="No matching media found.",
                 text_color=("#667085", "#8F96A3"),
             ).pack(anchor="w", padx=12, pady=20)
             self.clear_selection()
             return
 
         for asset in self.visible_assets:
+            source = asset.project_title or "Shared Library"
             ctk.CTkButton(
                 self.list_frame,
-                text=f"{'Image' if asset.media_type == 'Image' else 'Video'}  ·  {asset.name}",
+                text=f"{'Image' if asset.media_type == 'Image' else 'Video'}  ·  {asset.name}  ·  {source}",
                 anchor="w",
                 height=36,
                 corner_radius=6,
@@ -303,9 +371,11 @@ class MediaLibraryPage(BasePage):
             except OSError:
                 metadata = ""
 
-        self.details_label.configure(
-            text=f"{asset.name}\n{asset.media_type}\n\n{metadata}"
-        )
+        source = f"Project: {asset.project_title}" if asset.project_title else "Shared Media Library"
+        details = f"{asset.name}\n{asset.media_type}\n{source}"
+        if metadata:
+            details += f"\n\n{metadata}"
+        self.details_label.configure(text=details)
         self.open_button.configure(state="normal")
         self.folder_button.configure(state="normal")
         self.add_button.configure(state="normal" if self.project_by_title else "disabled")
