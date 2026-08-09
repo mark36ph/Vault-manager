@@ -9,6 +9,10 @@ from typing import Any, Iterable, Mapping
 from timeline import Clip, ClipKind, Timeline, Track, TrackKind
 
 
+class ProductionAssemblyError(RuntimeError):
+    """Raised when acquired production outputs cannot build a valid timeline."""
+
+
 def json_safe(value: Any) -> Any:
     """Convert checkpoint values into JSON-safe data without losing file paths."""
     if value is None or isinstance(value, (str, int, float, bool)):
@@ -78,14 +82,33 @@ def assemble_timeline(
 ) -> Timeline:
     """Attach one acquired visual per scene and one narration clip to a timeline."""
     items = [asset for asset in (assets or []) if _asset_path(asset)]
+    scene_count = len(timeline.scenes)
+
+    # A partial acquisition result must not silently loop the same few files
+    # across the remaining scenes. Real acquisition is planned one visual per
+    # scene, so a short result means the production state is incomplete/stale.
+    if items and scene_count and len(items) < scene_count:
+        raise ProductionAssemblyError(
+            "Not enough acquired visuals to build the timeline: "
+            f"{len(items)} asset(s) for {scene_count} scene(s). "
+            "Restart production from Find Visuals."
+        )
+
     if items and timeline.scenes:
         visual_track = timeline.get_track("Visuals")
         if visual_track is None:
             visual_track = timeline.add_track(Track(kind=TrackKind.VIDEO, name="Visuals"))
         for index, scene in enumerate(timeline.scenes):
-            asset = items[index % len(items)]
+            asset = items[index]
             kind = str(_asset_value(asset, "kind", "image"))
             source = _absolute_media_path(_asset_path(asset), project_folder)
+
+            if project_folder is not None and not Path(source).is_file():
+                raise ProductionAssemblyError(
+                    "Acquired visual is missing from disk: "
+                    f"{source}. Restart production from Find Visuals."
+                )
+
             clip = visual_track.add_clip(
                 Clip(
                     kind=ClipKind.VIDEO if kind == "video" else ClipKind.IMAGE,
@@ -121,9 +144,14 @@ def assemble_timeline(
             )
         )
 
+    unique_sources = {
+        _absolute_media_path(_asset_path(asset), project_folder)
+        for asset in items[:scene_count or len(items)]
+    }
     timeline.metadata["production_assets"] = len(items)
+    timeline.metadata["production_unique_assets"] = len(unique_sources)
     timeline.metadata["narration_attached"] = bool(voice_path)
     return timeline
 
 
-__all__ = ["assemble_timeline", "json_safe"]
+__all__ = ["ProductionAssemblyError", "assemble_timeline", "json_safe"]
