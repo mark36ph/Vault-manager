@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -211,3 +212,39 @@ def test_due_scheduled_project_moves_to_published(
 
     assert new_folder.exists()
     assert not old_folder.exists()
+
+
+def test_schedule_validation_rejects_blank_invalid_and_past_values(project_manager):
+    with pytest.raises(ValueError, match="require a date and time"):
+        project_manager._validated_schedule("")
+
+    with pytest.raises(ValueError, match="YYYY-MM-DD HH:MM"):
+        project_manager._validated_schedule("tomorrow evening")
+
+    past = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d %H:%M")
+    with pytest.raises(ValueError, match="future date and time"):
+        project_manager._validated_schedule(past)
+
+
+def test_change_project_status_accepts_valid_future_schedule(project_manager):
+    pm = project_manager
+    pm.create_project(
+        title="Future Schedule Test",
+        category="Testing",
+        status="In Progress",
+    )
+    project = next(
+        row for row in pm.db.get_projects()
+        if row["title"] == "Future Schedule Test"
+    )
+    scheduled_for = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d %H:%M")
+
+    updated = pm.change_project_status(
+        project["id"],
+        "Scheduled",
+        scheduled_for=scheduled_for,
+    )
+
+    assert updated["status"] == "Scheduled"
+    assert updated["scheduled_for"] == scheduled_for
+    assert pm.resolve_project_folder(updated).exists()
