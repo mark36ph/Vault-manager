@@ -490,29 +490,35 @@ class Dashboard(ctk.CTk):
         self.show_edit_project(project_id)
 
     def delete_project(self, project):
-        import shutil
-
         answer = messagebox.askyesnocancel(
             "Delete Project",
             "Delete the project folder as well?\n\n"
             "Yes = Delete project and folder\n"
-            "No = Delete project only\n"
+            "No = Remove from Fact Vault but keep the folder\n"
             "Cancel = Do nothing",
+            parent=self,
         )
 
         if answer is None:
             return
 
-        if answer:
-            try:
-                folder = self.pm.get_project_folder(project)
-                if folder.exists():
-                    shutil.rmtree(folder)
-            except Exception as exc:
-                messagebox.showerror("Error", str(exc))
-                return
+        try:
+            deleted = self.pm.delete_project(
+                project["id"],
+                delete_folder=bool(answer),
+            )
+        except Exception as exc:
+            messagebox.showerror("Delete Project", str(exc), parent=self)
+            self.show_projects()
+            return
 
-        self.pm.delete_project(project["id"])
+        if not deleted:
+            messagebox.showwarning(
+                "Delete Project",
+                "The project no longer exists in the database.",
+                parent=self,
+            )
+
         self.show_projects()
 
     def refresh_app_info(self):
