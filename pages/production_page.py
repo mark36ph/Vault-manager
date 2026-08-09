@@ -10,6 +10,7 @@ import customtkinter as ctk
 
 from common.content_production import STAGES
 from common.production_ui import ProductionUIController, ProductionViewState
+from common.project_filters import in_progress_projects
 from common.provider_setup import (
     ProviderCredentials,
     ProviderSettings,
@@ -92,7 +93,7 @@ class ProductionPage(BasePage):
     def __init__(self, parent, pm, app):
         super().__init__(parent, pm, "Production")
         self.app = app
-        self.projects = [dict(project) for project in self.pm.get_all_projects()]
+        self.projects = in_progress_projects(self.pm.get_all_projects())
         self.project_lookup = {project_choice(project): project for project in self.projects}
         self.controller: ProductionUIController | None = None
         self.stage_rows: dict[str, tuple[ctk.CTkLabel, ctk.CTkLabel]] = {}
