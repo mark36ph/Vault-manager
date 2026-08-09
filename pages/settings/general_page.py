@@ -3,8 +3,10 @@ from tkinter import filedialog, messagebox
 from pathlib import Path
 
 from common.project_integrity_repair import SAFE_REPAIR_TYPES, repair_safe_project_integrity
+from common.project_orphan_deletion import delete_orphan_project
 from common.project_orphan_recovery import recover_orphan_project
 from common.settings_manager import SettingsManager
+from dialogs.orphan_delete_dialog import OrphanDeleteDialog
 
 
 MUTED_TEXT = ("#667085", "#8F96A3")
@@ -376,6 +378,21 @@ class GeneralPage(ctk.CTkScrollableFrame):
         )
         self.recover_orphan_button.pack(side="left", padx=(8, 0))
 
+        self.delete_orphan_button = ctk.CTkButton(
+            integrity_actions,
+            text="Delete orphan",
+            width=110,
+            height=34,
+            corner_radius=7,
+            fg_color="transparent",
+            border_width=1,
+            border_color=("#FDA29B", "#7A3434"),
+            text_color=("#B42318", "#FDA29B"),
+            hover_color=("#FEF3F2", "#3A2020"),
+            command=self.delete_orphan_folder,
+        )
+        self.delete_orphan_button.pack(side="left", padx=(8, 0))
+
         self.integrity_status = ctk.CTkLabel(
             integrity,
             text="Not checked yet.",
@@ -590,6 +607,58 @@ class GeneralPage(ctk.CTkScrollableFrame):
             messagebox.showerror("Recover Orphan Project", str(error), parent=self)
         finally:
             self.recover_orphan_button.configure(state="normal", text="Recover orphan")
+
+    def delete_orphan_folder(self):
+        try:
+            issues = list(self.pm.check_project_integrity())
+        except Exception as error:
+            messagebox.showerror("Project Integrity", str(error), parent=self)
+            return
+
+        orphans = orphan_integrity_issues(issues)
+        self._render_integrity_issues(issues)
+        if not orphans:
+            messagebox.showinfo(
+                "Delete Orphan Folder",
+                "No orphan project folders were found.",
+                parent=self,
+            )
+            return
+
+        dialog = OrphanDeleteDialog(self, orphans)
+        self.wait_window(dialog)
+        if dialog.result is None:
+            return
+
+        folder = dialog.result
+        path = Path(folder)
+        confirmed = messagebox.askyesno(
+            "Delete Orphan Folder",
+            (
+                "Permanently delete this orphan folder and everything inside it?\n\n"
+                f"{path}\n\n"
+                "This cannot be undone. No database project will be deleted."
+            ),
+            icon="warning",
+            parent=self,
+        )
+        if not confirmed:
+            return
+
+        self.delete_orphan_button.configure(state="disabled", text="Deleting...")
+        try:
+            delete_orphan_project(self.pm, folder)
+            remaining = list(self.pm.check_project_integrity())
+            self._render_integrity_issues(remaining)
+            messagebox.showinfo(
+                "Delete Orphan Folder",
+                f"Deleted orphan folder:\n{path}",
+                parent=self,
+            )
+        except Exception as error:
+            messagebox.showerror("Delete Orphan Folder", str(error), parent=self)
+        finally:
+            self.delete_orphan_button.configure(state="normal", text="Delete orphan")
 
     def browse_projects_folder(self):
         folder = filedialog.askdirectory()
