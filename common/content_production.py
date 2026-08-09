@@ -139,6 +139,16 @@ class ProductionCheckpointStore:
                 name for name in context.completed_stages
                 if STAGES.index(name) < timeline_index
             ]
+
+        # Resolve results are intentionally not serialized into checkpoints.
+        # If the app exits after the resolve stage is marked complete but before
+        # the checkpoint is cleared, a later resume must rerun Resolve instead
+        # of reporting success with context.resolve still set to None.
+        if "resolve" in context.completed_stages:
+            context.completed_stages = [
+                name for name in context.completed_stages
+                if name != "resolve"
+            ]
         return context
 
     def clear(self) -> None:
