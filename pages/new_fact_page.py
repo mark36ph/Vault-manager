@@ -16,7 +16,9 @@ class NewFactPage(BasePage):
         self.app = app
         self.scheduled_for = ""
         self._last_non_scheduled_status = "In Progress"
+        self._keyboard_bindings = []
         self.build()
+        self._install_keyboard_scrolling()
 
     def build(self):
         self.header.configure(font=("Segoe UI", 24, "bold"))
@@ -376,6 +378,60 @@ class NewFactPage(BasePage):
         self.scheduled_for = dialog.result.strftime("%Y-%m-%d %H:%M")
         self.status_label.configure(text=f"Scheduled for {self.scheduled_for}.")
         self.update_preview()
+
+    def _install_keyboard_scrolling(self):
+        """Scroll the New Fact form with keyboard navigation keys."""
+        toplevel = self.winfo_toplevel()
+        bindings = (
+            ("<Up>", lambda event: self._scroll_from_key(event, -3, "units")),
+            ("<Down>", lambda event: self._scroll_from_key(event, 3, "units")),
+            ("<Prior>", lambda event: self._scroll_from_key(event, -1, "pages")),
+            ("<Next>", lambda event: self._scroll_from_key(event, 1, "pages")),
+            ("<Home>", lambda event: self._scroll_to_from_key(event, 0.0)),
+            ("<End>", lambda event: self._scroll_to_from_key(event, 1.0)),
+        )
+        for sequence, callback in bindings:
+            funcid = toplevel.bind(sequence, callback, add="+")
+            if funcid:
+                self._keyboard_bindings.append((sequence, funcid))
+        self.bind("<Destroy>", self._remove_keyboard_scrolling, add="+")
+
+    @staticmethod
+    def _focus_is_multiline_text(event):
+        widget = getattr(event, "widget", None)
+        return widget is not None and widget.winfo_class() == "Text"
+
+    def _scroll_from_key(self, event, amount, mode):
+        # Keep Up/Down available for moving the caret inside multiline editors.
+        if mode == "units" and self._focus_is_multiline_text(event):
+            return None
+        canvas = getattr(self.form, "_parent_canvas", None)
+        if canvas is not None:
+            canvas.yview_scroll(amount, mode)
+        return "break"
+
+    def _scroll_to_from_key(self, event, position):
+        # Home/End keep their normal caret behaviour inside editable fields.
+        widget = getattr(event, "widget", None)
+        if widget is not None and widget.winfo_class() in {"Entry", "Text"}:
+            return None
+        canvas = getattr(self.form, "_parent_canvas", None)
+        if canvas is not None:
+            canvas.yview_moveto(position)
+        return "break"
+
+    def _remove_keyboard_scrolling(self, event=None):
+        if event is not None and event.widget is not self:
+            return
+        if not self._keyboard_bindings:
+            return
+        toplevel = self.winfo_toplevel()
+        for sequence, funcid in self._keyboard_bindings:
+            try:
+                toplevel.unbind(sequence, funcid)
+            except Exception:
+                pass
+        self._keyboard_bindings.clear()
 
     def create_project(self):
         title = self.title_entry.get().strip()
