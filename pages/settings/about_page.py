@@ -3,7 +3,7 @@ from tkinter import messagebox
 
 from common.app_info import AppInfo
 from common.update_manager import UpdateManager
-from widgets.update_dialog import UpdateDialog
+from widgets.update_dialog import UpdateDialog, UpToDateDialog
 
 
 class AboutPage(ctk.CTkFrame):
@@ -145,12 +145,10 @@ class AboutPage(ctk.CTkFrame):
                     ),
                 )
             else:
-                messagebox.showinfo(
-                    "Up to Date",
-                    (
-                        "You are running the latest version.\n\n"
-                        f"Version {info['current_version']}"
-                    ),
+                UpToDateDialog(
+                    self,
+                    self.app_info.get("name", "Fact Vault Manager"),
+                    info["current_version"],
                 )
         except Exception as exc:
             messagebox.showerror("Update Check Failed", str(exc))
