@@ -204,6 +204,62 @@ def _image_prompt(context: Any) -> str:
         f"Script:\n{script}"
     )
 
+
+def _imported_scene_searches(project: Mapping[str, Any] | None) -> list[str]:
+    """Extract the first explicit Search query from each imported timeline scene."""
+    if not isinstance(project, Mapping):
+        return []
+
+    notes = str(project.get("notes") or "").replace("\r\n", "\n")
+    if not notes.strip():
+        return []
+
+    searches: list[str] = []
+    seen: set[str] = set()
+    lines = notes.splitlines()
+    for index, line in enumerate(lines):
+        if line.strip().casefold() != "search:":
+            continue
+
+        for candidate_line in lines[index + 1:]:
+            candidate = candidate_line.strip(" -\t")
+            lower = candidate.casefold()
+            if not candidate:
+                continue
+            if lower in {"free sources:", "search:"} or lower.endswith(" sec"):
+                break
+            key = candidate.casefold()
+            if key not in seen:
+                searches.append(candidate)
+                seen.add(key)
+            break
+
+    return searches
+
+
+def _anchor_searches(prompts: list[str], context: Any) -> list[str]:
+    """Keep searches tied to the project's subject/category without bloating them."""
+    project = getattr(context, "project", None)
+    category = ""
+    if isinstance(project, Mapping):
+        category = str(project.get("category") or "").strip()
+
+    topic = str(getattr(context, "topic", "") or "").strip()
+    anchor = category or topic
+    anchored: list[str] = []
+
+    for prompt in prompts:
+        prompt = str(prompt or "").strip()
+        if not prompt:
+            continue
+        if anchor and anchor.casefold() not in prompt.casefold():
+            anchored.append(f"{anchor} {prompt}".strip())
+        else:
+            anchored.append(prompt)
+
+    return anchored
+
+
 def build_configured_providers(
     project_folder: str | Path,
     settings: ProviderSettings,
@@ -292,30 +348,22 @@ def _acquisition_stage(prompt_provider, engine, destination: Path, settings: Pro
     acquire = make_asset_acquisition_provider(engine, destination, kind=settings.asset_kind)
 
     def run(context):
-        raw = prompt_provider(context)
-
-        prompts = [
-            line.strip(" -\t")
-            for line in str(raw).splitlines()
-            if line.strip()
-        ]
-
-        topic = str(
-            getattr(context, "topic", "") or ""
-        ).strip()
-
-        anchored_prompts: list[str] = []
-
-        for prompt in prompts:
-            if topic:
-                anchored_prompts.append(
-                    f"{topic} {prompt}"
+        imported = _imported_scene_searches(getattr(context, "project", None))
+        if imported:
+            prompts = imported
+            if hasattr(context, "warnings"):
+                context.warnings.append(
+                    f"Using {len(imported)} imported scene search queries for asset selection"
                 )
-            else:
-                anchored_prompts.append(prompt)
+        else:
+            raw = prompt_provider(context)
+            prompts = [
+                line.strip(" -\t")
+                for line in str(raw).splitlines()
+                if line.strip()
+            ]
 
-        context.image_prompts = anchored_prompts
-
+        context.image_prompts = _anchor_searches(prompts, context)
         return acquire(context)
 
     return run
