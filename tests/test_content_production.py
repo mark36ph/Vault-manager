@@ -121,6 +121,27 @@ def test_resume_skips_completed_stages(tmp_path):
     assert calls == ["image_prompts", "voice"]
 
 
+def test_resume_reruns_resolve_when_checkpoint_marked_it_complete(tmp_path):
+    calls = []
+    configured = providers(calls)
+    engine = ContentProductionEngine(configured)
+
+    engine.run(project(), tmp_path, settings(), resume=False, stop_after="timeline")
+
+    checkpoint = tmp_path / "production_checkpoint.json"
+    payload = json.loads(checkpoint.read_text(encoding="utf-8"))
+    payload["completed_stages"].append("resolve")
+    checkpoint.write_text(json.dumps(payload), encoding="utf-8")
+
+    calls.clear()
+    result = engine.run(project(), tmp_path, settings(), resume=True)
+
+    assert calls == ["resolve"]
+    assert result.succeeded
+    assert result.context.resolve == {"package": "ready"}
+    assert not checkpoint.exists()
+
+
 def test_start_at_reruns_requested_stage(tmp_path):
     calls = []
     engine = ContentProductionEngine(providers(calls))
