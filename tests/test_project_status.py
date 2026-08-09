@@ -325,3 +325,81 @@ def test_scheduled_project_publishes_with_artifacts_and_clears_schedule(project_
     assert (
         published_folder / "Export" / "Portable" / "ready.fcpxml"
     ).read_text(encoding="utf-8") == "ready"
+
+
+def test_due_publish_destination_conflict_keeps_project_scheduled(project_manager):
+    pm = project_manager
+    pm.create_project(
+        title="Publish Conflict",
+        category="Testing",
+        status="Scheduled",
+    )
+    project = next(
+        row for row in pm.db.get_projects()
+        if row["title"] == "Publish Conflict"
+    )
+    due = "2000-01-01 00:00"
+    pm.db.update_project_schedule(project["id"], due)
+    scheduled_folder = pm.resolve_project_folder(project)
+    published_folder = pm.get_projects_root() / "Published" / "Publish Conflict"
+    published_folder.mkdir(parents=True)
+
+    assert pm.complete_due_scheduled_projects() == 0
+
+    unchanged = pm.db.get_project(project["id"])
+    assert unchanged["status"] == "Scheduled"
+    assert unchanged["scheduled_for"] == due
+    assert pm.resolve_project_folder(unchanged) == scheduled_folder
+    assert scheduled_folder.exists()
+    assert published_folder.exists()
+
+
+def test_scheduled_publish_db_failure_restores_folder_and_schedule(project_manager, monkeypatch):
+    pm = project_manager
+    pm.create_project(
+        title="Publish DB Rollback",
+        category="Testing",
+        status="Scheduled",
+    )
+    project = next(
+        row for row in pm.db.get_projects()
+        if row["title"] == "Publish DB Rollback"
+    )
+    scheduled_for = "2099-01-01 12:00"
+    pm.db.update_project_schedule(project["id"], scheduled_for)
+    scheduled_folder = pm.resolve_project_folder(project)
+    published_folder = pm.get_projects_root() / "Published" / "Publish DB Rollback"
+
+    def fail_database_update(*args, **kwargs):
+        raise RuntimeError("Simulated publish database failure")
+
+    monkeypatch.setattr(pm.db, "update_project_status_and_folder", fail_database_update)
+
+    with pytest.raises(RuntimeError, match="Simulated publish database failure"):
+        pm.change_project_status(project["id"], "Published")
+
+    unchanged = pm.db.get_project(project["id"])
+    assert unchanged["status"] == "Scheduled"
+    assert unchanged["scheduled_for"] == scheduled_for
+    assert scheduled_folder.exists()
+    assert not published_folder.exists()
+
+
+def test_leaving_scheduled_clears_schedule(project_manager):
+    pm = project_manager
+    pm.create_project(
+        title="Clear Schedule On Move",
+        category="Testing",
+        status="Scheduled",
+    )
+    project = next(
+        row for row in pm.db.get_projects()
+        if row["title"] == "Clear Schedule On Move"
+    )
+    pm.db.update_project_schedule(project["id"], "2099-01-01 12:00")
+
+    completed = pm.change_project_status(project["id"], "Completed")
+
+    assert completed["status"] == "Completed"
+    assert completed["scheduled_for"] == ""
+    assert pm.resolve_project_folder(completed).exists()
