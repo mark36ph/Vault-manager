@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -40,15 +41,15 @@ def recover_orphan_project(
     project_manager: Any,
     folder: str | Path,
     category: str = "Misc",
-    scheduled_for: str = "",
+    target_status: str | None = None,
 ):
     """Create a database record for one existing orphan project folder.
 
-    The folder must already be a direct child of a status folder inside the configured
-    Projects root. Recovery never moves, renames, or deletes files. The status and title
-    are inferred from the existing path so the recovered database record matches disk.
-    Legacy text files are imported when present. Scheduled folders require a valid future
-    schedule so recovery does not create a new integrity problem.
+    Recovery never puts an orphan back into Scheduled. A folder found under Scheduled
+    defaults to In Progress. Callers may instead choose another non-Scheduled status.
+    When the chosen status differs from the folder's current status, the existing folder
+    is moved intact and restored to its original location if the database insert fails.
+    Legacy text files are imported when present.
     """
     projects_root = project_manager.get_projects_root().resolve()
     candidate = Path(folder).resolve()
@@ -66,51 +67,66 @@ def recover_orphan_project(
             "Orphan recovery requires a project folder directly inside a status folder."
         )
 
-    status, title = relative.parts
-    status = str(status).strip()
+    source_status, title = relative.parts
+    source_status = str(source_status).strip()
     title = str(title).strip()
     category = str(category or "Misc").strip() or "Misc"
+    target_status = str(target_status or "").strip()
 
-    if not status or not title:
+    if not source_status or not title:
         raise ValueError("Could not determine the project status and title from the folder path.")
 
-    if status == "Scheduled":
-        scheduled_for = project_manager._validated_schedule(scheduled_for)
-    else:
-        scheduled_for = ""
+    if not target_status:
+        target_status = "In Progress" if source_status == "Scheduled" else source_status
+
+    if target_status == "Scheduled":
+        raise ValueError("Recovered orphan projects cannot be returned to Scheduled.")
 
     for project in project_manager.db.get_projects():
         existing_folder = project_manager.resolve_project_folder(project).resolve()
         if existing_folder == candidate:
             raise ValueError("This folder is already linked to a database project.")
 
-    legacy = _read_legacy_text(candidate)
-    created = datetime.now().strftime("%Y-%m-%d %H:%M")
+    destination = (projects_root / target_status / title).resolve()
+    moved = False
 
-    project_manager.db.add_project(
-        title=title,
-        category=category,
-        status=status,
-        folder=str(relative),
-        created=created,
-        script=legacy["script"],
-        description=legacy["description"],
-        pinned_comment=legacy["pinned_comment"],
-        notes=legacy["notes"],
-    )
+    if destination != candidate:
+        if destination.exists():
+            raise FileExistsError(
+                f"The recovery destination already exists:\n{destination}"
+            )
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(candidate), str(destination))
+        moved = True
+
+    legacy = _read_legacy_text(destination)
+    created = datetime.now().strftime("%Y-%m-%d %H:%M")
+    destination_relative = destination.relative_to(projects_root)
+
+    try:
+        project_manager.db.add_project(
+            title=title,
+            category=category,
+            status=target_status,
+            folder=str(destination_relative),
+            created=created,
+            script=legacy["script"],
+            description=legacy["description"],
+            pinned_comment=legacy["pinned_comment"],
+            notes=legacy["notes"],
+        )
+    except Exception:
+        if moved and destination.exists() and not candidate.exists():
+            candidate.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(destination), str(candidate))
+        raise
 
     recovered = project_manager.db.get_latest_project()
     if recovered is None:
+        if moved and destination.exists() and not candidate.exists():
+            candidate.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(destination), str(candidate))
         raise RuntimeError("The orphan folder was not recovered into the database.")
-
-    project_id = recovered["id"]
-    if status == "Scheduled":
-        try:
-            project_manager.db.update_project_schedule(project_id, scheduled_for)
-        except Exception:
-            project_manager.db.delete_project(project_id)
-            raise
-        recovered = project_manager.db.get_project(project_id)
 
     return recovered
 
