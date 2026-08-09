@@ -5,6 +5,7 @@ from pathlib import Path
 from common.project_integrity_repair import SAFE_REPAIR_TYPES, repair_safe_project_integrity
 from common.project_orphan_recovery import recover_orphan_project
 from common.settings_manager import SettingsManager
+from widgets.project_card import ScheduleDialog
 
 
 MUTED_TEXT = ("#667085", "#8F96A3")
@@ -502,13 +503,24 @@ class GeneralPage(ctk.CTkScrollableFrame):
         folder = dialog.result["folder"]
         category = dialog.result["category"]
         path = Path(folder)
+        scheduled_for = ""
+
+        if path.parent.name == "Scheduled":
+            schedule_dialog = ScheduleDialog(self)
+            self.wait_window(schedule_dialog)
+            if schedule_dialog.result is None:
+                return
+            scheduled_for = schedule_dialog.result.strftime("%Y-%m-%d %H:%M")
+
+        schedule_line = f"\nScheduled for: {scheduled_for}" if scheduled_for else ""
         confirmed = messagebox.askyesno(
             "Recover Orphan Project",
             (
                 f"Recover this existing folder as a project?\n\n"
                 f"Title: {path.name}\n"
                 f"Status: {path.parent.name}\n"
-                f"Category: {category}\n\n"
+                f"Category: {category}"
+                f"{schedule_line}\n\n"
                 "No files will be moved, renamed, or deleted."
             ),
             parent=self,
@@ -518,7 +530,12 @@ class GeneralPage(ctk.CTkScrollableFrame):
 
         self.recover_orphan_button.configure(state="disabled", text="Recovering...")
         try:
-            recovered = recover_orphan_project(self.pm, folder, category=category)
+            recovered = recover_orphan_project(
+                self.pm,
+                folder,
+                category=category,
+                scheduled_for=scheduled_for,
+            )
             remaining = list(self.pm.check_project_integrity())
             self._render_integrity_issues(remaining)
             messagebox.showinfo(
