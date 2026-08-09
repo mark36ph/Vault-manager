@@ -1,7 +1,9 @@
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
+from pathlib import Path
 
 from common.project_integrity_repair import SAFE_REPAIR_TYPES, repair_safe_project_integrity
+from common.project_orphan_recovery import recover_orphan_project
 from common.settings_manager import SettingsManager
 
 
@@ -23,6 +25,15 @@ def split_integrity_issues(issues):
     return safe, manual
 
 
+def orphan_integrity_issues(issues):
+    """Return integrity findings that represent recoverable orphan folders."""
+    return [
+        issue
+        for issue in issues
+        if str(issue.get("type") or "") == "orphan_folder" and issue.get("folder")
+    ]
+
+
 def integrity_report_text(issues):
     """Create a concise, user-facing report for project integrity findings."""
     issues = list(issues)
@@ -42,6 +53,134 @@ def integrity_report_text(issues):
         label = "SAFE REPAIR" if issue_type in SAFE_REPAIR_TYPES else "MANUAL REVIEW"
         lines.append(f"[{label}] {title}: {message}")
     return "\n".join(lines)
+
+
+class OrphanRecoveryDialog(ctk.CTkToplevel):
+    """Choose one orphan folder and explicitly restore its database record."""
+
+    def __init__(self, parent, orphan_issues, categories):
+        super().__init__(parent)
+        self.result = None
+        self.orphan_issues = list(orphan_issues)
+        self.folder_by_label = {}
+
+        self.title("Recover Orphan Project")
+        self.geometry("620x330")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+
+        ctk.CTkLabel(
+            self,
+            text="Recover Orphan Project",
+            font=("Segoe UI", 20, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=22, pady=(20, 4))
+
+        ctk.CTkLabel(
+            self,
+            text=(
+                "This creates a database record for an existing orphan folder. "
+                "It does not move, rename, or delete any files."
+            ),
+            font=("Segoe UI", 12),
+            text_color=MUTED_TEXT,
+            justify="left",
+            anchor="w",
+            wraplength=570,
+        ).pack(fill="x", padx=22, pady=(0, 16))
+
+        ctk.CTkLabel(
+            self,
+            text="Orphan folder",
+            font=("Segoe UI", 11, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=22, pady=(0, 5))
+
+        labels = []
+        for index, issue in enumerate(self.orphan_issues, start=1):
+            folder = str(issue.get("folder") or "")
+            path = Path(folder)
+            label = f"{index}. {path.parent.name} / {path.name}"
+            labels.append(label)
+            self.folder_by_label[label] = folder
+
+        self.folder_menu = ctk.CTkOptionMenu(
+            self,
+            values=labels,
+            height=36,
+            command=self._folder_changed,
+        )
+        self.folder_menu.pack(fill="x", padx=22)
+        if labels:
+            self.folder_menu.set(labels[0])
+
+        self.path_label = ctk.CTkLabel(
+            self,
+            text=self.folder_by_label.get(labels[0], "") if labels else "",
+            font=("Consolas", 10),
+            text_color=MUTED_TEXT,
+            anchor="w",
+            justify="left",
+            wraplength=570,
+        )
+        self.path_label.pack(fill="x", padx=22, pady=(5, 12))
+
+        ctk.CTkLabel(
+            self,
+            text="Category",
+            font=("Segoe UI", 11, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=22, pady=(0, 5))
+
+        values = list(categories) or ["Misc"]
+        self.category_menu = ctk.CTkOptionMenu(self, values=values, height=36)
+        self.category_menu.pack(fill="x", padx=22)
+        self.category_menu.set("Misc" if "Misc" in values else values[0])
+
+        buttons = ctk.CTkFrame(self, fg_color="transparent")
+        buttons.pack(side="bottom", fill="x", padx=22, pady=20)
+
+        ctk.CTkButton(
+            buttons,
+            text="Cancel",
+            width=96,
+            height=34,
+            fg_color="transparent",
+            border_width=1,
+            text_color=("#344054", "#D0D5DD"),
+            command=self._cancel,
+        ).pack(side="right", padx=(8, 0))
+
+        ctk.CTkButton(
+            buttons,
+            text="Recover project",
+            width=122,
+            height=34,
+            command=self._confirm,
+        ).pack(side="right")
+
+        self.protocol("WM_DELETE_WINDOW", self._cancel)
+        self.bind("<Escape>", lambda _event: self._cancel())
+        self.bind("<Return>", lambda _event: self._confirm())
+
+    def _folder_changed(self, label):
+        self.path_label.configure(text=self.folder_by_label.get(label, ""))
+
+    def _confirm(self):
+        label = self.folder_menu.get()
+        folder = self.folder_by_label.get(label, "")
+        if not folder:
+            return
+        self.result = {
+            "folder": folder,
+            "category": self.category_menu.get().strip() or "Misc",
+        }
+        self.destroy()
+
+    def _cancel(self):
+        self.result = None
+        self.destroy()
 
 
 class GeneralPage(ctk.CTkScrollableFrame):
@@ -147,7 +286,7 @@ class GeneralPage(ctk.CTkScrollableFrame):
             integrity,
             text=(
                 "Check database records against project folders. Safe repair never moves "
-                "or deletes project files."
+                "or deletes project files. Orphan recovery only restores a database link."
             ),
             font=("Segoe UI", 12),
             text_color=MUTED_TEXT,
@@ -180,6 +319,19 @@ class GeneralPage(ctk.CTkScrollableFrame):
             command=self.repair_safe_integrity,
         )
         self.repair_integrity_button.pack(side="left", padx=(8, 0))
+
+        self.recover_orphan_button = ctk.CTkButton(
+            integrity_actions,
+            text="Recover orphan",
+            width=118,
+            height=34,
+            corner_radius=7,
+            fg_color="transparent",
+            border_width=1,
+            text_color=("#344054", "#D0D5DD"),
+            command=self.recover_orphan_project,
+        )
+        self.recover_orphan_button.pack(side="left", padx=(8, 0))
 
         self.integrity_status = ctk.CTkLabel(
             integrity,
@@ -323,6 +475,64 @@ class GeneralPage(ctk.CTkScrollableFrame):
                 state="normal",
                 text="Repair safe issues",
             )
+
+    def recover_orphan_project(self):
+        try:
+            issues = list(self.pm.check_project_integrity())
+        except Exception as error:
+            messagebox.showerror("Project Integrity", str(error), parent=self)
+            return
+
+        orphans = orphan_integrity_issues(issues)
+        self._render_integrity_issues(issues)
+        if not orphans:
+            messagebox.showinfo(
+                "Recover Orphan Project",
+                "No orphan project folders were found.",
+                parent=self,
+            )
+            return
+
+        categories = self.pm.db.get_categories()
+        dialog = OrphanRecoveryDialog(self, orphans, categories)
+        self.wait_window(dialog)
+        if dialog.result is None:
+            return
+
+        folder = dialog.result["folder"]
+        category = dialog.result["category"]
+        path = Path(folder)
+        confirmed = messagebox.askyesno(
+            "Recover Orphan Project",
+            (
+                f"Recover this existing folder as a project?\n\n"
+                f"Title: {path.name}\n"
+                f"Status: {path.parent.name}\n"
+                f"Category: {category}\n\n"
+                "No files will be moved, renamed, or deleted."
+            ),
+            parent=self,
+        )
+        if not confirmed:
+            return
+
+        self.recover_orphan_button.configure(state="disabled", text="Recovering...")
+        try:
+            recovered = recover_orphan_project(self.pm, folder, category=category)
+            remaining = list(self.pm.check_project_integrity())
+            self._render_integrity_issues(remaining)
+            messagebox.showinfo(
+                "Recover Orphan Project",
+                (
+                    f"Recovered '{recovered['title']}' as {recovered['status']}.\n\n"
+                    "The existing project folder was left unchanged."
+                ),
+                parent=self,
+            )
+        except Exception as error:
+            messagebox.showerror("Recover Orphan Project", str(error), parent=self)
+        finally:
+            self.recover_orphan_button.configure(state="normal", text="Recover orphan")
 
     def browse_projects_folder(self):
         folder = filedialog.askdirectory()
