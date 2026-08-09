@@ -66,25 +66,33 @@ class ProjectManager:
             project_folder / "Voice"
         ]
 
-        for folder in folders:
-            folder.mkdir(parents=True, exist_ok=True)
+        try:
+            for folder in folders:
+                folder.mkdir(parents=True, exist_ok=True)
 
-        created = datetime.now().strftime("%Y-%m-%d %H:%M")
+            created = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        # Save project to database
-        relative_folder = self.get_relative_project_folder(project_folder)
+            # Save project to database only after the complete folder structure
+            # has been created successfully.
+            relative_folder = self.get_relative_project_folder(project_folder)
 
-        self.db.add_project(
-            title,
-            category,
-            status,
-            str(relative_folder),
-            created,
-            script,
-            description,
-            pinned_comment,
-            notes
-        )
+            self.db.add_project(
+                title,
+                category,
+                status,
+                str(relative_folder),
+                created,
+                script,
+                description,
+                pinned_comment,
+                notes
+            )
+        except Exception:
+            # A failed database insert or partial folder build must not leave an
+            # orphan project directory behind.
+            if project_folder.exists():
+                shutil.rmtree(project_folder, ignore_errors=True)
+            raise
 
         return project_folder
 
@@ -278,6 +286,24 @@ class ProjectManager:
 
         return voice_folder
 
+    @staticmethod
+    def _validated_schedule(value):
+        text = str(value or "").strip()
+        if not text:
+            raise ValueError("Scheduled projects require a date and time.")
+
+        try:
+            scheduled = datetime.strptime(text, "%Y-%m-%d %H:%M")
+        except ValueError as error:
+            raise ValueError(
+                "Scheduled date must use YYYY-MM-DD HH:MM format."
+            ) from error
+
+        if scheduled <= datetime.now():
+            raise ValueError("Scheduled projects require a future date and time.")
+
+        return scheduled.strftime("%Y-%m-%d %H:%M")
+
     def change_project_status(
         self,
         project_id,
@@ -294,6 +320,11 @@ class ProjectManager:
 
         if project is None:
             raise ValueError(f"Project {project_id} was not found.")
+
+        if new_status == "Scheduled":
+            scheduled_for = self._validated_schedule(scheduled_for)
+        else:
+            scheduled_for = ""
 
         old_folder = self.resolve_project_folder(project)
 
@@ -337,9 +368,6 @@ class ProjectManager:
             relative_folder = str(
                 self.get_relative_project_folder(new_folder)
             )
-
-            if new_status != "Scheduled":
-                scheduled_for = ""
 
             self.db.update_project_status_and_folder(
                 project_id=project_id,
@@ -413,6 +441,35 @@ class ProjectManager:
             title = project["title"] or ""
             status = project["status"] or ""
             folder_value = project["folder"] or ""
+            scheduled_for = project["scheduled_for"] or ""
+
+            if status == "Scheduled":
+                if not scheduled_for:
+                    issues.append({
+                        "type": "missing_schedule",
+                        "project_id": project_id,
+                        "title": title,
+                        "message": "Scheduled project has no scheduled date and time.",
+                    })
+                else:
+                    try:
+                        datetime.strptime(scheduled_for, "%Y-%m-%d %H:%M")
+                    except ValueError:
+                        issues.append({
+                            "type": "invalid_schedule",
+                            "project_id": project_id,
+                            "title": title,
+                            "scheduled_for": scheduled_for,
+                            "message": "Scheduled project has an invalid date and time.",
+                        })
+            elif scheduled_for:
+                issues.append({
+                    "type": "stale_schedule",
+                    "project_id": project_id,
+                    "title": title,
+                    "scheduled_for": scheduled_for,
+                    "message": "Non-scheduled project still has a scheduled date and time.",
+                })
 
             if not folder_value:
                 issues.append({
