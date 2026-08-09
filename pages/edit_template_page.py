@@ -3,7 +3,9 @@ from pathlib import Path
 
 import customtkinter as ctk
 
+from common.ui_state import DirtyStateTracker, KeyboardScrollBinding
 from pages.base_page import BasePage
+from widgets.message_dialog import ask_three_choice, show_message
 
 
 class EditTemplatePage(BasePage):
@@ -48,6 +50,14 @@ class EditTemplatePage(BasePage):
             anchor="w",
         ).pack(fill="x", pady=(2, 0))
 
+        self.dirty_label = ctk.CTkLabel(
+            toolbar,
+            text="",
+            font=("Segoe UI", 11),
+            text_color=("#B54708", "#FEC84B"),
+        )
+        self.dirty_label.pack(side="left", padx=(10, 0))
+
         ctk.CTkButton(
             toolbar,
             text="Back",
@@ -56,7 +66,7 @@ class EditTemplatePage(BasePage):
             fg_color="transparent",
             border_width=1,
             text_color=("#344054", "#D0D5DD"),
-            command=self.app.show_templates,
+            command=self.go_back,
         ).pack(side="right", padx=(6, 0))
         ctk.CTkButton(
             toolbar,
@@ -82,6 +92,12 @@ class EditTemplatePage(BasePage):
         )
         self.scroll.pack(fill="both", expand=True)
         self.load_files()
+        self._keyboard_scroll = KeyboardScrollBinding(self, self.scroll)
+        self._dirty_tracker = DirtyStateTracker(
+            self,
+            self._current_snapshot,
+            self.dirty_label,
+        )
 
     def load_files(self):
         self.textboxes.clear()
@@ -136,56 +152,35 @@ class EditTemplatePage(BasePage):
 
             self.textboxes[file.name] = textbox
 
-    def _show_message(self, title, message, *, error=False):
-        dialog = ctk.CTkToplevel(self)
-        dialog.title(title)
-        dialog.geometry("420x210")
-        dialog.resizable(False, False)
-        dialog.transient(self)
-        dialog.grab_set()
-        dialog.lift()
-        dialog.focus_force()
-
-        shell = ctk.CTkFrame(
-            dialog,
-            fg_color=("#FFFFFF", "#181B21"),
-            corner_radius=10,
-            border_width=1,
-            border_color=("#E4E7EC", "#2A2F38"),
+    def _current_snapshot(self):
+        return tuple(
+            (filename, textbox.get("1.0", "end").rstrip())
+            for filename, textbox in sorted(self.textboxes.items())
         )
-        shell.pack(fill="both", expand=True, padx=14, pady=14)
 
-        ctk.CTkLabel(
-            shell,
-            text=title,
-            font=("Segoe UI", 19, "bold"),
-            anchor="w",
-            text_color=("#B42318", "#FDA29B") if error else None,
-        ).pack(fill="x", padx=16, pady=(16, 6))
+    def go_back(self):
+        dirty = hasattr(self, "_dirty_tracker") and (
+            self._current_snapshot() != self._dirty_tracker.clean_snapshot
+        )
+        if not dirty:
+            self.app.show_templates()
+            return
 
-        ctk.CTkLabel(
-            shell,
-            text=message,
-            font=("Segoe UI", 12),
-            text_color=("#667085", "#AEB4BF"),
-            anchor="w",
-            justify="left",
-            wraplength=350,
-        ).pack(fill="x", padx=16, pady=(0, 12))
+        choice = ask_three_choice(
+            self,
+            "Unsaved Changes",
+            "This template has unsaved changes. Save them before leaving?",
+            primary_text="Save",
+            secondary_text="Discard",
+            cancel_text="Cancel",
+        )
+        if choice == "cancel":
+            return
+        if choice == "primary" and not self.save_template(show_dialog=False):
+            return
+        self.app.show_templates()
 
-        ctk.CTkButton(
-            shell,
-            text="OK",
-            width=88,
-            height=34,
-            command=dialog.destroy,
-        ).pack(anchor="e", padx=16, pady=(0, 16))
-
-        dialog.bind("<Return>", lambda _event: dialog.destroy())
-        dialog.bind("<Escape>", lambda _event: dialog.destroy())
-        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
-
-    def save_template(self):
+    def save_template(self, *, show_dialog=True):
         try:
             if not self.folder.exists():
                 raise FileNotFoundError("Template folder not found.")
@@ -197,18 +192,40 @@ class EditTemplatePage(BasePage):
                     encoding="utf-8",
                 )
 
-            self._show_message(
-                "Template Saved",
-                f"'{self.template_name}' was saved successfully.",
-            )
+            if hasattr(self, "_dirty_tracker"):
+                self._dirty_tracker.mark_clean()
+            if show_dialog:
+                show_message(
+                    self,
+                    "Template Saved",
+                    f"'{self.template_name}' was saved successfully.",
+                    kind="success",
+                )
+            return True
         except Exception as error:
-            self._show_message("Save Failed", str(error), error=True)
+            show_message(
+                self,
+                "Save Failed",
+                str(error),
+                kind="error",
+            )
+            return False
 
     def open_folder(self):
         if self.folder.exists():
             try:
                 os.startfile(self.folder)
             except Exception as error:
-                self._show_message("Open Folder Failed", str(error), error=True)
+                show_message(
+                    self,
+                    "Open Folder Failed",
+                    str(error),
+                    kind="error",
+                )
         else:
-            self._show_message("Folder Not Found", "Template folder not found.", error=True)
+            show_message(
+                self,
+                "Folder Not Found",
+                "Template folder not found.",
+                kind="error",
+            )
