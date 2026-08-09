@@ -129,6 +129,39 @@ def test_acquire_falls_back_after_download_failure(tmp_path):
     assert attempts == ["https://x/bad.jpg", "https://x/good.jpg"]
 
 
+def test_acquire_retries_empty_search_with_broader_query(tmp_path):
+    class BroadeningProvider:
+        name = "stock"
+
+        def __init__(self):
+            self.calls = []
+
+        def search(self, query, *, kind, limit):
+            self.calls.append(query)
+            if query == "The Apollo Guidance Computer Had Less Computing Power Than":
+                return [candidate("apollo")]
+            return []
+
+    provider = BroadeningProvider()
+    events = []
+    engine = AssetAcquisitionEngine(
+        [provider],
+        downloader=lambda url, path: path.write_bytes(b"media"),
+        progress_callback=lambda *event: events.append(event),
+    )
+    query = (
+        "🚀 The Apollo Guidance Computer Had Less Computing Power Than Your Phone "
+        "Modern smartphone running a CPU benchmark app beside an Apollo Guidance Computer"
+    )
+
+    result = engine.acquire(query, tmp_path)
+
+    assert result.candidate.id == "apollo"
+    assert provider.calls[0] == query
+    assert "The Apollo Guidance Computer Had Less Computing Power Than" in provider.calls
+    assert any(event[0] == "retry" for event in events)
+
+
 def test_failed_partial_download_is_removed(tmp_path):
     def download(url, path):
         path.write_bytes(b"partial")
