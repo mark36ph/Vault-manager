@@ -60,6 +60,8 @@ class SettingsPage(BasePage):
             border_color=("#E4E7EC", "#2A2F38"),
         )
         self.content.grid(row=0, column=1, sticky="nsew")
+        self.content.grid_columnconfigure(0, weight=1)
+        self.content.grid_rowconfigure(0, weight=1)
 
         ctk.CTkLabel(
             self.sidebar,
@@ -115,10 +117,16 @@ class SettingsPage(BasePage):
             self.current_page.destroy()
             self.current_page = None
 
-    def _show_page(self, page_class):
+    def _show_page(self, page_class, *, top_only=False):
         self.clear()
         self.current_page = page_class(self.content, self.pm, self.app)
-        self.current_page.pack(fill="both", expand=True, padx=1, pady=1)
+        self.current_page.grid(
+            row=0,
+            column=0,
+            sticky="new" if top_only else "nsew",
+            padx=1,
+            pady=1,
+        )
         self.current_page.focus_set()
 
     def show_general(self):
@@ -134,4 +142,4 @@ class SettingsPage(BasePage):
         self._show_page(ResolvePage)
 
     def show_about(self):
-        self._show_page(AboutPage)
+        self._show_page(AboutPage, top_only=True)
