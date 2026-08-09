@@ -74,6 +74,18 @@ def progress_percent(progress: float) -> str:
     return f"{round(max(0.0, min(1.0, progress)) * 100):d}%"
 
 
+def should_mark_project_completed(
+    project: Mapping[str, Any] | None,
+    state: ProductionViewState,
+) -> bool:
+    """Return True only for a fully successful In Progress production run."""
+    if project is None or str(project.get("status") or "") != "In Progress":
+        return False
+    if state.running or state.error or state.result is None:
+        return False
+    return bool(state.stages) and all(stage.status == "complete" for stage in state.stages)
+
+
 class ProductionPage(BasePage):
     """Visible desktop page for configuring and monitoring production."""
 
@@ -589,6 +601,44 @@ class ProductionPage(BasePage):
         self.log_box.see("end")
         self.log_box.configure(state="disabled")
 
+    def _mark_selected_project_completed(self, state: ProductionViewState):
+        project = self._selected_project()
+        if not should_mark_project_completed(project, state):
+            return
+
+        old_choice = self.project_menu.get()
+        try:
+            updated = dict(
+                self.pm.change_project_status(
+                    int(project["id"]),
+                    "Completed",
+                )
+            )
+        except Exception as error:
+            self.status_label.configure(text="Production complete — status update failed")
+            self._append_log(f"Could not mark project Completed: {error}")
+            messagebox.showerror(
+                "Project Status",
+                (
+                    "Production finished successfully, but the project could not be moved "
+                    f"to Completed.\n\n{error}"
+                ),
+                parent=self,
+            )
+            return
+
+        project_id = int(updated["id"])
+        self.projects = [
+            updated if int(item.get("id", -1)) == project_id else item
+            for item in self.projects
+        ]
+        new_choice = project_choice(updated)
+        self.project_lookup.pop(old_choice, None)
+        self.project_lookup[new_choice] = updated
+        self.project_menu.configure(values=list(self.project_lookup))
+        self.project_menu.set(new_choice)
+        self._append_log("Project status changed to Completed.")
+
     def _apply_state(self, state: ProductionViewState):
         message = state.message if not state.error else f"{state.message}: {state.error}"
         self.status_label.configure(text=message)
@@ -627,6 +677,7 @@ class ProductionPage(BasePage):
             prefix = "Stopped after" if state.error else "Completed in"
             self.elapsed_label.configure(text=f"{prefix} {elapsed}")
             self.run_started_at = None
+            self._mark_selected_project_completed(state)
             self.after(0, self._load_selected_project)
 
     def _tick_elapsed(self):
@@ -816,4 +867,5 @@ __all__ = [
     "progress_percent",
     "project_choice",
     "selected_asset_providers",
+    "should_mark_project_completed",
 ]
