@@ -44,9 +44,14 @@ def integrity_report_text(issues):
     return "\n".join(lines)
 
 
-class GeneralPage(ctk.CTkFrame):
+class GeneralPage(ctk.CTkScrollableFrame):
     def __init__(self, parent, pm, app):
-        super().__init__(parent, fg_color="transparent")
+        super().__init__(
+            parent,
+            fg_color="transparent",
+            scrollbar_button_color=("#D0D5DD", "#3A404B"),
+            scrollbar_button_hover_color=("#98A2B3", "#596170"),
+        )
         self.pm = pm
         self.app = app
         self.settings = SettingsManager()
@@ -203,7 +208,7 @@ class GeneralPage(ctk.CTkFrame):
             width=130,
             corner_radius=7,
             command=self.save_settings,
-        ).pack(anchor="e", padx=4, pady=(2, 0))
+        ).pack(anchor="e", padx=4, pady=(2, 4))
 
     def _section(self, title):
         frame = ctk.CTkFrame(
