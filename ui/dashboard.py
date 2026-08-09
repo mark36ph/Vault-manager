@@ -489,23 +489,112 @@ class Dashboard(ctk.CTk):
         window.destroy()
         self.show_edit_project(project_id)
 
-    def delete_project(self, project):
-        answer = messagebox.askyesnocancel(
-            "Delete Project",
-            "Delete the project folder as well?\n\n"
-            "Yes = Delete project and folder\n"
-            "No = Remove from Fact Vault but keep the folder\n"
-            "Cancel = Do nothing",
-            parent=self,
-        )
+    def _show_delete_project_dialog(self, project):
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Delete Project")
+        dialog.geometry("520x300")
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+        dialog.lift()
+        dialog.focus_force()
 
-        if answer is None:
+        ctk.CTkLabel(
+            dialog,
+            text="Delete project?",
+            font=("Segoe UI", 21, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=24, pady=(24, 6))
+
+        ctk.CTkLabel(
+            dialog,
+            text=str(project["title"] or "Untitled project"),
+            font=("Segoe UI Emoji", 13, "bold"),
+            anchor="w",
+            justify="left",
+            wraplength=460,
+        ).pack(fill="x", padx=24, pady=(0, 10))
+
+        ctk.CTkLabel(
+            dialog,
+            text=(
+                "Choose whether to remove only the project from Fact Vault, "
+                "or also permanently delete its project folder and files."
+            ),
+            font=("Segoe UI", 12),
+            text_color=("#667085", "#8F96A3"),
+            anchor="w",
+            justify="left",
+            wraplength=460,
+        ).pack(fill="x", padx=24, pady=(0, 12))
+
+        ctk.CTkLabel(
+            dialog,
+            text="Deleting the folder cannot be undone.",
+            font=("Segoe UI", 12, "bold"),
+            text_color=("#B42318", "#FDA29B"),
+            anchor="w",
+        ).pack(fill="x", padx=24)
+
+        buttons = ctk.CTkFrame(dialog, fg_color="transparent")
+        buttons.pack(side="bottom", fill="x", padx=24, pady=24)
+
+        def finish(delete_folder):
+            dialog.result = delete_folder
+            dialog.destroy()
+
+        dialog.result = None
+        dialog.protocol("WM_DELETE_WINDOW", lambda: finish(None))
+        dialog.bind("<Escape>", lambda _event: finish(None))
+
+        ctk.CTkButton(
+            buttons,
+            text="Delete Project + Folder",
+            width=170,
+            height=36,
+            fg_color="#B42318",
+            hover_color="#912018",
+            command=lambda: finish(True),
+        ).pack(side="right")
+
+        ctk.CTkButton(
+            buttons,
+            text="Keep Folder",
+            width=112,
+            height=36,
+            fg_color="transparent",
+            border_width=1,
+            border_color=("#D0D5DD", "#3A404A"),
+            text_color=("#344054", "#D0D5DD"),
+            hover_color=("#F2F4F7", "#252A33"),
+            command=lambda: finish(False),
+        ).pack(side="right", padx=(0, 8))
+
+        ctk.CTkButton(
+            buttons,
+            text="Cancel",
+            width=88,
+            height=36,
+            fg_color="transparent",
+            border_width=1,
+            border_color=("#D0D5DD", "#3A404A"),
+            text_color=("#344054", "#D0D5DD"),
+            hover_color=("#F2F4F7", "#252A33"),
+            command=lambda: finish(None),
+        ).pack(side="left")
+
+        self.wait_window(dialog)
+        return dialog.result
+
+    def delete_project(self, project):
+        delete_folder = self._show_delete_project_dialog(project)
+        if delete_folder is None:
             return
 
         try:
             deleted = self.pm.delete_project(
                 project["id"],
-                delete_folder=bool(answer),
+                delete_folder=delete_folder,
             )
         except Exception as exc:
             messagebox.showerror("Delete Project", str(exc), parent=self)
