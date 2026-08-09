@@ -441,7 +441,12 @@ class ProjectManager:
             title = project["title"] or ""
             status = project["status"] or ""
             folder_value = project["folder"] or ""
-            scheduled_for = project["scheduled_for"] or ""
+            project_keys = project.keys() if hasattr(project, "keys") else ()
+            scheduled_for = (
+                project["scheduled_for"]
+                if "scheduled_for" in project_keys
+                else ""
+            ) or ""
 
             if status == "Scheduled":
                 if not scheduled_for:
