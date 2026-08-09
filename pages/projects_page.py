@@ -15,6 +15,7 @@ class ProjectsPage(BasePage):
         self.app = app
         saved_status = getattr(self.app, "_projects_status_filter", "All")
         self.current_status = saved_status if saved_status in self.STATUSES else "All"
+        self.saved_search = str(getattr(self.app, "_projects_search_text", "") or "")
         self.filter_buttons = {}
 
         # Replace the large BasePage heading with a compact page header.
@@ -82,7 +83,9 @@ class ProjectsPage(BasePage):
             font=("Segoe UI", 12),
         )
         self.search.pack(side="left", fill="x", expand=True, padx=(0, 8))
-        self.search.bind("<KeyRelease>", lambda _event: self.load_projects())
+        if self.saved_search:
+            self.search.insert(0, self.saved_search)
+        self.search.bind("<KeyRelease>", self._search_changed)
 
         ctk.CTkButton(
             search_row,
@@ -137,6 +140,10 @@ class ProjectsPage(BasePage):
         self.project_list.grid_columnconfigure(1, weight=1, uniform="projects")
 
         self._update_filter_styles()
+        self.load_projects()
+
+    def _search_changed(self, _event=None):
+        self.app._projects_search_text = self.search.get()
         self.load_projects()
 
     def set_status_filter(self, status):
