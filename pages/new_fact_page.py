@@ -17,6 +17,12 @@ class NewFactPage(BasePage):
         self.scheduled_for = ""
         self._last_non_scheduled_status = "In Progress"
         self._keyboard_bindings = []
+        self.imported_project_fields = {
+            "on_screen_text": "",
+            "visual_plan": "",
+            "tags": "",
+            "sources": "",
+        }
         self.build()
         self._install_keyboard_scrolling()
 
@@ -433,6 +439,56 @@ class NewFactPage(BasePage):
                 pass
         self._keyboard_bindings.clear()
 
+    def _save_imported_project_fields(self, project):
+        """Persist imported fields that are not directly editable on New Fact."""
+        if project is None or not any(self.imported_project_fields.values()):
+            return project
+
+        keys = project.keys() if hasattr(project, "keys") else ()
+
+        def value(name, default=""):
+            if name not in keys:
+                return default
+            return project[name] if project[name] is not None else default
+
+        pipeline = {
+            name: value(name, 0)
+            for name in (
+                "research_complete",
+                "script_complete",
+                "voice_complete",
+                "subtitles_complete",
+                "broll_complete",
+                "graphics_complete",
+                "capcut_complete",
+                "export_complete",
+                "upload_complete",
+            )
+        }
+
+        self.pm.db.update_project(
+            project_id=project["id"],
+            title=value("title"),
+            category=value("category"),
+            status=value("status"),
+            folder=value("folder"),
+            script=value("script"),
+            description=value("description"),
+            pinned_comment=value("pinned_comment"),
+            notes=value("notes"),
+            on_screen_text=self.imported_project_fields["on_screen_text"],
+            visual_plan=self.imported_project_fields["visual_plan"],
+            search_terms=value("search_terms"),
+            broll_plan=value("broll_plan"),
+            thumbnail_prompt=value("thumbnail_prompt"),
+            tags=self.imported_project_fields["tags"],
+            sources=self.imported_project_fields["sources"],
+            subtitle_text=value("subtitle_text"),
+            narration_duration=value("narration_duration", 0),
+            pipeline=pipeline,
+        )
+        return self.pm.db.get_project(project["id"])
+
     def create_project(self):
         title = self.title_entry.get().strip()
 
@@ -478,6 +534,16 @@ class NewFactPage(BasePage):
             return
 
         project = self.pm.db.get_latest_project()
+        metadata_warning = ""
+        if project is not None:
+            try:
+                project = self._save_imported_project_fields(project)
+            except Exception as exc:
+                metadata_warning = (
+                    "The project was created, but some imported production metadata "
+                    f"could not be saved.\n\n{exc}"
+                )
+
         schedule_warning = ""
         if desired_status == "Scheduled":
             if project is None:
@@ -505,7 +571,11 @@ class NewFactPage(BasePage):
         except Exception as exc:
             template_warning = str(exc)
 
-        warnings = [warning for warning in (schedule_warning, template_warning) if warning]
+        warnings = [
+            warning
+            for warning in (metadata_warning, schedule_warning, template_warning)
+            if warning
+        ]
         if warnings:
             self.status_label.configure(text="Project created with a warning.")
             messagebox.showwarning(
@@ -547,18 +617,20 @@ class NewFactPage(BasePage):
         if data["template"]:
             self.template.set(data["template"])
 
-        imported_fields = 0
+        self.imported_project_fields = {
+            key: str(data.get(key, "") or "").strip()
+            for key in ("on_screen_text", "visual_plan", "tags", "sources")
+        }
+
+        imported_fields = sum(
+            1 for value in self.imported_project_fields.values() if value
+        )
         for key in [
             "script",
             "description",
             "pinned_comment",
             "notes",
-            "on_screen_text",
-            "visual_plan",
         ]:
-            if not hasattr(self, key):
-                continue
-
             value = data[key]
             box = getattr(self, key)
             box.delete("1.0", "end")
