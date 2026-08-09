@@ -66,8 +66,9 @@ class OrphanRecoveryDialog(ctk.CTkToplevel):
         self.folder_by_label = {}
 
         self.title("Recover Orphan Project")
-        self.geometry("620x330")
-        self.resizable(False, False)
+        self.geometry("680x410")
+        self.minsize(620, 390)
+        self.resizable(True, False)
         self.transient(parent)
         self.grab_set()
 
@@ -76,7 +77,7 @@ class OrphanRecoveryDialog(ctk.CTkToplevel):
             text="Recover Orphan Project",
             font=("Segoe UI", 20, "bold"),
             anchor="w",
-        ).pack(fill="x", padx=22, pady=(20, 4))
+        ).pack(fill="x", padx=28, pady=(24, 4))
 
         ctk.CTkLabel(
             self,
@@ -88,15 +89,15 @@ class OrphanRecoveryDialog(ctk.CTkToplevel):
             text_color=MUTED_TEXT,
             justify="left",
             anchor="w",
-            wraplength=570,
-        ).pack(fill="x", padx=22, pady=(0, 16))
+            wraplength=620,
+        ).pack(fill="x", padx=28, pady=(0, 20))
 
         ctk.CTkLabel(
             self,
             text="Orphan folder",
             font=("Segoe UI", 11, "bold"),
             anchor="w",
-        ).pack(fill="x", padx=22, pady=(0, 5))
+        ).pack(fill="x", padx=28, pady=(0, 6))
 
         labels = []
         for index, issue in enumerate(self.orphan_issues, start=1):
@@ -109,10 +110,10 @@ class OrphanRecoveryDialog(ctk.CTkToplevel):
         self.folder_menu = ctk.CTkOptionMenu(
             self,
             values=labels,
-            height=36,
+            height=40,
             command=self._folder_changed,
         )
-        self.folder_menu.pack(fill="x", padx=22)
+        self.folder_menu.pack(fill="x", padx=28)
         if labels:
             self.folder_menu.set(labels[0])
 
@@ -123,41 +124,41 @@ class OrphanRecoveryDialog(ctk.CTkToplevel):
             text_color=MUTED_TEXT,
             anchor="w",
             justify="left",
-            wraplength=570,
+            wraplength=620,
         )
-        self.path_label.pack(fill="x", padx=22, pady=(5, 12))
+        self.path_label.pack(fill="x", padx=28, pady=(7, 18))
 
         ctk.CTkLabel(
             self,
             text="Category",
             font=("Segoe UI", 11, "bold"),
             anchor="w",
-        ).pack(fill="x", padx=22, pady=(0, 5))
+        ).pack(fill="x", padx=28, pady=(0, 6))
 
         values = list(categories) or ["Misc"]
-        self.category_menu = ctk.CTkOptionMenu(self, values=values, height=36)
-        self.category_menu.pack(fill="x", padx=22)
+        self.category_menu = ctk.CTkOptionMenu(self, values=values, height=40)
+        self.category_menu.pack(fill="x", padx=28)
         self.category_menu.set("Misc" if "Misc" in values else values[0])
 
         buttons = ctk.CTkFrame(self, fg_color="transparent")
-        buttons.pack(side="bottom", fill="x", padx=22, pady=20)
+        buttons.pack(side="bottom", fill="x", padx=28, pady=(18, 24))
 
         ctk.CTkButton(
             buttons,
             text="Cancel",
-            width=96,
-            height=34,
+            width=112,
+            height=38,
             fg_color="transparent",
             border_width=1,
             text_color=("#344054", "#D0D5DD"),
             command=self._cancel,
-        ).pack(side="right", padx=(8, 0))
+        ).pack(side="right", padx=(10, 0))
 
         ctk.CTkButton(
             buttons,
             text="Recover project",
-            width=122,
-            height=34,
+            width=142,
+            height=38,
             command=self._confirm,
         ).pack(side="right")
 
