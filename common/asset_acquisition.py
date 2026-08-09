@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 import urllib.parse
 import urllib.request
@@ -67,6 +68,7 @@ def _default_downloader(url: str, destination: Path) -> None:
     with urllib.request.urlopen(request, timeout=30) as response, destination.open("wb") as output:
         shutil.copyfileobj(response, output)
 
+
 def _safe_filename(
     value: str,
     fallback: str = "asset",
@@ -84,8 +86,33 @@ def _safe_filename(
     cleaned = cleaned[:max_length].rstrip("._-")
     return cleaned or fallback
 
+
 def _candidate_key(candidate: AssetCandidate) -> str:
     return f"{candidate.provider}:{candidate.id or candidate.url}"
+
+
+def _fallback_search_queries(query: str) -> tuple[str, ...]:
+    """Build progressively broader stock-media searches for an overly specific prompt."""
+    original = str(query or "").strip()
+    words = re.findall(r"[A-Za-z0-9][A-Za-z0-9'’-]*", original)
+    variants: list[str] = []
+    seen = {original.casefold()}
+
+    for length in (12, 8, 5):
+        if len(words) <= length:
+            continue
+        candidate = " ".join(words[:length]).strip()
+        key = candidate.casefold()
+        if candidate and key not in seen:
+            variants.append(candidate)
+            seen.add(key)
+
+    cleaned = " ".join(words).strip()
+    if cleaned and cleaned.casefold() not in seen:
+        variants.insert(0, cleaned)
+
+    return tuple(variants)
+
 
 class AssetAcquisitionEngine:
     """Search providers, rank candidates, reuse cached files, and download safely."""
@@ -175,6 +202,23 @@ class AssetAcquisitionEngine:
         folder = Path(destination_folder)
         folder.mkdir(parents=True, exist_ok=True)
         candidates = self.search(query, kind=kind, limit=limit, target_ratio=target_ratio)
+        if not candidates:
+            fallbacks = _fallback_search_queries(query)
+            for index, fallback in enumerate(fallbacks, start=1):
+                self._progress(
+                    "retry",
+                    index,
+                    len(fallbacks),
+                    f"No results; trying broader search: {fallback}",
+                )
+                candidates = self.search(
+                    fallback,
+                    kind=kind,
+                    limit=limit,
+                    target_ratio=target_ratio,
+                )
+                if candidates:
+                    break
         if not candidates:
             raise AssetAcquisitionError(f"no {kind} assets found for: {query}")
         blocked = excluded or set()
