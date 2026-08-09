@@ -36,13 +36,19 @@ def _read_legacy_text(folder: Path) -> dict[str, str]:
     return values
 
 
-def recover_orphan_project(project_manager: Any, folder: str | Path, category: str = "Misc"):
+def recover_orphan_project(
+    project_manager: Any,
+    folder: str | Path,
+    category: str = "Misc",
+    scheduled_for: str = "",
+):
     """Create a database record for one existing orphan project folder.
 
     The folder must already be a direct child of a status folder inside the configured
     Projects root. Recovery never moves, renames, or deletes files. The status and title
     are inferred from the existing path so the recovered database record matches disk.
-    Legacy text files are imported when present.
+    Legacy text files are imported when present. Scheduled folders require a valid future
+    schedule so recovery does not create a new integrity problem.
     """
     projects_root = project_manager.get_projects_root().resolve()
     candidate = Path(folder).resolve()
@@ -68,6 +74,11 @@ def recover_orphan_project(project_manager: Any, folder: str | Path, category: s
     if not status or not title:
         raise ValueError("Could not determine the project status and title from the folder path.")
 
+    if status == "Scheduled":
+        scheduled_for = project_manager._validated_schedule(scheduled_for)
+    else:
+        scheduled_for = ""
+
     for project in project_manager.db.get_projects():
         existing_folder = project_manager.resolve_project_folder(project).resolve()
         if existing_folder == candidate:
@@ -91,6 +102,16 @@ def recover_orphan_project(project_manager: Any, folder: str | Path, category: s
     recovered = project_manager.db.get_latest_project()
     if recovered is None:
         raise RuntimeError("The orphan folder was not recovered into the database.")
+
+    project_id = recovered["id"]
+    if status == "Scheduled":
+        try:
+            project_manager.db.update_project_schedule(project_id, scheduled_for)
+        except Exception:
+            project_manager.db.delete_project(project_id)
+            raise
+        recovered = project_manager.db.get_project(project_id)
+
     return recovered
 
 
