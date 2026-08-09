@@ -14,6 +14,8 @@ class NewFactPage(BasePage):
     def __init__(self, parent, pm, app):
         super().__init__(parent, pm, "New Fact")
         self.app = app
+        self.scheduled_for = ""
+        self._last_non_scheduled_status = "In Progress"
         self.build()
 
     def build(self):
@@ -136,6 +138,7 @@ class NewFactPage(BasePage):
             "Status",
             ["In Progress", "Scheduled", "Completed"],
         )
+        self.status.configure(command=self.on_status_changed)
         self.status.set("In Progress")
 
         templates = self.pm.get_templates()
@@ -319,11 +322,17 @@ class NewFactPage(BasePage):
 
     def update_preview(self, *_):
         title = self.title_entry.get().strip() or "New Project"
+        schedule_text = (
+            f"\nScheduled\n{self.scheduled_for}\n"
+            if self.status.get() == "Scheduled" and self.scheduled_for
+            else ""
+        )
 
         preview = (
             f"📁  {title}\n\n"
             f"Category\n{self.category.get()}\n\n"
-            f"Status\n{self.status.get()}\n\n"
+            f"Status\n{self.status.get()}\n"
+            f"{schedule_text}\n"
             f"Template\n{self.template.get()}\n\n"
             "──────────────\n"
             "DATABASE\n\n"
@@ -346,6 +355,28 @@ class NewFactPage(BasePage):
         self.preview.insert("1.0", preview)
         self.preview.configure(state="disabled")
 
+    def on_status_changed(self, value):
+        if value != "Scheduled":
+            self._last_non_scheduled_status = value
+            self.scheduled_for = ""
+            self.status_label.configure(text="")
+            self.update_preview()
+            return
+
+        dialog = ScheduleDialog(self)
+        self.wait_window(dialog)
+
+        if dialog.result is None:
+            self.status.set(self._last_non_scheduled_status)
+            self.scheduled_for = ""
+            self.status_label.configure(text="Scheduling cancelled.")
+            self.update_preview()
+            return
+
+        self.scheduled_for = dialog.result.strftime("%Y-%m-%d %H:%M")
+        self.status_label.configure(text=f"Scheduled for {self.scheduled_for}.")
+        self.update_preview()
+
     def create_project(self):
         title = self.title_entry.get().strip()
 
@@ -363,14 +394,10 @@ class NewFactPage(BasePage):
             return
 
         desired_status = self.status.get()
-        scheduled_for = ""
-        if desired_status == "Scheduled":
-            dialog = ScheduleDialog(self)
-            self.wait_window(dialog)
-            if dialog.result is None:
-                self.status_label.configure(text="Project creation cancelled before scheduling.")
-                return
-            scheduled_for = dialog.result.strftime("%Y-%m-%d %H:%M")
+        scheduled_for = self.scheduled_for if desired_status == "Scheduled" else ""
+        if desired_status == "Scheduled" and not scheduled_for:
+            self.status_label.configure(text="Choose a schedule before creating the fact.")
+            return
 
         self.create_button.configure(state="disabled", text="Creating...")
         self.status_label.configure(text="Creating project...")
