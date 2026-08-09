@@ -180,3 +180,64 @@ def test_project_integrity_reports_no_issues_for_valid_project(
     issues = pm.check_project_integrity()
 
     assert issues == []
+
+
+def test_integrity_detects_missing_schedule(project_manager):
+    pm = project_manager
+    pm.create_project(
+        title="Missing Schedule",
+        category="Testing",
+        status="Scheduled",
+    )
+
+    issues = pm.check_project_integrity()
+
+    assert any(
+        issue["type"] == "missing_schedule"
+        and issue["title"] == "Missing Schedule"
+        for issue in issues
+    )
+
+
+def test_integrity_detects_invalid_schedule(project_manager):
+    pm = project_manager
+    pm.create_project(
+        title="Invalid Schedule",
+        category="Testing",
+        status="Scheduled",
+    )
+    project = next(
+        row for row in pm.db.get_projects()
+        if row["title"] == "Invalid Schedule"
+    )
+    pm.db.update_project_schedule(project["id"], "not-a-date")
+
+    issues = pm.check_project_integrity()
+
+    assert any(
+        issue["type"] == "invalid_schedule"
+        and issue["scheduled_for"] == "not-a-date"
+        for issue in issues
+    )
+
+
+def test_integrity_detects_stale_schedule_on_non_scheduled_project(project_manager):
+    pm = project_manager
+    pm.create_project(
+        title="Stale Schedule",
+        category="Testing",
+        status="Completed",
+    )
+    project = next(
+        row for row in pm.db.get_projects()
+        if row["title"] == "Stale Schedule"
+    )
+    pm.db.update_project_schedule(project["id"], "2099-01-01 12:00")
+
+    issues = pm.check_project_integrity()
+
+    assert any(
+        issue["type"] == "stale_schedule"
+        and issue["title"] == "Stale Schedule"
+        for issue in issues
+    )
