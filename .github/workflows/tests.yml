@@ -27,6 +27,11 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install pytest pytest-cov
 
+      - name: Compile Python sources
+        shell: pwsh
+        run: |
+          python -W error::SyntaxWarning -m compileall -q .
+
       - name: Run tests
         shell: pwsh
         run: |
