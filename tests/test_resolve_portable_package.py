@@ -7,6 +7,7 @@ import pytest
 from common.resolve_portable_package import (
     PortableResolvePackageError,
     export_portable_resolve_package,
+    validate_package_manifest,
 )
 from timeline import Clip, ClipKind, Scene, Timeline, Track, TrackKind
 
@@ -143,6 +144,28 @@ def test_manifest_contains_sizes_and_sha256(tmp_path):
     image = next(item for item in manifest["media"] if item["package_path"].endswith("ocean.jpg"))
     assert image["size_bytes"] == len(b"image data")
     assert image["sha256"] == hashlib.sha256(b"image data").hexdigest()
+
+
+def test_manifest_validation_accepts_intact_package(tmp_path):
+    result = export(tmp_path)
+    validated = validate_package_manifest(result.manifest, result.package_folder)
+    assert set(validated) == {path.resolve() for path in result.copied_media}
+
+
+def test_manifest_validation_rejects_missing_media(tmp_path):
+    result = export(tmp_path)
+    result.copied_media[0].unlink()
+    with pytest.raises(PortableResolvePackageError, match="file is missing"):
+        validate_package_manifest(result.manifest, result.package_folder)
+
+
+def test_manifest_validation_rejects_tampered_media(tmp_path):
+    result = export(tmp_path)
+    media = result.copied_media[0]
+    original_size = media.stat().st_size
+    media.write_bytes(b"x" * original_size)
+    with pytest.raises(PortableResolvePackageError, match="checksum mismatch"):
+        validate_package_manifest(result.manifest, result.package_folder)
 
 
 def test_duplicate_source_is_copied_once(tmp_path):
