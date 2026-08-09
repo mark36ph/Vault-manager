@@ -1,12 +1,12 @@
 import os
 import shutil
 from pathlib import Path
-from tkinter import messagebox
 
 import customtkinter as ctk
 
 from dialogs.input_dialog import InputDialog
 from pages.base_page import BasePage
+from widgets.message_dialog import ask_confirmation, show_message
 
 
 INVALID_TEMPLATE_CHARS = '<>:"/\\|?*'
@@ -71,7 +71,7 @@ class TemplatesPage(BasePage):
             templates = self.pm.get_templates()
         except Exception as error:
             self.count_label.configure(text="Templates unavailable")
-            messagebox.showerror("Templates", str(error), parent=self)
+            show_message(self, "Templates", str(error), kind="error")
             return
 
         count = len(templates)
@@ -220,23 +220,23 @@ class TemplatesPage(BasePage):
         return ""
 
     def _show_name_error(self, message):
-        messagebox.showerror("Template Name", message, parent=self)
+        show_message(self, "Template Name", message, kind="error")
 
     def open_template(self, template):
         folder = Path("templates") / template
         if not folder.exists():
-            messagebox.showerror("Templates", "Template folder not found.", parent=self)
+            show_message(self, "Templates", "Template folder not found.", kind="error")
             self.load_templates()
             return
         try:
             os.startfile(folder)
         except Exception as error:
-            messagebox.showerror("Templates", str(error), parent=self)
+            show_message(self, "Templates", str(error), kind="error")
 
     def duplicate_template(self, template):
         source = Path("templates") / template
         if not source.exists():
-            messagebox.showerror("Templates", "Template not found.", parent=self)
+            show_message(self, "Templates", "Template not found.", kind="error")
             self.load_templates()
             return
 
@@ -265,7 +265,7 @@ class TemplatesPage(BasePage):
         try:
             shutil.copytree(source, destination)
         except Exception as error:
-            messagebox.showerror("Duplicate Template", str(error), parent=self)
+            show_message(self, "Duplicate Template", str(error), kind="error")
             return
 
         self.load_templates()
@@ -273,19 +273,21 @@ class TemplatesPage(BasePage):
     def delete_template(self, template):
         folder = Path("templates") / template
         if not folder.exists():
-            messagebox.showerror("Delete Template", "Template folder not found.", parent=self)
+            show_message(self, "Delete Template", "Template folder not found.", kind="error")
             self.load_templates()
             return
-        if not messagebox.askyesno(
+        if not ask_confirmation(
+            self,
             "Delete Template",
             f"Delete '{template}'?\n\nThis cannot be undone.",
-            parent=self,
+            confirm_text="Delete",
+            kind="error",
         ):
             return
         try:
             shutil.rmtree(folder)
         except Exception as error:
-            messagebox.showerror("Delete Template", str(error), parent=self)
+            show_message(self, "Delete Template", str(error), kind="error")
             return
         self.load_templates()
 
@@ -314,14 +316,14 @@ class TemplatesPage(BasePage):
         try:
             folder.mkdir(parents=True)
         except Exception as error:
-            messagebox.showerror("New Template", str(error), parent=self)
+            show_message(self, "New Template", str(error), kind="error")
             return
         self.load_templates()
 
     def rename_template(self, template):
         source = Path("templates") / template
         if not source.exists():
-            messagebox.showerror("Rename Template", "Template folder not found.", parent=self)
+            show_message(self, "Rename Template", "Template folder not found.", kind="error")
             self.load_templates()
             return
 
@@ -350,6 +352,6 @@ class TemplatesPage(BasePage):
         try:
             source.rename(destination)
         except Exception as error:
-            messagebox.showerror("Rename Template", str(error), parent=self)
+            show_message(self, "Rename Template", str(error), kind="error")
             return
         self.load_templates()
