@@ -5,6 +5,7 @@ import customtkinter as ctk
 
 from common.resolve_integration import inspect_resolve
 from common.settings_manager import SettingsManager
+from common.ui_state import DirtyStateTracker
 from widgets.message_dialog import show_message
 
 
@@ -13,6 +14,11 @@ class ResolvePage(ctk.CTkFrame):
         super().__init__(parent, fg_color="transparent")
         self.settings = SettingsManager()
         self.build()
+        self.dirty_tracker = DirtyStateTracker(
+            self,
+            self._settings_snapshot,
+            self.unsaved_label,
+        )
 
     def build(self):
         ctk.CTkLabel(
@@ -94,9 +100,17 @@ class ResolvePage(ctk.CTkFrame):
             text_color=("#667085", "#8F96A3"),
             justify="left",
             anchor="w",
-            wraplength=520,
+            wraplength=480,
         )
         self.status_label.pack(side="left", fill="x", expand=True)
+
+        self.unsaved_label = ctk.CTkLabel(
+            footer,
+            text="",
+            font=("Segoe UI", 11, "bold"),
+            text_color=("#B54708", "#FEC84B"),
+        )
+        self.unsaved_label.pack(side="left", padx=(10, 8))
 
         self.save_button = ctk.CTkButton(
             footer,
@@ -179,6 +193,16 @@ class ResolvePage(ctk.CTkFrame):
         entry.insert(0, str(self.settings.get("resolve", setting_key, default)))
         return entry
 
+    def _settings_snapshot(self):
+        return (
+            self.application_entry.get().strip(),
+            self.module_entry.get().strip(),
+            self.mode.get().strip(),
+            self.width_entry.get().strip(),
+            self.height_entry.get().strip(),
+            self.frame_rate_entry.get().strip(),
+        )
+
     def browse_application(self):
         path = filedialog.askopenfilename(title="Select DaVinci Resolve application")
         if path:
@@ -222,6 +246,7 @@ class ResolvePage(ctk.CTkFrame):
             },
         )
         self.status_label.configure(text="Resolve export settings saved.")
+        self.dirty_tracker.mark_clean()
         if show_dialog:
             show_message(
                 self,
