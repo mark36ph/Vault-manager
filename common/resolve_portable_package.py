@@ -200,9 +200,15 @@ def export_portable_resolve_package(
     readme_path.write_text(
         "Portable DaVinci Resolve Package\n"
         "=================================\n\n"
-        "This folder is self-contained. Keep its folder structure unchanged.\n"
-        "Start DaVinci Resolve, configure external scripting, then run build_resolve_timeline.py.\n"
-        "Media paths in resolve_timeline_plan.json are relative to this package.\n",
+        "This folder is self-contained. Keep its folder structure unchanged.\n\n"
+        "Recommended workflow for DaVinci Resolve Free:\n"
+        "1. Open DaVinci Resolve.\n"
+        "2. Choose File > Import > Timeline.\n"
+        "3. Select the .fcpxml file in this folder.\n\n"
+        "No external scripting connection is required for the normal import workflow.\n"
+        "Media referenced by the FCPXML is stored inside this portable package.\n\n"
+        "The bundled build_resolve_timeline.py file is only for optional advanced "
+        "Resolve scripting workflows.\n",
         encoding="utf-8",
     )
 
