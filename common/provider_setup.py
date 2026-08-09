@@ -252,7 +252,7 @@ def _anchor_searches(prompts: list[str], context: Any) -> list[str]:
         prompt = str(prompt or "").strip()
         if not prompt:
             continue
-        if anchor and anchor.casefold() not in prompt.casefold():
+        if anchor and not prompt.casefold().startswith(anchor.casefold()):
             anchored.append(f"{anchor} {prompt}".strip())
         else:
             anchored.append(prompt)
