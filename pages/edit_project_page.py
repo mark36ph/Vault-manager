@@ -269,6 +269,50 @@ class EditProjectPage(BasePage):
         words = len(text.split()) if text else 0
         counter.configure(text=f"Words: {words} | Characters: {len(text)}")
 
+    def _show_save_dialog(self, title, message, *, error=False):
+        dialog = ctk.CTkToplevel(self)
+        dialog.title(title)
+        dialog.geometry("430x210")
+        dialog.resizable(False, False)
+        dialog.transient(self.winfo_toplevel())
+        dialog.grab_set()
+
+        panel = ctk.CTkFrame(dialog, corner_radius=10)
+        panel.pack(fill="both", expand=True, padx=18, pady=18)
+
+        ctk.CTkLabel(
+            panel,
+            text=title,
+            font=("Segoe UI", 18, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=18, pady=(18, 7))
+
+        ctk.CTkLabel(
+            panel,
+            text=message,
+            font=("Segoe UI", 12),
+            text_color=("#B42318", "#FDA29B") if error else ("#475467", "#C8CDD5"),
+            justify="left",
+            anchor="w",
+            wraplength=360,
+        ).pack(fill="x", padx=18, pady=(0, 16))
+
+        button = ctk.CTkButton(
+            panel,
+            text="OK",
+            width=92,
+            height=34,
+            corner_radius=7,
+            command=dialog.destroy,
+        )
+        button.pack(anchor="e", padx=18, pady=(0, 18))
+
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+        dialog.bind("<Return>", lambda _event: dialog.destroy())
+        dialog.bind("<Escape>", lambda _event: dialog.destroy())
+        dialog.after(50, lambda: (dialog.lift(), dialog.focus_force(), button.focus_set()))
+        self.wait_window(dialog)
+
     def open_folder(self):
         try:
             folder = self.pm.resolve_project_folder(self.project)
@@ -470,7 +514,7 @@ class EditProjectPage(BasePage):
             self._saved_snapshot = self._current_snapshot()
 
             if show_message:
-                messagebox.showinfo("Saved", "Project updated successfully.", parent=self)
+                self._show_save_dialog("Saved", "Project updated successfully.")
             return True
 
         except Exception as error:
@@ -486,7 +530,7 @@ class EditProjectPage(BasePage):
                     old_folder.parent.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(new_folder), str(old_folder))
                 except Exception as rollback_error:
-                    messagebox.showerror(
+                    self._show_save_dialog(
                         "Save Error",
                         (
                             f"{error}\n\n"
@@ -494,11 +538,11 @@ class EditProjectPage(BasePage):
                             "be restored automatically.\n\n"
                             f"Folder recovery error: {rollback_error}"
                         ),
-                        parent=self,
+                        error=True,
                     )
                     return False
 
-            messagebox.showerror("Error", str(error), parent=self)
+            self._show_save_dialog("Save Error", str(error), error=True)
             return False
         finally:
             if self.winfo_exists():
