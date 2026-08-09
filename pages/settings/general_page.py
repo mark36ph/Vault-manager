@@ -2,6 +2,7 @@ import customtkinter as ctk
 from tkinter import filedialog
 
 from common.settings_manager import SettingsManager
+from common.ui_state import DirtyStateTracker, KeyboardScrollBinding
 from widgets.message_dialog import show_message
 
 
@@ -20,6 +21,12 @@ class GeneralPage(ctk.CTkScrollableFrame):
         self.app = app
         self.settings = SettingsManager()
         self.build()
+        self.keyboard_scroll = KeyboardScrollBinding(self, self)
+        self.dirty_tracker = DirtyStateTracker(
+            self,
+            self._settings_snapshot,
+            self.unsaved_label,
+        )
 
     def build(self):
         ctk.CTkLabel(
@@ -104,14 +111,26 @@ class GeneralPage(ctk.CTkScrollableFrame):
         self.theme.pack(anchor="w", padx=14, pady=(0, 14))
         self.theme.set(self.settings.get("general", "theme", "dark").title())
 
-        ctk.CTkButton(
-            self,
+        footer = ctk.CTkFrame(self, fg_color="transparent")
+        footer.pack(fill="x", padx=4, pady=(2, 4))
+
+        self.unsaved_label = ctk.CTkLabel(
+            footer,
+            text="",
+            font=("Segoe UI", 11, "bold"),
+            text_color=("#B54708", "#FEC84B"),
+        )
+        self.unsaved_label.pack(side="left")
+
+        self.save_button = ctk.CTkButton(
+            footer,
             text="Save changes",
             height=36,
             width=130,
             corner_radius=7,
             command=self.save_settings,
-        ).pack(anchor="e", padx=4, pady=(2, 4))
+        )
+        self.save_button.pack(side="right")
 
     def _section(self, title):
         frame = ctk.CTkFrame(
@@ -128,6 +147,15 @@ class GeneralPage(ctk.CTkScrollableFrame):
             font=("Segoe UI", 14, "bold"),
         ).pack(anchor="w", padx=14, pady=(12, 2))
         return frame
+
+    def _settings_snapshot(self):
+        return (
+            self.projects_folder.get().strip(),
+            bool(self.start_maximized.get()),
+            bool(self.remember_project.get()),
+            bool(self.check_updates.get()),
+            self.theme.get().strip().lower(),
+        )
 
     def browse_projects_folder(self):
         folder = filedialog.askdirectory()
@@ -162,6 +190,7 @@ class GeneralPage(ctk.CTkScrollableFrame):
             self.theme.get().lower(),
         )
         ctk.set_appearance_mode(self.theme.get())
+        self.dirty_tracker.mark_clean()
         show_message(
             self,
             "Settings saved",
