@@ -402,6 +402,11 @@ class EditProjectPage(BasePage):
         self.save_button.configure(state="disabled", text="Saving...")
         self.update_idletasks()
 
+        old_folder = None
+        new_folder = None
+        folder_moved = False
+        database_updated = False
+
         try:
             old_folder = self.pm.resolve_project_folder(self.project)
             if not old_folder.exists():
@@ -412,8 +417,10 @@ class EditProjectPage(BasePage):
                 raise ValueError("Project title cannot be empty.")
 
             new_status = self.status.get()
-            if new_status == "Scheduled" and not self.scheduled_for:
-                raise ValueError("Choose a scheduled date and time before saving.")
+            if new_status == "Scheduled":
+                self.scheduled_for = self.pm._validated_schedule(self.scheduled_for)
+            else:
+                self.scheduled_for = ""
 
             new_project = {"title": new_title, "status": new_status}
             new_folder = self.pm.get_project_folder(new_project)
@@ -426,6 +433,7 @@ class EditProjectPage(BasePage):
                         f"{new_folder}"
                     )
                 shutil.move(str(old_folder), str(new_folder))
+                folder_moved = True
 
             try:
                 narration_duration = self.project["narration_duration"] or 0
@@ -453,12 +461,9 @@ class EditProjectPage(BasePage):
                 narration_duration=narration_duration,
                 pipeline=self._pipeline_values_for_save(),
             )
+            database_updated = True
 
-            if new_status == "Scheduled":
-                self.pm.db.update_project_schedule(self.project_id, self.scheduled_for)
-            else:
-                self.scheduled_for = ""
-                self.pm.db.update_project_schedule(self.project_id, "")
+            self.pm.db.update_project_schedule(self.project_id, self.scheduled_for)
 
             self.project = self.pm.db.get_project(self.project_id)
             self.refresh_project_info()
@@ -469,6 +474,30 @@ class EditProjectPage(BasePage):
             return True
 
         except Exception as error:
+            if (
+                folder_moved
+                and not database_updated
+                and old_folder is not None
+                and new_folder is not None
+                and new_folder.exists()
+                and not old_folder.exists()
+            ):
+                try:
+                    old_folder.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(new_folder), str(old_folder))
+                except Exception as rollback_error:
+                    messagebox.showerror(
+                        "Save Error",
+                        (
+                            f"{error}\n\n"
+                            "The database was not updated and the project folder could not "
+                            "be restored automatically.\n\n"
+                            f"Folder recovery error: {rollback_error}"
+                        ),
+                        parent=self,
+                    )
+                    return False
+
             messagebox.showerror("Error", str(error), parent=self)
             return False
         finally:
