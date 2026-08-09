@@ -66,12 +66,16 @@ def _portable_timeline(timeline: Timeline, package: PortableResolvePackageResult
     return portable, remapped
 
 
-def _path_from_file_url(value: str) -> Path:
+def _path_from_asset_src(value: str, fcpxml_path: Path) -> Path:
     parsed = urlparse(value)
-    path = unquote(parsed.path)
-    if len(path) >= 3 and path[0] == "/" and path[2] == ":":
-        path = path[1:]
-    return Path(path)
+    if parsed.scheme == "file":
+        path = unquote(parsed.path)
+        if len(path) >= 3 and path[0] == "/" and path[2] == ":":
+            path = path[1:]
+        return Path(path)
+    if parsed.scheme:
+        raise ResolveExportV2Error(f"Unsupported FCPXML media URI scheme: {parsed.scheme}")
+    return (fcpxml_path.parent / unquote(parsed.path)).resolve()
 
 
 def _timeline_media_paths(timeline: Timeline) -> tuple[Path, ...]:
@@ -97,6 +101,7 @@ def validate_fcpxml_media(
     expected_media: Iterable[str | Path] | None = None,
 ) -> tuple[Path, ...]:
     """Verify every FCPXML asset exists in package Media and expected media is referenced."""
+    fcpxml_path = Path(fcpxml_path).resolve()
     package_root = Path(package_folder).resolve()
     media_root = (package_root / "Media").resolve()
     try:
@@ -111,7 +116,11 @@ def validate_fcpxml_media(
         if not src:
             failures.append("FCPXML asset is missing its src path")
             continue
-        path = _path_from_file_url(src).resolve()
+        try:
+            path = _path_from_asset_src(src, fcpxml_path).resolve()
+        except ResolveExportV2Error as error:
+            failures.append(str(error))
+            continue
         try:
             path.relative_to(media_root)
         except ValueError:
@@ -140,7 +149,11 @@ def export_resolve_free_v2(
 ) -> ResolveExportV2Result:
     portable, remapped = _portable_timeline(timeline, package)
     expected_media = _timeline_media_paths(portable)
-    fcpxml = export_fcpxml(portable, destination)
+    fcpxml = export_fcpxml(
+        portable,
+        destination,
+        media_base=package.package_folder,
+    )
     validated = validate_fcpxml_media(
         fcpxml.path,
         package.package_folder,
