@@ -1,11 +1,12 @@
-from tkinter import messagebox
 import os
 import shutil
 
 import customtkinter as ctk
 
-from pages.base_page import BasePage
 from common.ui_fonts import EMOJI_FONT, EMOJI_FONT_BOLD
+from common.ui_state import DirtyStateTracker, KeyboardScrollBinding
+from pages.base_page import BasePage
+from widgets.message_dialog import ask_three_choice, show_message
 from widgets.project_card import ScheduleDialog
 
 
@@ -30,7 +31,7 @@ class EditProjectPage(BasePage):
         self._saved_snapshot = None
 
         if not self.project:
-            messagebox.showerror("Error", "Project not found.")
+            show_message(self, "Project", "Project not found.", kind="error")
             self.app.show_projects()
             return
 
@@ -41,6 +42,13 @@ class EditProjectPage(BasePage):
 
         self.build()
         self.load_project()
+        self._keyboard_scroll = KeyboardScrollBinding(self, self.form)
+        self._dirty_tracker = DirtyStateTracker(
+            self,
+            self._current_snapshot,
+            self.dirty_label,
+        )
+        self._dirty_tracker.mark_clean()
 
     def build(self):
         self.form = ctk.CTkScrollableFrame(self.content, fg_color="transparent")
@@ -99,6 +107,14 @@ class EditProjectPage(BasePage):
             command=self.go_back,
             width=100,
         ).pack(side="left")
+
+        self.dirty_label = ctk.CTkLabel(
+            actions_row,
+            text="",
+            font=("Segoe UI", 11),
+            text_color=("#B54708", "#FEC84B"),
+        )
+        self.dirty_label.pack(side="left", padx=(10, 0))
 
         ctk.CTkButton(
             actions_row,
@@ -270,48 +286,12 @@ class EditProjectPage(BasePage):
         counter.configure(text=f"Words: {words} | Characters: {len(text)}")
 
     def _show_save_dialog(self, title, message, *, error=False):
-        dialog = ctk.CTkToplevel(self)
-        dialog.title(title)
-        dialog.geometry("430x210")
-        dialog.resizable(False, False)
-        dialog.transient(self.winfo_toplevel())
-        dialog.grab_set()
-
-        panel = ctk.CTkFrame(dialog, corner_radius=10)
-        panel.pack(fill="both", expand=True, padx=18, pady=18)
-
-        ctk.CTkLabel(
-            panel,
-            text=title,
-            font=("Segoe UI", 18, "bold"),
-            anchor="w",
-        ).pack(fill="x", padx=18, pady=(18, 7))
-
-        ctk.CTkLabel(
-            panel,
-            text=message,
-            font=("Segoe UI", 12),
-            text_color=("#B42318", "#FDA29B") if error else ("#475467", "#C8CDD5"),
-            justify="left",
-            anchor="w",
-            wraplength=360,
-        ).pack(fill="x", padx=18, pady=(0, 16))
-
-        button = ctk.CTkButton(
-            panel,
-            text="OK",
-            width=92,
-            height=34,
-            corner_radius=7,
-            command=dialog.destroy,
+        show_message(
+            self,
+            title,
+            message,
+            kind="error" if error else "success",
         )
-        button.pack(anchor="e", padx=18, pady=(0, 18))
-
-        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
-        dialog.bind("<Return>", lambda _event: dialog.destroy())
-        dialog.bind("<Escape>", lambda _event: dialog.destroy())
-        dialog.after(50, lambda: (dialog.lift(), dialog.focus_force(), button.focus_set()))
-        self.wait_window(dialog)
 
     def open_folder(self):
         try:
@@ -320,7 +300,7 @@ class EditProjectPage(BasePage):
                 raise FileNotFoundError(f"Project folder could not be found:\n{folder}")
             os.startfile(str(folder))
         except Exception as error:
-            messagebox.showerror("Error", str(error), parent=self)
+            show_message(self, "Open Folder", str(error), kind="error")
 
     def load_project(self):
         self.title_entry.insert(0, self.project["title"] or "")
@@ -396,15 +376,18 @@ class EditProjectPage(BasePage):
         if not self.has_unsaved_changes():
             return True
 
-        answer = messagebox.askyesnocancel(
+        choice = ask_three_choice(
+            self,
             "Unsaved Changes",
-            "This project has unsaved changes.\n\nSave them before leaving?",
-            parent=self,
+            "This project has unsaved changes. Save them before leaving?",
+            primary_text="Save",
+            secondary_text="Discard",
+            cancel_text="Cancel",
         )
 
-        if answer is None:
+        if choice == "cancel":
             return False
-        if answer:
+        if choice == "primary":
             return self.save_project(show_message=False)
         return True
 
@@ -512,6 +495,8 @@ class EditProjectPage(BasePage):
             self.project = self.pm.db.get_project(self.project_id)
             self.refresh_project_info()
             self._saved_snapshot = self._current_snapshot()
+            if hasattr(self, "_dirty_tracker"):
+                self._dirty_tracker.mark_clean()
 
             if show_message:
                 self._show_save_dialog("Saved", "Project updated successfully.")
