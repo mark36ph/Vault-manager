@@ -108,3 +108,70 @@ class UpdateDialog(ctk.CTkToplevel):
     def download(self):
         self.destroy()
         self.on_download()
+
+
+class UpToDateDialog(ctk.CTkToplevel):
+    def __init__(self, parent, app_name, version):
+        super().__init__(parent)
+
+        self.title("Up to Date")
+        self.geometry("500x270")
+        self.resizable(False, False)
+        self.transient(parent)
+        self.grab_set()
+        self.focus_force()
+
+        shell = ctk.CTkFrame(
+            self,
+            corner_radius=10,
+            fg_color=("#FFFFFF", "#181B21"),
+            border_width=1,
+            border_color=("#E4E7EC", "#2A2F38"),
+        )
+        shell.pack(fill="both", expand=True, padx=14, pady=14)
+
+        ctk.CTkLabel(
+            shell,
+            text="You're up to date",
+            font=("Segoe UI", 21, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=18, pady=(18, 4))
+
+        ctk.CTkLabel(
+            shell,
+            text=f"{app_name} is running the latest available version.",
+            font=("Segoe UI", 12),
+            text_color=("#667085", "#8F96A3"),
+            anchor="w",
+            justify="left",
+        ).pack(fill="x", padx=18, pady=(0, 14))
+
+        version_card = ctk.CTkFrame(
+            shell,
+            corner_radius=8,
+            fg_color=("#F8FAFC", "#14171C"),
+            border_width=1,
+            border_color=("#E4E7EC", "#2A2F38"),
+        )
+        version_card.pack(fill="x", padx=18, pady=(0, 16))
+
+        ctk.CTkLabel(
+            version_card,
+            text=f"Current version  {version}",
+            font=("Segoe UI", 12),
+            anchor="w",
+        ).pack(fill="x", padx=14, pady=12)
+
+        buttons = ctk.CTkFrame(shell, fg_color="transparent")
+        buttons.pack(fill="x", padx=18, pady=(0, 18))
+
+        ctk.CTkButton(
+            buttons,
+            text="OK",
+            width=96,
+            height=34,
+            command=self.destroy,
+        ).pack(side="right")
+
+        self.bind("<Escape>", lambda _event: self.destroy())
+        self.bind("<Return>", lambda _event: self.destroy())
