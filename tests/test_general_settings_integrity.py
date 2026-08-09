@@ -1,4 +1,4 @@
-from pages.settings.general_page import integrity_report_text, split_integrity_issues
+from pages.settings.integrity_page import integrity_report_text, split_integrity_issues
 
 
 def test_split_integrity_issues_separates_safe_and_manual_findings():
