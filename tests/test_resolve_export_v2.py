@@ -1,10 +1,12 @@
 import json
 import shutil
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 import xml.etree.ElementTree as ET
 
 import pytest
 
+from common.fcpxml_paths import rebase_fcpxml_media_paths
 from common.resolve_export_v2 import (
     ResolveExportV2Error,
     export_resolve_free_v2,
@@ -44,6 +46,14 @@ def make_timeline(source: Path):
     return Timeline(name="Tower", width=1080, height=1920, frame_rate=30, tracks=[track])
 
 
+def file_url_path(value):
+    parsed = urlparse(value)
+    path = unquote(parsed.path)
+    if len(path) >= 3 and path[0] == "/" and path[2] == ":":
+        path = path[1:]
+    return Path(path)
+
+
 def test_export_references_only_copied_portable_media(tmp_path):
     source = tmp_path / "project" / "Assets" / "tower.jpg"
     source.parent.mkdir(parents=True)
@@ -58,31 +68,37 @@ def test_export_references_only_copied_portable_media(tmp_path):
     assert result.remapped_media == 1
     assets = ET.parse(output).getroot().findall("./resources/asset")
     assert len(assets) == 1
-    assert assets[0].attrib["src"] == "Media/Images/tower.jpg"
-    assert copied.is_file()
+    referenced = file_url_path(assets[0].attrib["src"]).resolve()
+    assert referenced == copied.resolve()
+    assert referenced.is_file()
     assert str(source.resolve()) not in output.read_text(encoding="utf-8")
 
 
-def test_portable_fcpxml_still_valid_after_package_folder_moves(tmp_path):
-    source = tmp_path / "In Progress" / "Project" / "Assets" / "tower.jpg"
+def test_fcpxml_rebases_after_project_folder_moves(tmp_path):
+    old_project = tmp_path / "In Progress" / "Project"
+    source = old_project / "Assets" / "tower.jpg"
     source.parent.mkdir(parents=True)
     source.write_bytes(b"image")
-    package_root = tmp_path / "Portable" / "Project"
-    copied = package_root / "Media" / "Images" / "tower.jpg"
-    package = make_package(tmp_path, source, copied)
-    output = package.package_folder / "Tower.fcpxml"
 
+    package_root = old_project / "Resolve" / "Portable" / "Project"
+    copied = package_root / "Media" / "Images" / "tower.jpg"
+    package = make_package(old_project / "Resolve", source, copied)
+    output = package.package_folder / "Tower.fcpxml"
     export_resolve_free_v2(make_timeline(source), package, output)
 
-    moved_root = tmp_path / "Completed" / "Project"
-    moved_root.parent.mkdir(parents=True)
-    shutil.move(str(package.package_folder), str(moved_root))
-    moved_xml = moved_root / "Tower.fcpxml"
-    moved_media = moved_root / "Media" / "Images" / "tower.jpg"
+    new_project = tmp_path / "Completed" / "Project"
+    new_project.parent.mkdir(parents=True)
+    shutil.move(str(old_project), str(new_project))
+
+    rewritten = rebase_fcpxml_media_paths(new_project, old_project, new_project)
+    assert rewritten == 1
+
+    moved_xml = new_project / "Resolve" / "Portable" / "Project" / "Tower.fcpxml"
+    moved_media = new_project / "Resolve" / "Portable" / "Project" / "Media" / "Images" / "tower.jpg"
 
     validated = validate_fcpxml_media(
         moved_xml,
-        moved_root,
+        moved_xml.parent,
         expected_media=[moved_media],
     )
     assert validated == (moved_media.resolve(),)
