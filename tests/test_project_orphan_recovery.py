@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -47,31 +46,81 @@ def test_recover_orphan_project_rejects_nested_folder(project_manager):
         recover_orphan_project(pm, nested, category="Misc")
 
 
-def test_recover_scheduled_orphan_requires_future_schedule(project_manager):
+def test_recover_scheduled_orphan_defaults_to_in_progress(project_manager):
     pm = project_manager
-    orphan = pm.get_projects_root() / "Scheduled" / "Needs Schedule"
+    orphan = pm.get_projects_root() / "Scheduled" / "Needs Recovery"
     orphan.mkdir(parents=True)
+    marker = orphan / "keep.txt"
+    marker.write_text("keep", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="require a date and time"):
-        recover_orphan_project(pm, orphan, category="Misc")
+    recovered = recover_orphan_project(pm, orphan, category="Misc")
+    recovered_folder = pm.resolve_project_folder(recovered)
 
-    assert pm.db.get_projects() == []
-    assert orphan.exists()
+    assert recovered["status"] == "In Progress"
+    assert recovered["scheduled_for"] == ""
+    assert recovered["folder"] == str(Path("In Progress") / "Needs Recovery")
+    assert not orphan.exists()
+    assert (recovered_folder / "keep.txt").read_text(encoding="utf-8") == "keep"
+    assert pm.check_project_integrity() == []
 
 
-def test_recover_scheduled_orphan_restores_schedule(project_manager):
+def test_recover_scheduled_orphan_can_be_recovered_as_completed(project_manager):
     pm = project_manager
-    orphan = pm.get_projects_root() / "Scheduled" / "Scheduled Recovery"
+    orphan = pm.get_projects_root() / "Scheduled" / "Completed Recovery"
     orphan.mkdir(parents=True)
-    scheduled_for = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d %H:%M")
 
     recovered = recover_orphan_project(
         pm,
         orphan,
         category="History",
-        scheduled_for=scheduled_for,
+        target_status="Completed",
     )
 
-    assert recovered["status"] == "Scheduled"
-    assert recovered["scheduled_for"] == scheduled_for
+    assert recovered["status"] == "Completed"
+    assert recovered["scheduled_for"] == ""
+    assert recovered["folder"] == str(Path("Completed") / "Completed Recovery")
+    assert pm.resolve_project_folder(recovered).exists()
+    assert not orphan.exists()
     assert pm.check_project_integrity() == []
+
+
+def test_recover_orphan_rejects_scheduled_target(project_manager):
+    pm = project_manager
+    orphan = pm.get_projects_root() / "Scheduled" / "No Reschedule"
+    orphan.mkdir(parents=True)
+
+    with pytest.raises(ValueError, match="cannot be returned to Scheduled"):
+        recover_orphan_project(
+            pm,
+            orphan,
+            category="Misc",
+            target_status="Scheduled",
+        )
+
+    assert orphan.exists()
+    assert pm.db.get_projects() == []
+
+
+def test_recover_orphan_restores_original_folder_if_database_insert_fails(
+    project_manager,
+    monkeypatch,
+):
+    pm = project_manager
+    orphan = pm.get_projects_root() / "Scheduled" / "Rollback Recovery"
+    orphan.mkdir(parents=True)
+
+    def fail_add_project(*args, **kwargs):
+        raise RuntimeError("database insert failed")
+
+    monkeypatch.setattr(pm.db, "add_project", fail_add_project)
+
+    with pytest.raises(RuntimeError, match="database insert failed"):
+        recover_orphan_project(
+            pm,
+            orphan,
+            category="Misc",
+            target_status="In Progress",
+        )
+
+    assert orphan.exists()
+    assert not (pm.get_projects_root() / "In Progress" / "Rollback Recovery").exists()
