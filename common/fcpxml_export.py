@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import quote
 import xml.etree.ElementTree as ET
 
 from timeline import ClipKind, Timeline, TrackKind
@@ -24,12 +25,29 @@ def _time(seconds: float, fps: float) -> str:
     return f"{frames}/{round(fps)}s"
 
 
-def _file_url(path: Path) -> str:
-    """Return the standards-compliant file URI Resolve expects on Windows."""
-    return path.resolve().as_uri()
+def _file_url(path: Path, *, relative_to: Path | None = None) -> str:
+    """Return an FCPXML media URI, optionally relative to a portable package."""
+    resolved = path.resolve()
+    if relative_to is None:
+        return resolved.as_uri()
+
+    base = relative_to.resolve()
+    try:
+        relative = resolved.relative_to(base)
+    except ValueError as error:
+        raise FCPXMLExportError(
+            f"clip source is outside the requested portable media base: {resolved}"
+        ) from error
+
+    return quote(relative.as_posix(), safe="/")
 
 
-def export_fcpxml(timeline: Timeline, destination: str | Path) -> FCPXMLExportResult:
+def export_fcpxml(
+    timeline: Timeline,
+    destination: str | Path,
+    *,
+    media_base: str | Path | None = None,
+) -> FCPXMLExportResult:
     """Write an FCPXML 1.10 timeline that Resolve Free can import."""
     if not isinstance(timeline, Timeline):
         raise TypeError("timeline must be a Timeline")
@@ -38,6 +56,7 @@ def export_fcpxml(timeline: Timeline, destination: str | Path) -> FCPXMLExportRe
 
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
+    base_path = Path(media_base) if media_base is not None else None
     fps = float(timeline.frame_rate)
     frame_duration = _time(1 / fps, fps)
 
@@ -78,7 +97,7 @@ def export_fcpxml(timeline: Timeline, destination: str | Path) -> FCPXMLExportRe
         attrs = {
             "id": asset_id,
             "name": clip.name or source.name,
-            "src": _file_url(source),
+            "src": _file_url(source, relative_to=base_path),
             "start": "0s",
             "duration": _time(max(clip.duration, timeline.duration), fps),
             "hasVideo": "0" if clip.kind == ClipKind.AUDIO else "1",
