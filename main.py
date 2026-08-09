@@ -215,17 +215,23 @@ def install_legacy_messagebox_bridge(app):
     def parent_for(kwargs):
         return kwargs.get("parent") or app
 
+    def show_blocking(title, message, kind, kwargs):
+        parent = parent_for(kwargs)
+        dialog = show_message(parent, title, message, kind=kind)
+        parent.wait_window(dialog)
+        return "ok"
+
     def show_info(title, message, **kwargs):
-        return show_message(parent_for(kwargs), title, message, kind="info")
+        return show_blocking(title, message, "info", kwargs)
 
     def show_success(title, message, **kwargs):
-        return show_message(parent_for(kwargs), title, message, kind="success")
+        return show_blocking(title, message, "success", kwargs)
 
     def show_warning(title, message, **kwargs):
-        return show_message(parent_for(kwargs), title, message, kind="warning")
+        return show_blocking(title, message, "warning", kwargs)
 
     def show_error(title, message, **kwargs):
-        return show_message(parent_for(kwargs), title, message, kind="error")
+        return show_blocking(title, message, "error", kwargs)
 
     def ask_yes_no(title, message, **kwargs):
         return ask_confirmation(
