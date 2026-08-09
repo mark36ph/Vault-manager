@@ -1,5 +1,6 @@
 import customtkinter as ctk
 
+from common.ui_state import KeyboardScrollBinding
 from pages.base_page import BasePage
 from widgets.project_card import ProjectCard
 
@@ -138,6 +139,7 @@ class ProjectsPage(BasePage):
         self.project_list.pack(fill="both", expand=True)
         self.project_list.grid_columnconfigure(0, weight=1, uniform="projects")
         self.project_list.grid_columnconfigure(1, weight=1, uniform="projects")
+        self._keyboard_scroll = KeyboardScrollBinding(self, self.project_list)
 
         self._update_filter_styles()
         self.load_projects()
