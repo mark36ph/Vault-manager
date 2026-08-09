@@ -1,12 +1,54 @@
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 
+from common.project_integrity_repair import SAFE_REPAIR_TYPES, repair_safe_project_integrity
 from common.settings_manager import SettingsManager
+
+
+MUTED_TEXT = ("#667085", "#8F96A3")
+READY_TEXT = ("#027A48", "#75E0A7")
+WARNING_TEXT = ("#B54708", "#FEC84B")
+ERROR_TEXT = ("#B42318", "#FDA29B")
+
+
+def split_integrity_issues(issues):
+    """Separate safe-repair candidates from issues that require manual review."""
+    safe = []
+    manual = []
+    for issue in issues:
+        if str(issue.get("type") or "") in SAFE_REPAIR_TYPES:
+            safe.append(issue)
+        else:
+            manual.append(issue)
+    return safe, manual
+
+
+def integrity_report_text(issues):
+    """Create a concise, user-facing report for project integrity findings."""
+    issues = list(issues)
+    if not issues:
+        return "No project integrity issues found."
+
+    safe, manual = split_integrity_issues(issues)
+    lines = [
+        f"Found {len(issues)} issue(s): {len(safe)} safe repair candidate(s), "
+        f"{len(manual)} manual review issue(s).",
+        "",
+    ]
+    for issue in issues:
+        issue_type = str(issue.get("type") or "unknown")
+        title = str(issue.get("title") or issue.get("folder") or "Project")
+        message = str(issue.get("message") or issue_type)
+        label = "SAFE REPAIR" if issue_type in SAFE_REPAIR_TYPES else "MANUAL REVIEW"
+        lines.append(f"[{label}] {title}: {message}")
+    return "\n".join(lines)
 
 
 class GeneralPage(ctk.CTkFrame):
     def __init__(self, parent, pm, app):
         super().__init__(parent, fg_color="transparent")
+        self.pm = pm
+        self.app = app
         self.settings = SettingsManager()
         self.build()
 
@@ -21,7 +63,7 @@ class GeneralPage(ctk.CTkFrame):
             self,
             text="Choose where projects are stored and how the app behaves at startup.",
             font=("Segoe UI", 13),
-            text_color=("#667085", "#8F96A3"),
+            text_color=MUTED_TEXT,
         ).pack(anchor="w", padx=4, pady=(0, 16))
 
         storage = self._section("Project storage")
@@ -95,6 +137,65 @@ class GeneralPage(ctk.CTkFrame):
             self.settings.get("general", "theme", "dark").title()
         )
 
+        integrity = self._section("Project integrity")
+        ctk.CTkLabel(
+            integrity,
+            text=(
+                "Check database records against project folders. Safe repair never moves "
+                "or deletes project files."
+            ),
+            font=("Segoe UI", 12),
+            text_color=MUTED_TEXT,
+            justify="left",
+            anchor="w",
+            wraplength=680,
+        ).pack(fill="x", padx=14, pady=(8, 8))
+
+        integrity_actions = ctk.CTkFrame(integrity, fg_color="transparent")
+        integrity_actions.pack(fill="x", padx=14, pady=(0, 8))
+
+        ctk.CTkButton(
+            integrity_actions,
+            text="Check integrity",
+            width=118,
+            height=34,
+            corner_radius=7,
+            command=self.check_project_integrity,
+        ).pack(side="left")
+
+        self.repair_integrity_button = ctk.CTkButton(
+            integrity_actions,
+            text="Repair safe issues",
+            width=132,
+            height=34,
+            corner_radius=7,
+            fg_color="transparent",
+            border_width=1,
+            text_color=("#344054", "#D0D5DD"),
+            command=self.repair_safe_integrity,
+        )
+        self.repair_integrity_button.pack(side="left", padx=(8, 0))
+
+        self.integrity_status = ctk.CTkLabel(
+            integrity,
+            text="Not checked yet.",
+            font=("Segoe UI", 11),
+            text_color=MUTED_TEXT,
+            anchor="w",
+        )
+        self.integrity_status.pack(fill="x", padx=14, pady=(0, 6))
+
+        self.integrity_report = ctk.CTkTextbox(
+            integrity,
+            height=125,
+            corner_radius=7,
+            border_width=1,
+            font=("Consolas", 10),
+            wrap="word",
+        )
+        self.integrity_report.pack(fill="x", padx=14, pady=(0, 14))
+        self._set_integrity_report("Run Check integrity to scan project records and folders.")
+
         ctk.CTkButton(
             self,
             text="Save changes",
@@ -119,6 +220,104 @@ class GeneralPage(ctk.CTkFrame):
             font=("Segoe UI", 14, "bold"),
         ).pack(anchor="w", padx=14, pady=(12, 2))
         return frame
+
+    def _set_integrity_report(self, text):
+        self.integrity_report.configure(state="normal")
+        self.integrity_report.delete("1.0", "end")
+        self.integrity_report.insert("1.0", text)
+        self.integrity_report.configure(state="disabled")
+
+    def _render_integrity_issues(self, issues):
+        issues = list(issues)
+        safe, manual = split_integrity_issues(issues)
+        self._set_integrity_report(integrity_report_text(issues))
+
+        if not issues:
+            self.integrity_status.configure(
+                text="Integrity check passed — no issues found.",
+                text_color=READY_TEXT,
+            )
+        else:
+            self.integrity_status.configure(
+                text=(
+                    f"{len(issues)} issue(s): {len(safe)} safe repair candidate(s), "
+                    f"{len(manual)} manual review."
+                ),
+                text_color=WARNING_TEXT if not manual else ERROR_TEXT,
+            )
+        return safe, manual
+
+    def check_project_integrity(self):
+        try:
+            issues = self.pm.check_project_integrity()
+        except Exception as error:
+            self.integrity_status.configure(
+                text="Integrity check failed.",
+                text_color=ERROR_TEXT,
+            )
+            self._set_integrity_report(str(error))
+            messagebox.showerror("Project Integrity", str(error), parent=self)
+            return
+
+        self._render_integrity_issues(issues)
+
+    def repair_safe_integrity(self):
+        try:
+            issues = list(self.pm.check_project_integrity())
+        except Exception as error:
+            messagebox.showerror("Project Integrity", str(error), parent=self)
+            return
+
+        safe, _manual = self._render_integrity_issues(issues)
+        if not safe:
+            messagebox.showinfo(
+                "Project Integrity",
+                "There are no safe repair candidates. Manual-review issues were not changed.",
+                parent=self,
+            )
+            return
+
+        confirmed = messagebox.askyesno(
+            "Repair Safe Issues",
+            (
+                f"Repair {len(safe)} safe candidate(s)?\n\n"
+                "This can clear stale schedules and correct safe stored folder paths. "
+                "It will not move or delete project files."
+            ),
+            parent=self,
+        )
+        if not confirmed:
+            return
+
+        self.repair_integrity_button.configure(state="disabled", text="Repairing...")
+        try:
+            result = repair_safe_project_integrity(self.pm)
+            remaining = list(self.pm.check_project_integrity())
+            repaired = result.get("repaired", [])
+            skipped = result.get("skipped", [])
+            errors = result.get("errors", [])
+            self._render_integrity_issues(remaining)
+
+            summary = (
+                f"Repaired {len(repaired)} issue(s). "
+                f"Skipped {len(skipped)} issue(s). "
+                f"Errors: {len(errors)}."
+            )
+            if errors:
+                messagebox.showwarning("Project Integrity", summary, parent=self)
+            else:
+                messagebox.showinfo("Project Integrity", summary, parent=self)
+        except Exception as error:
+            self.integrity_status.configure(
+                text="Safe repair failed.",
+                text_color=ERROR_TEXT,
+            )
+            messagebox.showerror("Project Integrity", str(error), parent=self)
+        finally:
+            self.repair_integrity_button.configure(
+                state="normal",
+                text="Repair safe issues",
+            )
 
     def browse_projects_folder(self):
         folder = filedialog.askdirectory()
