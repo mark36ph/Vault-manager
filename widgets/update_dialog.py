@@ -7,7 +7,7 @@ class UpdateDialog(ctk.CTkToplevel):
         self.on_download = on_download
 
         self.title("Update Available")
-        self.geometry("540x420")
+        self.geometry("560x470")
         self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
@@ -66,13 +66,13 @@ class UpdateDialog(ctk.CTkToplevel):
 
         notes = ctk.CTkTextbox(
             shell,
-            height=150,
+            height=170,
             font=("Segoe UI", 12),
             corner_radius=7,
             border_width=1,
             border_color=("#E4E7EC", "#2A2F38"),
         )
-        notes.pack(fill="both", expand=True, padx=18, pady=(0, 14))
+        notes.pack(fill="both", expand=True, padx=18, pady=(0, 16))
 
         release_notes = info.get("release_notes", "No release notes available.")
         if isinstance(release_notes, list):
@@ -81,14 +81,16 @@ class UpdateDialog(ctk.CTkToplevel):
         notes.insert("1.0", release_notes)
         notes.configure(state="disabled")
 
-        buttons = ctk.CTkFrame(shell, fg_color="transparent")
+        buttons = ctk.CTkFrame(shell, fg_color="transparent", height=42)
         buttons.pack(fill="x", padx=18, pady=(0, 18))
+        buttons.pack_propagate(False)
 
         ctk.CTkButton(
             buttons,
             text="Later",
-            width=96,
-            height=34,
+            width=108,
+            height=38,
+            corner_radius=7,
             fg_color="transparent",
             border_width=1,
             text_color=("#344054", "#D0D5DD"),
@@ -98,10 +100,11 @@ class UpdateDialog(ctk.CTkToplevel):
         ctk.CTkButton(
             buttons,
             text="Download Update",
-            width=150,
-            height=34,
+            width=166,
+            height=38,
+            corner_radius=7,
             command=self.download,
-        ).pack(side="right", padx=(0, 8))
+        ).pack(side="right", padx=(0, 10))
 
         self.bind("<Escape>", lambda _event: self.destroy())
 
