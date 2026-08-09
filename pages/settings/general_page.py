@@ -5,13 +5,13 @@ from pathlib import Path
 from common.project_integrity_repair import SAFE_REPAIR_TYPES, repair_safe_project_integrity
 from common.project_orphan_recovery import recover_orphan_project
 from common.settings_manager import SettingsManager
-from widgets.project_card import ScheduleDialog
 
 
 MUTED_TEXT = ("#667085", "#8F96A3")
 READY_TEXT = ("#027A48", "#75E0A7")
 WARNING_TEXT = ("#B54708", "#FEC84B")
 ERROR_TEXT = ("#B42318", "#FDA29B")
+RECOVERY_STATUSES = ["In Progress", "Completed", "Published"]
 
 
 def split_integrity_issues(issues):
@@ -66,8 +66,8 @@ class OrphanRecoveryDialog(ctk.CTkToplevel):
         self.folder_by_label = {}
 
         self.title("Recover Orphan Project")
-        self.geometry("680x410")
-        self.minsize(620, 390)
+        self.geometry("680x500")
+        self.minsize(620, 470)
         self.resizable(True, False)
         self.transient(parent)
         self.grab_set()
@@ -82,8 +82,8 @@ class OrphanRecoveryDialog(ctk.CTkToplevel):
         ctk.CTkLabel(
             self,
             text=(
-                "This creates a database record for an existing orphan folder. "
-                "It does not move, rename, or delete any files."
+                "This restores an existing orphan folder as a project. Recovery never "
+                "puts the project back into Scheduled."
             ),
             font=("Segoe UI", 12),
             text_color=MUTED_TEXT,
@@ -140,6 +140,37 @@ class OrphanRecoveryDialog(ctk.CTkToplevel):
         self.category_menu.pack(fill="x", padx=28)
         self.category_menu.set("Misc" if "Misc" in values else values[0])
 
+        ctk.CTkLabel(
+            self,
+            text="Recover as",
+            font=("Segoe UI", 11, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=28, pady=(16, 6))
+
+        self.status_menu = ctk.CTkOptionMenu(
+            self,
+            values=RECOVERY_STATUSES,
+            height=40,
+        )
+        self.status_menu.pack(fill="x", padx=28)
+        if labels:
+            self.status_menu.set(
+                self._default_status_for_folder(self.folder_by_label.get(labels[0], ""))
+            )
+
+        ctk.CTkLabel(
+            self,
+            text=(
+                "If the selected status differs from the current folder, the whole project "
+                "folder is moved intact to that status folder."
+            ),
+            font=("Segoe UI", 10),
+            text_color=MUTED_TEXT,
+            anchor="w",
+            justify="left",
+            wraplength=620,
+        ).pack(fill="x", padx=28, pady=(7, 0))
+
         buttons = ctk.CTkFrame(self, fg_color="transparent")
         buttons.pack(side="bottom", fill="x", padx=28, pady=(18, 24))
 
@@ -166,8 +197,17 @@ class OrphanRecoveryDialog(ctk.CTkToplevel):
         self.bind("<Escape>", lambda _event: self._cancel())
         self.bind("<Return>", lambda _event: self._confirm())
 
+    @staticmethod
+    def _default_status_for_folder(folder):
+        current = Path(folder).parent.name if folder else ""
+        if current in RECOVERY_STATUSES:
+            return current
+        return "In Progress"
+
     def _folder_changed(self, label):
-        self.path_label.configure(text=self.folder_by_label.get(label, ""))
+        folder = self.folder_by_label.get(label, "")
+        self.path_label.configure(text=folder)
+        self.status_menu.set(self._default_status_for_folder(folder))
 
     def _confirm(self):
         label = self.folder_menu.get()
@@ -177,6 +217,7 @@ class OrphanRecoveryDialog(ctk.CTkToplevel):
         self.result = {
             "folder": folder,
             "category": self.category_menu.get().strip() or "Misc",
+            "target_status": self.status_menu.get().strip() or "In Progress",
         }
         self.destroy()
 
@@ -288,7 +329,7 @@ class GeneralPage(ctk.CTkScrollableFrame):
             integrity,
             text=(
                 "Check database records against project folders. Safe repair never moves "
-                "or deletes project files. Orphan recovery only restores a database link."
+                "or deletes project files. Orphan recovery never restores Scheduled status."
             ),
             font=("Segoe UI", 12),
             text_color=MUTED_TEXT,
@@ -503,26 +544,24 @@ class GeneralPage(ctk.CTkScrollableFrame):
 
         folder = dialog.result["folder"]
         category = dialog.result["category"]
+        target_status = dialog.result["target_status"]
         path = Path(folder)
-        scheduled_for = ""
+        source_status = path.parent.name
+        move_note = ""
+        if source_status != target_status:
+            move_note = (
+                f"\n\nThe folder will move from '{source_status}' to "
+                f"'{target_status}' intact."
+            )
 
-        if path.parent.name == "Scheduled":
-            schedule_dialog = ScheduleDialog(self)
-            self.wait_window(schedule_dialog)
-            if schedule_dialog.result is None:
-                return
-            scheduled_for = schedule_dialog.result.strftime("%Y-%m-%d %H:%M")
-
-        schedule_line = f"\nScheduled for: {scheduled_for}" if scheduled_for else ""
         confirmed = messagebox.askyesno(
             "Recover Orphan Project",
             (
                 f"Recover this existing folder as a project?\n\n"
                 f"Title: {path.name}\n"
-                f"Status: {path.parent.name}\n"
+                f"Recover as: {target_status}\n"
                 f"Category: {category}"
-                f"{schedule_line}\n\n"
-                "No files will be moved, renamed, or deleted."
+                f"{move_note}"
             ),
             parent=self,
         )
@@ -535,7 +574,7 @@ class GeneralPage(ctk.CTkScrollableFrame):
                 self.pm,
                 folder,
                 category=category,
-                scheduled_for=scheduled_for,
+                target_status=target_status,
             )
             remaining = list(self.pm.check_project_integrity())
             self._render_integrity_issues(remaining)
@@ -543,7 +582,7 @@ class GeneralPage(ctk.CTkScrollableFrame):
                 "Recover Orphan Project",
                 (
                     f"Recovered '{recovered['title']}' as {recovered['status']}.\n\n"
-                    "The existing project folder was left unchanged."
+                    "The project files were kept intact."
                 ),
                 parent=self,
             )
