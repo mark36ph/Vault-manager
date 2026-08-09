@@ -1,4 +1,5 @@
 import time
+from tkinter import messagebox
 
 import customtkinter as ctk
 
@@ -9,7 +10,7 @@ from pages.media_library_page import MediaLibraryPage
 from pages.production_page import ProductionPage, format_elapsed
 from pages.settings_page import SettingsPage
 from widgets.asset_usage_tracking import install_asset_usage_tracking
-from widgets.message_dialog import show_message
+from widgets.message_dialog import ask_confirmation, show_message
 from ui.dashboard import Dashboard
 
 
@@ -208,6 +209,41 @@ def add_production_button(app):
         production_button.pack_configure(before=before_button)
 
 
+def install_legacy_messagebox_bridge(app):
+    """Keep legacy tkinter messagebox calls visually consistent with the app."""
+
+    def parent_for(kwargs):
+        return kwargs.get("parent") or app
+
+    def show_info(title, message, **kwargs):
+        return show_message(parent_for(kwargs), title, message, kind="info")
+
+    def show_success(title, message, **kwargs):
+        return show_message(parent_for(kwargs), title, message, kind="success")
+
+    def show_warning(title, message, **kwargs):
+        return show_message(parent_for(kwargs), title, message, kind="warning")
+
+    def show_error(title, message, **kwargs):
+        return show_message(parent_for(kwargs), title, message, kind="error")
+
+    def ask_yes_no(title, message, **kwargs):
+        return ask_confirmation(
+            parent_for(kwargs),
+            title,
+            message,
+            confirm_text="Yes",
+            cancel_text="No",
+            kind="warning",
+        )
+
+    messagebox.showinfo = show_info
+    messagebox.showwarning = show_warning
+    messagebox.showerror = show_error
+    messagebox.askyesno = ask_yes_no
+    messagebox.askokcancel = ask_yes_no
+
+
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 install_asset_usage_tracking()
@@ -216,6 +252,7 @@ install_production_elapsed_timer()
 install_production_status_guard()
 
 app = Dashboard()
+install_legacy_messagebox_bridge(app)
 add_media_library_button(app)
 add_production_button(app)
 app.mainloop()
