@@ -5,6 +5,7 @@ import customtkinter as ctk
 from common.chatgpt_import_parser import ChatGPTImportParser
 from common.ui_fonts import EMOJI_BUTTON_FONT, EMOJI_FONT
 from pages.base_page import BasePage
+from widgets.project_card import ScheduleDialog
 
 
 class NewFactPage(BasePage):
@@ -361,15 +362,27 @@ class NewFactPage(BasePage):
             messagebox.showerror("Projects Folder", str(exc), parent=self)
             return
 
+        desired_status = self.status.get()
+        scheduled_for = ""
+        if desired_status == "Scheduled":
+            dialog = ScheduleDialog(self)
+            self.wait_window(dialog)
+            if dialog.result is None:
+                self.status_label.configure(text="Project creation cancelled before scheduling.")
+                return
+            scheduled_for = dialog.result.strftime("%Y-%m-%d %H:%M")
+
         self.create_button.configure(state="disabled", text="Creating...")
         self.status_label.configure(text="Creating project...")
         self.update_idletasks()
+
+        create_status = "In Progress" if desired_status == "Scheduled" else desired_status
 
         try:
             folder = self.pm.create_project(
                 title,
                 self.category.get(),
-                self.status.get(),
+                create_status,
                 self.script.get("1.0", "end").strip(),
                 self.description.get("1.0", "end").strip(),
                 self.pinned_comment.get("1.0", "end").strip(),
@@ -381,26 +394,48 @@ class NewFactPage(BasePage):
             messagebox.showerror("Create Project", str(exc), parent=self)
             return
 
+        project = self.pm.db.get_latest_project()
+        schedule_warning = ""
+        if desired_status == "Scheduled":
+            if project is None:
+                schedule_warning = "The project was created, but it could not be found to apply its schedule."
+            else:
+                try:
+                    project = self.pm.change_project_status(
+                        project_id=project["id"],
+                        new_status="Scheduled",
+                        scheduled_for=scheduled_for,
+                    )
+                    folder = self.pm.resolve_project_folder(project)
+                except Exception as exc:
+                    schedule_warning = (
+                        "The project was created in In Progress, but scheduling failed.\n\n"
+                        f"{exc}"
+                    )
+                    project = self.pm.db.get_project(project["id"])
+                    if project is not None:
+                        folder = self.pm.resolve_project_folder(project)
+
         template_warning = ""
         try:
             self.pm.apply_template(folder, self.template.get())
         except Exception as exc:
             template_warning = str(exc)
 
-        self.status_label.configure(text="Project created successfully.")
-
-        if template_warning:
+        warnings = [warning for warning in (schedule_warning, template_warning) if warning]
+        if warnings:
+            self.status_label.configure(text="Project created with a warning.")
             messagebox.showwarning(
                 "Project Created",
-                "The project was created, but its template could not be applied.\n\n"
-                f"{template_warning}",
+                "The project was created, but part of the setup needs attention.\n\n"
+                + "\n\n".join(warnings),
                 parent=self,
             )
         else:
+            self.status_label.configure(text="Project created successfully.")
             messagebox.showinfo("Success", "Project created successfully!", parent=self)
 
         if self.open_after.get():
-            project = self.pm.db.get_latest_project()
             if project:
                 self.app.show_edit_project(project["id"])
             else:
