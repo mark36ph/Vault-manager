@@ -191,7 +191,7 @@ class ResolvePage(ctk.CTkFrame):
             self.module_entry.delete(0, "end")
             self.module_entry.insert(0, path)
 
-    def save_settings(self, *, show_message=True):
+    def save_settings(self, *, show_dialog=True):
         try:
             width = int(self.width_entry.get())
             height = int(self.height_entry.get())
@@ -201,9 +201,8 @@ class ResolvePage(ctk.CTkFrame):
         except ValueError:
             message = "Width, height, and frame rate must be positive whole numbers."
             self.status_label.configure(text=message)
-            if show_message:
-                show_message_dialog = show_message
-                show_message_dialog(
+            if show_dialog:
+                show_message(
                     self,
                     "Resolve settings",
                     message,
@@ -223,9 +222,8 @@ class ResolvePage(ctk.CTkFrame):
             },
         )
         self.status_label.configure(text="Resolve export settings saved.")
-        if show_message:
-            show_message_dialog = show_message
-            show_message_dialog(
+        if show_dialog:
+            show_message(
                 self,
                 "Resolve settings saved",
                 "DaVinci Resolve export settings were saved successfully.",
@@ -234,7 +232,7 @@ class ResolvePage(ctk.CTkFrame):
         return True
 
     def start_test(self):
-        if not self.save_settings(show_message=False):
+        if not self.save_settings(show_dialog=False):
             return
         self.test_button.configure(state="disabled", text="Testing...")
         threading.Thread(target=self._test_connection, daemon=True).start()
