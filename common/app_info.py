@@ -71,7 +71,3 @@ class AppInfo:
             APP_INFO_FILE,
             self.info
         )
-
-    def all(self):
-
-        return self.info
