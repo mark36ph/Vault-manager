@@ -57,6 +57,7 @@ def test_status_change_restores_folder_when_database_update_fails(
         Path("Draft") / "Rollback Project"
     )
 
+
 def test_complete_due_projects_continues_after_failure(
     project_manager,
     monkeypatch,
@@ -94,7 +95,7 @@ def test_complete_due_projects_continues_after_failure(
     output = capsys.readouterr().out
     assert "Could not publish scheduled project 102" in output
     assert "Publish failed" in output
-    
+
 
 def test_change_project_status_moves_folder_and_updates_database(
     project_manager,
@@ -131,6 +132,7 @@ def test_change_project_status_moves_folder_and_updates_database(
 
     assert new_folder.exists()
     assert not old_folder.exists()
+
 
 def test_change_project_status_fails_safely_when_destination_exists(
     project_manager,
@@ -173,6 +175,7 @@ def test_change_project_status_fails_safely_when_destination_exists(
 
     assert old_folder.exists()
     assert destination_folder.exists()
+
 
 def test_due_scheduled_project_moves_to_published(
     project_manager,
@@ -248,3 +251,77 @@ def test_change_project_status_accepts_valid_future_schedule(project_manager):
     assert updated["status"] == "Scheduled"
     assert updated["scheduled_for"] == scheduled_for
     assert pm.resolve_project_folder(updated).exists()
+
+
+def test_completed_project_can_be_scheduled_without_losing_export_files(project_manager):
+    pm = project_manager
+    pm.create_project(
+        title="Completed Schedule Handoff",
+        category="Testing",
+        status="Completed",
+        script="Keep this script",
+        description="Keep this description",
+        pinned_comment="Keep this comment",
+    )
+    project = next(
+        row for row in pm.db.get_projects()
+        if row["title"] == "Completed Schedule Handoff"
+    )
+    completed_folder = pm.resolve_project_folder(project)
+    timeline = completed_folder / "timeline.json"
+    package_file = completed_folder / "Export" / "Portable" / "handoff.fcpxml"
+    package_file.parent.mkdir(parents=True, exist_ok=True)
+    timeline.write_text("timeline", encoding="utf-8")
+    package_file.write_text("fcpxml", encoding="utf-8")
+
+    scheduled_for = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d %H:%M")
+    updated = pm.change_project_status(
+        project["id"],
+        "Scheduled",
+        scheduled_for=scheduled_for,
+    )
+    scheduled_folder = pm.resolve_project_folder(updated)
+
+    assert updated["status"] == "Scheduled"
+    assert updated["scheduled_for"] == scheduled_for
+    assert updated["script"] == "Keep this script"
+    assert updated["description"] == "Keep this description"
+    assert updated["pinned_comment"] == "Keep this comment"
+    assert not completed_folder.exists()
+    assert (scheduled_folder / "timeline.json").read_text(encoding="utf-8") == "timeline"
+    assert (
+        scheduled_folder / "Export" / "Portable" / "handoff.fcpxml"
+    ).read_text(encoding="utf-8") == "fcpxml"
+
+
+def test_scheduled_project_publishes_with_artifacts_and_clears_schedule(project_manager):
+    pm = project_manager
+    pm.create_project(
+        title="Scheduled Artifact Handoff",
+        category="Testing",
+        status="Scheduled",
+        script="Published script",
+        description="Published description",
+    )
+    project = next(
+        row for row in pm.db.get_projects()
+        if row["title"] == "Scheduled Artifact Handoff"
+    )
+    scheduled_folder = pm.resolve_project_folder(project)
+    package_file = scheduled_folder / "Export" / "Portable" / "ready.fcpxml"
+    package_file.parent.mkdir(parents=True, exist_ok=True)
+    package_file.write_text("ready", encoding="utf-8")
+    pm.db.update_project_schedule(project["id"], "2000-01-01 00:00")
+
+    assert pm.complete_due_scheduled_projects() == 1
+
+    published = pm.db.get_project(project["id"])
+    published_folder = pm.resolve_project_folder(published)
+    assert published["status"] == "Published"
+    assert published["scheduled_for"] == ""
+    assert published["script"] == "Published script"
+    assert published["description"] == "Published description"
+    assert not scheduled_folder.exists()
+    assert (
+        published_folder / "Export" / "Portable" / "ready.fcpxml"
+    ).read_text(encoding="utf-8") == "ready"
