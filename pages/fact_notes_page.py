@@ -279,7 +279,11 @@ class FactNotesPage(BasePage):
         self.open_note_editor_dialog(note)
 
     def toggle_pin(self, note):
-        self.pm.db.toggle_fact_note_pinned(note["id"])
+        try:
+            self.pm.db.toggle_fact_note_pinned(note["id"])
+        except Exception as error:
+            self.open_message_dialog("Pin Note", str(error), error=True)
+            return
         self.load_notes()
 
     def open_delete_dialog(self, note):
@@ -335,7 +339,12 @@ class FactNotesPage(BasePage):
         ).pack(side="right", padx=(0, 8))
 
     def confirm_delete_note(self, note, dialog):
-        self.pm.db.delete_fact_note(note["id"])
+        try:
+            self.pm.db.delete_fact_note(note["id"])
+        except Exception as error:
+            dialog.destroy()
+            self.open_message_dialog("Delete Note", str(error), error=True)
+            return
         dialog.destroy()
         self.load_notes()
 
@@ -400,10 +409,20 @@ class FactNotesPage(BasePage):
             border_width=1,
             border_color=("#E4E7EC", "#2A2F38"),
         )
-        notes_box.pack(fill="both", expand=True, padx=24, pady=(0, 10))
+        notes_box.pack(fill="both", expand=True, padx=24, pady=(0, 8))
         if is_editing:
             notes_box.insert("1.0", note["notes"])
         self.setup_checkbox_textbox(notes_box)
+
+        feedback = ctk.CTkLabel(
+            window,
+            text="",
+            height=18,
+            font=("Segoe UI", 11),
+            text_color=("#B42318", "#FDA29B"),
+            anchor="w",
+        )
+        feedback.pack(fill="x", padx=24, pady=(0, 4))
 
         buttons = ctk.CTkFrame(window, fg_color="transparent")
         buttons.pack(fill="x", padx=24, pady=(0, 22))
@@ -443,23 +462,37 @@ class FactNotesPage(BasePage):
             title = title_entry.get().strip()
             notes = notes_box.get("1.0", "end").strip()
             if not title:
-                self.open_missing_title_dialog()
+                feedback.configure(text="Enter a fact idea title before saving.")
+                title_entry.focus_set()
                 return
 
-            if is_editing:
-                self.pm.db.update_fact_note(note["id"], title, "", notes, status.get())
-            else:
-                created = datetime.now().strftime("%Y-%m-%d %H:%M")
-                self.pm.db.add_fact_note(title, "", notes, status.get(), created)
+            save_button.configure(state="disabled", text="Saving...")
+            window.update_idletasks()
+            try:
+                if is_editing:
+                    self.pm.db.update_fact_note(note["id"], title, "", notes, status.get())
+                else:
+                    created = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    self.pm.db.add_fact_note(title, "", notes, status.get(), created)
+            except Exception as error:
+                feedback.configure(text=str(error))
+                save_button.configure(
+                    state="normal",
+                    text="Save Note" if is_editing else "Add Note",
+                )
+                return
+
+            window.destroy()
             self.load_notes()
 
-        ctk.CTkButton(
+        save_button = ctk.CTkButton(
             buttons,
             text="Save Note" if is_editing else "Add Note",
             width=96,
             height=34,
             command=save_dialog_note,
-        ).pack(side="right")
+        )
+        save_button.pack(side="right")
         ctk.CTkButton(
             buttons,
             text="Close",
@@ -467,6 +500,9 @@ class FactNotesPage(BasePage):
             command=window.destroy,
             **secondary,
         ).pack(side="right", padx=(0, 8))
+
+        window.bind("<Escape>", lambda _event: window.destroy())
+        title_entry.focus_set()
 
     def setup_clickable_note_checkboxes(self, textbox, note):
         try:
@@ -547,6 +583,39 @@ class FactNotesPage(BasePage):
             height=34,
             command=dialog.destroy,
         ).pack(anchor="e", padx=24, pady=24)
+
+    def open_message_dialog(self, title, message, error=False):
+        dialog = ctk.CTkToplevel(self)
+        dialog.title(title)
+        dialog.geometry("440x210")
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+        dialog.lift()
+        dialog.focus_force()
+
+        ctk.CTkLabel(
+            dialog,
+            text=title,
+            font=("Segoe UI", 20, "bold"),
+        ).pack(anchor="w", padx=24, pady=(24, 7))
+        ctk.CTkLabel(
+            dialog,
+            text=message,
+            font=("Segoe UI", 12),
+            wraplength=380,
+            justify="left",
+            text_color=("#B42318", "#FDA29B") if error else ("#667085", "#8F96A3"),
+        ).pack(anchor="w", padx=24)
+        ctk.CTkButton(
+            dialog,
+            text="OK",
+            width=80,
+            height=34,
+            command=dialog.destroy,
+        ).pack(anchor="e", padx=24, pady=24)
+        dialog.bind("<Escape>", lambda _event: dialog.destroy())
+        dialog.bind("<Return>", lambda _event: dialog.destroy())
 
     def format_textbox_table(self, textbox):
         text = textbox.get("1.0", "end").strip()
