@@ -1,12 +1,12 @@
 from tkinter import messagebox
 import os
 import shutil
-from datetime import datetime
 
 import customtkinter as ctk
 
 from pages.base_page import BasePage
 from common.ui_fonts import EMOJI_FONT, EMOJI_FONT_BOLD
+from widgets.project_card import ScheduleDialog
 
 
 class EditProjectPage(BasePage):
@@ -114,12 +114,13 @@ class EditProjectPage(BasePage):
             width=110,
         ).pack(side="right", padx=5)
 
-        ctk.CTkButton(
+        self.save_button = ctk.CTkButton(
             actions_row,
             text="💾 Save",
             command=self.save_project,
             width=100,
-        ).pack(side="right", padx=5)
+        )
+        self.save_button.pack(side="right", padx=5)
 
         columns = ctk.CTkFrame(self.form, fg_color="transparent")
         columns.pack(fill="both", expand=True, padx=10)
@@ -275,7 +276,7 @@ class EditProjectPage(BasePage):
                 raise FileNotFoundError(f"Project folder could not be found:\n{folder}")
             os.startfile(str(folder))
         except Exception as error:
-            messagebox.showerror("Error", str(error))
+            messagebox.showerror("Error", str(error), parent=self)
 
     def load_project(self):
         self.title_entry.insert(0, self.project["title"] or "")
@@ -354,6 +355,7 @@ class EditProjectPage(BasePage):
         answer = messagebox.askyesnocancel(
             "Unsaved Changes",
             "This project has unsaved changes.\n\nSave them before leaving?",
+            parent=self,
         )
 
         if answer is None:
@@ -396,6 +398,10 @@ class EditProjectPage(BasePage):
         return pipeline
 
     def save_project(self, show_message=True):
+        original_text = self.save_button.cget("text")
+        self.save_button.configure(state="disabled", text="Saving...")
+        self.update_idletasks()
+
         try:
             old_folder = self.pm.resolve_project_folder(self.project)
             if not old_folder.exists():
@@ -406,6 +412,9 @@ class EditProjectPage(BasePage):
                 raise ValueError("Project title cannot be empty.")
 
             new_status = self.status.get()
+            if new_status == "Scheduled" and not self.scheduled_for:
+                raise ValueError("Choose a scheduled date and time before saving.")
+
             new_project = {"title": new_title, "status": new_status}
             new_folder = self.pm.get_project_folder(new_project)
 
@@ -456,48 +465,28 @@ class EditProjectPage(BasePage):
             self._saved_snapshot = self._current_snapshot()
 
             if show_message:
-                messagebox.showinfo("Saved", "Project updated successfully.")
+                messagebox.showinfo("Saved", "Project updated successfully.", parent=self)
             return True
 
         except Exception as error:
-            messagebox.showerror("Error", str(error))
+            messagebox.showerror("Error", str(error), parent=self)
             return False
+        finally:
+            if self.winfo_exists():
+                self.save_button.configure(state="normal", text=original_text)
 
     def on_status_changed(self, value):
         if value != "Scheduled":
+            self.scheduled_for = ""
+            self.info_scheduled.configure(text="Scheduled: Not scheduled")
             return
 
-        dialog = ctk.CTkInputDialog(
-            text=(
-                "When is this scheduled for?\n\n"
-                "Use: DD/MM/YYYY HH:MM\n"
-                "Example: 25/07/2026 18:00"
-            ),
-            title="Schedule Project",
-        )
+        dialog = ScheduleDialog(self)
+        self.wait_window(dialog)
 
-        scheduled_text = dialog.get_input()
-        if not scheduled_text:
-            self.status.set(self.project["status"])
+        if dialog.result is None:
+            self.status.set(self.project["status"] or "In Progress")
             return
 
-        scheduled_value = self.parse_schedule_date(scheduled_text)
-        if scheduled_value is None:
-            messagebox.showerror(
-                "Invalid Date",
-                "Please enter the date like this:\n\n25/07/2026 18:00",
-            )
-            self.status.set(self.project["status"])
-            return
-
-        self.scheduled_for = scheduled_value
-        self.info_scheduled.configure(text=f"Scheduled: {scheduled_value}")
-
-    @staticmethod
-    def parse_schedule_date(value):
-        value = str(value or "").strip()
-        try:
-            date = datetime.strptime(value, "%d/%m/%Y %H:%M")
-            return date.strftime("%Y-%m-%d %H:%M")
-        except Exception:
-            return None
+        self.scheduled_for = dialog.result.strftime("%Y-%m-%d %H:%M")
+        self.info_scheduled.configure(text=f"Scheduled: {self.scheduled_for}")
