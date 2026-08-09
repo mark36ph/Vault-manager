@@ -19,6 +19,8 @@ class StatisticsPage(BasePage):
     def __init__(self, parent, pm, app):
         super().__init__(parent, pm, "Statistics")
         self.app = app
+        self.body = None
+        self._keyboard_bindings = []
 
         self.header.configure(font=("Segoe UI", 24, "bold"))
         self.header.pack_configure(padx=24, pady=(20, 4))
@@ -34,6 +36,7 @@ class StatisticsPage(BasePage):
         self.content.pack_configure(padx=24, pady=(0, 20))
 
         self.build()
+        self._install_keyboard_scrolling()
 
     def build(self):
         projects = [dict(project) for project in self.pm.get_all_projects()]
@@ -55,6 +58,7 @@ class StatisticsPage(BasePage):
             scrollbar_button_hover_color=("#98A2B3", "#596170"),
         )
         body.pack(fill="both", expand=True)
+        self.body = body
 
         overview = ctk.CTkFrame(body, fg_color="transparent")
         overview.pack(fill="x")
@@ -171,6 +175,55 @@ class StatisticsPage(BasePage):
             "Most recently created or updated projects.",
         )
         self._build_recent(recent_card, projects)
+
+    def _install_keyboard_scrolling(self):
+        """Allow the active Statistics page to scroll with the keyboard."""
+        toplevel = self.winfo_toplevel()
+        bindings = (
+            ("<Up>", lambda _event: self._scroll_units(-3)),
+            ("<Down>", lambda _event: self._scroll_units(3)),
+            ("<Prior>", lambda _event: self._scroll_pages(-1)),
+            ("<Next>", lambda _event: self._scroll_pages(1)),
+            ("<Home>", lambda _event: self._scroll_to(0.0)),
+            ("<End>", lambda _event: self._scroll_to(1.0)),
+        )
+        for sequence, callback in bindings:
+            funcid = toplevel.bind(sequence, callback, add="+")
+            if funcid:
+                self._keyboard_bindings.append((sequence, funcid))
+
+        self.bind("<Destroy>", self._remove_keyboard_scrolling, add="+")
+
+    def _scroll_units(self, amount):
+        canvas = getattr(self.body, "_parent_canvas", None)
+        if canvas is not None:
+            canvas.yview_scroll(amount, "units")
+        return "break"
+
+    def _scroll_pages(self, amount):
+        canvas = getattr(self.body, "_parent_canvas", None)
+        if canvas is not None:
+            canvas.yview_scroll(amount, "pages")
+        return "break"
+
+    def _scroll_to(self, position):
+        canvas = getattr(self.body, "_parent_canvas", None)
+        if canvas is not None:
+            canvas.yview_moveto(position)
+        return "break"
+
+    def _remove_keyboard_scrolling(self, event=None):
+        if event is not None and event.widget is not self:
+            return
+        if not self._keyboard_bindings:
+            return
+        toplevel = self.winfo_toplevel()
+        for sequence, funcid in self._keyboard_bindings:
+            try:
+                toplevel.unbind(sequence, funcid)
+            except Exception:
+                pass
+        self._keyboard_bindings.clear()
 
     def _metric_card(self, parent, column, title, value, detail):
         card = self._card(parent)
