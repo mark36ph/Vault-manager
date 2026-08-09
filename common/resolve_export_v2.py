@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
+from typing import Iterable, Mapping
 from urllib.parse import unquote, urlparse
 import xml.etree.ElementTree as ET
 
@@ -74,27 +74,60 @@ def _path_from_file_url(value: str) -> Path:
     return Path(path)
 
 
-def validate_fcpxml_media(fcpxml_path: str | Path, package_folder: str | Path) -> tuple[Path, ...]:
-    """Verify every FCPXML asset resolves to an existing file inside the package."""
+def _timeline_media_paths(timeline: Timeline) -> tuple[Path, ...]:
+    """Return the distinct media files a rendered FCPXML must reference."""
+    paths: list[Path] = []
+    seen: set[str] = set()
+    for track in timeline.tracks:
+        for clip in track.clips:
+            if clip.kind not in {ClipKind.IMAGE, ClipKind.VIDEO, ClipKind.AUDIO} or not clip.source:
+                continue
+            path = Path(clip.source).resolve()
+            key = str(path)
+            if key not in seen:
+                paths.append(path)
+                seen.add(key)
+    return tuple(paths)
+
+
+def validate_fcpxml_media(
+    fcpxml_path: str | Path,
+    package_folder: str | Path,
+    *,
+    expected_media: Iterable[str | Path] | None = None,
+) -> tuple[Path, ...]:
+    """Verify every FCPXML asset exists in package Media and expected media is referenced."""
     package_root = Path(package_folder).resolve()
+    media_root = (package_root / "Media").resolve()
     try:
         root = ET.parse(fcpxml_path).getroot()
     except (OSError, ET.ParseError) as error:
         raise ResolveExportV2Error(f"Could not validate FCPXML: {fcpxml_path}") from error
+
     validated: list[Path] = []
     failures: list[str] = []
     for asset in root.findall("./resources/asset"):
-        src = str(asset.attrib.get("src") or "")
+        src = str(asset.attrib.get("src") or "").strip()
+        if not src:
+            failures.append("FCPXML asset is missing its src path")
+            continue
         path = _path_from_file_url(src).resolve()
         try:
-            path.relative_to(package_root)
+            path.relative_to(media_root)
         except ValueError:
-            failures.append(f"Asset is outside portable package: {path}")
+            failures.append(f"Asset is outside portable package Media folder: {path}")
             continue
         if not path.is_file():
             failures.append(f"Asset does not exist: {path}")
             continue
         validated.append(path)
+
+    if expected_media is not None:
+        expected = {Path(path).resolve() for path in expected_media}
+        referenced = set(validated)
+        for missing in sorted(expected - referenced, key=str):
+            failures.append(f"Expected media is not referenced by FCPXML: {missing}")
+
     if failures:
         raise ResolveExportV2Error("FCPXML media validation failed:\n" + "\n".join(failures))
     return tuple(validated)
@@ -106,8 +139,13 @@ def export_resolve_free_v2(
     destination: str | Path,
 ) -> ResolveExportV2Result:
     portable, remapped = _portable_timeline(timeline, package)
+    expected_media = _timeline_media_paths(portable)
     fcpxml = export_fcpxml(portable, destination)
-    validated = validate_fcpxml_media(fcpxml.path, package.package_folder)
+    validated = validate_fcpxml_media(
+        fcpxml.path,
+        package.package_folder,
+        expected_media=expected_media,
+    )
     return ResolveExportV2Result(fcpxml, remapped, validated)
 
 
