@@ -1,7 +1,7 @@
 import customtkinter as ctk
-from tkinter import messagebox
 
 from common.settings_manager import SettingsManager
+from widgets.message_dialog import show_message
 
 
 class AIPage(ctk.CTkFrame):
@@ -134,8 +134,9 @@ class AIPage(ctk.CTkFrame):
             {"provider": "OpenAI", "api_key": api_key, "model": model},
         )
         self.status_label.configure(text="AI settings saved.")
-        messagebox.showinfo(
-            "AI Settings",
-            "AI settings saved successfully.",
-            parent=self,
+        show_message(
+            self,
+            "AI settings saved",
+            "AI settings were saved successfully.",
+            kind="success",
         )
