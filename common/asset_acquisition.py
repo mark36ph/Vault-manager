@@ -49,6 +49,12 @@ class AssetProvider(Protocol):
 Downloader = Callable[[str, Path], None]
 ProgressCallback = Callable[[str, int, int, str], None]
 
+_RELEVANCE_STOP_WORDS = {
+    "a", "an", "and", "the", "of", "for", "to", "in", "on", "with", "from",
+    "by", "at", "photo", "photography", "image", "video", "vertical", "portrait",
+    "realistic", "documentary", "close", "up",
+}
+
 
 def _download_headers(url: str) -> dict[str, str]:
     headers = {
@@ -89,6 +95,62 @@ def _safe_filename(
 
 def _candidate_key(candidate: AssetCandidate) -> str:
     return f"{candidate.provider}:{candidate.id or candidate.url}"
+
+
+def _relevance_words(value: str) -> list[str]:
+    """Return distinct meaningful words for query/candidate relevance checks."""
+    words = re.findall(r"[A-Za-z0-9]+", str(value or "").casefold())
+    result: list[str] = []
+    for word in words:
+        if len(word) < 3 or word in _RELEVANCE_STOP_WORDS or word in result:
+            continue
+        result.append(word)
+    return result
+
+
+def _candidate_search_text(candidate: AssetCandidate) -> str:
+    """Combine provider-visible candidate text without relying on provider-specific fields."""
+    metadata_text = " ".join(
+        str(value)
+        for value in candidate.metadata.values()
+        if isinstance(value, (str, int, float))
+    )
+    return " ".join((candidate.title, metadata_text))
+
+
+def _candidate_relevance(candidate: AssetCandidate, query: str) -> tuple[int, int, int, float]:
+    """Score lexical relevance, strongly weighting the query's subject words."""
+    query_words = _relevance_words(query)
+    if not query_words:
+        return (0, 0, 0, 0.0)
+
+    candidate_words = set(_relevance_words(_candidate_search_text(candidate)))
+    overlap = [word for word in query_words if word in candidate_words]
+
+    # Anchored production queries normally begin with a broad category followed
+    # by the concrete subject (for example, "Space Venus ..."). The second
+    # meaningful word is therefore more useful than a generic category match.
+    primary_subject = query_words[1] if len(query_words) > 1 else query_words[0]
+    subject_match = int(primary_subject in candidate_words)
+    leading_match = int(query_words[0] in candidate_words)
+    early_overlap = sum(1 for word in query_words[:4] if word in candidate_words)
+    coverage = len(overlap) / len(query_words)
+    return (subject_match, early_overlap, leading_match, coverage)
+
+
+def _prefer_subject_matches(candidates: list[AssetCandidate], query: str) -> list[AssetCandidate]:
+    """Drop obvious keyword-only distractors when subject-matching results exist."""
+    query_words = _relevance_words(query)
+    if len(query_words) < 2 or len(candidates) < 2:
+        return candidates
+
+    subject = query_words[1]
+    subject_matches = [
+        candidate
+        for candidate in candidates
+        if subject in set(_relevance_words(_candidate_search_text(candidate)))
+    ]
+    return subject_matches or candidates
 
 
 def _fallback_search_queries(query: str) -> tuple[str, ...]:
@@ -139,7 +201,12 @@ class AssetAcquisitionEngine:
             self.progress_callback(stage, current, total, message)
 
     @staticmethod
-    def rank(candidates: Iterable[AssetCandidate], *, target_ratio: float | None = None) -> list[AssetCandidate]:
+    def rank(
+        candidates: Iterable[AssetCandidate],
+        *,
+        target_ratio: float | None = None,
+        query: str = "",
+    ) -> list[AssetCandidate]:
         unique: dict[str, AssetCandidate] = {}
         for candidate in candidates:
             key = candidate.url or _candidate_key(candidate)
@@ -147,12 +214,24 @@ class AssetAcquisitionEngine:
             if previous is None or candidate.score > previous.score:
                 unique[key] = candidate
 
-        def ranking(candidate: AssetCandidate) -> tuple[float, int, float]:
+        def ranking(candidate: AssetCandidate) -> tuple[Any, ...]:
             pixels = max(0, candidate.width) * max(0, candidate.height)
             ratio_bonus = 0.0
             if target_ratio and candidate.width > 0 and candidate.height > 0:
                 ratio = candidate.width / candidate.height
                 ratio_bonus = max(0.0, 1.0 - abs(ratio - target_ratio))
+
+            if query:
+                # Relevance deliberately precedes provider popularity/likes so a
+                # very popular but off-topic Earth/UFO image cannot outrank a
+                # less-popular candidate that actually names the scene subject.
+                return (
+                    *_candidate_relevance(candidate, query),
+                    float(candidate.score) + ratio_bonus,
+                    pixels,
+                    -float(candidate.duration),
+                )
+
             return (float(candidate.score) + ratio_bonus, pixels, -float(candidate.duration))
 
         return sorted(unique.values(), key=ranking, reverse=True)
@@ -170,7 +249,8 @@ class AssetAcquisitionEngine:
                 errors.append(f"{provider.name}: {error}")
                 continue
             collected.extend(result for result in results if result.kind == kind and result.url)
-        ranked = self.rank(collected, target_ratio=target_ratio)
+        ranked = self.rank(collected, target_ratio=target_ratio, query=str(query))
+        ranked = _prefer_subject_matches(ranked, str(query))
         if not ranked and errors:
             raise AssetAcquisitionError("; ".join(errors))
         return ranked[:limit]
