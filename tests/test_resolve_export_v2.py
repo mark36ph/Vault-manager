@@ -1,6 +1,6 @@
 import json
+import shutil
 from pathlib import Path
-from urllib.parse import unquote, urlparse
 import xml.etree.ElementTree as ET
 
 import pytest
@@ -44,14 +44,6 @@ def make_timeline(source: Path):
     return Timeline(name="Tower", width=1080, height=1920, frame_rate=30, tracks=[track])
 
 
-def file_url_path(value):
-    parsed = urlparse(value)
-    path = unquote(parsed.path)
-    if len(path) >= 3 and path[0] == "/" and path[2] == ":":
-        path = path[1:]
-    return Path(path)
-
-
 def test_export_references_only_copied_portable_media(tmp_path):
     source = tmp_path / "project" / "Assets" / "tower.jpg"
     source.parent.mkdir(parents=True)
@@ -66,10 +58,34 @@ def test_export_references_only_copied_portable_media(tmp_path):
     assert result.remapped_media == 1
     assets = ET.parse(output).getroot().findall("./resources/asset")
     assert len(assets) == 1
-    referenced = file_url_path(assets[0].attrib["src"]).resolve()
-    assert referenced == copied.resolve()
-    assert referenced.is_file()
+    assert assets[0].attrib["src"] == "Media/Images/tower.jpg"
+    assert copied.is_file()
     assert str(source.resolve()) not in output.read_text(encoding="utf-8")
+
+
+def test_portable_fcpxml_still_valid_after_package_folder_moves(tmp_path):
+    source = tmp_path / "In Progress" / "Project" / "Assets" / "tower.jpg"
+    source.parent.mkdir(parents=True)
+    source.write_bytes(b"image")
+    package_root = tmp_path / "Portable" / "Project"
+    copied = package_root / "Media" / "Images" / "tower.jpg"
+    package = make_package(tmp_path, source, copied)
+    output = package.package_folder / "Tower.fcpxml"
+
+    export_resolve_free_v2(make_timeline(source), package, output)
+
+    moved_root = tmp_path / "Completed" / "Project"
+    moved_root.parent.mkdir(parents=True)
+    shutil.move(str(package.package_folder), str(moved_root))
+    moved_xml = moved_root / "Tower.fcpxml"
+    moved_media = moved_root / "Media" / "Images" / "tower.jpg"
+
+    validated = validate_fcpxml_media(
+        moved_xml,
+        moved_root,
+        expected_media=[moved_media],
+    )
+    assert validated == (moved_media.resolve(),)
 
 
 def test_validation_rejects_asset_outside_package(tmp_path):
