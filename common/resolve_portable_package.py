@@ -62,6 +62,88 @@ def _checksum(path: Path) -> str:
     return digest.hexdigest()
 
 
+def validate_package_manifest(
+    manifest_path: str | Path,
+    package_folder: str | Path,
+) -> tuple[Path, ...]:
+    """Verify manifest media paths, sizes, and SHA-256 checksums."""
+    manifest_path = Path(manifest_path)
+    package_root = Path(package_folder).resolve()
+    media_root = (package_root / "Media").resolve()
+
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise PortableResolvePackageError(
+            f"Could not read portable package manifest: {manifest_path}"
+        ) from error
+
+    if payload.get("format") != "factvault-resolve-package":
+        raise PortableResolvePackageError("Portable package manifest has an invalid format")
+
+    media = payload.get("media")
+    if not isinstance(media, list):
+        raise PortableResolvePackageError("Portable package manifest media list is invalid")
+
+    validated: list[Path] = []
+    failures: list[str] = []
+    seen_paths: set[Path] = set()
+
+    for index, item in enumerate(media, start=1):
+        if not isinstance(item, dict):
+            failures.append(f"Media entry {index} is invalid")
+            continue
+
+        package_path = str(item.get("package_path") or "").strip()
+        if not package_path:
+            failures.append(f"Media entry {index} has no package_path")
+            continue
+
+        path = (package_root / package_path).resolve()
+        try:
+            path.relative_to(media_root)
+        except ValueError:
+            failures.append(f"Manifest media is outside package Media folder: {path}")
+            continue
+
+        if path in seen_paths:
+            failures.append(f"Manifest contains duplicate media path: {package_path}")
+            continue
+        seen_paths.add(path)
+
+        if not path.is_file():
+            failures.append(f"Manifest media file is missing: {path}")
+            continue
+
+        try:
+            expected_size = int(item.get("size_bytes"))
+        except (TypeError, ValueError):
+            failures.append(f"Manifest size is invalid for: {package_path}")
+            continue
+
+        actual_size = path.stat().st_size
+        if actual_size != expected_size:
+            failures.append(
+                f"Manifest size mismatch for {package_path}: expected {expected_size}, got {actual_size}"
+            )
+            continue
+
+        expected_sha256 = str(item.get("sha256") or "").strip().lower()
+        actual_sha256 = _checksum(path)
+        if not expected_sha256 or actual_sha256 != expected_sha256:
+            failures.append(f"Manifest checksum mismatch for: {package_path}")
+            continue
+
+        validated.append(path)
+
+    if failures:
+        raise PortableResolvePackageError(
+            "Portable package manifest validation failed:\n" + "\n".join(failures)
+        )
+
+    return tuple(validated)
+
+
 def _srt_timestamp(seconds: float) -> str:
     milliseconds = max(0, int(round(float(seconds) * 1000)))
     hours, remainder = divmod(milliseconds, 3_600_000)
@@ -191,6 +273,7 @@ def export_portable_resolve_package(
     }
     manifest_path = package_folder / "package_manifest.json"
     manifest_path.write_text(json.dumps(manifest_payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    validate_package_manifest(manifest_path, package_folder)
 
     runner_source = complete.export_folder / "build_complete_resolve_timeline.py"
     runner_path = package_folder / "build_resolve_timeline.py"
@@ -227,4 +310,5 @@ __all__ = [
     "PortableResolvePackageError",
     "PortableResolvePackageResult",
     "export_portable_resolve_package",
+    "validate_package_manifest",
 ]
