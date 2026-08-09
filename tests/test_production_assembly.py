@@ -3,13 +3,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from common.asset_acquisition import AcquiredAsset, AssetCandidate
 from common.content_production import (
     ContentProductionEngine,
     ProductionCheckpointStore,
     ProductionContext,
 )
-from common.production_assembly import assemble_timeline, json_safe
+from common.production_assembly import (
+    ProductionAssemblyError,
+    assemble_timeline,
+    json_safe,
+)
 from timeline import Scene, Timeline
 
 
@@ -112,9 +118,43 @@ def test_assemble_timeline_adds_visual_for_each_scene(tmp_path):
     assert all(scene.clip_ids for scene in timeline.scenes)
 
 
+def test_assemble_timeline_rejects_too_few_acquired_visuals(tmp_path):
+    with pytest.raises(ProductionAssemblyError, match="1 asset.*2 scene"):
+        assemble_timeline(
+            timeline_with_scenes(),
+            [acquired(tmp_path / "only.jpg")],
+        )
+
+
+def test_assemble_timeline_rejects_missing_acquired_visual(tmp_path):
+    project = tmp_path / "Project"
+    project.mkdir()
+    first = project / "first.jpg"
+    first.write_bytes(b"image")
+    missing = project / "missing.jpg"
+
+    with pytest.raises(ProductionAssemblyError, match="missing from disk"):
+        assemble_timeline(
+            timeline_with_scenes(),
+            [acquired(first), acquired(missing)],
+            project_folder=project,
+        )
+
+
+def test_assemble_timeline_records_unique_visual_count(tmp_path):
+    shared = acquired(tmp_path / "shared.jpg")
+    timeline = assemble_timeline(
+        timeline_with_scenes(),
+        [shared, shared],
+    )
+
+    assert timeline.metadata["production_assets"] == 2
+    assert timeline.metadata["production_unique_assets"] == 1
+
+
 def test_assemble_timeline_accepts_restored_dictionary_assets(tmp_path):
     asset = json_safe(acquired(tmp_path / "image.jpg", provider="pixabay"))
-    timeline = assemble_timeline(timeline_with_scenes(), [asset])
+    timeline = assemble_timeline(timeline_with_scenes(), [asset, asset])
     clip = timeline.get_track("Visuals").clips[0]
     assert clip.metadata["provider"] == "pixabay"
     assert clip.metadata["credit"] == "Creator"
@@ -141,7 +181,7 @@ def test_assemble_timeline_resolves_relative_project_media_paths(tmp_path, monke
 
     timeline = assemble_timeline(
         timeline_with_scenes(),
-        [acquired(image)],
+        [acquired(image), acquired(image)],
         str(voice),
         project_folder=project,
     )
