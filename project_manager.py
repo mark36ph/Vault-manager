@@ -1,4 +1,5 @@
 import shutil
+import uuid
 from pathlib import Path
 from datetime import datetime
 from database import Database
@@ -126,23 +127,55 @@ class ProjectManager:
 
         return self.db.count_projects()
 
-    def delete_project(self, project_id):
+    def delete_project(self, project_id, delete_folder=True):
+        """Delete a project record, optionally deleting its project folder safely.
+
+        When the folder should also be removed, stage it beside the original first.
+        If the database delete fails, the folder is restored so the project is not
+        left with its files permanently removed.
+        """
         project = self.db.get_project(project_id)
 
         if project is None:
             return False
 
+        if not delete_folder:
+            self.db.delete_project(project_id)
+            return True
+
         project_folder = self.resolve_project_folder(project)
+        staged_folder = None
 
         if project_folder.exists():
-            shutil.rmtree(project_folder)
+            staged_folder = project_folder.with_name(
+                f".{project_folder.name}.delete-{uuid.uuid4().hex[:8]}"
+            )
+            if staged_folder.exists():
+                raise FileExistsError(
+                    f"Temporary delete folder already exists:\n{staged_folder}"
+                )
+            shutil.move(str(project_folder), str(staged_folder))
 
         try:
             self.db.delete_project(project_id)
         except Exception:
-            # Best-effort rollback is not possible after permanent folder deletion,
-            # so surface the error clearly.
+            if (
+                staged_folder is not None
+                and staged_folder.exists()
+                and not project_folder.exists()
+            ):
+                shutil.move(str(staged_folder), str(project_folder))
             raise
+
+        if staged_folder is not None and staged_folder.exists():
+            try:
+                shutil.rmtree(staged_folder)
+            except Exception as error:
+                raise RuntimeError(
+                    "The project record was deleted, but the staged project folder "
+                    "could not be removed. Your files were kept here:\n"
+                    f"{staged_folder}"
+                ) from error
 
         return True
 
