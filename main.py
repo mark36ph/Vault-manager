@@ -7,7 +7,7 @@ from common.narration_sync import NarrationSyncError, regenerate_narration
 from common.project_filters import in_progress_projects
 from common.provider_setup import ProviderSettingsStore, build_configured_providers
 from pages.media_library_page import MediaLibraryPage
-from pages.production_page import ProductionPage
+from pages.production_page import ProductionPage, format_elapsed
 from pages.settings_page import SettingsPage
 from widgets.asset_usage_tracking import install_asset_usage_tracking
 from ui.dashboard import Dashboard
@@ -114,6 +114,24 @@ def install_production_settings_links():
     ProductionPage._settings_links_installed = True
 
 
+def install_production_elapsed_timer():
+    """Keep the Production elapsed-time label ticking from the moment a run starts."""
+    if getattr(ProductionPage, "_elapsed_timer_installed", False):
+        return
+
+    def tick_elapsed(page):
+        if page.run_started_at is None:
+            return
+
+        page.elapsed_label.configure(
+            text=f"Elapsed {format_elapsed(time.monotonic() - page.run_started_at)}"
+        )
+        page.after(1000, page._tick_elapsed)
+
+    ProductionPage._tick_elapsed = tick_elapsed
+    ProductionPage._elapsed_timer_installed = True
+
+
 def load_production_page(app):
     """Load Production with only In Progress projects as dictionaries."""
     original_get_all_projects = app.pm.get_all_projects
@@ -161,6 +179,7 @@ ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 install_asset_usage_tracking()
 install_production_settings_links()
+install_production_elapsed_timer()
 
 app = Dashboard()
 add_media_library_button(app)
