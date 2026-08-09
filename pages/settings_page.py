@@ -115,16 +115,10 @@ class SettingsPage(BasePage):
             self.current_page.destroy()
             self.current_page = None
 
-    def _show_page(self, page_class, *, expand=True):
+    def _show_page(self, page_class):
         self.clear()
         self.current_page = page_class(self.content, self.pm, self.app)
-        self.current_page.pack(
-            fill="both" if expand else "x",
-            expand=expand,
-            anchor="n",
-            padx=1,
-            pady=1,
-        )
+        self.current_page.pack(fill="both", expand=True, padx=1, pady=1)
         self.current_page.focus_set()
 
     def show_general(self):
@@ -140,4 +134,4 @@ class SettingsPage(BasePage):
         self._show_page(ResolvePage)
 
     def show_about(self):
-        self._show_page(AboutPage, expand=False)
+        self._show_page(AboutPage)
