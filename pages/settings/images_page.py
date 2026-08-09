@@ -1,10 +1,10 @@
 import threading
-from tkinter import messagebox
 
 import customtkinter as ctk
 
 from common.settings_manager import SettingsManager
 from image_search import ImageSearchError, search_images
+from widgets.message_dialog import show_message
 
 
 class ImagesPage(ctk.CTkFrame):
@@ -177,25 +177,27 @@ class ImagesPage(ctk.CTkFrame):
         self.pixabay_key_entry.configure(show=show_value)
         self.pexels_key_entry.configure(show=show_value)
 
-    def save_settings(self, *, show_message=True):
+    def save_settings(self, *, show_dialog=True):
         provider = self.provider.get().strip()
         orientation = self.orientation.get().strip().lower()
         pixabay_key = self.pixabay_key_entry.get().strip()
         pexels_key = self.pexels_key_entry.get().strip()
 
         if provider not in self.VALID_PROVIDERS:
-            messagebox.showwarning(
-                "Image Settings",
+            show_message(
+                self,
+                "Image settings",
                 "Select a valid image provider.",
-                parent=self,
+                kind="warning",
             )
             return False
 
         if orientation not in self.VALID_ORIENTATIONS:
-            messagebox.showwarning(
-                "Image Settings",
+            show_message(
+                self,
+                "Image settings",
                 "Select a valid default orientation.",
-                parent=self,
+                kind="warning",
             )
             return False
 
@@ -210,11 +212,12 @@ class ImagesPage(ctk.CTkFrame):
         )
         self.status_label.configure(text="Image settings saved.")
 
-        if show_message:
-            messagebox.showinfo(
-                "Image Settings",
-                "Image settings saved successfully.",
-                parent=self,
+        if show_dialog:
+            show_message(
+                self,
+                "Image settings saved",
+                "Image settings were saved successfully.",
+                kind="success",
             )
         return True
 
@@ -225,22 +228,24 @@ class ImagesPage(ctk.CTkFrame):
         elif provider == "Pexels":
             api_key = self.pexels_key_entry.get().strip()
         else:
-            messagebox.showwarning(
-                "Image Settings",
+            show_message(
+                self,
+                "Image settings",
                 "Select a valid image provider.",
-                parent=self,
+                kind="warning",
             )
             return
 
         if not api_key:
-            messagebox.showwarning(
+            show_message(
+                self,
                 provider,
                 f"Enter a {provider} API key before testing.",
-                parent=self,
+                kind="warning",
             )
             return
 
-        if not self.save_settings(show_message=False):
+        if not self.save_settings(show_dialog=False):
             return
 
         self.test_button.configure(state="disabled", text="Testing...")
@@ -289,17 +294,23 @@ class ImagesPage(ctk.CTkFrame):
         self.test_button.configure(state="normal", text="Test connection")
         self.save_button.configure(state="normal")
         self.status_label.configure(text=f"{provider} connection successful.")
-        messagebox.showinfo(
-            provider,
+        show_message(
+            self,
+            f"{provider} connection successful",
             (
                 f"The {provider} connection was successful.\n\n"
                 f"Test results returned: {result_count}"
             ),
-            parent=self,
+            kind="success",
         )
 
     def connection_test_failed(self, provider, message):
         self.test_button.configure(state="normal", text="Test connection")
         self.save_button.configure(state="normal")
         self.status_label.configure(text=f"{provider} connection failed.")
-        messagebox.showerror(provider, message, parent=self)
+        show_message(
+            self,
+            f"{provider} connection failed",
+            message,
+            kind="error",
+        )
