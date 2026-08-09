@@ -3,6 +3,7 @@ from tkinter import messagebox
 
 import customtkinter as ctk
 
+from common.fcpxml_paths import rebase_fcpxml_media_paths
 from common.narration_sync import NarrationSyncError, regenerate_narration
 from common.project_filters import in_progress_projects
 from common.provider_setup import ProviderSettingsStore, build_configured_providers
@@ -166,6 +167,28 @@ def install_production_status_guard():
     ProductionPage._status_guard_installed = True
 
 
+def install_status_move_fcpxml_rebase(app):
+    """Rebase generated Resolve file URIs whenever a project status move changes its folder."""
+    original_change_status = app.pm.change_project_status
+
+    def change_project_status(project_id, new_status, scheduled_for=""):
+        before = app.pm.db.get_project(project_id)
+        old_folder = app.pm.resolve_project_folder(before) if before is not None else None
+
+        updated = original_change_status(project_id, new_status, scheduled_for)
+
+        if old_folder is not None and updated is not None:
+            try:
+                new_folder = app.pm.resolve_project_folder(updated)
+                rebase_fcpxml_media_paths(new_folder, old_folder, new_folder)
+            except Exception as error:
+                print(f"Could not rebase Resolve FCPXML media paths: {error}")
+
+        return updated
+
+    app.pm.change_project_status = change_project_status
+
+
 def load_production_page(app):
     """Load Production with only In Progress projects as dictionaries."""
     original_get_all_projects = app.pm.get_all_projects
@@ -258,6 +281,7 @@ install_production_elapsed_timer()
 install_production_status_guard()
 
 app = Dashboard()
+install_status_move_fcpxml_rebase(app)
 install_legacy_messagebox_bridge(app)
 add_media_library_button(app)
 add_production_button(app)
