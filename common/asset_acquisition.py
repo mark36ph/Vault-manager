@@ -98,7 +98,15 @@ def _fallback_search_queries(query: str) -> tuple[str, ...]:
     variants: list[str] = []
     seen = {original.casefold()}
 
-    for length in (12, 8, 5):
+    cleaned = " ".join(words).strip()
+    if cleaned and cleaned.casefold() not in seen:
+        variants.append(cleaned)
+        seen.add(cleaned.casefold())
+
+    # Stock-media APIs are much more reliable with short noun-heavy searches.
+    # Include a 9-word pass because generated visual prompts commonly prepend a
+    # concise fact/title before appending a more detailed scene description.
+    for length in (12, 9, 6, 4):
         if len(words) <= length:
             continue
         candidate = " ".join(words[:length]).strip()
@@ -106,10 +114,6 @@ def _fallback_search_queries(query: str) -> tuple[str, ...]:
         if candidate and key not in seen:
             variants.append(candidate)
             seen.add(key)
-
-    cleaned = " ".join(words).strip()
-    if cleaned and cleaned.casefold() not in seen:
-        variants.insert(0, cleaned)
 
     return tuple(variants)
 
