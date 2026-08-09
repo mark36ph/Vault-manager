@@ -72,6 +72,15 @@ class SettingsPage(BasePage):
             anchor="w",
         ).pack(fill="x", padx=14, pady=(16, 8))
 
+        pages = {
+            "general": self.show_general,
+            "integrity": self.show_integrity,
+            "images": self.show_images,
+            "resolve": self.show_resolve,
+            "ai": self.show_ai,
+            "about": self.show_about,
+        }
+
         self.add_button("general", "General", self.show_general)
         self.add_button("integrity", "Project Integrity", self.show_integrity)
         self.add_button("images", "Images", self.show_images)
@@ -79,7 +88,10 @@ class SettingsPage(BasePage):
         self.add_button("ai", "AI", self.show_ai)
         self.add_button("about", "About", self.show_about)
 
-        self.select_page("general", self.show_general)
+        saved_page = str(getattr(self.app, "_settings_selected_page", "general") or "general")
+        if saved_page not in pages:
+            saved_page = "general"
+        self.select_page(saved_page, pages[saved_page])
 
     def add_button(self, key, text, command):
         button = ctk.CTkButton(
@@ -99,6 +111,7 @@ class SettingsPage(BasePage):
         self.nav_buttons[key] = button
 
     def select_page(self, key, callback):
+        self.app._settings_selected_page = key
         for name, button in self.nav_buttons.items():
             if name == key:
                 button.configure(
