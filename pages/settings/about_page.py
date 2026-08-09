@@ -6,9 +6,14 @@ from common.update_manager import UpdateManager
 from widgets.update_dialog import UpdateDialog
 
 
-class AboutPage(ctk.CTkFrame):
+class AboutPage(ctk.CTkScrollableFrame):
     def __init__(self, parent, pm, app):
-        super().__init__(parent, fg_color="transparent")
+        super().__init__(
+            parent,
+            fg_color="transparent",
+            scrollbar_button_color=("#D0D5DD", "#3A404B"),
+            scrollbar_button_hover_color=("#98A2B3", "#596170"),
+        )
         self.app_info = AppInfo()
         self.updater = UpdateManager()
         self.build()
