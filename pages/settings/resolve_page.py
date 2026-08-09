@@ -5,6 +5,7 @@ import customtkinter as ctk
 
 from common.resolve_integration import inspect_resolve
 from common.settings_manager import SettingsManager
+from widgets.message_dialog import show_message
 
 
 class ResolvePage(ctk.CTkFrame):
@@ -190,7 +191,7 @@ class ResolvePage(ctk.CTkFrame):
             self.module_entry.delete(0, "end")
             self.module_entry.insert(0, path)
 
-    def save_settings(self):
+    def save_settings(self, *, show_message=True):
         try:
             width = int(self.width_entry.get())
             height = int(self.height_entry.get())
@@ -198,10 +199,17 @@ class ResolvePage(ctk.CTkFrame):
             if min(width, height, frame_rate) <= 0:
                 raise ValueError
         except ValueError:
-            self.status_label.configure(
-                text="Width, height, and frame rate must be positive whole numbers."
-            )
-            return
+            message = "Width, height, and frame rate must be positive whole numbers."
+            self.status_label.configure(text=message)
+            if show_message:
+                show_message_dialog = show_message
+                show_message_dialog(
+                    self,
+                    "Resolve settings",
+                    message,
+                    kind="warning",
+                )
+            return False
 
         self.settings.update_section(
             "resolve",
@@ -215,9 +223,19 @@ class ResolvePage(ctk.CTkFrame):
             },
         )
         self.status_label.configure(text="Resolve export settings saved.")
+        if show_message:
+            show_message_dialog = show_message
+            show_message_dialog(
+                self,
+                "Resolve settings saved",
+                "DaVinci Resolve export settings were saved successfully.",
+                kind="success",
+            )
+        return True
 
     def start_test(self):
-        self.save_settings()
+        if not self.save_settings(show_message=False):
+            return
         self.test_button.configure(state="disabled", text="Testing...")
         threading.Thread(target=self._test_connection, daemon=True).start()
 
