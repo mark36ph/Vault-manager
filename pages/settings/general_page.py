@@ -608,6 +608,90 @@ class GeneralPage(ctk.CTkScrollableFrame):
         finally:
             self.recover_orphan_button.configure(state="normal", text="Recover orphan")
 
+    def _confirm_orphan_delete(self, path):
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Delete Orphan Folder")
+        dialog.geometry("520x300")
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+        dialog.lift()
+        dialog.focus_force()
+        dialog.result = False
+
+        ctk.CTkLabel(
+            dialog,
+            text="Delete orphan folder?",
+            font=("Segoe UI", 21, "bold"),
+            anchor="w",
+        ).pack(fill="x", padx=24, pady=(24, 6))
+
+        ctk.CTkLabel(
+            dialog,
+            text=path.name,
+            font=("Segoe UI Emoji", 13, "bold"),
+            anchor="w",
+            justify="left",
+            wraplength=460,
+        ).pack(fill="x", padx=24, pady=(0, 10))
+
+        ctk.CTkLabel(
+            dialog,
+            text=(
+                "This folder is not linked to a database project. Deleting it will "
+                "permanently remove the folder and everything inside it."
+            ),
+            font=("Segoe UI", 12),
+            text_color=MUTED_TEXT,
+            anchor="w",
+            justify="left",
+            wraplength=460,
+        ).pack(fill="x", padx=24, pady=(0, 12))
+
+        ctk.CTkLabel(
+            dialog,
+            text="Deleting the folder cannot be undone.",
+            font=("Segoe UI", 12, "bold"),
+            text_color=ERROR_TEXT,
+            anchor="w",
+        ).pack(fill="x", padx=24)
+
+        buttons = ctk.CTkFrame(dialog, fg_color="transparent")
+        buttons.pack(side="bottom", fill="x", padx=24, pady=24)
+
+        def finish(result):
+            dialog.result = result
+            dialog.destroy()
+
+        dialog.protocol("WM_DELETE_WINDOW", lambda: finish(False))
+        dialog.bind("<Escape>", lambda _event: finish(False))
+
+        ctk.CTkButton(
+            buttons,
+            text="Delete Folder",
+            width=132,
+            height=36,
+            fg_color="#B42318",
+            hover_color="#912018",
+            command=lambda: finish(True),
+        ).pack(side="right")
+
+        ctk.CTkButton(
+            buttons,
+            text="Cancel",
+            width=88,
+            height=36,
+            fg_color="transparent",
+            border_width=1,
+            border_color=("#D0D5DD", "#3A404A"),
+            text_color=("#344054", "#D0D5DD"),
+            hover_color=("#F2F4F7", "#252A33"),
+            command=lambda: finish(False),
+        ).pack(side="left")
+
+        self.wait_window(dialog)
+        return dialog.result
+
     def delete_orphan_folder(self):
         try:
             issues = list(self.pm.check_project_integrity())
@@ -632,17 +716,7 @@ class GeneralPage(ctk.CTkScrollableFrame):
 
         folder = dialog.result
         path = Path(folder)
-        confirmed = messagebox.askyesno(
-            "Delete Orphan Folder",
-            (
-                "Permanently delete this orphan folder and everything inside it?\n\n"
-                f"{path}\n\n"
-                "This cannot be undone. No database project will be deleted."
-            ),
-            icon="warning",
-            parent=self,
-        )
-        if not confirmed:
+        if not self._confirm_orphan_delete(path):
             return
 
         self.delete_orphan_button.configure(state="disabled", text="Deleting...")
@@ -650,10 +724,9 @@ class GeneralPage(ctk.CTkScrollableFrame):
             delete_orphan_project(self.pm, folder)
             remaining = list(self.pm.check_project_integrity())
             self._render_integrity_issues(remaining)
-            messagebox.showinfo(
-                "Delete Orphan Folder",
-                f"Deleted orphan folder:\n{path}",
-                parent=self,
+            self.integrity_status.configure(
+                text=f"Deleted orphan folder: {path.name}",
+                text_color=READY_TEXT,
             )
         except Exception as error:
             messagebox.showerror("Delete Orphan Folder", str(error), parent=self)
