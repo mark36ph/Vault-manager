@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-from tkinter import messagebox
 
 import customtkinter as ctk
 
@@ -137,20 +136,79 @@ class EditTemplatePage(BasePage):
 
             self.textboxes[file.name] = textbox
 
+    def _show_message(self, title, message, *, error=False):
+        dialog = ctk.CTkToplevel(self)
+        dialog.title(title)
+        dialog.geometry("420x210")
+        dialog.resizable(False, False)
+        dialog.transient(self)
+        dialog.grab_set()
+        dialog.lift()
+        dialog.focus_force()
+
+        shell = ctk.CTkFrame(
+            dialog,
+            fg_color=("#FFFFFF", "#181B21"),
+            corner_radius=10,
+            border_width=1,
+            border_color=("#E4E7EC", "#2A2F38"),
+        )
+        shell.pack(fill="both", expand=True, padx=14, pady=14)
+
+        ctk.CTkLabel(
+            shell,
+            text=title,
+            font=("Segoe UI", 19, "bold"),
+            anchor="w",
+            text_color=("#B42318", "#FDA29B") if error else None,
+        ).pack(fill="x", padx=16, pady=(16, 6))
+
+        ctk.CTkLabel(
+            shell,
+            text=message,
+            font=("Segoe UI", 12),
+            text_color=("#667085", "#AEB4BF"),
+            anchor="w",
+            justify="left",
+            wraplength=350,
+        ).pack(fill="x", padx=16, pady=(0, 12))
+
+        ctk.CTkButton(
+            shell,
+            text="OK",
+            width=88,
+            height=34,
+            command=dialog.destroy,
+        ).pack(anchor="e", padx=16, pady=(0, 16))
+
+        dialog.bind("<Return>", lambda _event: dialog.destroy())
+        dialog.bind("<Escape>", lambda _event: dialog.destroy())
+        dialog.protocol("WM_DELETE_WINDOW", dialog.destroy)
+
     def save_template(self):
         try:
+            if not self.folder.exists():
+                raise FileNotFoundError("Template folder not found.")
+
             for filename, textbox in self.textboxes.items():
                 path = self.folder / filename
                 path.write_text(
                     textbox.get("1.0", "end").rstrip(),
                     encoding="utf-8",
                 )
-            messagebox.showinfo("Saved", "Template saved successfully.")
+
+            self._show_message(
+                "Template Saved",
+                f"'{self.template_name}' was saved successfully.",
+            )
         except Exception as error:
-            messagebox.showerror("Error", str(error))
+            self._show_message("Save Failed", str(error), error=True)
 
     def open_folder(self):
         if self.folder.exists():
-            os.startfile(self.folder)
+            try:
+                os.startfile(self.folder)
+            except Exception as error:
+                self._show_message("Open Folder Failed", str(error), error=True)
         else:
-            messagebox.showerror("Error", "Template folder not found.")
+            self._show_message("Folder Not Found", "Template folder not found.", error=True)
