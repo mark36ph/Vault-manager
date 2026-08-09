@@ -5,6 +5,7 @@ from pages.settings.about_page import AboutPage
 from pages.settings.ai_page import AIPage
 from pages.settings.general_page import GeneralPage
 from pages.settings.images_page import ImagesPage
+from pages.settings.integrity_page import IntegrityPage
 from pages.settings.resolve_page import ResolvePage
 
 
@@ -24,7 +25,7 @@ class SettingsPage(BasePage):
 
         self.subtitle = ctk.CTkLabel(
             self,
-            text="App preferences, providers, Resolve export, and version information.",
+            text="App preferences, project integrity, providers, Resolve export, and version information.",
             font=("Segoe UI", 13),
             text_color=("#667085", "#8F96A3"),
             anchor="w",
@@ -72,6 +73,7 @@ class SettingsPage(BasePage):
         ).pack(fill="x", padx=14, pady=(16, 8))
 
         self.add_button("general", "General", self.show_general)
+        self.add_button("integrity", "Project Integrity", self.show_integrity)
         self.add_button("images", "Images", self.show_images)
         self.add_button("resolve", "DaVinci Resolve", self.show_resolve)
         self.add_button("ai", "AI", self.show_ai)
@@ -131,6 +133,9 @@ class SettingsPage(BasePage):
 
     def show_general(self):
         self._show_page(GeneralPage)
+
+    def show_integrity(self):
+        self._show_page(IntegrityPage)
 
     def show_images(self):
         self._show_page(ImagesPage)
