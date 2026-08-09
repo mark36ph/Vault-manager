@@ -132,6 +132,36 @@ def install_production_elapsed_timer():
     ProductionPage._elapsed_timer_installed = True
 
 
+def install_production_status_guard():
+    """Keep completed projects viewable without allowing an accidental rerun."""
+    if getattr(ProductionPage, "_status_guard_installed", False):
+        return
+
+    original_refresh_credentials = ProductionPage._refresh_credentials
+    original_start = ProductionPage._start
+
+    def refresh_credentials(page, settings):
+        original_refresh_credentials(page, settings)
+        project = page._selected_project()
+        if project is not None and str(project.get("status") or "") != "In Progress":
+            page.start_button.configure(state="disabled")
+
+    def start(page, *, resume: bool):
+        project = page._selected_project()
+        if project is not None and str(project.get("status") or "") != "In Progress":
+            messagebox.showinfo(
+                "Production",
+                "This project is already complete. Move it back to In Progress before producing it again.",
+                parent=page,
+            )
+            return
+        return original_start(page, resume=resume)
+
+    ProductionPage._refresh_credentials = refresh_credentials
+    ProductionPage._start = start
+    ProductionPage._status_guard_installed = True
+
+
 def load_production_page(app):
     """Load Production with only In Progress projects as dictionaries."""
     original_get_all_projects = app.pm.get_all_projects
@@ -180,6 +210,7 @@ ctk.set_default_color_theme("blue")
 install_asset_usage_tracking()
 install_production_settings_links()
 install_production_elapsed_timer()
+install_production_status_guard()
 
 app = Dashboard()
 add_media_library_button(app)
