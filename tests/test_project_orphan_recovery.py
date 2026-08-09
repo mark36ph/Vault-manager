@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -44,3 +45,33 @@ def test_recover_orphan_project_rejects_nested_folder(project_manager):
 
     with pytest.raises(ValueError, match="directly inside a status folder"):
         recover_orphan_project(pm, nested, category="Misc")
+
+
+def test_recover_scheduled_orphan_requires_future_schedule(project_manager):
+    pm = project_manager
+    orphan = pm.get_projects_root() / "Scheduled" / "Needs Schedule"
+    orphan.mkdir(parents=True)
+
+    with pytest.raises(ValueError, match="require a date and time"):
+        recover_orphan_project(pm, orphan, category="Misc")
+
+    assert pm.db.get_projects() == []
+    assert orphan.exists()
+
+
+def test_recover_scheduled_orphan_restores_schedule(project_manager):
+    pm = project_manager
+    orphan = pm.get_projects_root() / "Scheduled" / "Scheduled Recovery"
+    orphan.mkdir(parents=True)
+    scheduled_for = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%d %H:%M")
+
+    recovered = recover_orphan_project(
+        pm,
+        orphan,
+        category="History",
+        scheduled_for=scheduled_for,
+    )
+
+    assert recovered["status"] == "Scheduled"
+    assert recovered["scheduled_for"] == scheduled_for
+    assert pm.check_project_integrity() == []
