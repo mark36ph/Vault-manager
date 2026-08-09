@@ -1,12 +1,15 @@
 from pathlib import Path
 
 import customtkinter as ctk
-from tkinter import messagebox
 
+from common.app_info import AppInfo
 from common.project_integrity_repair import SAFE_REPAIR_TYPES, repair_safe_project_integrity
 from common.project_orphan_deletion import delete_orphan_project
 from common.project_orphan_recovery import recover_orphan_project
+from common.settings_manager import SettingsManager
+from common.ui_state import KeyboardScrollBinding
 from dialogs.orphan_delete_dialog import OrphanDeleteDialog
+from widgets.message_dialog import ask_confirmation, show_message
 
 
 MUTED_TEXT = ("#667085", "#8F96A3")
@@ -238,7 +241,10 @@ class IntegrityPage(ctk.CTkScrollableFrame):
         )
         self.pm = pm
         self.app = app
+        self.settings = SettingsManager()
+        self.app_info = AppInfo()
         self.build()
+        self.keyboard_scroll = KeyboardScrollBinding(self, self)
 
     def build(self):
         ctk.CTkLabel(
@@ -355,6 +361,86 @@ class IntegrityPage(ctk.CTkScrollableFrame):
         self.integrity_report.pack(fill="x", padx=14, pady=(0, 14))
         self._set_integrity_report("Run Check integrity to scan project records and folders.")
 
+        self._build_diagnostics()
+
+    def _build_diagnostics(self):
+        card = ctk.CTkFrame(
+            self,
+            corner_radius=8,
+            border_width=1,
+            border_color=("#E4E7EC", "#2A3039"),
+            fg_color=("#FFFFFF", "#181B21"),
+        )
+        card.pack(fill="x", padx=4, pady=(0, 10))
+
+        ctk.CTkLabel(
+            card,
+            text="App diagnostics",
+            font=("Segoe UI", 14, "bold"),
+        ).pack(anchor="w", padx=14, pady=(12, 2))
+        ctk.CTkLabel(
+            card,
+            text="Configuration summary only — API keys are never displayed.",
+            font=("Segoe UI", 11),
+            text_color=MUTED_TEXT,
+        ).pack(anchor="w", padx=14, pady=(2, 10))
+
+        version = self.app_info.get("version", "Unknown")
+        build = self.app_info.get("build", "")
+        version_text = f"v{version}" + (f" • Build {build}" if build not in (None, "") else "")
+
+        db_path = Path(getattr(self.pm.db, "db_path", "data/factvault.db")).resolve()
+        db_state = "Ready" if db_path.exists() else "Not found"
+
+        try:
+            projects_root = self.pm.get_projects_root()
+            projects_text = str(projects_root)
+            projects_state = "Ready" if projects_root.exists() else "Folder not found"
+        except Exception:
+            projects_text = "Not configured"
+            projects_state = "Needs setup"
+
+        ai_ready = bool(str(self.settings.get("ai", "api_key", "") or "").strip())
+        provider = str(self.settings.get("images", "provider", "Pixabay") or "Pixabay")
+        image_key_name = "pexels_api_key" if provider == "Pexels" else "pixabay_api_key"
+        images_ready = bool(str(self.settings.get("images", image_key_name, "") or "").strip())
+
+        width = self.settings.get("resolve", "timeline_width", 1080)
+        height = self.settings.get("resolve", "timeline_height", 1920)
+        frame_rate = self.settings.get("resolve", "frame_rate", 30)
+
+        self._diagnostic_row(card, "App version", version_text, "Ready", True)
+        self._diagnostic_row(card, "Database", str(db_path), db_state, db_path.exists())
+        self._diagnostic_row(card, "Projects folder", projects_text, projects_state, projects_state == "Ready")
+        self._diagnostic_row(card, "OpenAI", "API key configured" if ai_ready else "API key missing", "Ready" if ai_ready else "Needs setup", ai_ready)
+        self._diagnostic_row(card, "Images", f"{provider} • " + ("API key configured" if images_ready else "API key missing"), "Ready" if images_ready else "Needs setup", images_ready)
+        self._diagnostic_row(card, "Resolve export", f"{width} × {height} @ {frame_rate} fps", "Ready", True, last=True)
+
+    def _diagnostic_row(self, parent, label, value, state, ready, *, last=False):
+        row = ctk.CTkFrame(parent, fg_color="transparent")
+        row.pack(fill="x", padx=14, pady=(2, 8 if not last else 12))
+        ctk.CTkLabel(
+            row,
+            text=label,
+            width=112,
+            font=("Segoe UI", 11, "bold"),
+            anchor="w",
+        ).pack(side="left")
+        ctk.CTkLabel(
+            row,
+            text=value,
+            font=("Segoe UI", 10),
+            text_color=MUTED_TEXT,
+            anchor="w",
+        ).pack(side="left", fill="x", expand=True, padx=(8, 12))
+        ctk.CTkLabel(
+            row,
+            text=state,
+            font=("Segoe UI", 10, "bold"),
+            text_color=READY_TEXT if ready else WARNING_TEXT,
+            anchor="e",
+        ).pack(side="right")
+
     def _set_integrity_report(self, text):
         self.integrity_report.configure(state="normal")
         self.integrity_report.delete("1.0", "end")
@@ -390,7 +476,7 @@ class IntegrityPage(ctk.CTkScrollableFrame):
                 text_color=ERROR_TEXT,
             )
             self._set_integrity_report(str(error))
-            messagebox.showerror("Project Integrity", str(error), parent=self)
+            show_message(self, "Project Integrity", str(error), kind="error")
             return
         self._render_integrity_issues(issues)
 
@@ -398,26 +484,27 @@ class IntegrityPage(ctk.CTkScrollableFrame):
         try:
             issues = list(self.pm.check_project_integrity())
         except Exception as error:
-            messagebox.showerror("Project Integrity", str(error), parent=self)
+            show_message(self, "Project Integrity", str(error), kind="error")
             return
 
         safe, _manual = self._render_integrity_issues(issues)
         if not safe:
-            messagebox.showinfo(
+            show_message(
+                self,
                 "Project Integrity",
                 "There are no safe repair candidates. Manual-review issues were not changed.",
-                parent=self,
             )
             return
 
-        confirmed = messagebox.askyesno(
+        confirmed = ask_confirmation(
+            self,
             "Repair Safe Issues",
             (
                 f"Repair {len(safe)} safe candidate(s)?\n\n"
                 "This can clear stale schedules and correct safe stored folder paths. "
                 "It will not move or delete project files."
             ),
-            parent=self,
+            confirm_text="Repair issues",
         )
         if not confirmed:
             return
@@ -435,16 +522,18 @@ class IntegrityPage(ctk.CTkScrollableFrame):
                 f"Skipped {len(skipped)} issue(s). "
                 f"Errors: {len(errors)}."
             )
-            if errors:
-                messagebox.showwarning("Project Integrity", summary, parent=self)
-            else:
-                messagebox.showinfo("Project Integrity", summary, parent=self)
+            show_message(
+                self,
+                "Project Integrity",
+                summary,
+                kind="warning" if errors else "success",
+            )
         except Exception as error:
             self.integrity_status.configure(
                 text="Safe repair failed.",
                 text_color=ERROR_TEXT,
             )
-            messagebox.showerror("Project Integrity", str(error), parent=self)
+            show_message(self, "Project Integrity", str(error), kind="error")
         finally:
             self.repair_integrity_button.configure(state="normal", text="Repair safe issues")
 
@@ -452,16 +541,16 @@ class IntegrityPage(ctk.CTkScrollableFrame):
         try:
             issues = list(self.pm.check_project_integrity())
         except Exception as error:
-            messagebox.showerror("Project Integrity", str(error), parent=self)
+            show_message(self, "Project Integrity", str(error), kind="error")
             return
 
         orphans = orphan_integrity_issues(issues)
         self._render_integrity_issues(issues)
         if not orphans:
-            messagebox.showinfo(
+            show_message(
+                self,
                 "Recover Orphan Project",
                 "No orphan project folders were found.",
-                parent=self,
             )
             return
 
@@ -483,7 +572,8 @@ class IntegrityPage(ctk.CTkScrollableFrame):
                 f"'{target_status}' intact."
             )
 
-        confirmed = messagebox.askyesno(
+        confirmed = ask_confirmation(
+            self,
             "Recover Orphan Project",
             (
                 f"Recover this existing folder as a project?\n\n"
@@ -492,7 +582,7 @@ class IntegrityPage(ctk.CTkScrollableFrame):
                 f"Category: {category}"
                 f"{move_note}"
             ),
-            parent=self,
+            confirm_text="Recover project",
         )
         if not confirmed:
             return
@@ -507,16 +597,17 @@ class IntegrityPage(ctk.CTkScrollableFrame):
             )
             remaining = list(self.pm.check_project_integrity())
             self._render_integrity_issues(remaining)
-            messagebox.showinfo(
+            show_message(
+                self,
                 "Recover Orphan Project",
                 (
                     f"Recovered '{recovered['title']}' as {recovered['status']}.\n\n"
                     "The project files were kept intact."
                 ),
-                parent=self,
+                kind="success",
             )
         except Exception as error:
-            messagebox.showerror("Recover Orphan Project", str(error), parent=self)
+            show_message(self, "Recover Orphan Project", str(error), kind="error")
         finally:
             self.recover_orphan_button.configure(state="normal", text="Recover orphan")
 
@@ -603,16 +694,16 @@ class IntegrityPage(ctk.CTkScrollableFrame):
         try:
             issues = list(self.pm.check_project_integrity())
         except Exception as error:
-            messagebox.showerror("Project Integrity", str(error), parent=self)
+            show_message(self, "Project Integrity", str(error), kind="error")
             return
 
         orphans = orphan_integrity_issues(issues)
         self._render_integrity_issues(issues)
         if not orphans:
-            messagebox.showinfo(
+            show_message(
+                self,
                 "Delete Orphan Folder",
                 "No orphan project folders were found.",
-                parent=self,
             )
             return
 
@@ -636,6 +727,6 @@ class IntegrityPage(ctk.CTkScrollableFrame):
                 text_color=READY_TEXT,
             )
         except Exception as error:
-            messagebox.showerror("Delete Orphan Folder", str(error), parent=self)
+            show_message(self, "Delete Orphan Folder", str(error), kind="error")
         finally:
             self.delete_orphan_button.configure(state="normal", text="Delete orphan")
