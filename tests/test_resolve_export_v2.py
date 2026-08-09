@@ -83,8 +83,40 @@ def test_validation_rejects_asset_outside_package(tmp_path):
         + '"/></resources></fcpxml>',
         encoding="utf-8",
     )
-    with pytest.raises(ResolveExportV2Error, match="outside portable package"):
+    with pytest.raises(ResolveExportV2Error, match="outside portable package Media folder"):
         validate_fcpxml_media(xml, xml.parent)
+
+
+def test_validation_rejects_asset_inside_package_but_outside_media_folder(tmp_path):
+    package = tmp_path / "Portable" / "Project"
+    metadata = package / "Metadata" / "not-media.jpg"
+    metadata.parent.mkdir(parents=True)
+    metadata.write_bytes(b"image")
+    xml = package / "bad.fcpxml"
+    xml.write_text(
+        '<?xml version="1.0"?><fcpxml><resources><asset src="'
+        + metadata.resolve().as_uri()
+        + '"/></resources></fcpxml>',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ResolveExportV2Error, match="outside portable package Media folder"):
+        validate_fcpxml_media(xml, package)
+
+
+def test_validation_requires_expected_media_to_be_referenced(tmp_path):
+    package = tmp_path / "Portable" / "Project"
+    expected = package / "Media" / "Images" / "tower.jpg"
+    expected.parent.mkdir(parents=True)
+    expected.write_bytes(b"image")
+    xml = package / "missing.fcpxml"
+    xml.write_text(
+        '<?xml version="1.0"?><fcpxml><resources></resources></fcpxml>',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ResolveExportV2Error, match="Expected media is not referenced"):
+        validate_fcpxml_media(xml, package, expected_media=[expected])
 
 
 def test_export_fails_when_manifest_does_not_map_clip(tmp_path):
