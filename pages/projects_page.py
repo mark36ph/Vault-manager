@@ -13,7 +13,8 @@ class ProjectsPage(BasePage):
         super().__init__(parent, pm, "Projects")
 
         self.app = app
-        self.current_status = "All"
+        saved_status = getattr(self.app, "_projects_status_filter", "All")
+        self.current_status = saved_status if saved_status in self.STATUSES else "All"
         self.filter_buttons = {}
 
         # Replace the large BasePage heading with a compact page header.
@@ -139,7 +140,10 @@ class ProjectsPage(BasePage):
         self.load_projects()
 
     def set_status_filter(self, status):
+        if status not in self.STATUSES:
+            status = "All"
         self.current_status = status
+        self.app._projects_status_filter = status
         self._update_filter_styles()
         self.load_projects()
 
