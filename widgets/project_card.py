@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from datetime import datetime, timedelta
-from tkinter import messagebox
+
+from widgets.message_dialog import show_message
 
 
 class ScheduleDialog(ctk.CTkToplevel):
@@ -347,7 +348,7 @@ class ProjectCard(ctk.CTkFrame):
                 scheduled_for=scheduled_value,
             )
         except Exception as error:
-            messagebox.showerror("Status Change Failed", str(error), parent=self)
+            show_message(self, "Status Change Failed", str(error), kind="error")
             if self.refresh_callback:
                 self.refresh_callback()
             return
@@ -359,7 +360,7 @@ class ProjectCard(ctk.CTkFrame):
         try:
             self.app.pm.db.toggle_project_pinned(self.project["id"])
         except Exception as error:
-            messagebox.showerror("Pin Project", str(error), parent=self)
+            show_message(self, "Pin Project", str(error), kind="error")
             return
 
         if self.refresh_callback:
