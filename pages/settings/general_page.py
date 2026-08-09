@@ -1,7 +1,8 @@
 import customtkinter as ctk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog
 
 from common.settings_manager import SettingsManager
+from widgets.message_dialog import show_message
 
 
 MUTED_TEXT = ("#667085", "#8F96A3")
@@ -161,4 +162,9 @@ class GeneralPage(ctk.CTkScrollableFrame):
             self.theme.get().lower(),
         )
         ctk.set_appearance_mode(self.theme.get())
-        messagebox.showinfo("Settings", "Settings saved successfully.")
+        show_message(
+            self,
+            "Settings saved",
+            "General settings were saved successfully.",
+            kind="success",
+        )
