@@ -1,7 +1,6 @@
 import time
 
 import customtkinter as ctk
-from tkinter import messagebox
 
 from common.narration_sync import NarrationSyncError, regenerate_narration
 from common.project_filters import in_progress_projects
@@ -10,6 +9,7 @@ from pages.media_library_page import MediaLibraryPage
 from pages.production_page import ProductionPage, format_elapsed
 from pages.settings_page import SettingsPage
 from widgets.asset_usage_tracking import install_asset_usage_tracking
+from widgets.message_dialog import show_message
 from ui.dashboard import Dashboard
 
 
@@ -56,7 +56,7 @@ def regenerate_saved_narration(page):
     folder = page._project_folder()
     project = page._selected_project()
     if folder is None or project is None:
-        messagebox.showerror("Narration", "Select a valid project.")
+        show_message(page, "Narration", "Select a valid project.", kind="error")
         return
     try:
         settings = ProviderSettingsStore(folder).load()
@@ -68,14 +68,16 @@ def regenerate_saved_narration(page):
         page._append_log(
             f"Narration regenerated from {result.word_count} words: {result.audio_path.name}"
         )
-        messagebox.showinfo(
+        show_message(
+            page,
             "Narration regenerated",
             "Narration now matches the script stored in the project database.\n\n"
             "Use Export to Resolve Free again to rebuild the portable package.",
+            kind="success",
         )
     except (NarrationSyncError, OSError, RuntimeError, ValueError) as error:
         page._append_log(f"Narration regeneration failed: {error}")
-        messagebox.showerror("Narration", str(error))
+        show_message(page, "Narration", str(error), kind="error")
 
 
 def install_production_settings_links():
@@ -149,10 +151,11 @@ def install_production_status_guard():
     def start(page, *, resume: bool):
         project = page._selected_project()
         if project is not None and str(project.get("status") or "") != "In Progress":
-            messagebox.showinfo(
+            show_message(
+                page,
                 "Production",
                 "This project is already complete. Move it back to In Progress before producing it again.",
-                parent=page,
+                kind="info",
             )
             return
         return original_start(page, resume=resume)
