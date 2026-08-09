@@ -1,6 +1,7 @@
 import customtkinter as ctk
 
 from common.settings_manager import SettingsManager
+from common.ui_state import DirtyStateTracker
 from widgets.message_dialog import show_message
 
 
@@ -11,6 +12,11 @@ class AIPage(ctk.CTkFrame):
         super().__init__(parent, fg_color="transparent")
         self.settings = SettingsManager()
         self.build()
+        self.dirty_tracker = DirtyStateTracker(
+            self,
+            self._settings_snapshot,
+            self.unsaved_label,
+        )
 
     def build(self):
         ctk.CTkLabel(
@@ -101,14 +107,23 @@ class AIPage(ctk.CTkFrame):
         )
         self.status_label.pack(side="left")
 
-        ctk.CTkButton(
+        self.unsaved_label = ctk.CTkLabel(
+            footer,
+            text="",
+            font=("Segoe UI", 11, "bold"),
+            text_color=("#B54708", "#FEC84B"),
+        )
+        self.unsaved_label.pack(side="left", padx=(12, 0))
+
+        self.save_button = ctk.CTkButton(
             footer,
             text="Save changes",
             width=126,
             height=36,
             corner_radius=7,
             command=self.save_settings,
-        ).pack(side="right")
+        )
+        self.save_button.pack(side="right")
 
     def _section(self, title):
         frame = ctk.CTkFrame(
@@ -126,6 +141,12 @@ class AIPage(ctk.CTkFrame):
         ).pack(anchor="w", padx=14, pady=(12, 2))
         return frame
 
+    def _settings_snapshot(self):
+        return (
+            self.api_key_entry.get().strip(),
+            self.model_entry.get().strip() or "gpt-5-mini",
+        )
+
     def save_settings(self):
         api_key = self.api_key_entry.get().strip()
         model = self.model_entry.get().strip() or "gpt-5-mini"
@@ -134,6 +155,7 @@ class AIPage(ctk.CTkFrame):
             {"provider": "OpenAI", "api_key": api_key, "model": model},
         )
         self.status_label.configure(text="AI settings saved.")
+        self.dirty_tracker.mark_clean()
         show_message(
             self,
             "AI settings saved",
