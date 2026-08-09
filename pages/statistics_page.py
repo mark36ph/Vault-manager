@@ -9,6 +9,7 @@ from pages.base_page import BasePage
 MUTED_TEXT = ("#667085", "#8F96A3")
 CARD_BG = ("#FFFFFF", "#181B21")
 CARD_BORDER = ("#E4E7EC", "#2A2F38")
+WARNING_TEXT = ("#B54708", "#FEC84B")
 
 
 class StatisticsPage(BasePage):
@@ -51,6 +52,26 @@ class StatisticsPage(BasePage):
         finished = completed + published
         completion_ratio = finished / total if total else 0
 
+        now = datetime.now()
+        created_this_month = sum(
+            1 for project in projects if self._is_same_month(project.get("created"), now)
+        )
+        completed_this_month = sum(
+            1
+            for project in projects
+            if str(project.get("status") or "") == "Completed"
+            and self._is_same_month(project.get("updated") or project.get("created"), now)
+        )
+        published_this_month = sum(
+            1
+            for project in projects
+            if str(project.get("status") or "") == "Published"
+            and self._is_same_month(project.get("updated") or project.get("created"), now)
+        )
+        overdue_scheduled = sum(
+            1 for project in projects if self._is_overdue_scheduled(project, now)
+        )
+
         body = ctk.CTkScrollableFrame(
             self.content,
             fg_color="transparent",
@@ -59,6 +80,22 @@ class StatisticsPage(BasePage):
         )
         body.pack(fill="both", expand=True)
         self.body = body
+
+        actions = ctk.CTkFrame(body, fg_color="transparent")
+        actions.pack(fill="x", pady=(0, 8))
+        ctk.CTkButton(
+            actions,
+            text="Refresh",
+            width=82,
+            height=32,
+            corner_radius=7,
+            fg_color="transparent",
+            border_width=1,
+            border_color=("#D0D5DD", "#3A404B"),
+            text_color=("#344054", "#D0D5DD"),
+            hover_color=("#F2F4F7", "#252A33"),
+            command=self.refresh,
+        ).pack(side="right")
 
         overview = ctk.CTkFrame(body, fg_color="transparent")
         overview.pack(fill="x")
@@ -74,6 +111,30 @@ class StatisticsPage(BasePage):
 
         for column, (title, value, detail) in enumerate(overview_stats):
             self._metric_card(overview, column, title, value, detail)
+
+        month_card = self._card(body)
+        month_card.pack(fill="x", pady=(0, 10))
+        self._section_heading(
+            month_card,
+            "This month",
+            now.strftime("Activity for %B %Y."),
+        )
+        month_grid = ctk.CTkFrame(month_card, fg_color="transparent")
+        month_grid.pack(fill="x", padx=16, pady=(0, 14))
+        month_grid.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        self._mini_stat(month_grid, 0, "Created", created_this_month)
+        self._mini_stat(month_grid, 1, "Completed", completed_this_month)
+        self._mini_stat(month_grid, 2, "Published", published_this_month)
+        self._mini_stat(month_grid, 3, "Overdue scheduled", overdue_scheduled)
+
+        if overdue_scheduled:
+            ctk.CTkLabel(
+                month_card,
+                text=f"{overdue_scheduled} scheduled project(s) have a publish time in the past.",
+                font=("Segoe UI", 11, "bold"),
+                text_color=WARNING_TEXT,
+                anchor="w",
+            ).pack(fill="x", padx=16, pady=(0, 14))
 
         main = ctk.CTkFrame(body, fg_color="transparent")
         main.pack(fill="x", pady=(2, 10))
@@ -165,7 +226,7 @@ class StatisticsPage(BasePage):
             "Upcoming schedule",
             "The next projects currently waiting to publish.",
         )
-        self._build_schedule(schedule_card, projects)
+        self._build_schedule(schedule_card, projects, now)
 
         recent_card = self._card(body)
         recent_card.pack(fill="x", pady=(0, 4))
@@ -175,6 +236,12 @@ class StatisticsPage(BasePage):
             "Most recently created or updated projects.",
         )
         self._build_recent(recent_card, projects)
+
+    def refresh(self):
+        if self.body is not None:
+            self.body.destroy()
+            self.body = None
+        self.build()
 
     def _install_keyboard_scrolling(self):
         """Allow the active Statistics page to scroll with the keyboard."""
@@ -327,7 +394,7 @@ class StatisticsPage(BasePage):
 
         ctk.CTkFrame(parent, height=5, fg_color="transparent").pack()
 
-    def _build_schedule(self, parent, projects):
+    def _build_schedule(self, parent, projects, now):
         scheduled = [
             project
             for project in projects
@@ -349,11 +416,18 @@ class StatisticsPage(BasePage):
                 font=("Segoe UI", 11, "bold"),
                 anchor="w",
             ).pack(fill="x")
+
+            scheduled_for = str(project.get("scheduled_for") or "")
+            is_overdue = self._is_overdue_scheduled(project, now)
             ctk.CTkLabel(
                 row,
-                text=self._pretty_date(str(project.get("scheduled_for") or "")),
-                font=("Segoe UI", 10),
-                text_color=MUTED_TEXT,
+                text=(
+                    f"Overdue • {self._pretty_date(scheduled_for)}"
+                    if is_overdue
+                    else self._pretty_date(scheduled_for)
+                ),
+                font=("Segoe UI", 10, "bold" if is_overdue else "normal"),
+                text_color=WARNING_TEXT if is_overdue else MUTED_TEXT,
                 anchor="w",
             ).pack(fill="x", pady=(1, 0))
 
@@ -412,14 +486,32 @@ class StatisticsPage(BasePage):
         ).pack(fill="x", padx=16, pady=(2, 16))
 
     @staticmethod
-    def _pretty_date(value):
-        value = (value or "").strip()
+    def _parse_date(value):
+        value = str(value or "").strip()
         if not value:
-            return "No date"
+            return None
         for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S"):
             try:
-                parsed = datetime.strptime(value, fmt)
-                return parsed.strftime("%d %b %Y, %H:%M")
+                return datetime.strptime(value, fmt)
             except ValueError:
                 continue
-        return value
+        return None
+
+    @classmethod
+    def _is_same_month(cls, value, now):
+        parsed = cls._parse_date(value)
+        return bool(parsed and parsed.year == now.year and parsed.month == now.month)
+
+    @classmethod
+    def _is_overdue_scheduled(cls, project, now):
+        if str(project.get("status") or "") != "Scheduled":
+            return False
+        parsed = cls._parse_date(project.get("scheduled_for"))
+        return bool(parsed and parsed < now)
+
+    @classmethod
+    def _pretty_date(cls, value):
+        parsed = cls._parse_date(value)
+        if parsed is None:
+            return str(value or "No date")
+        return parsed.strftime("%d %b %Y, %H:%M")
