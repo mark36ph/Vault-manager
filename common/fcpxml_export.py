@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import quote
 import xml.etree.ElementTree as ET
 
 from timeline import ClipKind, Timeline, TrackKind
@@ -26,20 +25,19 @@ def _time(seconds: float, fps: float) -> str:
 
 
 def _file_url(path: Path, *, relative_to: Path | None = None) -> str:
-    """Return an FCPXML media URI, optionally relative to a portable package."""
+    """Return the absolute file URI Resolve expects, optionally enforcing a media base."""
     resolved = path.resolve()
-    if relative_to is None:
-        return resolved.as_uri()
 
-    base = relative_to.resolve()
-    try:
-        relative = resolved.relative_to(base)
-    except ValueError as error:
-        raise FCPXMLExportError(
-            f"clip source is outside the requested portable media base: {resolved}"
-        ) from error
+    if relative_to is not None:
+        base = relative_to.resolve()
+        try:
+            resolved.relative_to(base)
+        except ValueError as error:
+            raise FCPXMLExportError(
+                f"clip source is outside the requested portable media base: {resolved}"
+            ) from error
 
-    return quote(relative.as_posix(), safe="/")
+    return resolved.as_uri()
 
 
 def export_fcpxml(
