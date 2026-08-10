@@ -64,12 +64,12 @@ def _image_data_url(path: Path) -> str:
 
 _HARD_NEGATIVES = {
     "none",
-    "unrequested_earth",
-    "unrequested_dragon_or_fantasy_creature",
+    "wrong_named_subject",
+    "unrequested_fantasy_creature",
     "unrequested_person",
-    "unrequested_statue",
+    "unrequested_statue_or_sculpture",
     "unrequested_animal",
-    "unrequested_rocket_or_ufo",
+    "unrequested_vehicle_or_spacecraft",
     "unrequested_logo_or_symbol",
     "unrequested_generic_diagram",
     "other_obvious_unrelated_subject",
@@ -129,7 +129,7 @@ def _parse_mismatch(text: str) -> tuple[bool, float, str, float]:
 
 
 class OpenAIImageRelevanceVerifier:
-    """Use an image-capable OpenAI model as a mismatch veto plus hard-negative gate."""
+    """Use an image-capable OpenAI model as a topic-neutral mismatch and hard-negative gate."""
 
     REJECT_CONFIDENCE = 0.90
     HARD_NEGATIVE_CONFIDENCE = 0.75
@@ -159,32 +159,42 @@ class OpenAIImageRelevanceVerifier:
         scene_query = " ".join(str(query or "").split()).strip()
         candidate_title = " ".join(str(asset.candidate.title or "").split()).strip()
         instruction = (
-            "You are a conservative mismatch detector for factual short-form video stock imagery. "
-            "The search/ranking system already chose this candidate. Your job is to identify obvious visual disasters "
-            "without demanding proof that an ambiguous stock image is exactly the named subject. Treat filenames, tags, "
-            "and stock metadata as hints, never as proof.\n\n"
+            "You are a topic-neutral visual mismatch detector for factual short-form video stock imagery. "
+            "This rule must work for any subject: science, history, geography, animals, technology, people, places, "
+            "objects, transport, architecture, medicine, nature, or other factual topics. The scene search query is "
+            "the source of truth. Never assume a fixed video topic.\n\n"
             f"Scene search query: {scene_query}\n"
             f"Stock metadata title: {candidate_title}\n\n"
+            "The search/ranking system already chose this candidate. Do not demand impossible visual proof. Your job is "
+            "to veto clear contradictions and unrelated dominant subjects while keeping plausible imagery. Treat filenames, "
+            "tags, and stock metadata as hints, never as proof.\n\n"
             "Return two independent judgments. First, obvious_mismatch says whether the whole image is clearly wrong for "
-            "the scene. Second, hard_negative identifies a forbidden visible subject that is NOT requested by the scene.\n"
+            "the scene. Second, hard_negative identifies an unmistakable visible subject or format that contradicts the "
+            "scene or is not requested by it.\n"
             "For hard_negative choose exactly one category. Use none when no forbidden subject is clearly visible. Categories:\n"
-            "- unrequested_earth: recognizable Earth when Earth is not requested.\n"
-            "- unrequested_dragon_or_fantasy_creature: dragon, monster, fantasy beast, or similar creature when not requested.\n"
-            "- unrequested_person: a prominent unrelated person when people are not requested.\n"
-            "- unrequested_statue: statue or sculpture when not requested.\n"
-            "- unrequested_animal: prominent unrelated animal when not requested.\n"
-            "- unrequested_rocket_or_ufo: rocket, spacecraft, or UFO when not requested.\n"
-            "- unrequested_logo_or_symbol: logo, emblem, icon, decorative symbol, or mostly symbolic graphic when not requested.\n"
-            "- unrequested_generic_diagram: generic chart, schematic, armillary/mechanical astronomy diagram, or infographic when not requested.\n"
+            "- wrong_named_subject: the query names a concrete entity or class and the image visibly shows a different identifiable one. "
+            "Examples include the wrong planet, landmark, person, animal species, vehicle, building, machine, food, flag, location, or object.\n"
+            "- unrequested_fantasy_creature: dragon, monster, mythical beast, or fantasy creature when not requested.\n"
+            "- unrequested_person: a prominent person when people are not requested by the scene.\n"
+            "- unrequested_statue_or_sculpture: statue, bust, monument sculpture, or artwork standing in for a real subject when not requested.\n"
+            "- unrequested_animal: a prominent animal when animals are not requested by the scene.\n"
+            "- unrequested_vehicle_or_spacecraft: car, aircraft, ship, train, rocket, spacecraft, or UFO when not requested.\n"
+            "- unrequested_logo_or_symbol: logo, emblem, icon, decorative symbol, or mostly symbolic graphic when a literal visual is expected.\n"
+            "- unrequested_generic_diagram: generic chart, schematic, infographic, mechanical model, or diagram when the scene does not request one.\n"
             "- other_obvious_unrelated_subject: another unmistakable dominant subject that contradicts the requested scene.\n"
-            "Set a hard-negative category only when that visible subject is actually unrequested. If the scene explicitly asks "
-            "for that thing, use none.\n\n"
-            "For Venus and similarly hard-to-identify scientific subjects, yellow/orange/cloudy planets, crescent planetary disks, "
-            "hot rocky surfaces, atmospheric views, and scientifically plausible illustrations are not mismatches merely because "
-            "their identity cannot be proven from pixels. Do not reject because rotation, orbit, retrograde motion, or sunrise "
-            "direction is not visibly demonstrated in a still image.\n"
-            "If unsure about the overall match, set obvious_mismatch=false. But if a forbidden subject such as a dragon is visibly "
-            "present and not requested, report the corresponding hard_negative even if you are otherwise unsure about relevance."
+            "Set a hard-negative category only when that visible subject is actually inconsistent with or unrequested by the scene. "
+            "If the query asks for that thing, use none.\n\n"
+            "Apply these general rules across all topics:\n"
+            "- If a named subject is difficult or impossible to uniquely identify from pixels alone, keep a scientifically, historically, "
+            "or physically plausible representation unless a visible feature clearly contradicts the query.\n"
+            "- A still image does not have to visibly demonstrate an abstract action, duration, comparison, cause, motion, direction, "
+            "measurement, or process when the underlying subject is otherwise appropriate.\n"
+            "- Reject a clearly different identifiable named subject. Examples: Big Ben is not the Eiffel Tower; a tiger is not a lion; "
+            "a motorcycle is not a bicycle; Earth is not Mars; a modern jet is not a World War I biplane.\n"
+            "- Do not reject merely because the image is a reasonable reconstruction, illustration, microscopic view, astronomical view, "
+            "ancient-event depiction, or other representation that cannot be verified uniquely from pixels.\n"
+            "- If unsure about the overall match, set obvious_mismatch=false. But if a hard-negative subject is clearly present and "
+            "unrequested, report it even when the overall relevance is uncertain."
         )
 
         body = {
@@ -196,7 +206,7 @@ class OpenAIImageRelevanceVerifier:
                 "format": {
                     "type": "json_schema",
                     "name": "visual_mismatch_decision",
-                    "description": "Visual mismatch decision with an independent hard-negative category.",
+                    "description": "Topic-neutral visual mismatch decision with an independent hard-negative category.",
                     "strict": True,
                     "schema": {
                         "type": "object",
