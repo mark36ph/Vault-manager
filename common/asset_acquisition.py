@@ -98,7 +98,6 @@ def _safe_filename(
         for ch in str(value or "")
     ).strip("._")
 
-    # Collapse repeated underscores from provider tags/titles.
     while "__" in cleaned:
         cleaned = cleaned.replace("__", "_")
 
@@ -181,12 +180,11 @@ def _prefer_subject_matches(
     if not subject:
         return candidates
 
-    subject_matches = [
+    return [
         candidate
         for candidate in candidates
         if subject in set(_relevance_words(_candidate_search_text(candidate)))
     ]
-    return subject_matches
 
 
 def _fallback_search_queries(query: str) -> tuple[str, ...]:
@@ -209,13 +207,11 @@ def _fallback_search_queries(query: str) -> tuple[str, ...]:
     meaningful = _relevance_words(original)
     required_subject = _required_subject(original)
     if required_subject:
-        # Try progressively simpler searches that keep the concrete subject.
         after_subject = [word for word in meaningful[2:] if word != required_subject]
         add(" ".join([meaningful[0], required_subject, *after_subject[:2]]))
         add(" ".join([required_subject, *after_subject[:2]]))
         add(required_subject)
 
-    # Stock-media APIs are much more reliable with short noun-heavy searches.
     for length in (12, 9, 6, 4):
         if len(words) <= length:
             continue
@@ -242,7 +238,6 @@ def _ensure_subject_in_queries(queries: Iterable[str], context: Any) -> list[str
         query_subject = _required_subject(query)
         if subject and subject.casefold() not in words:
             if query_subject and words:
-                # Category is already first; insert the concrete project subject after it.
                 parts = query.split()
                 query = " ".join([parts[0], subject, *parts[1:]])
             else:
@@ -311,7 +306,7 @@ class AssetAcquisitionEngine:
         kind: str = "image",
         limit: int = 20,
         target_ratio: float | None = None,
-        require_subject: bool = True,
+        require_subject: bool = False,
     ) -> list[AssetCandidate]:
         if not str(query).strip():
             raise ValueError("query is required")
@@ -361,7 +356,14 @@ class AssetAcquisitionEngine:
             raise ValueError("attempts must be at least 1")
         folder = Path(destination_folder)
         folder.mkdir(parents=True, exist_ok=True)
-        candidates = self.search(query, kind=kind, limit=limit, target_ratio=target_ratio)
+        required_subject = _required_subject(query)
+        candidates = self.search(
+            query,
+            kind=kind,
+            limit=limit,
+            target_ratio=target_ratio,
+            require_subject=bool(required_subject),
+        )
         if not candidates:
             fallbacks = _fallback_search_queries(query)
             for index, fallback in enumerate(fallbacks, start=1):
@@ -376,10 +378,18 @@ class AssetAcquisitionEngine:
                     kind=kind,
                     limit=limit,
                     target_ratio=target_ratio,
+                    require_subject=False,
                 )
+                if required_subject:
+                    candidates = [
+                        candidate
+                        for candidate in candidates
+                        if required_subject
+                        in set(_relevance_words(_candidate_search_text(candidate)))
+                    ]
                 if candidates:
                     break
-        if not candidates and _required_subject(query):
+        if not candidates and required_subject:
             self._progress(
                 "retry",
                 1,
