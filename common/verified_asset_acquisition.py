@@ -203,4 +203,20 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
         raise AssetAcquisitionError(f"no {kind} assets found for: {query}")
 
 
-__all__ = ["AssetVerifier", "VerifiedAssetAcquisitionEngine"]
+def install_visual_verification(engine: AssetAcquisitionEngine, verifier: AssetVerifier) -> AssetAcquisitionEngine:
+    """Route an existing engine's acquire calls through the verified retry engine."""
+    verified = VerifiedAssetAcquisitionEngine(
+        engine.providers,
+        verifier=verifier,
+        downloader=engine.downloader,
+        progress_callback=engine.progress_callback,
+    )
+    engine.acquire = verified.acquire  # type: ignore[method-assign]
+    return engine
+
+
+__all__ = [
+    "AssetVerifier",
+    "VerifiedAssetAcquisitionEngine",
+    "install_visual_verification",
+]
