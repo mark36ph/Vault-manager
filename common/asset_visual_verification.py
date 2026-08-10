@@ -62,8 +62,8 @@ def _image_data_url(path: Path) -> str:
     return f"data:{mime_type};base64,{encoded}"
 
 
-def _parse_decision(text: str) -> tuple[str, float, str]:
-    """Parse the verifier's strict JSON decision payload."""
+def _parse_decision(text: str) -> tuple[str, float]:
+    """Parse the verifier's compact strict JSON decision payload."""
     raw = str(text or "").strip()
     if raw.startswith("```"):
         lines = raw.splitlines()
@@ -96,8 +96,7 @@ def _parse_decision(text: str) -> tuple[str, float, str]:
     if not 0.0 <= confidence <= 1.0:
         raise AssetVisualVerificationError("visual verifier confidence must be between 0 and 1")
 
-    reason = " ".join(str(payload.get("reason") or "").split()).strip()
-    return decision, confidence, reason
+    return decision, confidence
 
 
 class OpenAIImageRelevanceVerifier:
@@ -145,17 +144,22 @@ class OpenAIImageRelevanceVerifier:
             "For example, Earth is not Venus, a generic rocket is not Venus, and a dragon tagged Venus is not Venus.\n"
             "- Symbolic or abstract artwork should be REJECTED when a literal visual is reasonably possible.\n"
             "- If you cannot confidently tell whether the image matches, choose UNCERTAIN rather than ACCEPT.\n"
-            "- Confidence measures confidence in the decision, not image quality. Use ACCEPT only when confidence is at least 0.80."
+            "- Confidence measures confidence in the decision, not image quality. Use ACCEPT only when confidence is at least 0.80.\n"
+            "- Keep the decision concise; no explanation is needed."
         )
 
         body = {
             "model": self.model,
-            "max_output_tokens": 300,
+            # max_output_tokens includes hidden reasoning tokens for reasoning models.
+            # Keep reasoning minimal and leave ample room for the tiny JSON object.
+            "max_output_tokens": 800,
+            "reasoning": {"effort": "minimal"},
             "text": {
+                "verbosity": "low",
                 "format": {
                     "type": "json_schema",
                     "name": "visual_relevance_decision",
-                    "description": "Strict visual relevance decision for a stock image.",
+                    "description": "Compact strict visual relevance decision for a stock image.",
                     "strict": True,
                     "schema": {
                         "type": "object",
@@ -169,12 +173,11 @@ class OpenAIImageRelevanceVerifier:
                                 "minimum": 0,
                                 "maximum": 1,
                             },
-                            "reason": {"type": "string"},
                         },
-                        "required": ["decision", "confidence", "reason"],
+                        "required": ["decision", "confidence"],
                         "additionalProperties": False,
                     },
-                }
+                },
             },
             "input": [
                 {
@@ -202,7 +205,7 @@ class OpenAIImageRelevanceVerifier:
             method="POST",
         )
         payload = self.transport(request)
-        decision, confidence, _reason = _parse_decision(_response_text(payload))
+        decision, confidence = _parse_decision(_response_text(payload))
         return decision == "ACCEPT" and confidence >= self.ACCEPT_CONFIDENCE
 
 
