@@ -210,17 +210,22 @@ def _fallback_search_queries(query: str) -> tuple[str, ...]:
     meaningful = _relevance_words(original)
     required_subject = _required_subject(original)
     if required_subject:
+        subject_text = next(
+            (word for word in words if word.casefold() == required_subject),
+            required_subject,
+        )
+        anchor_text = words[0] if words else meaningful[0]
         after_subject = [word for word in meaningful[2:] if word != required_subject]
-        add(" ".join([meaningful[0], required_subject, *after_subject[:2]]))
+        add(" ".join([anchor_text, subject_text, *after_subject[:2]]))
 
         # The final scene-query word is often the concrete visual class
         # (planet, bridge, animal, engine). Try those simple subject+noun
         # searches before a fully generic fallback.
         for word in reversed(after_subject):
-            add(f"{required_subject} {word}")
+            add(f"{subject_text} {word}")
 
-        add(" ".join([required_subject, *after_subject[:2]]))
-        add(required_subject)
+        add(" ".join([subject_text, *after_subject[:2]]))
+        add(subject_text)
 
     for length in (12, 9, 6, 4):
         if len(words) <= length:
