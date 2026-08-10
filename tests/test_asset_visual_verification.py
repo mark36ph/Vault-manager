@@ -28,18 +28,22 @@ def candidate(identifier, title, score, url):
     )
 
 
-def test_openai_visual_verifier_sends_downloaded_image_and_accepts(tmp_path):
-    image = tmp_path / "venus.jpg"
+def asset_for(tmp_path, identifier="venus", title="Venus cloudy planet"):
+    image = tmp_path / f"{identifier}.jpg"
     image.write_bytes(b"fake-jpeg-bytes")
-    asset = AcquiredAsset(
+    return AcquiredAsset(
         candidate=candidate(
-            "venus",
-            "Venus cloudy planet",
+            identifier,
+            title,
             1,
-            "https://example.test/venus.jpg",
+            f"https://example.test/{identifier}.jpg",
         ),
         path=image,
     )
+
+
+def test_openai_visual_verifier_sends_downloaded_image_and_accepts(tmp_path):
+    asset = asset_for(tmp_path)
     requests = []
 
     def transport(request):
@@ -47,11 +51,23 @@ def test_openai_visual_verifier_sends_downloaded_image_and_accepts(tmp_path):
         body = json.loads(request.data.decode("utf-8"))
         content = body["input"][0]["content"]
         assert body["model"] == "gpt-5-mini"
+        assert body["max_output_tokens"] == 100
         assert content[0]["type"] == "input_text"
         assert "Space Venus planet rotation" in content[0]["text"]
+        assert "dragons" in content[0]["text"]
+        assert "UNCERTAIN" in content[0]["text"]
         assert content[1]["type"] == "input_image"
+        assert content[1]["detail"] == "high"
         assert content[1]["image_url"].startswith("data:image/jpeg;base64,")
-        return {"output_text": "ACCEPT"}
+        return {
+            "output_text": json.dumps(
+                {
+                    "decision": "ACCEPT",
+                    "confidence": 0.96,
+                    "reason": "The image visibly shows Venus.",
+                }
+            )
+        }
 
     verifier = OpenAIImageRelevanceVerifier(
         "openai-key",
@@ -61,6 +77,24 @@ def test_openai_visual_verifier_sends_downloaded_image_and_accepts(tmp_path):
 
     assert verifier("Space Venus planet rotation", asset) is True
     assert len(requests) == 1
+
+
+def test_openai_visual_verifier_rejects_uncertain_and_low_confidence_accepts(tmp_path):
+    asset = asset_for(tmp_path)
+    responses = iter(
+        [
+            {"decision": "UNCERTAIN", "confidence": 0.91, "reason": "Could be another planet."},
+            {"decision": "ACCEPT", "confidence": 0.62, "reason": "Probably Venus."},
+        ]
+    )
+
+    verifier = OpenAIImageRelevanceVerifier(
+        "openai-key",
+        transport=lambda _request: {"output_text": json.dumps(next(responses))},
+    )
+
+    assert verifier("Space Venus planet rotation", asset) is False
+    assert verifier("Space Venus planet rotation", asset) is False
 
 
 def test_visual_verification_rejects_bad_candidate_and_tries_next(tmp_path):
@@ -96,3 +130,36 @@ def test_visual_verification_rejects_bad_candidate_and_tries_next(tmp_path):
         ("Space Venus planet", "dragon"),
         ("Space Venus planet", "venus"),
     ]
+    assert not any("dragon" in path.name.casefold() for path in tmp_path.iterdir())
+
+
+def test_visual_verification_error_rejects_candidate_and_tries_next(tmp_path):
+    bad = candidate(
+        "broken-verifier",
+        "Venus planet illustration",
+        100,
+        "https://example.test/broken.jpg",
+    )
+    good = candidate(
+        "venus",
+        "Venus planet clouds",
+        1,
+        "https://example.test/venus.jpg",
+    )
+    engine = AssetAcquisitionEngine(
+        [Provider([bad, good])],
+        downloader=lambda _url, path: path.write_bytes(b"image"),
+    )
+    checked = []
+
+    def verifier(_query, asset):
+        checked.append(asset.candidate.id)
+        if asset.candidate.id == "broken-verifier":
+            raise RuntimeError("verifier unavailable")
+        return True
+
+    install_visual_verification(engine, verifier)
+    result = engine.acquire("Space Venus planet", tmp_path, attempts=2)
+
+    assert result.candidate.id == "venus"
+    assert checked == ["broken-verifier", "venus"]
