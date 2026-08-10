@@ -62,8 +62,22 @@ def _image_data_url(path: Path) -> str:
     return f"data:{mime_type};base64,{encoded}"
 
 
-def _parse_mismatch(text: str) -> tuple[bool, float]:
-    """Parse the verifier's compact strict mismatch-veto payload."""
+_HARD_NEGATIVES = {
+    "none",
+    "unrequested_earth",
+    "unrequested_dragon_or_fantasy_creature",
+    "unrequested_person",
+    "unrequested_statue",
+    "unrequested_animal",
+    "unrequested_rocket_or_ufo",
+    "unrequested_logo_or_symbol",
+    "unrequested_generic_diagram",
+    "other_obvious_unrelated_subject",
+}
+
+
+def _parse_mismatch(text: str) -> tuple[bool, float, str, float]:
+    """Parse mismatch scoring plus the independent hard-negative classification."""
     raw = str(text or "").strip()
     if raw.startswith("```"):
         lines = raw.splitlines()
@@ -94,13 +108,31 @@ def _parse_mismatch(text: str) -> tuple[bool, float]:
     if not 0.0 <= confidence <= 1.0:
         raise AssetVisualVerificationError("visual verifier confidence must be between 0 and 1")
 
-    return obvious_mismatch, confidence
+    hard_negative = str(payload.get("hard_negative") or "").strip()
+    if hard_negative not in _HARD_NEGATIVES:
+        raise AssetVisualVerificationError(
+            f"visual verifier returned invalid hard_negative: {hard_negative or '<empty>'}"
+        )
+
+    try:
+        hard_negative_confidence = float(payload.get("hard_negative_confidence"))
+    except (TypeError, ValueError) as error:
+        raise AssetVisualVerificationError(
+            "visual verifier hard_negative_confidence must be numeric"
+        ) from error
+    if not 0.0 <= hard_negative_confidence <= 1.0:
+        raise AssetVisualVerificationError(
+            "visual verifier hard_negative_confidence must be between 0 and 1"
+        )
+
+    return obvious_mismatch, confidence, hard_negative, hard_negative_confidence
 
 
 class OpenAIImageRelevanceVerifier:
-    """Use an image-capable OpenAI model as a high-confidence mismatch veto."""
+    """Use an image-capable OpenAI model as a mismatch veto plus hard-negative gate."""
 
     REJECT_CONFIDENCE = 0.90
+    HARD_NEGATIVE_CONFIDENCE = 0.75
 
     def __init__(
         self,
@@ -128,22 +160,31 @@ class OpenAIImageRelevanceVerifier:
         candidate_title = " ".join(str(asset.candidate.title or "").split()).strip()
         instruction = (
             "You are a conservative mismatch detector for factual short-form video stock imagery. "
-            "Your job is NOT to prove the image is exactly the named subject. Your only job is to block images "
-            "that are visibly and obviously wrong for the requested scene. Treat filenames, tags, and stock metadata "
-            "as hints, never as proof.\n\n"
+            "The search/ranking system already chose this candidate. Your job is to identify obvious visual disasters "
+            "without demanding proof that an ambiguous stock image is exactly the named subject. Treat filenames, tags, "
+            "and stock metadata as hints, never as proof.\n\n"
             f"Scene search query: {scene_query}\n"
             f"Stock metadata title: {candidate_title}\n\n"
-            "Set obvious_mismatch=true only when you can see a clear contradiction or unrelated subject. Examples: "
-            "recognizable Earth for a Venus scene; a dragon, fantasy creature, unrelated person, statue, animal, logo, "
-            "generic UFO/rocket, or decorative symbol when not requested.\n"
-            "Set obvious_mismatch=false for plausible stock imagery that could reasonably illustrate the scene, even if "
-            "the exact identity cannot be proven from pixels alone. For planets such as Venus, yellow/orange/cloudy planets, "
-            "crescent planetary disks, hot rocky surfaces, atmospheric views, and scientifically plausible illustrations are "
-            "NOT obvious mismatches unless a visible feature clearly identifies a different body.\n"
-            "Do not reject merely because the exact action (rotation, orbit, retrograde motion, sunrise direction) is not visibly "
-            "demonstrated in a still image. The search/ranking stage handles scene specificity; you are only a last-line veto for "
-            "visibly wrong imagery.\n"
-            "Use confidence for how certain you are that an obvious mismatch exists. If unsure, set obvious_mismatch=false."
+            "Return two independent judgments. First, obvious_mismatch says whether the whole image is clearly wrong for "
+            "the scene. Second, hard_negative identifies a forbidden visible subject that is NOT requested by the scene.\n"
+            "For hard_negative choose exactly one category. Use none when no forbidden subject is clearly visible. Categories:\n"
+            "- unrequested_earth: recognizable Earth when Earth is not requested.\n"
+            "- unrequested_dragon_or_fantasy_creature: dragon, monster, fantasy beast, or similar creature when not requested.\n"
+            "- unrequested_person: a prominent unrelated person when people are not requested.\n"
+            "- unrequested_statue: statue or sculpture when not requested.\n"
+            "- unrequested_animal: prominent unrelated animal when not requested.\n"
+            "- unrequested_rocket_or_ufo: rocket, spacecraft, or UFO when not requested.\n"
+            "- unrequested_logo_or_symbol: logo, emblem, icon, decorative symbol, or mostly symbolic graphic when not requested.\n"
+            "- unrequested_generic_diagram: generic chart, schematic, armillary/mechanical astronomy diagram, or infographic when not requested.\n"
+            "- other_obvious_unrelated_subject: another unmistakable dominant subject that contradicts the requested scene.\n"
+            "Set a hard-negative category only when that visible subject is actually unrequested. If the scene explicitly asks "
+            "for that thing, use none.\n\n"
+            "For Venus and similarly hard-to-identify scientific subjects, yellow/orange/cloudy planets, crescent planetary disks, "
+            "hot rocky surfaces, atmospheric views, and scientifically plausible illustrations are not mismatches merely because "
+            "their identity cannot be proven from pixels. Do not reject because rotation, orbit, retrograde motion, or sunrise "
+            "direction is not visibly demonstrated in a still image.\n"
+            "If unsure about the overall match, set obvious_mismatch=false. But if a forbidden subject such as a dragon is visibly "
+            "present and not requested, report the corresponding hard_negative even if you are otherwise unsure about relevance."
         )
 
         body = {
@@ -155,7 +196,7 @@ class OpenAIImageRelevanceVerifier:
                 "format": {
                     "type": "json_schema",
                     "name": "visual_mismatch_decision",
-                    "description": "High-confidence visual mismatch veto for a stock image.",
+                    "description": "Visual mismatch decision with an independent hard-negative category.",
                     "strict": True,
                     "schema": {
                         "type": "object",
@@ -166,8 +207,22 @@ class OpenAIImageRelevanceVerifier:
                                 "minimum": 0,
                                 "maximum": 1,
                             },
+                            "hard_negative": {
+                                "type": "string",
+                                "enum": sorted(_HARD_NEGATIVES),
+                            },
+                            "hard_negative_confidence": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                            },
                         },
-                        "required": ["obvious_mismatch", "confidence"],
+                        "required": [
+                            "obvious_mismatch",
+                            "confidence",
+                            "hard_negative",
+                            "hard_negative_confidence",
+                        ],
                         "additionalProperties": False,
                     },
                 },
@@ -198,8 +253,18 @@ class OpenAIImageRelevanceVerifier:
             method="POST",
         )
         payload = self.transport(request)
-        obvious_mismatch, confidence = _parse_mismatch(_response_text(payload))
-        return not (obvious_mismatch and confidence >= self.REJECT_CONFIDENCE)
+        (
+            obvious_mismatch,
+            confidence,
+            hard_negative,
+            hard_negative_confidence,
+        ) = _parse_mismatch(_response_text(payload))
+
+        if hard_negative != "none" and hard_negative_confidence >= self.HARD_NEGATIVE_CONFIDENCE:
+            return False
+        if obvious_mismatch and confidence >= self.REJECT_CONFIDENCE:
+            return False
+        return True
 
 
 __all__ = [
