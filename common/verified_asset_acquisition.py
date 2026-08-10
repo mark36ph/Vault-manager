@@ -40,6 +40,14 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
         )
         self.verifier = verifier
 
+    @staticmethod
+    def _discard_rejected_asset(asset: AcquiredAsset) -> None:
+        """Remove a rejected download so it cannot be reused as a cached candidate."""
+        try:
+            Path(asset.path).unlink(missing_ok=True)
+        except OSError:
+            pass
+
     def _try_candidates(
         self,
         query: str,
@@ -77,22 +85,27 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
             try:
                 accepted = bool(self.verifier(query, asset))
             except Exception as error:
-                # Verification is an extra quality gate. If the remote verifier is
-                # temporarily unavailable, preserve the existing production path
-                # rather than failing an otherwise valid export.
+                # Visual verification is now a real quality gate. An unavailable,
+                # malformed, or uncertain verifier result must not silently allow a
+                # visibly wrong asset into the final video.
+                failures.append(
+                    f"{candidate.provider}/{candidate.id}: visual verification failed: {error}"
+                )
+                self._discard_rejected_asset(asset)
                 self._progress(
                     "verify",
                     index,
                     total,
-                    f"Visual verification unavailable; keeping candidate ({error})",
+                    "Visual verification failed; rejecting candidate and trying another asset",
                 )
-                return asset
+                continue
 
             if accepted:
                 self._progress("verify", index, total, "Visual relevance accepted")
                 return asset
 
             failures.append(f"{candidate.provider}/{candidate.id}: visual relevance rejected")
+            self._discard_rejected_asset(asset)
             self._progress("verify", index, total, "Visual relevance rejected; trying another asset")
 
         return None
