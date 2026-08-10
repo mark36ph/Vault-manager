@@ -170,21 +170,24 @@ def _prefer_subject_matches(
     candidates: list[AssetCandidate],
     query: str,
     *,
-    require_subject: bool = True,
+    require_subject: bool = False,
 ) -> list[AssetCandidate]:
-    """Require the concrete subject for anchored searches before using generic matches."""
-    if not require_subject or not candidates:
+    """Prefer subject matches, but retain generic results when no match exists."""
+    if not candidates:
         return candidates
 
     subject = _required_subject(query)
     if not subject:
         return candidates
 
-    return [
+    subject_matches = [
         candidate
         for candidate in candidates
         if subject in set(_relevance_words(_candidate_search_text(candidate)))
     ]
+    if subject_matches:
+        return subject_matches
+    return [] if require_subject else candidates
 
 
 def _fallback_search_queries(query: str) -> tuple[str, ...]:
@@ -209,6 +212,13 @@ def _fallback_search_queries(query: str) -> tuple[str, ...]:
     if required_subject:
         after_subject = [word for word in meaningful[2:] if word != required_subject]
         add(" ".join([meaningful[0], required_subject, *after_subject[:2]]))
+
+        # The final scene-query word is often the concrete visual class
+        # (planet, bridge, animal, engine). Try those simple subject+noun
+        # searches before a fully generic fallback.
+        for word in reversed(after_subject):
+            add(f"{required_subject} {word}")
+
         add(" ".join([required_subject, *after_subject[:2]]))
         add(required_subject)
 
