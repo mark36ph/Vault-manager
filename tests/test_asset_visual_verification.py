@@ -28,7 +28,7 @@ def candidate(identifier, title, score, url):
     )
 
 
-def asset_for(tmp_path, identifier="venus", title="Venus cloudy planet"):
+def asset_for(tmp_path, identifier="asset", title="Candidate image"):
     image = tmp_path / f"{identifier}.jpg"
     image.write_bytes(b"fake-jpeg-bytes")
     return AcquiredAsset(
@@ -57,16 +57,19 @@ def decision(
     }
 
 
-def test_openai_visual_verifier_sends_downloaded_image_and_keeps_plausible_asset(tmp_path):
-    asset = asset_for(tmp_path)
+def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_path):
+    asset = asset_for(tmp_path, identifier="tower", title="Paris landmark at sunset")
     requests = []
 
     def transport(request):
         requests.append(request)
         body = json.loads(request.data.decode("utf-8"))
         content = body["input"][0]["content"]
+        prompt = content[0]["text"]
         schema = body["text"]["format"]
         required = schema["schema"]["required"]
+        enum = schema["schema"]["properties"]["hard_negative"]["enum"]
+
         assert body["model"] == "gpt-5-mini"
         assert body["max_output_tokens"] == 800
         assert body["reasoning"] == {"effort": "minimal"}
@@ -79,11 +82,13 @@ def test_openai_visual_verifier_sends_downloaded_image_and_keeps_plausible_asset
             "hard_negative",
             "hard_negative_confidence",
         ]
-        assert "unrequested_dragon_or_fantasy_creature" in schema["schema"]["properties"]["hard_negative"]["enum"]
-        assert content[0]["type"] == "input_text"
-        assert "Space Venus planet rotation" in content[0]["text"]
-        assert "hard_negative" in content[0]["text"]
-        assert "dragon" in content[0]["text"]
+        assert "wrong_named_subject" in enum
+        assert "unrequested_fantasy_creature" in enum
+        assert "unrequested_vehicle_or_spacecraft" in enum
+        assert "Geography Eiffel Tower Paris sunset" in prompt
+        assert "topic-neutral" in prompt
+        assert "Never assume a fixed video topic" in prompt
+        assert "Big Ben is not the Eiffel Tower" in prompt
         assert content[1]["type"] == "input_image"
         assert content[1]["detail"] == "high"
         assert content[1]["image_url"].startswith("data:image/jpeg;base64,")
@@ -95,8 +100,54 @@ def test_openai_visual_verifier_sends_downloaded_image_and_keeps_plausible_asset
         transport=transport,
     )
 
-    assert verifier("Space Venus planet rotation", asset) is True
+    assert verifier("Geography Eiffel Tower Paris sunset", asset) is True
     assert len(requests) == 1
+
+
+def test_openai_visual_verifier_blocks_wrong_named_subject_for_any_topic(tmp_path):
+    asset = asset_for(tmp_path, identifier="big-ben", title="London clock tower")
+    verifier = OpenAIImageRelevanceVerifier(
+        "openai-key",
+        transport=lambda _request: {
+            "output_text": json.dumps(
+                decision(
+                    obvious_mismatch=False,
+                    confidence=0.45,
+                    hard_negative="wrong_named_subject",
+                    hard_negative_confidence=0.98,
+                )
+            )
+        },
+    )
+
+    assert verifier("Geography Eiffel Tower Paris architecture", asset) is False
+
+
+def test_openai_visual_verifier_blocks_unrequested_fantasy_creature_for_any_topic(tmp_path):
+    asset = asset_for(tmp_path, identifier="dragon", title="Decorative fantasy artwork")
+    verifier = OpenAIImageRelevanceVerifier(
+        "openai-key",
+        transport=lambda _request: {
+            "output_text": json.dumps(
+                decision(
+                    hard_negative="unrequested_fantasy_creature",
+                    hard_negative_confidence=0.96,
+                )
+            )
+        },
+    )
+
+    assert verifier("History Roman aqueduct engineering", asset) is False
+
+
+def test_openai_visual_verifier_keeps_requested_hard_negative_class(tmp_path):
+    asset = asset_for(tmp_path, identifier="rocket", title="Saturn V rocket launch")
+    verifier = OpenAIImageRelevanceVerifier(
+        "openai-key",
+        transport=lambda _request: {"output_text": json.dumps(decision())},
+    )
+
+    assert verifier("History Saturn V rocket Apollo 11 launch", asset) is True
 
 
 def test_openai_visual_verifier_reads_nested_responses_output_and_blocks_obvious_mismatch(tmp_path):
@@ -121,7 +172,7 @@ def test_openai_visual_verifier_reads_nested_responses_output_and_blocks_obvious
         },
     )
 
-    assert verifier("Space Venus planet rotation", asset) is False
+    assert verifier("Nature glacier ice cave", asset) is False
 
 
 def test_openai_visual_verifier_does_not_block_low_confidence_general_mismatch(tmp_path):
@@ -135,26 +186,7 @@ def test_openai_visual_verifier_does_not_block_low_confidence_general_mismatch(t
         },
     )
 
-    assert verifier("Space Venus planet rotation", asset) is True
-
-
-def test_openai_visual_verifier_hard_negative_blocks_dragon_even_when_general_mismatch_is_uncertain(tmp_path):
-    asset = asset_for(tmp_path, identifier="dragon", title="Venus planet illustration")
-    verifier = OpenAIImageRelevanceVerifier(
-        "openai-key",
-        transport=lambda _request: {
-            "output_text": json.dumps(
-                decision(
-                    obvious_mismatch=False,
-                    confidence=0.42,
-                    hard_negative="unrequested_dragon_or_fantasy_creature",
-                    hard_negative_confidence=0.96,
-                )
-            )
-        },
-    )
-
-    assert verifier("Space Venus spins backwards", asset) is False
+    assert verifier("Animals blue whale ocean", asset) is True
 
 
 def test_openai_visual_verifier_ignores_low_confidence_hard_negative(tmp_path):
@@ -171,21 +203,21 @@ def test_openai_visual_verifier_ignores_low_confidence_hard_negative(tmp_path):
         },
     )
 
-    assert verifier("Space Venus planet rotation", asset) is True
+    assert verifier("Technology steam turbine blades", asset) is True
 
 
 def test_visual_verification_rejects_bad_candidate_and_tries_next(tmp_path):
     bad = candidate(
-        "dragon",
-        "Venus planet illustration",
+        "wrong",
+        "Unrelated decorative artwork",
         100,
-        "https://example.test/dragon.jpg",
+        "https://example.test/wrong.jpg",
     )
     good = candidate(
-        "venus",
-        "Venus planet clouds",
+        "bridge",
+        "Golden Gate Bridge San Francisco",
         1,
-        "https://example.test/venus.jpg",
+        "https://example.test/bridge.jpg",
     )
     provider = Provider([bad, good])
 
@@ -197,31 +229,31 @@ def test_visual_verification_rejects_bad_candidate_and_tries_next(tmp_path):
 
     def verifier(query, asset):
         checked.append((query, asset.candidate.id))
-        return asset.candidate.id == "venus"
+        return asset.candidate.id == "bridge"
 
     install_visual_verification(engine, verifier)
-    result = engine.acquire("Space Venus planet", tmp_path, attempts=2)
+    result = engine.acquire("Architecture Golden Gate Bridge", tmp_path, attempts=2)
 
-    assert result.candidate.id == "venus"
+    assert result.candidate.id == "bridge"
     assert checked == [
-        ("Space Venus planet", "dragon"),
-        ("Space Venus planet", "venus"),
+        ("Architecture Golden Gate Bridge", "wrong"),
+        ("Architecture Golden Gate Bridge", "bridge"),
     ]
-    assert not any("dragon" in path.name.casefold() for path in tmp_path.iterdir())
+    assert not any("wrong" in path.name.casefold() for path in tmp_path.iterdir())
 
 
 def test_visual_verification_error_rejects_candidate_and_tries_next(tmp_path):
     bad = candidate(
         "broken-verifier",
-        "Venus planet illustration",
+        "Candidate one",
         100,
         "https://example.test/broken.jpg",
     )
     good = candidate(
-        "venus",
-        "Venus planet clouds",
+        "correct",
+        "Candidate two",
         1,
-        "https://example.test/venus.jpg",
+        "https://example.test/correct.jpg",
     )
     engine = AssetAcquisitionEngine(
         [Provider([bad, good])],
@@ -236,7 +268,7 @@ def test_visual_verification_error_rejects_candidate_and_tries_next(tmp_path):
         return True
 
     install_visual_verification(engine, verifier)
-    result = engine.acquire("Space Venus planet", tmp_path, attempts=2)
+    result = engine.acquire("Nature redwood forest", tmp_path, attempts=2)
 
-    assert result.candidate.id == "venus"
-    assert checked == ["broken-verifier", "venus"]
+    assert result.candidate.id == "correct"
+    assert checked == ["broken-verifier", "correct"]
