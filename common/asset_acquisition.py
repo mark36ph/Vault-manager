@@ -55,6 +55,19 @@ _RELEVANCE_STOP_WORDS = {
     "realistic", "documentary", "close", "up",
 }
 
+_BROAD_QUERY_ANCHORS = {
+    "space", "science", "nature", "history", "technology", "engineering", "health",
+    "medicine", "animals", "animal", "ocean", "geography", "physics", "chemistry",
+    "biology", "astronomy", "earth", "environment", "transport", "architecture",
+}
+
+_TOPIC_STOP_WORDS = _RELEVANCE_STOP_WORDS | _BROAD_QUERY_ANCHORS | {
+    "fact", "facts", "takes", "take", "longer", "shorter", "more", "less", "than",
+    "is", "are", "was", "were", "has", "have", "had", "can", "could", "does", "did",
+    "why", "how", "what", "when", "where", "first", "last", "great", "biggest",
+    "largest", "smallest", "oldest", "newest", "fastest", "slowest",
+}
+
 
 def _download_headers(url: str) -> dict[str, str]:
     headers = {
@@ -108,6 +121,25 @@ def _relevance_words(value: str) -> list[str]:
     return result
 
 
+def _topic_subject(value: str, category: str = "") -> str:
+    """Extract a stable concrete subject word from a project title/topic."""
+    category_words = set(_relevance_words(category))
+    for word in re.findall(r"[A-Za-z0-9]+", str(value or "")):
+        key = word.casefold()
+        if len(key) < 3 or key in _TOPIC_STOP_WORDS or key in category_words:
+            continue
+        return word
+    return ""
+
+
+def _required_subject(query: str) -> str:
+    """Return the explicit subject from a category-anchored production query."""
+    words = _relevance_words(query)
+    if len(words) >= 2 and words[0] in _BROAD_QUERY_ANCHORS:
+        return words[1]
+    return ""
+
+
 def _candidate_search_text(candidate: AssetCandidate) -> str:
     """Combine provider-visible candidate text without relying on provider-specific fields."""
     metadata_text = " ".join(
@@ -119,18 +151,15 @@ def _candidate_search_text(candidate: AssetCandidate) -> str:
 
 
 def _candidate_relevance(candidate: AssetCandidate, query: str) -> tuple[int, int, int, float]:
-    """Score lexical relevance, strongly weighting the query's subject words."""
+    """Score lexical relevance, strongly weighting the query's concrete subject."""
     query_words = _relevance_words(query)
     if not query_words:
         return (0, 0, 0, 0.0)
 
     candidate_words = set(_relevance_words(_candidate_search_text(candidate)))
     overlap = [word for word in query_words if word in candidate_words]
-
-    # Anchored production queries normally begin with a broad category followed
-    # by the concrete subject (for example, "Space Venus ..."). The second
-    # meaningful word is therefore more useful than a generic category match.
-    primary_subject = query_words[1] if len(query_words) > 1 else query_words[0]
+    required_subject = _required_subject(query)
+    primary_subject = required_subject or query_words[0]
     subject_match = int(primary_subject in candidate_words)
     leading_match = int(query_words[0] in candidate_words)
     early_overlap = sum(1 for word in query_words[:4] if word in candidate_words)
@@ -138,46 +167,88 @@ def _candidate_relevance(candidate: AssetCandidate, query: str) -> tuple[int, in
     return (subject_match, early_overlap, leading_match, coverage)
 
 
-def _prefer_subject_matches(candidates: list[AssetCandidate], query: str) -> list[AssetCandidate]:
-    """Drop obvious keyword-only distractors when subject-matching results exist."""
-    query_words = _relevance_words(query)
-    if len(query_words) < 2 or len(candidates) < 2:
+def _prefer_subject_matches(
+    candidates: list[AssetCandidate],
+    query: str,
+    *,
+    require_subject: bool = True,
+) -> list[AssetCandidate]:
+    """Require the concrete subject for anchored searches before using generic matches."""
+    if not require_subject or not candidates:
         return candidates
 
-    subject = query_words[1]
+    subject = _required_subject(query)
+    if not subject:
+        return candidates
+
     subject_matches = [
         candidate
         for candidate in candidates
         if subject in set(_relevance_words(_candidate_search_text(candidate)))
     ]
-    return subject_matches or candidates
+    return subject_matches
 
 
 def _fallback_search_queries(query: str) -> tuple[str, ...]:
-    """Build progressively broader stock-media searches for an overly specific prompt."""
+    """Build subject-preserving broader stock-media searches."""
     original = str(query or "").strip()
     words = re.findall(r"[A-Za-z0-9][A-Za-z0-9'’-]*", original)
     variants: list[str] = []
     seen = {original.casefold()}
 
-    cleaned = " ".join(words).strip()
-    if cleaned and cleaned.casefold() not in seen:
-        variants.append(cleaned)
-        seen.add(cleaned.casefold())
-
-    # Stock-media APIs are much more reliable with short noun-heavy searches.
-    # Include a 9-word pass because generated visual prompts commonly prepend a
-    # concise fact/title before appending a more detailed scene description.
-    for length in (12, 9, 6, 4):
-        if len(words) <= length:
-            continue
-        candidate = " ".join(words[:length]).strip()
+    def add(value: str) -> None:
+        candidate = " ".join(str(value or "").split()).strip()
         key = candidate.casefold()
         if candidate and key not in seen:
             variants.append(candidate)
             seen.add(key)
 
+    cleaned = " ".join(words).strip()
+    add(cleaned)
+
+    meaningful = _relevance_words(original)
+    required_subject = _required_subject(original)
+    if required_subject:
+        # Try progressively simpler searches that keep the concrete subject.
+        after_subject = [word for word in meaningful[2:] if word != required_subject]
+        add(" ".join([meaningful[0], required_subject, *after_subject[:2]]))
+        add(" ".join([required_subject, *after_subject[:2]]))
+        add(required_subject)
+
+    # Stock-media APIs are much more reliable with short noun-heavy searches.
+    for length in (12, 9, 6, 4):
+        if len(words) <= length:
+            continue
+        add(" ".join(words[:length]))
+
     return tuple(variants)
+
+
+def _ensure_subject_in_queries(queries: Iterable[str], context: Any) -> list[str]:
+    """Keep every scene query tied to the project's concrete subject when available."""
+    project = getattr(context, "project", None)
+    category = ""
+    if isinstance(project, Mapping):
+        category = str(project.get("category") or "").strip()
+    topic = str(getattr(context, "topic", "") or "").strip()
+    subject = _topic_subject(topic, category)
+
+    result: list[str] = []
+    for raw in queries:
+        query = " ".join(str(raw or "").split()).strip()
+        if not query:
+            continue
+        words = _relevance_words(query)
+        query_subject = _required_subject(query)
+        if subject and subject.casefold() not in words:
+            if query_subject and words:
+                # Category is already first; insert the concrete project subject after it.
+                parts = query.split()
+                query = " ".join([parts[0], subject, *parts[1:]])
+            else:
+                query = f"{subject} {query}".strip()
+        result.append(query)
+    return result
 
 
 class AssetAcquisitionEngine:
@@ -222,9 +293,6 @@ class AssetAcquisitionEngine:
                 ratio_bonus = max(0.0, 1.0 - abs(ratio - target_ratio))
 
             if query:
-                # Relevance deliberately precedes provider popularity/likes so a
-                # very popular but off-topic Earth/UFO image cannot outrank a
-                # less-popular candidate that actually names the scene subject.
                 return (
                     *_candidate_relevance(candidate, query),
                     float(candidate.score) + ratio_bonus,
@@ -236,7 +304,15 @@ class AssetAcquisitionEngine:
 
         return sorted(unique.values(), key=ranking, reverse=True)
 
-    def search(self, query: str, *, kind: str = "image", limit: int = 20, target_ratio: float | None = None) -> list[AssetCandidate]:
+    def search(
+        self,
+        query: str,
+        *,
+        kind: str = "image",
+        limit: int = 20,
+        target_ratio: float | None = None,
+        require_subject: bool = True,
+    ) -> list[AssetCandidate]:
         if not str(query).strip():
             raise ValueError("query is required")
         collected: list[AssetCandidate] = []
@@ -250,7 +326,7 @@ class AssetAcquisitionEngine:
                 continue
             collected.extend(result for result in results if result.kind == kind and result.url)
         ranked = self.rank(collected, target_ratio=target_ratio, query=str(query))
-        ranked = _prefer_subject_matches(ranked, str(query))
+        ranked = _prefer_subject_matches(ranked, str(query), require_subject=require_subject)
         if not ranked and errors:
             raise AssetAcquisitionError("; ".join(errors))
         return ranked[:limit]
@@ -293,7 +369,7 @@ class AssetAcquisitionEngine:
                     "retry",
                     index,
                     len(fallbacks),
-                    f"No results; trying broader search: {fallback}",
+                    f"No subject match; trying: {fallback}",
                 )
                 candidates = self.search(
                     fallback,
@@ -303,6 +379,20 @@ class AssetAcquisitionEngine:
                 )
                 if candidates:
                     break
+        if not candidates and _required_subject(query):
+            self._progress(
+                "retry",
+                1,
+                1,
+                "No direct subject match found; using best broader result",
+            )
+            candidates = self.search(
+                query,
+                kind=kind,
+                limit=limit,
+                target_ratio=target_ratio,
+                require_subject=False,
+            )
         if not candidates:
             raise AssetAcquisitionError(f"no {kind} assets found for: {query}")
         blocked = excluded or set()
@@ -341,12 +431,12 @@ def make_asset_acquisition_provider(engine: AssetAcquisitionEngine, destination_
             prompts or (),
             topic=str(getattr(context, "topic", "") or ""),
         )
-        context.image_prompts = list(plan.queries)
+        context.image_prompts = _ensure_subject_in_queries(plan.queries, context)
         if hasattr(context, "warnings") and plan.generated_fallbacks:
             context.warnings.append(
                 f"Generated {plan.generated_fallbacks} fallback visual searches for {plan.scene_count} scenes"
             )
-        return engine.acquire_many(plan.queries, destination_folder, kind=kind, unique=True)
+        return engine.acquire_many(context.image_prompts, destination_folder, kind=kind, unique=True)
 
     return run
 
