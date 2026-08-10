@@ -24,7 +24,7 @@ def fake_asset_response(request):
                 "id": 1,
                 "width": 1080,
                 "height": 1920,
-                "alt": "space planet vertical image",
+                "alt": "Venus planet atmosphere vertical image",
                 "photographer": "A",
                 "src": {"portrait": "https://cdn.example/image-1.jpg"},
             },
@@ -32,7 +32,7 @@ def fake_asset_response(request):
                 "id": 2,
                 "width": 1080,
                 "height": 1920,
-                "alt": "space planet rotation vertical image",
+                "alt": "Venus planet rotation in space vertical image",
                 "photographer": "B",
                 "src": {"portrait": "https://cdn.example/image-2.jpg"},
             },
@@ -48,7 +48,7 @@ def fail_if_text_prompt_is_used(_request):
     raise AssertionError("OpenAI image-query generation should be skipped when imported searches exist")
 
 
-def test_imported_timeline_searches_are_preferred_and_category_anchored(tmp_path):
+def test_imported_timeline_searches_are_preferred_and_subject_anchored(tmp_path):
     configured = build_configured_providers(
         tmp_path,
         ProviderSettings(asset_providers=("pexels",), voice_provider="none"),
@@ -79,7 +79,8 @@ def test_imported_timeline_searches_are_preferred_and_category_anchored(tmp_path
 
     assert context.image_prompts[:2] == [
         "Space Venus planet space",
-        "Space rotating planet",
+        "Space Venus rotating planet",
     ]
     assert any("imported scene search queries" in warning for warning in context.warnings)
     assert results
+    assert all("venus" in result.candidate.title.casefold() for result in results)
