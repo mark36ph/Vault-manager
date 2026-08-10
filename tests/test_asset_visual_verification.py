@@ -52,10 +52,13 @@ def test_openai_visual_verifier_sends_downloaded_image_and_accepts(tmp_path):
         content = body["input"][0]["content"]
         schema = body["text"]["format"]
         assert body["model"] == "gpt-5-mini"
-        assert body["max_output_tokens"] == 300
+        assert body["max_output_tokens"] == 800
+        assert body["reasoning"] == {"effort": "minimal"}
+        assert body["text"]["verbosity"] == "low"
         assert schema["type"] == "json_schema"
         assert schema["strict"] is True
-        assert schema["schema"]["required"] == ["decision", "confidence", "reason"]
+        assert schema["schema"]["required"] == ["decision", "confidence"]
+        assert "reason" not in schema["schema"]["properties"]
         assert content[0]["type"] == "input_text"
         assert "Space Venus planet rotation" in content[0]["text"]
         assert "dragons" in content[0]["text"]
@@ -68,7 +71,6 @@ def test_openai_visual_verifier_sends_downloaded_image_and_accepts(tmp_path):
                 {
                     "decision": "ACCEPT",
                     "confidence": 0.96,
-                    "reason": "The image visibly shows Venus.",
                 }
             )
         }
@@ -89,7 +91,6 @@ def test_openai_visual_verifier_reads_nested_responses_output(tmp_path):
         {
             "decision": "REJECT",
             "confidence": 0.99,
-            "reason": "The image shows a dragon, not Venus.",
         }
     )
     verifier = OpenAIImageRelevanceVerifier(
@@ -112,8 +113,8 @@ def test_openai_visual_verifier_rejects_uncertain_and_low_confidence_accepts(tmp
     asset = asset_for(tmp_path)
     responses = iter(
         [
-            {"decision": "UNCERTAIN", "confidence": 0.91, "reason": "Could be another planet."},
-            {"decision": "ACCEPT", "confidence": 0.62, "reason": "Probably Venus."},
+            {"decision": "UNCERTAIN", "confidence": 0.91},
+            {"decision": "ACCEPT", "confidence": 0.62},
         ]
     )
 
