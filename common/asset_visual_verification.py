@@ -62,8 +62,8 @@ def _image_data_url(path: Path) -> str:
     return f"data:{mime_type};base64,{encoded}"
 
 
-def _parse_decision(text: str) -> tuple[str, float]:
-    """Parse the verifier's compact strict JSON decision payload."""
+def _parse_mismatch(text: str) -> tuple[bool, float]:
+    """Parse the verifier's compact strict mismatch-veto payload."""
     raw = str(text or "").strip()
     if raw.startswith("```"):
         lines = raw.splitlines()
@@ -83,11 +83,9 @@ def _parse_decision(text: str) -> tuple[str, float]:
     if not isinstance(payload, Mapping):
         raise AssetVisualVerificationError("visual verifier decision must be a JSON object")
 
-    decision = str(payload.get("decision") or "").strip().upper()
-    if decision not in {"ACCEPT", "REJECT", "UNCERTAIN"}:
-        raise AssetVisualVerificationError(
-            f"visual verifier returned invalid decision: {decision or '<empty>'}"
-        )
+    obvious_mismatch = payload.get("obvious_mismatch")
+    if not isinstance(obvious_mismatch, bool):
+        raise AssetVisualVerificationError("visual verifier obvious_mismatch must be boolean")
 
     try:
         confidence = float(payload.get("confidence"))
@@ -96,13 +94,13 @@ def _parse_decision(text: str) -> tuple[str, float]:
     if not 0.0 <= confidence <= 1.0:
         raise AssetVisualVerificationError("visual verifier confidence must be between 0 and 1")
 
-    return decision, confidence
+    return obvious_mismatch, confidence
 
 
 class OpenAIImageRelevanceVerifier:
-    """Use an image-capable OpenAI model as a strict post-download relevance gate."""
+    """Use an image-capable OpenAI model as a high-confidence mismatch veto."""
 
-    ACCEPT_CONFIDENCE = 0.80
+    REJECT_CONFIDENCE = 0.90
 
     def __init__(
         self,
@@ -129,51 +127,47 @@ class OpenAIImageRelevanceVerifier:
         scene_query = " ".join(str(query or "").split()).strip()
         candidate_title = " ".join(str(asset.candidate.title or "").split()).strip()
         instruction = (
-            "You are a visual quality gate for factual short-form video stock imagery. "
-            "Judge what is visibly present in the image. Treat filenames, tags, and stock metadata as hints, "
-            "never as proof. The goal is to reject clearly wrong imagery without rejecting useful, plausible stock visuals.\n\n"
+            "You are a conservative mismatch detector for factual short-form video stock imagery. "
+            "Your job is NOT to prove the image is exactly the named subject. Your only job is to block images "
+            "that are visibly and obviously wrong for the requested scene. Treat filenames, tags, and stock metadata "
+            "as hints, never as proof.\n\n"
             f"Scene search query: {scene_query}\n"
             f"Stock metadata title: {candidate_title}\n\n"
-            "Rules:\n"
-            "- ACCEPT when the image is a useful literal or scientifically/physically plausible visual for the scene and is consistent with the named subject.\n"
-            "- A subject does NOT need to be uniquely identifiable from pixels alone when that is unrealistic for stock imagery. For planets, moons, microscopic objects, deep-space objects, ancient events, and similar subjects, accept a plausible representation that is consistent with the requested subject and does not visibly contradict it.\n"
-            "- Example: for Venus, a yellow/orange/cloud-covered rocky planet, crescent planet, hot planetary surface, or plausible Venus illustration can be ACCEPTED even if the image itself cannot prove it is Venus.\n"
-            "- REJECT when the image visibly depicts a different identifiable subject or an obvious mismatch. Earth with blue oceans/continents is not Venus.\n"
-            "- REJECT fantasy creatures, dragons, monsters, unrelated people, statues, logos, decorative symbols, generic diagrams, generic rockets/UFOs, unrelated animals, and unrelated objects unless the scene explicitly asks for them.\n"
-            "- Symbolic or abstract artwork should be REJECTED when a literal visual is reasonably available.\n"
-            "- If the image is broadly compatible with the named subject and has no visible contradiction, prefer ACCEPT over UNCERTAIN.\n"
-            "- Use UNCERTAIN only when there is a real visual conflict or ambiguity that could make the image misleading.\n"
-            "- Confidence measures confidence in the decision, not image quality. Use ACCEPT only when confidence is at least 0.80.\n"
-            "- Keep the decision concise; no explanation is needed."
+            "Set obvious_mismatch=true only when you can see a clear contradiction or unrelated subject. Examples: "
+            "recognizable Earth for a Venus scene; a dragon, fantasy creature, unrelated person, statue, animal, logo, "
+            "generic UFO/rocket, or decorative symbol when not requested.\n"
+            "Set obvious_mismatch=false for plausible stock imagery that could reasonably illustrate the scene, even if "
+            "the exact identity cannot be proven from pixels alone. For planets such as Venus, yellow/orange/cloudy planets, "
+            "crescent planetary disks, hot rocky surfaces, atmospheric views, and scientifically plausible illustrations are "
+            "NOT obvious mismatches unless a visible feature clearly identifies a different body.\n"
+            "Do not reject merely because the exact action (rotation, orbit, retrograde motion, sunrise direction) is not visibly "
+            "demonstrated in a still image. The search/ranking stage handles scene specificity; you are only a last-line veto for "
+            "visibly wrong imagery.\n"
+            "Use confidence for how certain you are that an obvious mismatch exists. If unsure, set obvious_mismatch=false."
         )
 
         body = {
             "model": self.model,
-            # max_output_tokens includes hidden reasoning tokens for reasoning models.
-            # Keep reasoning minimal and leave ample room for the tiny JSON object.
             "max_output_tokens": 800,
             "reasoning": {"effort": "minimal"},
             "text": {
                 "verbosity": "low",
                 "format": {
                     "type": "json_schema",
-                    "name": "visual_relevance_decision",
-                    "description": "Compact strict visual relevance decision for a stock image.",
+                    "name": "visual_mismatch_decision",
+                    "description": "High-confidence visual mismatch veto for a stock image.",
                     "strict": True,
                     "schema": {
                         "type": "object",
                         "properties": {
-                            "decision": {
-                                "type": "string",
-                                "enum": ["ACCEPT", "REJECT", "UNCERTAIN"],
-                            },
+                            "obvious_mismatch": {"type": "boolean"},
                             "confidence": {
                                 "type": "number",
                                 "minimum": 0,
                                 "maximum": 1,
                             },
                         },
-                        "required": ["decision", "confidence"],
+                        "required": ["obvious_mismatch", "confidence"],
                         "additionalProperties": False,
                     },
                 },
@@ -204,8 +198,8 @@ class OpenAIImageRelevanceVerifier:
             method="POST",
         )
         payload = self.transport(request)
-        decision, confidence = _parse_decision(_response_text(payload))
-        return decision == "ACCEPT" and confidence >= self.ACCEPT_CONFIDENCE
+        obvious_mismatch, confidence = _parse_mismatch(_response_text(payload))
+        return not (obvious_mismatch and confidence >= self.REJECT_CONFIDENCE)
 
 
 __all__ = [
