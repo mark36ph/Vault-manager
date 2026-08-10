@@ -50,8 +50,12 @@ def test_openai_visual_verifier_sends_downloaded_image_and_accepts(tmp_path):
         requests.append(request)
         body = json.loads(request.data.decode("utf-8"))
         content = body["input"][0]["content"]
+        schema = body["text"]["format"]
         assert body["model"] == "gpt-5-mini"
-        assert body["max_output_tokens"] == 100
+        assert body["max_output_tokens"] == 300
+        assert schema["type"] == "json_schema"
+        assert schema["strict"] is True
+        assert schema["schema"]["required"] == ["decision", "confidence", "reason"]
         assert content[0]["type"] == "input_text"
         assert "Space Venus planet rotation" in content[0]["text"]
         assert "dragons" in content[0]["text"]
@@ -77,6 +81,31 @@ def test_openai_visual_verifier_sends_downloaded_image_and_accepts(tmp_path):
 
     assert verifier("Space Venus planet rotation", asset) is True
     assert len(requests) == 1
+
+
+def test_openai_visual_verifier_reads_nested_responses_output(tmp_path):
+    asset = asset_for(tmp_path)
+    decision = json.dumps(
+        {
+            "decision": "REJECT",
+            "confidence": 0.99,
+            "reason": "The image shows a dragon, not Venus.",
+        }
+    )
+    verifier = OpenAIImageRelevanceVerifier(
+        "openai-key",
+        transport=lambda _request: {
+            "status": "completed",
+            "output": [
+                {
+                    "type": "message",
+                    "content": [{"type": "output_text", "text": decision}],
+                }
+            ],
+        },
+    )
+
+    assert verifier("Space Venus planet rotation", asset) is False
 
 
 def test_openai_visual_verifier_rejects_uncertain_and_low_confidence_accepts(tmp_path):
