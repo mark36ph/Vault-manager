@@ -2,11 +2,14 @@ import time
 from tkinter import messagebox
 
 import customtkinter as ctk
+import pages.production_page as production_page_module
 
+from common.asset_visual_verification import OpenAIImageRelevanceVerifier
 from common.fcpxml_paths import rebase_fcpxml_media_paths
 from common.narration_sync import NarrationSyncError, regenerate_narration
 from common.project_filters import in_progress_projects
-from common.provider_setup import ProviderSettingsStore, build_configured_providers
+from common.provider_setup import ProviderCredentials, ProviderSettingsStore, build_configured_providers
+from common.verified_asset_acquisition import install_visual_verification
 from pages.media_library_page import MediaLibraryPage
 from pages.production_page import ProductionPage, format_elapsed
 from pages.settings_page import SettingsPage
@@ -167,6 +170,30 @@ def install_production_status_guard():
     ProductionPage._status_guard_installed = True
 
 
+def install_production_visual_verification():
+    """Verify downloaded production images with OpenAI before they enter the timeline."""
+    if getattr(production_page_module, "_visual_verification_installed", False):
+        return
+
+    original_builder = production_page_module.build_configured_providers
+
+    def build_with_visual_verification(project_folder, settings, **options):
+        configured = original_builder(project_folder, settings, **options)
+        if str(getattr(settings, "asset_kind", "image")) != "image":
+            return configured
+
+        credentials = options.get("credentials") or ProviderCredentials()
+        verifier = OpenAIImageRelevanceVerifier(
+            credentials.get("openai"),
+            model=str(getattr(settings, "openai_model", "gpt-5-mini") or "gpt-5-mini"),
+        )
+        install_visual_verification(configured.asset_engine, verifier)
+        return configured
+
+    production_page_module.build_configured_providers = build_with_visual_verification
+    production_page_module._visual_verification_installed = True
+
+
 def install_status_move_fcpxml_rebase(app):
     """Rebase generated Resolve file URIs whenever a project status move changes its folder."""
     original_change_status = app.pm.change_project_status
@@ -279,6 +306,7 @@ install_asset_usage_tracking()
 install_production_settings_links()
 install_production_elapsed_timer()
 install_production_status_guard()
+install_production_visual_verification()
 
 app = Dashboard()
 install_status_move_fcpxml_rebase(app)
