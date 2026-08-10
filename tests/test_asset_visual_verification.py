@@ -42,7 +42,7 @@ def asset_for(tmp_path, identifier="venus", title="Venus cloudy planet"):
     )
 
 
-def test_openai_visual_verifier_sends_downloaded_image_and_accepts(tmp_path):
+def test_openai_visual_verifier_sends_downloaded_image_and_keeps_plausible_asset(tmp_path):
     asset = asset_for(tmp_path)
     requests = []
 
@@ -57,20 +57,19 @@ def test_openai_visual_verifier_sends_downloaded_image_and_accepts(tmp_path):
         assert body["text"]["verbosity"] == "low"
         assert schema["type"] == "json_schema"
         assert schema["strict"] is True
-        assert schema["schema"]["required"] == ["decision", "confidence"]
-        assert "reason" not in schema["schema"]["properties"]
+        assert schema["schema"]["required"] == ["obvious_mismatch", "confidence"]
         assert content[0]["type"] == "input_text"
         assert "Space Venus planet rotation" in content[0]["text"]
-        assert "dragons" in content[0]["text"]
-        assert "UNCERTAIN" in content[0]["text"]
+        assert "dragon" in content[0]["text"]
+        assert "last-line veto" in content[0]["text"]
         assert content[1]["type"] == "input_image"
         assert content[1]["detail"] == "high"
         assert content[1]["image_url"].startswith("data:image/jpeg;base64,")
         return {
             "output_text": json.dumps(
                 {
-                    "decision": "ACCEPT",
-                    "confidence": 0.96,
+                    "obvious_mismatch": False,
+                    "confidence": 0.62,
                 }
             )
         }
@@ -85,11 +84,11 @@ def test_openai_visual_verifier_sends_downloaded_image_and_accepts(tmp_path):
     assert len(requests) == 1
 
 
-def test_openai_visual_verifier_reads_nested_responses_output(tmp_path):
+def test_openai_visual_verifier_reads_nested_responses_output_and_blocks_obvious_mismatch(tmp_path):
     asset = asset_for(tmp_path)
     decision = json.dumps(
         {
-            "decision": "REJECT",
+            "obvious_mismatch": True,
             "confidence": 0.99,
         }
     )
@@ -109,22 +108,18 @@ def test_openai_visual_verifier_reads_nested_responses_output(tmp_path):
     assert verifier("Space Venus planet rotation", asset) is False
 
 
-def test_openai_visual_verifier_rejects_uncertain_and_low_confidence_accepts(tmp_path):
+def test_openai_visual_verifier_does_not_block_low_confidence_mismatch(tmp_path):
     asset = asset_for(tmp_path)
-    responses = iter(
-        [
-            {"decision": "UNCERTAIN", "confidence": 0.91},
-            {"decision": "ACCEPT", "confidence": 0.62},
-        ]
-    )
-
     verifier = OpenAIImageRelevanceVerifier(
         "openai-key",
-        transport=lambda _request: {"output_text": json.dumps(next(responses))},
+        transport=lambda _request: {
+            "output_text": json.dumps(
+                {"obvious_mismatch": True, "confidence": 0.71}
+            )
+        },
     )
 
-    assert verifier("Space Venus planet rotation", asset) is False
-    assert verifier("Space Venus planet rotation", asset) is False
+    assert verifier("Space Venus planet rotation", asset) is True
 
 
 def test_visual_verification_rejects_bad_candidate_and_tries_next(tmp_path):
