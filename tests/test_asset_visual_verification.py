@@ -42,6 +42,21 @@ def asset_for(tmp_path, identifier="venus", title="Venus cloudy planet"):
     )
 
 
+def decision(
+    *,
+    obvious_mismatch=False,
+    confidence=0.5,
+    hard_negative="none",
+    hard_negative_confidence=0.0,
+):
+    return {
+        "obvious_mismatch": obvious_mismatch,
+        "confidence": confidence,
+        "hard_negative": hard_negative,
+        "hard_negative_confidence": hard_negative_confidence,
+    }
+
+
 def test_openai_visual_verifier_sends_downloaded_image_and_keeps_plausible_asset(tmp_path):
     asset = asset_for(tmp_path)
     requests = []
@@ -51,28 +66,28 @@ def test_openai_visual_verifier_sends_downloaded_image_and_keeps_plausible_asset
         body = json.loads(request.data.decode("utf-8"))
         content = body["input"][0]["content"]
         schema = body["text"]["format"]
+        required = schema["schema"]["required"]
         assert body["model"] == "gpt-5-mini"
         assert body["max_output_tokens"] == 800
         assert body["reasoning"] == {"effort": "minimal"}
         assert body["text"]["verbosity"] == "low"
         assert schema["type"] == "json_schema"
         assert schema["strict"] is True
-        assert schema["schema"]["required"] == ["obvious_mismatch", "confidence"]
+        assert required == [
+            "obvious_mismatch",
+            "confidence",
+            "hard_negative",
+            "hard_negative_confidence",
+        ]
+        assert "unrequested_dragon_or_fantasy_creature" in schema["schema"]["properties"]["hard_negative"]["enum"]
         assert content[0]["type"] == "input_text"
         assert "Space Venus planet rotation" in content[0]["text"]
+        assert "hard_negative" in content[0]["text"]
         assert "dragon" in content[0]["text"]
-        assert "last-line veto" in content[0]["text"]
         assert content[1]["type"] == "input_image"
         assert content[1]["detail"] == "high"
         assert content[1]["image_url"].startswith("data:image/jpeg;base64,")
-        return {
-            "output_text": json.dumps(
-                {
-                    "obvious_mismatch": False,
-                    "confidence": 0.62,
-                }
-            )
-        }
+        return {"output_text": json.dumps(decision())}
 
     verifier = OpenAIImageRelevanceVerifier(
         "openai-key",
@@ -86,12 +101,6 @@ def test_openai_visual_verifier_sends_downloaded_image_and_keeps_plausible_asset
 
 def test_openai_visual_verifier_reads_nested_responses_output_and_blocks_obvious_mismatch(tmp_path):
     asset = asset_for(tmp_path)
-    decision = json.dumps(
-        {
-            "obvious_mismatch": True,
-            "confidence": 0.99,
-        }
-    )
     verifier = OpenAIImageRelevanceVerifier(
         "openai-key",
         transport=lambda _request: {
@@ -99,7 +108,14 @@ def test_openai_visual_verifier_reads_nested_responses_output_and_blocks_obvious
             "output": [
                 {
                     "type": "message",
-                    "content": [{"type": "output_text", "text": decision}],
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": json.dumps(
+                                decision(obvious_mismatch=True, confidence=0.99)
+                            ),
+                        }
+                    ],
                 }
             ],
         },
@@ -108,13 +124,49 @@ def test_openai_visual_verifier_reads_nested_responses_output_and_blocks_obvious
     assert verifier("Space Venus planet rotation", asset) is False
 
 
-def test_openai_visual_verifier_does_not_block_low_confidence_mismatch(tmp_path):
+def test_openai_visual_verifier_does_not_block_low_confidence_general_mismatch(tmp_path):
     asset = asset_for(tmp_path)
     verifier = OpenAIImageRelevanceVerifier(
         "openai-key",
         transport=lambda _request: {
             "output_text": json.dumps(
-                {"obvious_mismatch": True, "confidence": 0.71}
+                decision(obvious_mismatch=True, confidence=0.71)
+            )
+        },
+    )
+
+    assert verifier("Space Venus planet rotation", asset) is True
+
+
+def test_openai_visual_verifier_hard_negative_blocks_dragon_even_when_general_mismatch_is_uncertain(tmp_path):
+    asset = asset_for(tmp_path, identifier="dragon", title="Venus planet illustration")
+    verifier = OpenAIImageRelevanceVerifier(
+        "openai-key",
+        transport=lambda _request: {
+            "output_text": json.dumps(
+                decision(
+                    obvious_mismatch=False,
+                    confidence=0.42,
+                    hard_negative="unrequested_dragon_or_fantasy_creature",
+                    hard_negative_confidence=0.96,
+                )
+            )
+        },
+    )
+
+    assert verifier("Space Venus spins backwards", asset) is False
+
+
+def test_openai_visual_verifier_ignores_low_confidence_hard_negative(tmp_path):
+    asset = asset_for(tmp_path)
+    verifier = OpenAIImageRelevanceVerifier(
+        "openai-key",
+        transport=lambda _request: {
+            "output_text": json.dumps(
+                decision(
+                    hard_negative="unrequested_generic_diagram",
+                    hard_negative_confidence=0.41,
+                )
             )
         },
     )
