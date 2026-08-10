@@ -48,8 +48,48 @@ def _image_data_url(path: Path) -> str:
     return f"data:{mime_type};base64,{encoded}"
 
 
+def _parse_decision(text: str) -> tuple[str, float, str]:
+    """Parse the verifier's strict JSON decision payload."""
+    raw = str(text or "").strip()
+    if raw.startswith("```"):
+        lines = raw.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        raw = "\n".join(lines).strip()
+
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as error:
+        raise AssetVisualVerificationError(
+            f"visual verifier returned invalid JSON: {raw or '<empty>'}"
+        ) from error
+
+    if not isinstance(payload, Mapping):
+        raise AssetVisualVerificationError("visual verifier decision must be a JSON object")
+
+    decision = str(payload.get("decision") or "").strip().upper()
+    if decision not in {"ACCEPT", "REJECT", "UNCERTAIN"}:
+        raise AssetVisualVerificationError(
+            f"visual verifier returned invalid decision: {decision or '<empty>'}"
+        )
+
+    try:
+        confidence = float(payload.get("confidence"))
+    except (TypeError, ValueError) as error:
+        raise AssetVisualVerificationError("visual verifier confidence must be numeric") from error
+    if not 0.0 <= confidence <= 1.0:
+        raise AssetVisualVerificationError("visual verifier confidence must be between 0 and 1")
+
+    reason = " ".join(str(payload.get("reason") or "").split()).strip()
+    return decision, confidence, reason
+
+
 class OpenAIImageRelevanceVerifier:
     """Use an image-capable OpenAI model as a strict post-download relevance gate."""
+
+    ACCEPT_CONFIDENCE = 0.80
 
     def __init__(
         self,
@@ -76,22 +116,28 @@ class OpenAIImageRelevanceVerifier:
         scene_query = " ".join(str(query or "").split()).strip()
         candidate_title = " ".join(str(asset.candidate.title or "").split()).strip()
         instruction = (
-            "Act as a strict visual relevance gate for factual short-form video stock imagery. "
-            "Judge what is visibly present in the image, not just its filename or metadata. "
-            "Return exactly ACCEPT or REJECT.\n\n"
+            "You are a strict visual quality gate for factual short-form video stock imagery. "
+            "Judge ONLY what is visibly present in the image. Treat filenames, tags, and stock metadata as hints, "
+            "never as proof. Return one JSON object and no other text, using exactly this shape: "
+            '{"decision":"ACCEPT|REJECT|UNCERTAIN","confidence":0.0,"reason":"short reason"}.\n\n'
             f"Scene search query: {scene_query}\n"
             f"Stock metadata title: {candidate_title}\n\n"
-            "ACCEPT when the image visibly depicts the concrete subject in the query and is a reasonable "
-            "visual for the scene. A generic but clearly correct view of the named subject is acceptable "
-            "when the exact action is difficult to photograph. REJECT when the named subject is absent, "
-            "when another subject is substituted, or when the image is merely category-related. For example, "
-            "an Earth image, UFO, rocket, statue, animal, logo, or decorative illustration must be rejected "
-            "for a Venus scene unless that object is explicitly requested by the scene query."
+            "Rules:\n"
+            "- ACCEPT only when the image visibly depicts the named concrete subject or a scientifically/physically "
+            "reasonable representation of it, and it is useful for the requested scene.\n"
+            "- REJECT if the named subject is absent, replaced by another subject, or the image is merely in the same broad category.\n"
+            "- REJECT fantasy creatures, dragons, monsters, unrelated people, statues, logos, decorative symbols, generic diagrams, "
+            "generic rockets/UFOs, unrelated animals, and unrelated objects unless the scene explicitly asks for them.\n"
+            "- For a named planet, moon, place, person, animal, object, vehicle, building, or historical subject, do not accept a different one. "
+            "For example, Earth is not Venus, a generic rocket is not Venus, and a dragon tagged Venus is not Venus.\n"
+            "- Symbolic or abstract artwork should be REJECTED when a literal visual is reasonably possible.\n"
+            "- If you cannot confidently tell whether the image matches, choose UNCERTAIN rather than ACCEPT.\n"
+            "- Confidence measures confidence in the decision, not image quality. Use ACCEPT only when confidence is at least 0.80."
         )
 
         body = {
             "model": self.model,
-            "max_output_tokens": 8,
+            "max_output_tokens": 100,
             "input": [
                 {
                     "role": "user",
@@ -100,7 +146,7 @@ class OpenAIImageRelevanceVerifier:
                         {
                             "type": "input_image",
                             "image_url": _image_data_url(path),
-                            "detail": "low",
+                            "detail": "high",
                         },
                     ],
                 }
@@ -118,14 +164,8 @@ class OpenAIImageRelevanceVerifier:
             method="POST",
         )
         payload = self.transport(request)
-        answer = _response_text(payload).strip().upper()
-        if answer.startswith("ACCEPT"):
-            return True
-        if answer.startswith("REJECT"):
-            return False
-        raise AssetVisualVerificationError(
-            f"visual verifier returned an unexpected response: {answer or '<empty>'}"
-        )
+        decision, confidence, _reason = _parse_decision(_response_text(payload))
+        return decision == "ACCEPT" and confidence >= self.ACCEPT_CONFIDENCE
 
 
 __all__ = [
