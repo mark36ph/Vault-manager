@@ -37,7 +37,21 @@ def _response_text(payload: Mapping[str, Any]) -> str:
         for content in output.get("content", []) if isinstance(output.get("content"), list) else []:
             if isinstance(content, Mapping) and content.get("text"):
                 chunks.append(str(content["text"]))
-    return "\n".join(chunks).strip()
+    text = "\n".join(chunks).strip()
+    if text:
+        return text
+
+    status = str(payload.get("status") or "").strip()
+    incomplete = payload.get("incomplete_details")
+    if status == "incomplete":
+        reason = ""
+        if isinstance(incomplete, Mapping):
+            reason = str(incomplete.get("reason") or "").strip()
+        raise AssetVisualVerificationError(
+            "visual verifier response was incomplete"
+            + (f": {reason}" if reason else "")
+        )
+    return ""
 
 
 def _image_data_url(path: Path) -> str:
@@ -118,8 +132,7 @@ class OpenAIImageRelevanceVerifier:
         instruction = (
             "You are a strict visual quality gate for factual short-form video stock imagery. "
             "Judge ONLY what is visibly present in the image. Treat filenames, tags, and stock metadata as hints, "
-            "never as proof. Return one JSON object and no other text, using exactly this shape: "
-            '{"decision":"ACCEPT|REJECT|UNCERTAIN","confidence":0.0,"reason":"short reason"}.\n\n'
+            "never as proof.\n\n"
             f"Scene search query: {scene_query}\n"
             f"Stock metadata title: {candidate_title}\n\n"
             "Rules:\n"
@@ -137,7 +150,32 @@ class OpenAIImageRelevanceVerifier:
 
         body = {
             "model": self.model,
-            "max_output_tokens": 100,
+            "max_output_tokens": 300,
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "visual_relevance_decision",
+                    "description": "Strict visual relevance decision for a stock image.",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "decision": {
+                                "type": "string",
+                                "enum": ["ACCEPT", "REJECT", "UNCERTAIN"],
+                            },
+                            "confidence": {
+                                "type": "number",
+                                "minimum": 0,
+                                "maximum": 1,
+                            },
+                            "reason": {"type": "string"},
+                        },
+                        "required": ["decision", "confidence", "reason"],
+                        "additionalProperties": False,
+                    },
+                }
+            },
             "input": [
                 {
                     "role": "user",
