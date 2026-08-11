@@ -10,6 +10,7 @@ from common.mixed_asset_acquisition import (
     install_mixed_visual_acquisition,
     prepare_selected_videos,
 )
+from common.named_asset_hierarchy import install_named_asset_hierarchy
 from common.named_subject_verification import NamedSubjectVerifier
 from common.narration_sync import NarrationSyncError, regenerate_narration
 from common.provider_setup import ProviderCredentials, ProviderSettingsStore, build_configured_providers
@@ -278,6 +279,7 @@ def install_production_visual_verification():
         # subjects are treated as complete entities, not loose keyword matches.
         install_visual_verification(configured.asset_engine, verifier)
         install_mixed_visual_acquisition(configured.asset_engine, verifier)
+        install_named_asset_hierarchy()
 
         original_image_stage = configured.registry.require("image_prompts")
 
