@@ -270,6 +270,35 @@ def test_image_prompt_stage_generates_queries_and_downloads_assets(tmp_path):
     assert len({result.candidate.id for result in results}) == 2
 
 
+def test_imported_scene_searches_are_not_polluted_by_overall_topic(tmp_path):
+    configured = build_configured_providers(
+        tmp_path,
+        ProviderSettings(asset_providers=("pexels",), voice_provider="none"),
+        credentials=credentials(),
+        text_transport=fake_text_response,
+        pexels_transport=fake_asset_response,
+        downloader=fake_downloader,
+    )
+    context = SimpleNamespace(
+        topic="Yellowstone Isn't the Biggest Volcano",
+        script="A later scene about a broad shield volcano.",
+        image_prompts=None,
+        timeline=None,
+        project_folder=tmp_path,
+        project={
+            "category": "Nature",
+            "notes": "Search:\nMauna Loa Hawaii broad shield volcano\nFree Sources:\nPexels\n",
+        },
+        warnings=[],
+    )
+
+    configured.registry.require("image_prompts")(context)
+
+    assert context.image_prompts == ["Mauna Loa Hawaii broad shield volcano"]
+    assert not context.image_prompts[0].startswith("Nature ")
+    assert "Yellowstone" not in context.image_prompts[0]
+
+
 def test_build_requires_key_for_selected_asset_provider(tmp_path):
     with pytest.raises(ProviderSetupError, match="PEXELS_API_KEY"):
         build_configured_providers(
