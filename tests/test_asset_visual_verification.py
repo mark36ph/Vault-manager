@@ -207,9 +207,11 @@ def test_openai_visual_verifier_ignores_low_confidence_hard_negative(tmp_path):
 
 
 def test_visual_verification_rejects_bad_candidate_and_tries_next(tmp_path):
+    # Both candidates are lexically relevant to the query, so the higher-scored
+    # visually-wrong candidate is tried first and the verifier must reject it.
     bad = candidate(
         "wrong",
-        "Unrelated decorative artwork",
+        "Golden Gate Bridge decorative artwork",
         100,
         "https://example.test/wrong.jpg",
     )
