@@ -48,6 +48,10 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
         except OSError:
             pass
 
+    def _verifier_decision(self) -> str:
+        detail = str(getattr(self.verifier, "last_decision", "") or "").strip()
+        return detail or "visual relevance rejected"
+
     def _try_candidates(
         self,
         query: str,
@@ -85,9 +89,9 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
             try:
                 accepted = bool(self.verifier(query, asset))
             except Exception as error:
-                # Visual verification is now a real quality gate. An unavailable,
-                # malformed, or uncertain verifier result must not silently allow a
-                # visibly wrong asset into the final video.
+                # Visual verification is a real quality gate. An unavailable or
+                # malformed verifier result must not silently allow a visibly wrong
+                # asset into the final video.
                 failures.append(
                     f"{candidate.provider}/{candidate.id}: visual verification failed: {error}"
                 )
@@ -104,9 +108,15 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 self._progress("verify", index, total, "Visual relevance accepted")
                 return asset
 
-            failures.append(f"{candidate.provider}/{candidate.id}: visual relevance rejected")
+            decision = self._verifier_decision()
+            failures.append(f"{candidate.provider}/{candidate.id}: {decision}")
             self._discard_rejected_asset(asset)
-            self._progress("verify", index, total, "Visual relevance rejected; trying another asset")
+            self._progress(
+                "verify",
+                index,
+                total,
+                f"Visual relevance rejected ({decision}); trying another asset",
+            )
 
         return None
 
