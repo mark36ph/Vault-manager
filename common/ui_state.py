@@ -34,14 +34,23 @@ class KeyboardScrollBinding:
         return "entry" in widget_class or "text" in widget_class or "spinbox" in widget_class
 
     def _canvas(self):
-        return getattr(self.scrollable, "_parent_canvas", None)
+        try:
+            canvas = getattr(self.scrollable, "_parent_canvas", None)
+            if canvas is None or not bool(canvas.winfo_exists()):
+                return None
+            return canvas
+        except Exception:
+            return None
 
     def _scroll_units(self, event, amount):
         if self._is_text_input(event):
             return None
         canvas = self._canvas()
         if canvas is not None:
-            canvas.yview_scroll(amount, "units")
+            try:
+                canvas.yview_scroll(amount, "units")
+            except Exception:
+                pass
         return "break"
 
     def _scroll_pages(self, event, amount):
@@ -49,7 +58,10 @@ class KeyboardScrollBinding:
             return None
         canvas = self._canvas()
         if canvas is not None:
-            canvas.yview_scroll(amount, "pages")
+            try:
+                canvas.yview_scroll(amount, "pages")
+            except Exception:
+                pass
         return "break"
 
     def _scroll_to(self, event, position):
@@ -57,7 +69,10 @@ class KeyboardScrollBinding:
             return None
         canvas = self._canvas()
         if canvas is not None:
-            canvas.yview_moveto(position)
+            try:
+                canvas.yview_moveto(position)
+            except Exception:
+                pass
         return "break"
 
     def _on_destroy(self, event):
