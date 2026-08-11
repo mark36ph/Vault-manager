@@ -29,21 +29,28 @@ class StubVerifier:
         return self.accepted
 
 
-def test_named_subject_verifier_adds_strict_identity_instruction():
+def test_named_subject_verifier_adds_identity_instruction():
     base = StubVerifier()
     verifier = NamedSubjectVerifier(base)
 
     assert verifier("nature Mauna Loa Hawaii shield volcano aerial", SimpleNamespace()) is True
-    assert "STRICT NAMED-SUBJECT IDENTITY REQUIREMENT" in base.seen_query
+    assert "NAMED-SUBJECT IDENTITY REQUIREMENT" in base.seen_query
     assert "Mauna Loa" in base.seen_query
 
 
-def test_named_subject_verifier_rejects_uncertain_named_subject():
+def test_named_subject_verifier_preserves_uncertain_plausible_fallback():
     base = StubVerifier(accepted=True, uncertain=True)
     verifier = NamedSubjectVerifier(base)
 
+    assert verifier("nature Mount Everest summit mountain", SimpleNamespace()) is True
+    assert base.last_subject_uncertain is True
+
+
+def test_named_subject_verifier_preserves_base_rejection():
+    base = StubVerifier(accepted=False)
+    verifier = NamedSubjectVerifier(base)
+
     assert verifier("nature Mount Everest summit mountain", SimpleNamespace()) is False
-    assert "named subject identity uncertain" in base.last_decision
 
 
 def test_generic_query_keeps_normal_verification_behavior():
@@ -51,4 +58,4 @@ def test_generic_query_keeps_normal_verification_behavior():
     verifier = NamedSubjectVerifier(base)
 
     assert verifier("technology fiber optic cable light data", SimpleNamespace()) is True
-    assert "STRICT NAMED-SUBJECT IDENTITY REQUIREMENT" not in base.seen_query
+    assert "NAMED-SUBJECT IDENTITY REQUIREMENT" not in base.seen_query
