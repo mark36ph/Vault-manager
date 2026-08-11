@@ -46,6 +46,8 @@ def decision(
     *,
     obvious_mismatch=False,
     confidence=0.5,
+    physical_contradiction=False,
+    physical_contradiction_confidence=0.0,
     hard_negative="none",
     hard_negative_confidence=0.0,
     visual_quality="preferred",
@@ -54,6 +56,8 @@ def decision(
     return {
         "obvious_mismatch": obvious_mismatch,
         "confidence": confidence,
+        "physical_contradiction": physical_contradiction,
+        "physical_contradiction_confidence": physical_contradiction_confidence,
         "hard_negative": hard_negative,
         "hard_negative_confidence": hard_negative_confidence,
         "visual_quality": visual_quality,
@@ -85,6 +89,8 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
         assert required == [
             "obvious_mismatch",
             "confidence",
+            "physical_contradiction",
+            "physical_contradiction_confidence",
             "hard_negative",
             "hard_negative_confidence",
             "visual_quality",
@@ -98,6 +104,8 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
         assert "Geography Eiffel Tower Paris sunset" in prompt
         assert "topic-neutral" in prompt
         assert "Never assume a fixed video topic" in prompt
+        assert "physical_contradiction" in prompt
+        assert "defining visible traits" in prompt
         assert "Big Ben is not the Eiffel Tower" in prompt
         assert "visual_quality" in prompt
         assert "visual_style" in prompt
@@ -134,6 +142,46 @@ def test_openai_visual_verifier_marks_relevant_symbolic_visual_as_weak_decorativ
     assert verifier.last_style == "decorative"
     assert "quality=weak" in verifier.last_decision
     assert "style=decorative" in verifier.last_decision
+
+
+def test_openai_visual_verifier_blocks_high_confidence_physical_contradiction_for_any_topic(tmp_path):
+    asset = asset_for(tmp_path, identifier="wrong-type", title="Candidate with conflicting visible traits")
+    verifier = OpenAIImageRelevanceVerifier(
+        "openai-key",
+        transport=lambda _request: {
+            "output_text": json.dumps(
+                decision(
+                    physical_contradiction=True,
+                    physical_contradiction_confidence=0.97,
+                    visual_quality="acceptable",
+                    visual_style="literal",
+                )
+            )
+        },
+    )
+
+    assert verifier("Transport World War I biplane in flight", asset) is False
+    assert "physical contradiction" in verifier.last_decision
+
+
+def test_openai_visual_verifier_keeps_low_confidence_physical_contradiction(tmp_path):
+    asset = asset_for(tmp_path, identifier="ambiguous", title="Ambiguous historical reconstruction")
+    verifier = OpenAIImageRelevanceVerifier(
+        "openai-key",
+        transport=lambda _request: {
+            "output_text": json.dumps(
+                decision(
+                    physical_contradiction=True,
+                    physical_contradiction_confidence=0.62,
+                    visual_quality="acceptable",
+                    visual_style="representational",
+                )
+            )
+        },
+    )
+
+    assert verifier("History Roman aqueduct construction", asset) is True
+    assert "physical_contradiction=True/0.62" in verifier.last_decision
 
 
 def test_openai_visual_verifier_blocks_wrong_named_subject_for_any_topic(tmp_path):
@@ -379,6 +427,43 @@ def test_visual_verification_can_prefer_acceptable_literal_over_preferred_decora
     result = engine.acquire("Nature redwood forest", tmp_path, attempts=2)
 
     assert result.candidate.id == "literal"
+
+
+def test_visual_verification_weak_factual_visual_beats_preferred_decorative(tmp_path):
+    decorative = candidate(
+        "decorative",
+        "Steam turbine futuristic concept art",
+        100,
+        "https://example.test/decorative.jpg",
+    )
+    factual = candidate(
+        "factual",
+        "Steam turbine machinery reference image",
+        1,
+        "https://example.test/factual.jpg",
+    )
+    engine = AssetAcquisitionEngine(
+        [Provider([decorative, factual])],
+        downloader=lambda _url, path: path.write_bytes(b"image"),
+    )
+
+    class StyleVerifier:
+        last_quality = "preferred"
+        last_style = "decorative"
+
+        def __call__(self, _query, asset):
+            if asset.candidate.id == "decorative":
+                self.last_quality = "preferred"
+                self.last_style = "decorative"
+            else:
+                self.last_quality = "weak"
+                self.last_style = "representational"
+            return True
+
+    install_visual_verification(engine, StyleVerifier())
+    result = engine.acquire("Technology steam turbine", tmp_path, attempts=2)
+
+    assert result.candidate.id == "factual"
 
 
 def test_visual_verification_uses_weak_fallback_when_no_stronger_visual_exists(tmp_path):
