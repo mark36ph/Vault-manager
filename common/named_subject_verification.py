@@ -1,15 +1,20 @@
-"""Stricter visual verification for concrete named subjects.
+"""Stricter visual verification for named subjects and scene transitions.
 
 This wrapper keeps the existing topic-neutral verifier while preserving named
 entities as complete semantic subjects. It rejects clear identity contradictions,
 but does not require stock footage to prove a landmark or place from pixels alone.
 Ambiguous but plausible imagery remains marked uncertain so the acquisition layer
 can keep searching and use it only as a fallback.
+
+Candidates may also carry the previous scene query in metadata. When they do, the
+visual verifier is explicitly asked to judge the pixels for the current scene and
+reject imagery that is clearly more characteristic of the previous scene. This
+catches stale-scene bleed that provider titles and tags cannot identify.
 """
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Mapping
 
 
 _BROAD_ANCHORS = {
@@ -36,6 +41,12 @@ _ENTITY_TERMINALS = {
     "Desert", "Forest", "Bay", "Gulf", "Peninsula", "Spacecraft", "Rover",
     "Tomb", "Wall", "Capitol", "Center", "Centre",
 }
+
+_PREVIOUS_QUERY_METADATA_KEY = "_selection_previous_query"
+
+
+def _normalized_words(value: str) -> str:
+    return " ".join(re.findall(r"[a-z0-9]+", str(value or "").casefold()))
 
 
 def _trim_named_run(tokens: list[str]) -> list[str]:
@@ -94,8 +105,42 @@ def named_subject_phrase(query: str) -> str:
     return " ".join(best).strip()
 
 
+def _previous_scene_query(asset: Any) -> str:
+    candidate = getattr(asset, "candidate", None)
+    metadata = getattr(candidate, "metadata", None)
+    if not isinstance(metadata, Mapping):
+        return ""
+    return str(metadata.get(_PREVIOUS_QUERY_METADATA_KEY) or "").strip()
+
+
+def _transition_instruction(current_query: str, previous_query: str) -> str:
+    """Build a topic-neutral visual continuity instruction for a real transition."""
+    if not previous_query:
+        return ""
+    if _normalized_words(current_query) == _normalized_words(previous_query):
+        return ""
+
+    return (
+        "\n\nSCENE-TRANSITION RELEVANCE REQUIREMENT:\n"
+        f"CURRENT SCENE: {current_query}\n"
+        f"PREVIOUS SCENE: {previous_query}\n"
+        "Judge this asset primarily for the CURRENT scene. Inspect the visible "
+        "content itself, not just stock metadata. If the asset is clearly more "
+        "characteristic of the PREVIOUS scene than the CURRENT scene, reject it "
+        "as stale-scene imagery. This includes recognizable subject, location, "
+        "environment, object type, species, architecture, landform, action, or "
+        "other visual identity carried over from the previous scene. Do not reject "
+        "neutral imagery merely because it could fit both scenes, and do not reject "
+        "legitimate continuity when the current scene still visually calls for the "
+        "same subject. Prefer visible evidence that supports the current subject, "
+        "setting, form, action, or comparison. When uncertain but still plausibly "
+        "current-scene imagery, keep the normal uncertainty behavior rather than "
+        "inventing a contradiction."
+    )
+
+
 class NamedSubjectVerifier:
-    """Proxy an existing visual verifier with balanced named-identity semantics."""
+    """Proxy an existing verifier with named-identity and scene-context semantics."""
 
     def __init__(self, base_verifier: Any) -> None:
         self.base_verifier = base_verifier
@@ -125,6 +170,7 @@ class NamedSubjectVerifier:
                 "and other concrete named entities."
             )
 
+        check_query += _transition_instruction(check_query.split("\n\n", 1)[0], _previous_scene_query(asset))
         return bool(self.base_verifier(check_query, asset))
 
 
