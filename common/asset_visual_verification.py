@@ -125,9 +125,11 @@ _HARD_NEGATIVES = {
     "other_obvious_unrelated_subject",
 }
 
+_VISUAL_QUALITY = {"preferred", "acceptable", "weak"}
 
-def _parse_mismatch(text: str) -> tuple[bool, float, str, float]:
-    """Parse mismatch scoring plus the independent hard-negative classification."""
+
+def _parse_mismatch(text: str) -> tuple[bool, float, str, float, str]:
+    """Parse mismatch scoring, hard negatives, and topic-neutral visual quality."""
     raw = str(text or "").strip()
     if raw.startswith("```"):
         lines = raw.splitlines()
@@ -175,11 +177,17 @@ def _parse_mismatch(text: str) -> tuple[bool, float, str, float]:
             "visual verifier hard_negative_confidence must be between 0 and 1"
         )
 
-    return obvious_mismatch, confidence, hard_negative, hard_negative_confidence
+    visual_quality = str(payload.get("visual_quality") or "").strip()
+    if visual_quality not in _VISUAL_QUALITY:
+        raise AssetVisualVerificationError(
+            f"visual verifier returned invalid visual_quality: {visual_quality or '<empty>'}"
+        )
+
+    return obvious_mismatch, confidence, hard_negative, hard_negative_confidence, visual_quality
 
 
 class OpenAIImageRelevanceVerifier:
-    """Use an image-capable OpenAI model as a topic-neutral mismatch and hard-negative gate."""
+    """Use an image-capable OpenAI model as a topic-neutral mismatch and quality gate."""
 
     REJECT_CONFIDENCE = 0.90
     HARD_NEGATIVE_CONFIDENCE = 0.85
@@ -196,6 +204,7 @@ class OpenAIImageRelevanceVerifier:
         self.model = str(model or "gpt-5-mini").strip()
         self.transport = transport
         self.last_decision = "not checked"
+        self.last_quality = "preferred"
         if not self.api_key:
             raise ValueError("OpenAI API key is required for visual verification")
         if not self.model:
@@ -204,6 +213,7 @@ class OpenAIImageRelevanceVerifier:
     def __call__(self, query: str, asset: AcquiredAsset) -> bool:
         path = Path(asset.path)
         self.last_decision = "not checked"
+        self.last_quality = "preferred"
         if asset.candidate.kind != "image":
             self.last_decision = "non-image asset"
             return True
@@ -214,18 +224,16 @@ class OpenAIImageRelevanceVerifier:
         scene_query = " ".join(str(query or "").split()).strip()
         candidate_title = " ".join(str(asset.candidate.title or "").split()).strip()
         instruction = (
-            "You are a topic-neutral visual mismatch detector for factual short-form video stock imagery. "
+            "You are a topic-neutral visual mismatch and quality detector for factual short-form video stock imagery. "
             "This rule must work for any subject: science, history, geography, animals, technology, people, places, "
             "objects, transport, architecture, medicine, nature, or other factual topics. The scene search query is "
             "the source of truth. Never assume a fixed video topic.\n\n"
             f"Scene search query: {scene_query}\n"
             f"Stock metadata title: {candidate_title}\n\n"
             "The search/ranking system already chose this candidate. Do not demand impossible visual proof. Your job is "
-            "to veto clear contradictions and unrelated dominant subjects while keeping plausible imagery. Treat filenames, "
-            "tags, and stock metadata as hints, never as proof.\n\n"
-            "Return two independent judgments. First, obvious_mismatch says whether the whole image is clearly wrong for "
-            "the scene. Second, hard_negative identifies an unmistakable visible subject or format that contradicts the "
-            "scene or is not requested by it.\n"
+            "to veto clear contradictions and unrelated dominant subjects while also rating how useful the visual format is. "
+            "Treat filenames, tags, and stock metadata as hints, never as proof.\n\n"
+            "Return three independent judgments: obvious_mismatch, hard_negative, and visual_quality.\n"
             "For hard_negative choose exactly one category. Use none when no forbidden subject is clearly visible. Categories:\n"
             "- wrong_named_subject: the query names a concrete entity or class and the image visibly shows a different identifiable one. "
             "Examples include the wrong planet, landmark, person, animal species, vehicle, building, machine, food, flag, location, or object.\n"
@@ -239,6 +247,11 @@ class OpenAIImageRelevanceVerifier:
             "- other_obvious_unrelated_subject: another unmistakable dominant subject that contradicts the requested scene.\n"
             "Set a hard-negative category only when that visible subject is actually inconsistent with or unrequested by the scene. "
             "If the query asks for that thing, use none.\n\n"
+            "Rate visual_quality independently from relevance:\n"
+            "- preferred: strong literal footage/photo, documentary/scientific image, or a convincing realistic reconstruction that directly shows the subject.\n"
+            "- acceptable: relevant illustration, reconstruction, archival artwork, map, close-up, atmospheric/surface view, or other useful representation when literal footage may be difficult.\n"
+            "- weak: logo-like or mostly symbolic graphics, generic diagrams, decorative compositions, placeholder-like icon scenes, or fantasy/concept-art styling when a more literal factual visual would normally be better.\n"
+            "Do not label a requested diagram, map, chart, logo, artwork, or symbolic visual as weak merely because of its format; judge it against what the scene actually asks for.\n\n"
             "Apply these general rules across all topics:\n"
             "- If a named subject is difficult or impossible to uniquely identify from pixels alone, keep a scientifically, historically, "
             "or physically plausible representation unless a visible feature clearly contradicts the query.\n"
@@ -246,8 +259,7 @@ class OpenAIImageRelevanceVerifier:
             "measurement, or process when the underlying subject is otherwise appropriate.\n"
             "- Reject a clearly different identifiable named subject. Examples: Big Ben is not the Eiffel Tower; a tiger is not a lion; "
             "a motorcycle is not a bicycle; Earth is not Mars; a modern jet is not a World War I biplane.\n"
-            "- Diagrams, symbols, and illustrations are weaker visuals, but they are not automatic hard failures. Mark them only when "
-            "they are clearly unrequested and clearly displace a useful literal visual.\n"
+            "- Diagrams, symbols, and illustrations are weaker visuals when unrequested, but they are not automatic hard failures.\n"
             "- Do not reject merely because the image is a reasonable reconstruction, illustration, microscopic view, astronomical view, "
             "ancient-event depiction, or other representation that cannot be verified uniquely from pixels.\n"
             "- If unsure about the overall match, set obvious_mismatch=false. But if a hard-negative subject is clearly present and "
@@ -263,7 +275,7 @@ class OpenAIImageRelevanceVerifier:
                 "format": {
                     "type": "json_schema",
                     "name": "visual_mismatch_decision",
-                    "description": "Topic-neutral visual mismatch decision with an independent hard-negative category.",
+                    "description": "Topic-neutral visual mismatch decision with hard-negative and visual-quality classifications.",
                     "strict": True,
                     "schema": {
                         "type": "object",
@@ -283,12 +295,17 @@ class OpenAIImageRelevanceVerifier:
                                 "minimum": 0,
                                 "maximum": 1,
                             },
+                            "visual_quality": {
+                                "type": "string",
+                                "enum": sorted(_VISUAL_QUALITY),
+                            },
                         },
                         "required": [
                             "obvious_mismatch",
                             "confidence",
                             "hard_negative",
                             "hard_negative_confidence",
+                            "visual_quality",
                         ],
                         "additionalProperties": False,
                     },
@@ -325,7 +342,9 @@ class OpenAIImageRelevanceVerifier:
             confidence,
             hard_negative,
             hard_negative_confidence,
+            visual_quality,
         ) = _parse_mismatch(_response_text(payload))
+        self.last_quality = visual_quality
 
         threshold = self.HARD_NEGATIVE_CONFIDENCE
         if hard_negative in {"unrequested_logo_or_symbol", "unrequested_generic_diagram"}:
@@ -343,7 +362,7 @@ class OpenAIImageRelevanceVerifier:
             return False
 
         self.last_decision = (
-            f"kept: mismatch={obvious_mismatch}/{confidence:.2f}, "
+            f"kept: quality={visual_quality}, mismatch={obvious_mismatch}/{confidence:.2f}, "
             f"hard_negative={hard_negative}/{hard_negative_confidence:.2f}"
         )
         return True
