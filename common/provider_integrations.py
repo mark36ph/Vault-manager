@@ -143,13 +143,9 @@ def _candidate_is_relevant(
     query_word_set = set(query_words)
     overlap = query_word_set & candidate_words
 
-    # General relevance.
     if len(overlap) < 1:
         return False
 
-    # The image prompt is designed to start with the main
-    # physical subject. Require at least one of the first
-    # two meaningful query words to appear in the result.
     anchor_words = set(query_words[:2])
 
     if anchor_words and not (
@@ -172,14 +168,6 @@ class PexelsAssetProvider:
             return []
         endpoint = "https://api.pexels.com/v1/search" if kind == "image" else "https://api.pexels.com/v1/videos/search"
         params = urllib.parse.urlencode({"query": query, "per_page": max(1, min(int(limit), 80)), "orientation": "portrait"})
-       
-       
-        print("=" * 80)
-        print("PEXELS QUERY:", query)
-        print("URL:", f"{endpoint}?{params}")
-        print("KEY LENGTH:", len(self.api_key))
-       
-       
         payload = self.transport(_json_request(f"{endpoint}?{params}", headers={"Authorization": self.api_key}))
         items = payload.get("photos" if kind == "image" else "videos", [])
         results: list[AssetCandidate] = []
@@ -380,25 +368,16 @@ class OpenAISpeechProvider:
 
         destination = voice_folder / f"narration_{script_hash}{suffix}"
 
-        # Save the exact text sent to narration for troubleshooting.
         script_copy = voice_folder / f"narration_{script_hash}.txt"
         script_copy.write_text(script, encoding="utf-8")
         request = _json_request("https://api.openai.com/v1/audio/speech", headers={"Authorization": f"Bearer {self.api_key}"}, body={"model": self.model, "voice": self.voice, "input": script, "response_format": self.response_format})
-        print("=" * 80)
-        print("TTS DESTINATION:", destination)
-        print("TTS SCRIPT HASH:", script_hash)
-        print("TTS SCRIPT LENGTH:", len(script))
-        print("TTS SCRIPT START:", repr(script[:300]))
-        print("=" * 80)
         data = self.transport(request)
-        print("TTS RESPONSE BYTES:", len(data) if data else 0)
         if not data:
             raise ProviderIntegrationError("OpenAI speech response was empty")
         temporary = destination.with_suffix(destination.suffix + ".part")
         temporary.write_bytes(data)
         temporary.replace(destination)
 
-        # Generate the branded outro using the same model and voice.
         outro_destination = voice_folder / "fact_unlocked.mp3"
 
         outro_request = _json_request(
