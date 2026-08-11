@@ -62,6 +62,11 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
         protected.add(_candidate_key(asset.candidate))
         protected.add(asset.candidate.url)
 
+    @staticmethod
+    def _candidate_markers(candidate: AssetCandidate) -> tuple[str, str]:
+        """Return stable markers used to suppress duplicate work within one acquisition."""
+        return _candidate_key(candidate), candidate.url
+
     def _verifier_decision(self) -> str:
         detail = str(getattr(self.verifier, "last_decision", "") or "").strip()
         return detail or "visual relevance rejected"
@@ -101,23 +106,35 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
         failures: list[str],
         allow_reuse: bool = False,
         protected: set[str] | None = None,
+        checked: set[str] | None = None,
     ) -> AcquiredAsset | None:
         protected_items = protected or set()
+        checked_items = checked if checked is not None else set()
 
         def is_protected(item: AssetCandidate) -> bool:
-            return _candidate_key(item) in protected_items or item.url in protected_items
+            key, url = self._candidate_markers(item)
+            return key in protected_items or url in protected_items
+
+        def was_checked(item: AssetCandidate) -> bool:
+            key, url = self._candidate_markers(item)
+            return key in checked_items or url in checked_items
 
         distinct = [
             item
             for item in candidates
             if not is_protected(item)
+            and not was_checked(item)
             and _candidate_key(item) not in excluded
             and item.url not in excluded
         ]
         if distinct:
             pool = distinct
         elif allow_reuse:
-            pool = [item for item in candidates if not is_protected(item)]
+            pool = [
+                item
+                for item in candidates
+                if not is_protected(item) and not was_checked(item)
+            ]
         else:
             pool = []
         if not pool:
@@ -132,6 +149,9 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
         best_uncertain = False
 
         for index, candidate in enumerate(pool[:scan_limit], start=1):
+            key, url = self._candidate_markers(candidate)
+            checked_items.add(key)
+            checked_items.add(url)
             try:
                 asset = self._download_candidate(candidate, folder, index, total)
             except Exception as error:
@@ -282,6 +302,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
         folder.mkdir(parents=True, exist_ok=True)
         blocked = set(excluded or ())
         protected: set[str] = set()
+        checked: set[str] = set()
         failures: list[str] = []
         required_subject = _required_subject(query)
         decorative_fallback: AcquiredAsset | None = None
@@ -307,6 +328,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
             excluded=blocked,
             failures=failures,
             protected=protected,
+            checked=checked,
         )
         if result is not None:
             result, decorative_fallback, uncertain_fallback = self._defer_candidate(
@@ -347,6 +369,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 excluded=blocked,
                 failures=failures,
                 protected=protected,
+                checked=checked,
             )
             if result is not None:
                 result, decorative_fallback, uncertain_fallback = self._defer_candidate(
@@ -380,6 +403,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 excluded=blocked,
                 failures=failures,
                 protected=protected,
+                checked=checked,
             )
             if result is not None:
                 result, decorative_fallback, uncertain_fallback = self._defer_candidate(
@@ -414,6 +438,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 failures=failures,
                 allow_reuse=True,
                 protected=protected,
+                checked=checked,
             )
             if result is not None:
                 result, decorative_fallback, uncertain_fallback = self._defer_candidate(
