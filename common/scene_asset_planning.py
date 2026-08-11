@@ -28,6 +28,14 @@ _QUERY_STOP_WORDS = {
     "nature", "science", "history", "technology", "engineering", "geography",
     "architecture", "environment",
 }
+_NARRATION_STOP_WORDS = _QUERY_STOP_WORDS | {
+    "but", "however", "instead", "rather", "yet", "actually", "unlike", "whereas",
+    "although", "though", "this", "that", "these", "those", "its", "their", "there",
+    "here", "into", "than", "then", "also", "very", "much", "many", "more", "most",
+    "less", "least", "not", "isn", "isnt", "is", "are", "was", "were", "be", "been",
+    "being", "has", "have", "had", "does", "do", "did", "can", "could", "would",
+    "should", "will", "just", "really", "comparison", "compared",
+}
 
 
 def clean_visual_query(value: str) -> str:
@@ -67,14 +75,42 @@ def _is_transition_scene(scene) -> bool:
     return bool(narration and _TRANSITION_CUE.search(narration))
 
 
+def _transition_intent_words(scene, destination_query: str, *, limit: int = 4) -> list[str]:
+    """Return a few current-scene words that sharpen a destination search."""
+    narration = str(getattr(scene, "narration", "") or "").strip()
+    destination_words = _query_words(destination_query)
+    result: list[str] = []
+    seen: set[str] = set()
+    for token in re.findall(r"[A-Za-z0-9][A-Za-z0-9'’-]*", narration):
+        key = token.casefold()
+        if len(key) < 3 or key in _NARRATION_STOP_WORDS or key in destination_words or key in seen:
+            continue
+        result.append(token)
+        seen.add(key)
+        if len(result) >= limit:
+            break
+    return result
+
+
+def _destination_transition_query(scene, destination_query: str) -> str:
+    """Aim a pivot at its destination while retaining useful current-scene intent."""
+    destination = clean_visual_query(destination_query)
+    if not destination:
+        return ""
+    intent = _transition_intent_words(scene, destination)
+    return " ".join([destination, *intent]).strip()
+
+
 def _repair_stale_transition_queries(queries: list[str], scenes) -> list[str]:
     """Move a stale repeated search toward the destination of a narration pivot.
 
     Imported projects sometimes repeat the previous scene's stock search on a
     contrast line such as "but..." even though the narration is deliberately
     moving to a new subject. Only repair that narrow case: the current query must
-    be substantially closer to the previous query than to the next one. A scene
-    that already has a distinct search keeps it unchanged.
+    be substantially closer to the previous query than to the next one. The
+    repaired query starts with the next scene's visual subject and adds a few
+    concrete words from the current narration, making the transition intent
+    explicit before stock search and visual verification begin.
     """
     repaired = list(queries)
     last_scene_index = min(len(scenes), len(repaired)) - 1
@@ -95,7 +131,7 @@ def _repair_stale_transition_queries(queries: list[str], scenes) -> list[str]:
         exact_repeat = current_query.casefold() == previous_query.casefold()
         stale_repeat = previous_similarity >= 0.5 and previous_similarity > next_similarity
         if (exact_repeat or stale_repeat) and next_query:
-            repaired[index] = next_query
+            repaired[index] = _destination_transition_query(scene, next_query) or next_query
     return repaired
 
 
