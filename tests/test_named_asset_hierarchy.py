@@ -2,13 +2,16 @@ import pytest
 
 from common.asset_acquisition import AssetCandidate
 from common.named_asset_hierarchy import (
+    CURRENT_SCENE_EVIDENCE_BONUS,
     NAMED_DESCRIPTIVE_BONUS,
     NAMED_IDENTITY_BONUS,
     NAMED_SEARCH_BONUS,
+    PREVIOUS_SUBJECT_PENALTY,
     named_candidate_bonus,
     named_candidate_rank_tier,
     named_descriptive_overlap,
     named_identity_evidence,
+    scene_context_adjustment,
 )
 
 
@@ -193,11 +196,78 @@ def test_video_and_image_candidates_use_same_named_hierarchy(kind):
     ] == [3, 2, 1, 0]
 
 
+def test_previous_named_subject_is_penalized_after_scene_transition():
+    item = candidate(
+        title="Yellowstone waterfall and canyon",
+        source_page="https://stock.example/yellowstone-waterfall-canyon",
+        metadata={
+            "_selection_previous_query": "nature Yellowstone geothermal caldera aerial"
+        },
+    )
+
+    adjustment = scene_context_adjustment(
+        "geology giant shield volcano lava landscape comparison",
+        item,
+    )
+
+    assert adjustment == -PREVIOUS_SUBJECT_PENALTY
+
+
+def test_current_scene_evidence_prevents_previous_subject_penalty():
+    item = candidate(
+        title="Mauna Loa Hawaii shield volcano lava field",
+        source_page="https://stock.example/mauna-loa-hawaii-shield-volcano",
+        metadata={
+            "_selection_previous_query": "nature Yellowstone geothermal caldera aerial"
+        },
+    )
+
+    adjustment = scene_context_adjustment(
+        "nature Mauna Loa Hawaii shield volcano aerial",
+        item,
+    )
+
+    assert adjustment >= CURRENT_SCENE_EVIDENCE_BONUS
+
+
+def test_same_named_subject_continuity_is_not_penalized():
+    item = candidate(
+        title="Yellowstone geothermal basin",
+        source_page="https://stock.example/yellowstone-geothermal-basin",
+        metadata={
+            "_selection_previous_query": "nature Yellowstone geyser basin aerial"
+        },
+    )
+
+    adjustment = scene_context_adjustment(
+        "nature Yellowstone caldera geothermal landscape",
+        item,
+    )
+
+    assert adjustment >= 0
+
+
+def test_previous_query_metadata_is_not_provider_identity_evidence():
+    item = candidate(
+        title="generic volcanic landscape",
+        source_page="https://stock.example/volcano-landscape",
+        metadata={
+            "_selection_previous_query": "nature Yellowstone geothermal caldera aerial"
+        },
+    )
+
+    assert named_identity_evidence(
+        "nature Mauna Loa Hawaii shield volcano aerial",
+        item,
+    ) is False
+
+
 def test_named_tier_bonuses_are_decisive_over_visual_quality_scores():
     # Mixed verification currently spans roughly -3..9 points. Every named tier
     # must remain larger than that range so prettier generic footage cannot
     # outrank a surviving named-subject candidate.
     assert NAMED_IDENTITY_BONUS > NAMED_DESCRIPTIVE_BONUS > NAMED_SEARCH_BONUS > 9
+    assert PREVIOUS_SUBJECT_PENALTY > 9
 
 
 def test_generic_query_has_no_named_identity_requirement():
