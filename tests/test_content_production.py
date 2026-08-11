@@ -84,6 +84,63 @@ def test_engine_builds_timeline_from_script_by_default(tmp_path):
     assert result.context.timeline.scenes[0].narration == "The ocean is deep."
 
 
+def test_imported_on_screen_ranges_become_authoritative_scene_timing(tmp_path):
+    configured = providers()
+    configured["script"] = lambda context: "Opening scene.\n\nSecond scene."
+    configured["image_prompts"] = lambda context: []
+    imported_project = {
+        "title": "Imported Fact",
+        "topic": "example subject",
+        "on_screen_text": "0-4 sec\nOPENING\n\n4-11 sec\nSECOND SCENE",
+    }
+
+    result = ContentProductionEngine(configured).run(
+        imported_project,
+        tmp_path,
+        settings(),
+        resume=False,
+        stop_after="timeline",
+    )
+
+    timeline = result.context.timeline
+    assert [(scene.start, scene.duration) for scene in timeline.scenes] == [
+        (0.0, 4.0),
+        (4.0, 7.0),
+    ]
+    assert timeline.metadata["scene_timing_source"] == "imported_on_screen_text"
+    assert all(
+        scene.metadata["timing_source"] == "imported_on_screen_text"
+        for scene in timeline.scenes
+    )
+
+
+def test_incomplete_imported_timing_does_not_retime_or_misalign_scenes(tmp_path):
+    configured = providers()
+    configured["script"] = lambda context: "Opening scene.\n\nSecond scene."
+    configured["image_prompts"] = lambda context: []
+    imported_project = {
+        "title": "Imported Fact",
+        "topic": "example subject",
+        "on_screen_text": "0-4 sec\nONLY ONE TIMING RANGE",
+    }
+
+    result = ContentProductionEngine(configured).run(
+        imported_project,
+        tmp_path,
+        settings(),
+        resume=False,
+        stop_after="timeline",
+    )
+
+    timeline = result.context.timeline
+    assert "scene_timing_source" not in timeline.metadata
+    assert [(scene.start, scene.duration) for scene in timeline.scenes] != [
+        (0.0, 4.0),
+        (4.0, 7.0),
+    ]
+    assert any("do not match the timeline scene count" in warning for warning in result.context.warnings)
+
+
 def test_stage_values_are_available_to_later_providers(tmp_path):
     configured = providers()
     configured["facts"] = lambda context: [context.research["summary"]]
