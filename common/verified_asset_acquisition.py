@@ -50,7 +50,9 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
 
     @staticmethod
     def _discard_rejected_asset(asset: AcquiredAsset) -> None:
-        """Remove a rejected or superseded download so it is not reused."""
+        """Remove only downloads created by this pass; never delete reused files."""
+        if asset.reused:
+            return
         try:
             Path(asset.path).unlink(missing_ok=True)
         except OSError:
