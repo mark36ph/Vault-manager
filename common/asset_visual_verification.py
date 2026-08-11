@@ -224,6 +224,7 @@ class OpenAIImageRelevanceVerifier:
     PHYSICAL_CONTRADICTION_CONFIDENCE = 0.82
     SUBJECT_UNCERTAIN_CONFIDENCE = 0.45
     HARD_NEGATIVE_CONFIDENCE = 0.85
+    WRONG_NAMED_SUBJECT_CONFIDENCE = 0.72
     DECORATIVE_PERSON_CONFIDENCE = 0.70
     SOFT_FORMAT_CONFIDENCE = 0.97
 
@@ -271,6 +272,12 @@ class OpenAIImageRelevanceVerifier:
             "The search/ranking system already chose this candidate. Do not demand impossible visual proof. Veto clear contradictions "
             "and unrelated dominant subjects, while separately rating factual usefulness and visual style. Treat filenames, tags, and "
             "stock metadata as hints, never as proof.\n\n"
+            "Before judging the match, infer the intended meaning and semantic class of the requested subject from the FULL scene query, "
+            "especially category/type words such as planet, animal, river, company, vehicle, person, landmark, plant, machine, or place. "
+            "A shared name or keyword is not evidence that two subjects are the same entity. If the candidate visibly belongs to a different "
+            "meaning of the same word, use wrong_named_subject with high confidence. General examples: a Venus flytrap for the planet Venus; "
+            "a Jaguar car for a jaguar animal; the Amazon company/logo for the Amazon River; a Mercury-branded vehicle for the planet Mercury. "
+            "Apply this rule generically to homonyms, brands, species, places, people, products, celestial bodies, and other same-name entities.\n\n"
             "Return five judgments: obvious_mismatch, physical_contradiction, hard_negative, visual_quality, and visual_style.\n"
             "physical_contradiction is specifically about visible defining features that conflict with a concrete named or typed subject in the query. "
             "Set it true when the image provides enough visual evidence to distinguish the requested subject and one or more defining visible traits conflict with it. "
@@ -280,8 +287,9 @@ class OpenAIImageRelevanceVerifier:
             "for a lion; a propeller biplane for a modern jet; a Gothic cathedral for a glass skyscraper; a wheeled vehicle for a tracked tank. Do not set "
             "physical_contradiction merely because an image is generic, incomplete, stylized, reconstructed, or because a fact/action is not directly visible.\n\n"
             "For hard_negative choose exactly one category. Use none when no forbidden subject is clearly visible. Categories:\n"
-            "- wrong_named_subject: the query names a concrete entity or class and the image visibly shows a different identifiable one. Examples include the wrong planet, "
-            "landmark, person, animal species, vehicle, building, machine, food, flag, location, or object.\n"
+            "- wrong_named_subject: the query names a concrete entity or class and the image visibly shows a different identifiable one, including a different semantic meaning "
+            "that happens to share the same name or keyword. Examples include the wrong planet, landmark, person, animal species, vehicle, building, machine, food, flag, location, "
+            "object, brand, plant, company, or other same-name entity.\n"
             "- unrequested_fantasy_creature: dragon, monster, mythical beast, or fantasy creature when not requested.\n"
             "- unrequested_person: a prominent human figure when people are not requested by the scene. This includes photographed people, astronauts, illustrated people, silhouettes, "
             "and fantasy/concept-art human figures. If the person is a major compositional subject and the query does not call for a person, report this category even when the surrounding setting is loosely relevant.\n"
@@ -304,7 +312,7 @@ class OpenAIImageRelevanceVerifier:
             "and the candidate is mostly symbolic, logo-like, generic diagrammatic, or concept-art decoration, use decorative even if it is loosely relevant. If a diagram, map, chart, "
             "artwork, or symbolic representation is explicitly requested by the query, it may be representational instead.\n\n"
             "Apply these general rules across all topics:\n"
-            "- For a concrete named or typed subject, actively compare visible defining traits against the query before deciding the image is acceptable. Broad category similarity alone is not enough when the visual clearly identifies a conflicting subject.\n"
+            "- For a concrete named or typed subject, actively compare visible defining traits and semantic class against the full query before deciding the image is acceptable. Broad lexical similarity alone is not enough.\n"
             "- If a named subject is difficult or impossible to uniquely identify from pixels alone, keep a scientifically, historically, or physically plausible representation unless a visible feature clearly contradicts the query.\n"
             "- A still image does not have to demonstrate an abstract action, duration, comparison, cause, motion, direction, measurement, or process when the underlying subject is appropriate.\n"
             "- Reject a clearly different identifiable named subject. Examples: Big Ben is not the Eiffel Tower; a tiger is not a lion; a motorcycle is not a bicycle; Earth is not Mars; a modern jet is not a World War I biplane.\n"
@@ -399,7 +407,9 @@ class OpenAIImageRelevanceVerifier:
             return False
 
         threshold = self.HARD_NEGATIVE_CONFIDENCE
-        if hard_negative == "unrequested_person" and visual_style == "decorative":
+        if hard_negative == "wrong_named_subject":
+            threshold = self.WRONG_NAMED_SUBJECT_CONFIDENCE
+        elif hard_negative == "unrequested_person" and visual_style == "decorative":
             threshold = self.DECORATIVE_PERSON_CONFIDENCE
         elif hard_negative in {"unrequested_logo_or_symbol", "unrequested_generic_diagram"}:
             threshold = self.SOFT_FORMAT_CONFIDENCE
