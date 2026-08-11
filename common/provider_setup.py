@@ -234,7 +234,7 @@ def _imported_scene_searches(project: Mapping[str, Any] | None) -> list[str]:
 
 
 def _anchor_searches(prompts: list[str], context: Any) -> list[str]:
-    """Keep searches tied to the project's subject/category without bloating them."""
+    """Keep generated searches tied to the project subject/category."""
     project = getattr(context, "project", None)
     category = ""
     if isinstance(project, Mapping):
@@ -346,11 +346,16 @@ def _acquisition_stage(prompt_provider, engine, destination: Path, settings: Pro
     def run(context):
         imported = _imported_scene_searches(getattr(context, "project", None))
         if imported:
-            prompts = imported
+            # Imported Search: lines are already scene-specific authoring. Do not
+            # prepend the overall project title/category here: doing so can
+            # resurrect an earlier subject in a later scene and corrupt the exact
+            # visual intent that the imported timeline supplied.
+            prompts = [str(prompt).strip() for prompt in imported if str(prompt).strip()]
             if hasattr(context, "warnings"):
                 context.warnings.append(
                     f"Using {len(imported)} imported scene search queries for asset selection"
                 )
+            context.image_prompts = prompts
         else:
             raw = prompt_provider(context)
             prompts = [
@@ -358,8 +363,8 @@ def _acquisition_stage(prompt_provider, engine, destination: Path, settings: Pro
                 for line in str(raw).splitlines()
                 if line.strip()
             ]
+            context.image_prompts = _anchor_searches(prompts, context)
 
-        context.image_prompts = _anchor_searches(prompts, context)
         return acquire(context)
 
     return run
