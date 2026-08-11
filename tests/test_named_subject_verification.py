@@ -4,9 +4,11 @@ from common.named_subject_verification import NamedSubjectVerifier, named_subjec
 
 
 def test_named_subject_phrase_preserves_multiword_entities():
-    assert named_subject_phrase("nature Mauna Loa Hawaii shield volcano aerial") == "Mauna Loa Hawaii"
-    assert named_subject_phrase("nature Mount Everest Himalayas summit mountain Nepal") == "Mount Everest Himalayas"
+    assert named_subject_phrase("nature Mauna Loa Hawaii shield volcano aerial") == "Mauna Loa"
+    assert named_subject_phrase("nature Mount Everest Himalayas summit mountain Nepal") == "Mount Everest"
     assert named_subject_phrase("technology James Webb Space Telescope deep field") == "James Webb Space Telescope"
+    assert named_subject_phrase("nature Great Barrier Reef Australia coral aerial") == "Great Barrier Reef"
+    assert named_subject_phrase("architecture Golden Gate Bridge San Francisco aerial") == "Golden Gate Bridge"
 
 
 def test_named_subject_phrase_returns_empty_for_generic_lowercase_query():
@@ -33,7 +35,7 @@ def test_named_subject_verifier_adds_strict_identity_instruction():
 
     assert verifier("nature Mauna Loa Hawaii shield volcano aerial", SimpleNamespace()) is True
     assert "STRICT NAMED-SUBJECT IDENTITY REQUIREMENT" in base.seen_query
-    assert "Mauna Loa Hawaii" in base.seen_query
+    assert "Mauna Loa" in base.seen_query
 
 
 def test_named_subject_verifier_rejects_uncertain_named_subject():
