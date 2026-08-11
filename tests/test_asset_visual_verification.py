@@ -121,6 +121,7 @@ def test_openai_visual_verifier_blocks_wrong_named_subject_for_any_topic(tmp_pat
     )
 
     assert verifier("Geography Eiffel Tower Paris architecture", asset) is False
+    assert "wrong_named_subject" in verifier.last_decision
 
 
 def test_openai_visual_verifier_blocks_unrequested_fantasy_creature_for_any_topic(tmp_path):
@@ -189,7 +190,7 @@ def test_openai_visual_verifier_does_not_block_low_confidence_general_mismatch(t
     assert verifier("Animals blue whale ocean", asset) is True
 
 
-def test_openai_visual_verifier_ignores_low_confidence_hard_negative(tmp_path):
+def test_openai_visual_verifier_requires_very_high_confidence_for_diagram_or_symbol_veto(tmp_path):
     asset = asset_for(tmp_path)
     verifier = OpenAIImageRelevanceVerifier(
         "openai-key",
@@ -197,13 +198,31 @@ def test_openai_visual_verifier_ignores_low_confidence_hard_negative(tmp_path):
             "output_text": json.dumps(
                 decision(
                     hard_negative="unrequested_generic_diagram",
-                    hard_negative_confidence=0.41,
+                    hard_negative_confidence=0.93,
                 )
             )
         },
     )
 
     assert verifier("Technology steam turbine blades", asset) is True
+    assert "kept:" in verifier.last_decision
+
+
+def test_openai_visual_verifier_rejects_extremely_confident_unrequested_diagram(tmp_path):
+    asset = asset_for(tmp_path)
+    verifier = OpenAIImageRelevanceVerifier(
+        "openai-key",
+        transport=lambda _request: {
+            "output_text": json.dumps(
+                decision(
+                    hard_negative="unrequested_generic_diagram",
+                    hard_negative_confidence=0.99,
+                )
+            )
+        },
+    )
+
+    assert verifier("Nature redwood forest canopy", asset) is False
 
 
 def test_visual_verification_rejects_bad_candidate_and_tries_next(tmp_path):
