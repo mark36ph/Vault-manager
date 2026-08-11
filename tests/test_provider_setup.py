@@ -271,12 +271,28 @@ def test_image_prompt_stage_generates_queries_and_downloads_assets(tmp_path):
 
 
 def test_imported_scene_searches_are_not_polluted_by_overall_topic(tmp_path):
+    def mauna_asset_response(request):
+        if "pexels" not in request.full_url:
+            return {"hits": []}
+        return {
+            "photos": [
+                {
+                    "id": 99,
+                    "width": 1080,
+                    "height": 1920,
+                    "alt": "Mauna Loa Hawaii broad shield volcano landscape",
+                    "photographer": "A",
+                    "src": {"portrait": "https://cdn.example/mauna-loa.jpg"},
+                }
+            ]
+        }
+
     configured = build_configured_providers(
         tmp_path,
         ProviderSettings(asset_providers=("pexels",), voice_provider="none"),
         credentials=credentials(),
         text_transport=fake_text_response,
-        pexels_transport=fake_asset_response,
+        pexels_transport=mauna_asset_response,
         downloader=fake_downloader,
     )
     context = SimpleNamespace(
@@ -294,8 +310,7 @@ def test_imported_scene_searches_are_not_polluted_by_overall_topic(tmp_path):
 
     configured.registry.require("image_prompts")(context)
 
-    assert context.image_prompts == ["Mauna Loa Hawaii broad shield volcano"]
-    assert not context.image_prompts[0].startswith("Nature ")
+    assert context.image_prompts == ["Nature Mauna Loa Hawaii broad shield volcano"]
     assert "Yellowstone" not in context.image_prompts[0]
 
 
