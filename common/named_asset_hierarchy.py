@@ -1,16 +1,13 @@
 """Named-subject search and ranking policy for mixed production assets.
 
 This module strengthens the mixed image/video selector without making the visual
-verifier an impossible identity gate.  When a scene names a concrete entity, it
-adds a focused search for that full entity and gives a decisive ranking bonus
-only when provider-origin metadata independently supports the full name.
+verifier an impossible identity gate. When a scene names a concrete entity, it
+adds a focused search for that full entity and preserves three explicit tiers:
 
-The result is a general hierarchy:
+    provider-supported named match > plausible named-search match > generic fallback
 
-    provider-supported named match > plausible verified match > generic fallback
-
-Visual verification still has final veto power, so metadata can never rescue a
-visually contradictory asset.
+Visual verification still has final veto power, so metadata or search origin can
+never rescue a visually contradictory asset.
 """
 from __future__ import annotations
 
@@ -24,6 +21,8 @@ from common.named_subject_verification import named_subject_phrase
 
 
 NAMED_IDENTITY_BONUS = 30
+NAMED_SEARCH_BONUS = 15
+_NAMED_SEARCH_METADATA_KEY = "_named_subject_search"
 
 
 def _normalized_words(value: str) -> str:
@@ -33,7 +32,7 @@ def _normalized_words(value: str) -> str:
 def named_identity_evidence(query: str, candidate: AssetCandidate) -> bool:
     """Return True only when provider-origin text independently contains the full entity.
 
-    Some provider adapters use the search query itself as a fallback title.  That
+    Some provider adapters use the search query itself as a fallback title. That
     echo is deliberately ignored, otherwise asking for ``Mauna Loa`` would count
     as evidence that every returned clip actually depicts Mauna Loa.
     """
@@ -57,12 +56,50 @@ def named_identity_evidence(query: str, candidate: AssetCandidate) -> bool:
 
     for key, value in candidate.metadata.items():
         key_text = str(key or "").casefold()
-        if key_text in {"query", "search_query", "requested_query"}:
+        if key_text in {
+            "query",
+            "search_query",
+            "requested_query",
+            _NAMED_SEARCH_METADATA_KEY,
+        }:
             continue
         if isinstance(value, (str, int, float)):
             evidence_texts.append(_normalized_words(str(value)))
 
     return any(needle in text for text in evidence_texts if text)
+
+
+def _is_focused_named_candidate(query: str, candidate: AssetCandidate) -> bool:
+    entity = named_subject_phrase(query)
+    if not entity:
+        return False
+    searched = candidate.metadata.get(_NAMED_SEARCH_METADATA_KEY)
+    return _normalized_words(str(searched or "")) == _normalized_words(entity)
+
+
+def named_candidate_rank_tier(query: str, candidate: AssetCandidate) -> int:
+    """Return 2 for strong named evidence, 1 for focused named search, else 0."""
+    if named_identity_evidence(query, candidate):
+        return 2
+    if _is_focused_named_candidate(query, candidate):
+        return 1
+    return 0
+
+
+def named_candidate_bonus(query: str, candidate: AssetCandidate) -> int:
+    """Return a decisive post-verification score bonus for the named hierarchy."""
+    tier = named_candidate_rank_tier(query, candidate)
+    if tier == 2:
+        return NAMED_IDENTITY_BONUS
+    if tier == 1:
+        return NAMED_SEARCH_BONUS
+    return 0
+
+
+def _mark_focused_named_candidate(candidate: AssetCandidate, entity: str) -> AssetCandidate:
+    metadata = dict(candidate.metadata)
+    metadata[_NAMED_SEARCH_METADATA_KEY] = entity
+    return replace(candidate, metadata=metadata)
 
 
 def _install_candidate_pool_patch() -> None:
@@ -86,8 +123,9 @@ def _install_candidate_pool_patch() -> None:
                 by_kind[candidate.kind].append(candidate)
 
         # Search the complete named entity directly as well as the descriptive
-        # scene query.  This lets exact-name stock results enter the same fixed
-        # verification budget instead of increasing API verification cost.
+        # scene query. A surviving focused-search candidate is the middle tier:
+        # plausible for the named subject even when pixels/metadata cannot prove
+        # unique identity. That tier must outrank generic same-class footage.
         for kind in ("video", "image"):
             try:
                 focused = engine.search(
@@ -100,23 +138,31 @@ def _install_candidate_pool_patch() -> None:
             except Exception:
                 focused = []
 
-            seen = {
-                (_candidate_key(item), item.url)
-                for item in by_kind[kind]
+            positions = {
+                (_candidate_key(item), item.url): index
+                for index, item in enumerate(by_kind[kind])
             }
             for candidate in focused:
-                key = (_candidate_key(candidate), candidate.url)
-                if key in seen or _candidate_key(candidate) in used or candidate.url in used:
+                candidate_key = _candidate_key(candidate)
+                key = (candidate_key, candidate.url)
+                if candidate_key in used or candidate.url in used:
                     continue
-                by_kind[kind].append(candidate)
-                seen.add(key)
+                marked = _mark_focused_named_candidate(candidate, entity)
+                existing_index = positions.get(key)
+                if existing_index is not None:
+                    # The same provider asset can appear in both searches. Keep
+                    # its named-search provenance instead of treating it generic.
+                    by_kind[kind][existing_index] = marked
+                    continue
+                positions[key] = len(by_kind[kind])
+                by_kind[kind].append(marked)
 
-            # Keep the existing verification budget.  Independent full-name
-            # evidence outranks generic provider score, but visual verification
-            # still decides whether each candidate is actually usable.
+            # Keep the existing verification budget. Tier is evaluated before
+            # provider score so a generic visually attractive result cannot push
+            # all named-subject candidates out of the verification pool.
             by_kind[kind].sort(
                 key=lambda candidate: (
-                    int(named_identity_evidence(query, candidate)),
+                    named_candidate_rank_tier(query, candidate),
                     float(candidate.score),
                     max(0, candidate.width) * max(0, candidate.height),
                 ),
@@ -145,19 +191,24 @@ def _install_verified_score_patch() -> None:
         if asset is None:
             return asset, score, detail
 
-        if not named_identity_evidence(query, candidate):
+        tier = named_candidate_rank_tier(query, candidate)
+        bonus = named_candidate_bonus(query, candidate)
+        if not bonus:
             return asset, score, detail
 
+        entity = named_subject_phrase(query)
         metadata = dict(asset.candidate.metadata)
-        metadata["verified_named_identity"] = named_subject_phrase(query)
+        metadata["verified_named_identity"] = entity
+        metadata["verified_named_identity_tier"] = tier
         boosted = AcquiredAsset(
             replace(asset.candidate, metadata=metadata),
             asset.path,
             asset.reused,
         )
         detail = dict(detail)
-        detail["named_identity"] = metadata["verified_named_identity"]
-        return boosted, score + NAMED_IDENTITY_BONUS, detail
+        detail["named_identity"] = entity
+        detail["named_identity_tier"] = tier
+        return boosted, score + bonus, detail
 
     mixed._verify_candidate = verify_candidate  # type: ignore[attr-defined]  # noqa: SLF001
 
@@ -173,6 +224,9 @@ def install_named_asset_hierarchy() -> None:
 
 __all__ = [
     "NAMED_IDENTITY_BONUS",
+    "NAMED_SEARCH_BONUS",
     "install_named_asset_hierarchy",
+    "named_candidate_bonus",
+    "named_candidate_rank_tier",
     "named_identity_evidence",
 ]
