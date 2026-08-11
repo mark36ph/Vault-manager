@@ -27,6 +27,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
 
     QUALITY_SCORE = {"weak": 0, "acceptable": 3, "preferred": 6}
     STYLE_SCORE = {"decorative": -10, "representational": 1, "literal": 2}
+    SUBJECT_UNCERTAIN_PENALTY = 4
     MIN_QUALITY_SCAN = 5
 
     def __init__(
@@ -43,6 +44,9 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
             progress_callback=progress_callback,
         )
         self.verifier = verifier
+        self.last_selected_quality = "preferred"
+        self.last_selected_style = "literal"
+        self.last_selected_subject_uncertain = False
 
     @staticmethod
     def _discard_rejected_asset(asset: AcquiredAsset) -> None:
@@ -68,11 +72,17 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
             return "literal"
         return style
 
-    def _visual_score(self) -> tuple[int, str, str]:
+    def _verifier_subject_uncertain(self) -> bool:
+        return bool(getattr(self.verifier, "last_subject_uncertain", False))
+
+    def _visual_score(self) -> tuple[int, str, str, bool]:
         quality = self._verifier_quality()
         style = self._verifier_style()
+        uncertain = self._verifier_subject_uncertain()
         score = self.QUALITY_SCORE[quality] + self.STYLE_SCORE[style]
-        return score, quality, style
+        if uncertain:
+            score -= self.SUBJECT_UNCERTAIN_PENALTY
+        return score, quality, style, uncertain
 
     def _try_candidates(
         self,
@@ -100,6 +110,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
         best_score = -100
         best_quality = ""
         best_style = ""
+        best_uncertain = False
 
         for index, candidate in enumerate(pool[:scan_limit], start=1):
             try:
@@ -111,6 +122,9 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
             if candidate.kind != "image":
                 if best_asset is not None:
                     self._discard_rejected_asset(best_asset)
+                self.last_selected_quality = "preferred"
+                self.last_selected_style = "literal"
+                self.last_selected_subject_uncertain = False
                 return asset
 
             self._progress(
@@ -146,7 +160,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 )
                 continue
 
-            score, quality, style = self._visual_score()
+            score, quality, style, uncertain = self._visual_score()
             if best_asset is None or score > best_score:
                 if best_asset is not None:
                     self._discard_rejected_asset(best_asset)
@@ -154,11 +168,13 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 best_score = score
                 best_quality = quality
                 best_style = style
+                best_uncertain = uncertain
+                suffix = ", subject uncertain" if uncertain else ""
                 self._progress(
                     "verify",
                     index,
                     total,
-                    f"Best visual so far: {quality}/{style} ({score}); checking remaining candidates",
+                    f"Best visual so far: {quality}/{style} ({score}{suffix}); checking remaining candidates",
                 )
             else:
                 self._discard_rejected_asset(asset)
@@ -170,11 +186,15 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 )
 
         if best_asset is not None:
+            self.last_selected_quality = best_quality
+            self.last_selected_style = best_style
+            self.last_selected_subject_uncertain = best_uncertain
+            suffix = ", subject uncertain" if best_uncertain else ""
             self._progress(
                 "verify",
                 total,
                 total,
-                f"Selected best verified visual ({best_quality}/{best_style}, score {best_score}) after comparing {total} candidate(s)",
+                f"Selected best verified visual ({best_quality}/{best_style}, score {best_score}{suffix}) after comparing {total} candidate(s)",
             )
             return best_asset
         return None
@@ -184,6 +204,46 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
         if not required_subject:
             return True
         return required_subject in set(_relevance_words(_candidate_search_text(candidate)))
+
+    def _defer_candidate(
+        self,
+        asset: AcquiredAsset,
+        *,
+        decorative_fallback: AcquiredAsset | None,
+        uncertain_fallback: AcquiredAsset | None,
+    ) -> tuple[AcquiredAsset | None, AcquiredAsset | None, AcquiredAsset | None]:
+        """Keep weak classes only as fallbacks while factual searches continue."""
+        if self.last_selected_style == "decorative":
+            if decorative_fallback is None:
+                decorative_fallback = asset
+                self._progress(
+                    "verify",
+                    1,
+                    1,
+                    "Decorative visual retained only as last resort; searching for factual imagery",
+                )
+            else:
+                self._discard_rejected_asset(asset)
+            return None, decorative_fallback, uncertain_fallback
+
+        if self.last_selected_subject_uncertain:
+            if uncertain_fallback is None:
+                uncertain_fallback = asset
+                self._progress(
+                    "verify",
+                    1,
+                    1,
+                    "Subject-uncertain visual retained as fallback; searching for a safer factual match",
+                )
+            else:
+                self._discard_rejected_asset(asset)
+            return None, decorative_fallback, uncertain_fallback
+
+        if uncertain_fallback is not None:
+            self._discard_rejected_asset(uncertain_fallback)
+        if decorative_fallback is not None:
+            self._discard_rejected_asset(decorative_fallback)
+        return asset, None, None
 
     def acquire(
         self,
@@ -204,6 +264,8 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
         blocked = excluded or set()
         failures: list[str] = []
         required_subject = _required_subject(query)
+        decorative_fallback: AcquiredAsset | None = None
+        uncertain_fallback: AcquiredAsset | None = None
 
         candidates = self.search(
             query,
@@ -221,7 +283,13 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
             failures=failures,
         )
         if result is not None:
-            return result
+            result, decorative_fallback, uncertain_fallback = self._defer_candidate(
+                result,
+                decorative_fallback=decorative_fallback,
+                uncertain_fallback=uncertain_fallback,
+            )
+            if result is not None:
+                return result
 
         fallbacks = _fallback_search_queries(query)
         for index, fallback in enumerate(fallbacks, start=1):
@@ -253,14 +321,20 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 failures=failures,
             )
             if result is not None:
-                return result
+                result, decorative_fallback, uncertain_fallback = self._defer_candidate(
+                    result,
+                    decorative_fallback=decorative_fallback,
+                    uncertain_fallback=uncertain_fallback,
+                )
+                if result is not None:
+                    return result
 
         if required_subject:
             self._progress(
                 "retry",
                 1,
                 1,
-                "No verified subject match found; checking broader unused candidates",
+                "No safe subject match found; checking broader unused candidates",
             )
             candidates = self.search(
                 query,
@@ -278,14 +352,20 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 failures=failures,
             )
             if result is not None:
-                return result
+                result, decorative_fallback, uncertain_fallback = self._defer_candidate(
+                    result,
+                    decorative_fallback=decorative_fallback,
+                    uncertain_fallback=uncertain_fallback,
+                )
+                if result is not None:
+                    return result
 
         if blocked:
             self._progress(
                 "retry",
                 1,
                 1,
-                "No unused verified visual found; allowing a previously used asset only as a last resort",
+                "No unused safe visual found; checking previously used assets before weak fallbacks",
             )
             candidates = self.search(
                 query,
@@ -304,7 +384,33 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 allow_reuse=True,
             )
             if result is not None:
-                return result
+                result, decorative_fallback, uncertain_fallback = self._defer_candidate(
+                    result,
+                    decorative_fallback=decorative_fallback,
+                    uncertain_fallback=uncertain_fallback,
+                )
+                if result is not None:
+                    return result
+
+        if uncertain_fallback is not None:
+            if decorative_fallback is not None:
+                self._discard_rejected_asset(decorative_fallback)
+            self._progress(
+                "verify",
+                1,
+                1,
+                "No certain factual visual found; using subject-uncertain factual fallback",
+            )
+            return uncertain_fallback
+
+        if decorative_fallback is not None:
+            self._progress(
+                "verify",
+                1,
+                1,
+                "No literal or representational visual passed; using decorative fallback as last resort",
+            )
+            return decorative_fallback
 
         if failures:
             raise AssetAcquisitionError("no visually relevant asset passed verification: " + "; ".join(failures))
