@@ -49,8 +49,10 @@ def named_identity_evidence(query: str, candidate: AssetCandidate) -> bool:
     title_text = _normalized_words(candidate.title)
     evidence_texts: list[str] = []
 
-    # A title that is just the submitted search query is not provider evidence.
-    if title_text and title_text != query_text:
+    # A title that is just either the submitted scene query or the focused
+    # entity-only query is not provider evidence. Pexels video results can echo
+    # either form when the API does not supply a real descriptive title.
+    if title_text and title_text not in {query_text, needle}:
         evidence_texts.append(title_text)
 
     for key, value in candidate.metadata.items():
