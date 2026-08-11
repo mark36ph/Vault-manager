@@ -48,12 +48,14 @@ def decision(
     confidence=0.5,
     hard_negative="none",
     hard_negative_confidence=0.0,
+    visual_quality="preferred",
 ):
     return {
         "obvious_mismatch": obvious_mismatch,
         "confidence": confidence,
         "hard_negative": hard_negative,
         "hard_negative_confidence": hard_negative_confidence,
+        "visual_quality": visual_quality,
     }
 
 
@@ -69,6 +71,7 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
         schema = body["text"]["format"]
         required = schema["schema"]["required"]
         enum = schema["schema"]["properties"]["hard_negative"]["enum"]
+        quality_enum = schema["schema"]["properties"]["visual_quality"]["enum"]
 
         assert body["model"] == "gpt-5-mini"
         assert body["max_output_tokens"] == 800
@@ -81,7 +84,9 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
             "confidence",
             "hard_negative",
             "hard_negative_confidence",
+            "visual_quality",
         ]
+        assert quality_enum == ["acceptable", "preferred", "weak"]
         assert "wrong_named_subject" in enum
         assert "unrequested_fantasy_creature" in enum
         assert "unrequested_vehicle_or_spacecraft" in enum
@@ -89,6 +94,7 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
         assert "topic-neutral" in prompt
         assert "Never assume a fixed video topic" in prompt
         assert "Big Ben is not the Eiffel Tower" in prompt
+        assert "visual_quality" in prompt
         assert content[1]["type"] == "input_image"
         assert content[1]["detail"] == "high"
         assert content[1]["image_url"].startswith("data:image/jpeg;base64,")
@@ -101,7 +107,22 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
     )
 
     assert verifier("Geography Eiffel Tower Paris sunset", asset) is True
+    assert verifier.last_quality == "preferred"
     assert len(requests) == 1
+
+
+def test_openai_visual_verifier_marks_relevant_symbolic_visual_as_weak_not_rejected(tmp_path):
+    asset = asset_for(tmp_path, identifier="icons", title="Scientific topic symbolic composition")
+    verifier = OpenAIImageRelevanceVerifier(
+        "openai-key",
+        transport=lambda _request: {
+            "output_text": json.dumps(decision(visual_quality="weak"))
+        },
+    )
+
+    assert verifier("Science photosynthesis leaf process", asset) is True
+    assert verifier.last_quality == "weak"
+    assert "quality=weak" in verifier.last_decision
 
 
 def test_openai_visual_verifier_blocks_wrong_named_subject_for_any_topic(tmp_path):
@@ -133,6 +154,7 @@ def test_openai_visual_verifier_blocks_unrequested_fantasy_creature_for_any_topi
                 decision(
                     hard_negative="unrequested_fantasy_creature",
                     hard_negative_confidence=0.96,
+                    visual_quality="weak",
                 )
             )
         },
@@ -199,12 +221,14 @@ def test_openai_visual_verifier_requires_very_high_confidence_for_diagram_or_sym
                 decision(
                     hard_negative="unrequested_generic_diagram",
                     hard_negative_confidence=0.93,
+                    visual_quality="weak",
                 )
             )
         },
     )
 
     assert verifier("Technology steam turbine blades", asset) is True
+    assert verifier.last_quality == "weak"
     assert "kept:" in verifier.last_decision
 
 
@@ -217,6 +241,7 @@ def test_openai_visual_verifier_rejects_extremely_confident_unrequested_diagram(
                 decision(
                     hard_negative="unrequested_generic_diagram",
                     hard_negative_confidence=0.99,
+                    visual_quality="weak",
                 )
             )
         },
@@ -261,6 +286,68 @@ def test_visual_verification_rejects_bad_candidate_and_tries_next(tmp_path):
         ("Architecture Golden Gate Bridge", "bridge"),
     ]
     assert not any("wrong" in path.name.casefold() for path in tmp_path.iterdir())
+
+
+def test_visual_verification_prefers_stronger_visual_over_accepted_weak_fallback(tmp_path):
+    weak = candidate(
+        "weak",
+        "Golden Gate Bridge symbolic illustration",
+        100,
+        "https://example.test/weak.jpg",
+    )
+    strong = candidate(
+        "strong",
+        "Golden Gate Bridge San Francisco photograph",
+        1,
+        "https://example.test/strong.jpg",
+    )
+    engine = AssetAcquisitionEngine(
+        [Provider([weak, strong])],
+        downloader=lambda _url, path: path.write_bytes(b"image"),
+    )
+
+    class QualityVerifier:
+        def __init__(self):
+            self.last_quality = "preferred"
+            self.checked = []
+
+        def __call__(self, _query, asset):
+            self.checked.append(asset.candidate.id)
+            self.last_quality = "weak" if asset.candidate.id == "weak" else "preferred"
+            return True
+
+    verifier = QualityVerifier()
+    install_visual_verification(engine, verifier)
+    result = engine.acquire("Architecture Golden Gate Bridge", tmp_path, attempts=2)
+
+    assert result.candidate.id == "strong"
+    assert verifier.checked == ["weak", "strong"]
+    assert not any("weak" in path.name.casefold() for path in tmp_path.iterdir())
+
+
+def test_visual_verification_uses_weak_fallback_when_no_stronger_visual_exists(tmp_path):
+    weak = candidate(
+        "weak",
+        "Steam turbine symbolic diagram",
+        100,
+        "https://example.test/weak.jpg",
+    )
+    engine = AssetAcquisitionEngine(
+        [Provider([weak])],
+        downloader=lambda _url, path: path.write_bytes(b"image"),
+    )
+
+    class WeakVerifier:
+        last_quality = "weak"
+
+        def __call__(self, _query, _asset):
+            self.last_quality = "weak"
+            return True
+
+    install_visual_verification(engine, WeakVerifier())
+    result = engine.acquire("Technology steam turbine", tmp_path, attempts=1)
+
+    assert result.candidate.id == "weak"
 
 
 def test_visual_verification_error_rejects_candidate_and_tries_next(tmp_path):
