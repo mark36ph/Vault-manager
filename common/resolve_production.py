@@ -339,9 +339,7 @@ def _add_fact_unlocked_outro(
         text=True,
         timeout=120,
         creationflags=getattr(
-            subprocess,
-            "CREATE_NO_WINDOW",
-            0,
+            subprocess, "CREATE_NO_WINDOW", 0
         ),
     )
 
@@ -472,9 +470,7 @@ def _create_outro_video(
         text=True,
         timeout=120,
         creationflags=getattr(
-            subprocess,
-            "CREATE_NO_WINDOW",
-            0,
+            subprocess, "CREATE_NO_WINDOW", 0
         ),
     )
 
@@ -498,12 +494,13 @@ def _escape_drawtext(value: str) -> str:
         "[": r"\[",
         "]": r"\]",
         ",": r"\,",
+        ";": r"\;",
     }
 
     for old, new in replacements.items():
         text = text.replace(old, new)
 
-    return text
+    return text.replace("\n", r"\n")
 
 
 def _parse_onscreen_text(value: str) -> list[tuple[float, float, str]]:
@@ -688,25 +685,9 @@ def _convert_stills_to_video(
                 local_end,
                 caption_text,
             ) in enumerate(clip_captions):
-                caption_file = (
-                    output_folder
-                    / f"caption_{clip.id}_{caption_index}.txt"
-                )
-
                 caption_text = _remove_emojis(caption_text)
                 caption_text = _wrap_caption(caption_text, width=24)
-
-                caption_file.write_text(
-                    caption_text,
-                    encoding="utf-8",
-                )
-
-                caption_file_filter = (
-                    str(caption_file.resolve())
-                    .replace("\\", "/")
-                    .replace(":", r"\:")
-                    .replace("'", r"\'")
-                )
+                caption_text_filter = _escape_drawtext(caption_text)
 
                 input_label = (
                     "branded"
@@ -719,7 +700,7 @@ def _convert_stills_to_video(
                 caption_filters.append(
                     f"[{input_label}]"
                     f"drawtext=fontfile='{font_file_filter}':"
-                    f"textfile='{caption_file_filter}':"
+                    f"text='{caption_text_filter}':"
                     "fontcolor=white:"
                     "fontsize=76:"
                     "line_spacing=12:"
@@ -757,7 +738,7 @@ def _convert_stills_to_video(
                 f"{caption_identity}|"
                 f"{caption_end_limit}|"
                 f"motion={motion_type}|"
-                "1080x1920-wrap-audio-motion-v31"
+                "1080x1920-wrap-audio-motion-v32"
             )
 
             digest = hashlib.sha256(
@@ -837,9 +818,7 @@ def _convert_stills_to_video(
                         text=True,
                         timeout=300,
                         creationflags=getattr(
-                            subprocess,
-                            "CREATE_NO_WINDOW",
-                            0,
+                            subprocess, "CREATE_NO_WINDOW", 0
                         ),
                     )
                 except subprocess.TimeoutExpired as error:
