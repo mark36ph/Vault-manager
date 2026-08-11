@@ -7,8 +7,9 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from common.asset_acquisition import AssetAcquisitionEngine, make_asset_acquisition_provider
+from common.asset_acquisition import AssetAcquisitionEngine, _topic_subject, make_asset_acquisition_provider
 from common.content_production import ProviderRegistry
+from common.named_subject_verification import named_subject_phrase
 from common.provider_integrations import (
     OpenAISpeechProvider,
     OpenAITextProvider,
@@ -257,21 +258,38 @@ def _anchor_searches(prompts: list[str], context: Any) -> list[str]:
 
 
 def _anchor_imported_searches(prompts: list[str], context: Any) -> tuple[list[str], str]:
-    """Keep only the broad category anchor on imported scene-authored searches."""
+    """Anchor imported searches without overwriting an explicit scene subject.
+
+    A generic imported query still benefits from the project's concrete subject
+    (for example ``rotating planet`` -> ``Space Venus rotating planet``). But if
+    the scene already names another concrete subject such as ``Mauna Loa``, that
+    explicit scene identity wins and the overall title subject is not injected.
+    """
     project = getattr(context, "project", None)
     category = ""
     if isinstance(project, Mapping):
         category = str(project.get("category") or "").strip()
 
+    topic = str(getattr(context, "topic", "") or "").strip()
+    topic_subject = _topic_subject(topic, category)
     anchored: list[str] = []
+
     for prompt in prompts:
         prompt = str(prompt or "").strip()
         if not prompt:
             continue
+
+        explicit_subject = named_subject_phrase(prompt)
+        pieces: list[str] = []
         if category and not prompt.casefold().startswith(category.casefold()):
-            anchored.append(f"{category} {prompt}".strip())
-        else:
-            anchored.append(prompt)
+            pieces.append(category)
+
+        if topic_subject and not explicit_subject:
+            pieces.append(topic_subject)
+
+        pieces.append(prompt)
+        anchored.append(" ".join(pieces).strip())
+
     return anchored, category
 
 
@@ -366,10 +384,10 @@ def _acquisition_stage(prompt_provider, engine, destination: Path, settings: Pro
         imported = _imported_scene_searches(getattr(context, "project", None))
         if imported:
             # Imported Search: lines are scene-specific authoring. Keep the broad
-            # category anchor used by normal relevance filtering, but do not let
-            # the project's concrete title subject get injected afterward. During
-            # acquisition the temporary topic is the category itself, which makes
-            # the downstream subject-enforcement layer intentionally neutral.
+            # category anchor and, for genuinely generic scene searches, retain
+            # the project's concrete subject. Explicitly named scene subjects
+            # override the project subject. During acquisition the temporary topic
+            # is the category so the downstream layer cannot inject it a second time.
             prompts, category = _anchor_imported_searches(imported, context)
             if hasattr(context, "warnings"):
                 context.warnings.append(
