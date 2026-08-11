@@ -9,8 +9,10 @@ adds a focused search for that full entity and preserves four explicit tiers:
         > plausible named-search match
         > generic fallback
 
-Visual verification still has final veto power, so metadata or search origin can
-never rescue a visually contradictory asset.
+It also carries lightweight scene-order context into candidate scoring. A result
+whose provider evidence strongly favors the previous scene's named subject over
+the current scene receives a penalty instead of being allowed to win merely on
+visual attractiveness. Visual verification still has final veto power.
 """
 from __future__ import annotations
 
@@ -26,7 +28,11 @@ from common.named_subject_verification import named_subject_phrase
 NAMED_IDENTITY_BONUS = 30
 NAMED_DESCRIPTIVE_BONUS = 22
 NAMED_SEARCH_BONUS = 15
+CURRENT_SCENE_EVIDENCE_BONUS = 4
+PREVIOUS_SUBJECT_PENALTY = 12
 _NAMED_SEARCH_METADATA_KEY = "_named_subject_search"
+_PREVIOUS_QUERY_METADATA_KEY = "_selection_previous_query"
+_LAST_SCENE_QUERY = ""
 _DESCRIPTIVE_STOP_WORDS = {
     "a", "an", "and", "the", "of", "for", "to", "in", "on", "with", "from",
     "by", "at", "photo", "photography", "image", "video", "vertical", "portrait",
@@ -42,7 +48,7 @@ def _normalized_words(value: str) -> str:
 
 
 def _provider_evidence_texts(query: str, candidate: AssetCandidate) -> list[str]:
-    """Return provider-origin text while excluding search-query echoes."""
+    """Return provider-origin text while excluding search/query bookkeeping."""
     entity = named_subject_phrase(query)
     needle = _normalized_words(entity)
     query_text = _normalized_words(query)
@@ -59,6 +65,7 @@ def _provider_evidence_texts(query: str, candidate: AssetCandidate) -> list[str]
             "search_query",
             "requested_query",
             _NAMED_SEARCH_METADATA_KEY,
+            _PREVIOUS_QUERY_METADATA_KEY,
         }:
             continue
         if isinstance(value, (str, int, float)):
@@ -134,16 +141,76 @@ def named_candidate_bonus(query: str, candidate: AssetCandidate) -> int:
     return 0
 
 
+def _provider_mentions_entity(query: str, entity: str, candidate: AssetCandidate) -> bool:
+    needle = _normalized_words(entity)
+    if not needle:
+        return False
+    return any(needle in text for text in _provider_evidence_texts(query, candidate))
+
+
+def scene_context_adjustment(query: str, candidate: AssetCandidate) -> int:
+    """Reward current-scene evidence and penalize clear previous-subject bleed.
+
+    This is deliberately evidence-based rather than a hard transition gate. It
+    only penalizes the previous subject when provider text supports that subject,
+    the current scene does not still name it, and the candidate lacks meaningful
+    evidence for the current scene. Neutral fallbacks therefore remain available.
+    """
+    adjustment = 0
+    current_overlap = named_descriptive_overlap(query, candidate)
+    if current_overlap >= 2:
+        adjustment += CURRENT_SCENE_EVIDENCE_BONUS
+
+    previous_query = str(candidate.metadata.get(_PREVIOUS_QUERY_METADATA_KEY) or "").strip()
+    previous_entity = named_subject_phrase(previous_query)
+    if not previous_entity:
+        return adjustment
+
+    current_entity = named_subject_phrase(query)
+    if _normalized_words(previous_entity) == _normalized_words(current_entity):
+        return adjustment
+
+    previous_supported = _provider_mentions_entity(query, previous_entity, candidate)
+    current_supported = bool(current_entity and named_identity_evidence(query, candidate))
+    if previous_supported and not current_supported and current_overlap < 2:
+        adjustment -= PREVIOUS_SUBJECT_PENALTY
+    return adjustment
+
+
 def _mark_focused_named_candidate(candidate: AssetCandidate, entity: str) -> AssetCandidate:
     metadata = dict(candidate.metadata)
     metadata[_NAMED_SEARCH_METADATA_KEY] = entity
     return replace(candidate, metadata=metadata)
 
 
+def _mark_previous_query(candidate: AssetCandidate, previous_query: str) -> AssetCandidate:
+    if not previous_query:
+        return candidate
+    metadata = dict(candidate.metadata)
+    metadata[_PREVIOUS_QUERY_METADATA_KEY] = previous_query
+    return replace(candidate, metadata=metadata)
+
+
+def _install_acquisition_context_patch() -> None:
+    """Reset scene-order state at the start of each multi-scene acquisition run."""
+    original_acquire_many = mixed.acquire_mixed_many
+
+    def acquire_mixed_many(*args, **kwargs):
+        global _LAST_SCENE_QUERY
+        _LAST_SCENE_QUERY = ""
+        return original_acquire_many(*args, **kwargs)
+
+    mixed.acquire_mixed_many = acquire_mixed_many  # type: ignore[method-assign]
+
+
 def _install_candidate_pool_patch() -> None:
     original_pool = mixed._candidate_pool  # noqa: SLF001
 
     def candidate_pool(engine, query, *, limit, target_ratio, used):
+        global _LAST_SCENE_QUERY
+        previous_query = _LAST_SCENE_QUERY
+        _LAST_SCENE_QUERY = str(query or "").strip()
+
         base = original_pool(
             engine,
             query,
@@ -151,6 +218,7 @@ def _install_candidate_pool_patch() -> None:
             target_ratio=target_ratio,
             used=used,
         )
+        base = [_mark_previous_query(candidate, previous_query) for candidate in base]
         entity = named_subject_phrase(query)
         if not entity:
             return base
@@ -186,6 +254,7 @@ def _install_candidate_pool_patch() -> None:
                 if candidate_key in used or candidate.url in used:
                     continue
                 marked = _mark_focused_named_candidate(candidate, entity)
+                marked = _mark_previous_query(marked, previous_query)
                 existing_index = positions.get(key)
                 if existing_index is not None:
                     by_kind[kind][existing_index] = marked
@@ -193,12 +262,13 @@ def _install_candidate_pool_patch() -> None:
                 positions[key] = len(by_kind[kind])
                 by_kind[kind].append(marked)
 
-            # Keep the existing verification budget. Tier is evaluated before
-            # provider score so generic attractive footage cannot push all
-            # named-subject candidates out of the verification pool.
+            # Keep the existing verification budget. Tier and current-scene
+            # evidence are evaluated before provider score so stale previous-
+            # subject media cannot crowd out better current-scene candidates.
             by_kind[kind].sort(
                 key=lambda candidate: (
                     named_candidate_rank_tier(query, candidate),
+                    scene_context_adjustment(query, candidate),
                     named_descriptive_overlap(query, candidate),
                     float(candidate.score),
                     max(0, candidate.width) * max(0, candidate.height),
@@ -230,44 +300,53 @@ def _install_verified_score_patch() -> None:
 
         tier = named_candidate_rank_tier(query, candidate)
         bonus = named_candidate_bonus(query, candidate)
-        if not bonus:
+        context_adjustment = scene_context_adjustment(query, candidate)
+        if not bonus and not context_adjustment:
             return asset, score, detail
 
         entity = named_subject_phrase(query)
         metadata = dict(asset.candidate.metadata)
-        metadata["verified_named_identity"] = entity
-        metadata["verified_named_identity_tier"] = tier
-        metadata["verified_named_descriptive_overlap"] = named_descriptive_overlap(query, candidate)
+        if bonus:
+            metadata["verified_named_identity"] = entity
+            metadata["verified_named_identity_tier"] = tier
+            metadata["verified_named_descriptive_overlap"] = named_descriptive_overlap(query, candidate)
+        metadata["verified_scene_context_adjustment"] = context_adjustment
         boosted = AcquiredAsset(
             replace(asset.candidate, metadata=metadata),
             asset.path,
             asset.reused,
         )
         detail = dict(detail)
-        detail["named_identity"] = entity
-        detail["named_identity_tier"] = tier
-        detail["named_descriptive_overlap"] = metadata["verified_named_descriptive_overlap"]
-        return boosted, score + bonus, detail
+        if bonus:
+            detail["named_identity"] = entity
+            detail["named_identity_tier"] = tier
+            detail["named_descriptive_overlap"] = metadata["verified_named_descriptive_overlap"]
+        detail["scene_context_adjustment"] = context_adjustment
+        return boosted, score + bonus + context_adjustment, detail
 
     mixed._verify_candidate = verify_candidate  # type: ignore[attr-defined]  # noqa: SLF001
 
 
 def install_named_asset_hierarchy() -> None:
-    """Install the named-subject hierarchy once for the mixed selector module."""
+    """Install the named-subject and scene-context hierarchy once."""
     if getattr(mixed, "_named_asset_hierarchy_installed", False):
         return
+    _install_acquisition_context_patch()
     _install_candidate_pool_patch()
     _install_verified_score_patch()
     mixed._named_asset_hierarchy_installed = True
 
 
 __all__ = [
+    "CURRENT_SCENE_EVIDENCE_BONUS",
     "NAMED_DESCRIPTIVE_BONUS",
     "NAMED_IDENTITY_BONUS",
     "NAMED_SEARCH_BONUS",
+    "PREVIOUS_SUBJECT_PENALTY",
     "install_named_asset_hierarchy",
     "named_candidate_bonus",
     "named_candidate_rank_tier",
     "named_descriptive_overlap",
     "named_identity_evidence",
+    "scene_context_adjustment",
 ]
