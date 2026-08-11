@@ -28,6 +28,12 @@ def test_query_echo_title_is_not_identity_evidence():
     assert named_identity_evidence(query, item) is False
 
 
+def test_focused_entity_query_echo_title_is_not_identity_evidence():
+    query = "nature Mauna Loa Hawaii shield volcano aerial"
+    item = candidate(title="Mauna Loa", source_page="https://www.pexels.com/video/volcano-12345/")
+    assert named_identity_evidence(query, item) is False
+
+
 def test_provider_tags_can_support_full_named_subject():
     item = candidate(
         provider="pixabay",
