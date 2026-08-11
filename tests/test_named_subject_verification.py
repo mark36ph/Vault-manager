@@ -29,6 +29,14 @@ class StubVerifier:
         return self.accepted
 
 
+def asset_with_previous_query(previous_query):
+    return SimpleNamespace(
+        candidate=SimpleNamespace(
+            metadata={"_selection_previous_query": previous_query},
+        )
+    )
+
+
 def test_named_subject_verifier_adds_identity_instruction():
     base = StubVerifier()
     verifier = NamedSubjectVerifier(base)
@@ -53,9 +61,65 @@ def test_named_subject_verifier_preserves_base_rejection():
     assert verifier("nature Mount Everest summit mountain", SimpleNamespace()) is False
 
 
-def test_generic_query_keeps_normal_verification_behavior():
+def test_generic_query_keeps_normal_verification_behavior_without_scene_context():
     base = StubVerifier(accepted=True, uncertain=True)
     verifier = NamedSubjectVerifier(base)
 
     assert verifier("technology fiber optic cable light data", SimpleNamespace()) is True
     assert "NAMED-SUBJECT IDENTITY REQUIREMENT" not in base.seen_query
+    assert "SCENE-TRANSITION RELEVANCE REQUIREMENT" not in base.seen_query
+
+
+def test_transition_context_is_added_for_different_named_scenes():
+    base = StubVerifier()
+    verifier = NamedSubjectVerifier(base)
+    asset = asset_with_previous_query(
+        "nature Yellowstone National Park geothermal caldera waterfall"
+    )
+
+    current = "nature Mauna Loa Hawaii broad shield volcano lava"
+    assert verifier(current, asset) is True
+
+    assert "SCENE-TRANSITION RELEVANCE REQUIREMENT" in base.seen_query
+    assert f"CURRENT SCENE: {current}" in base.seen_query
+    assert "PREVIOUS SCENE: nature Yellowstone National Park geothermal caldera waterfall" in base.seen_query
+    assert "reject it as stale-scene imagery" in base.seen_query
+    assert "visible content itself" in base.seen_query
+
+
+def test_transition_context_also_applies_to_generic_current_scene():
+    base = StubVerifier()
+    verifier = NamedSubjectVerifier(base)
+    asset = asset_with_previous_query("animals African lion savanna hunting")
+
+    current = "animals striped big cat stalking through forest"
+    assert verifier(current, asset) is True
+
+    assert "NAMED-SUBJECT IDENTITY REQUIREMENT" not in base.seen_query
+    assert "SCENE-TRANSITION RELEVANCE REQUIREMENT" in base.seen_query
+    assert f"CURRENT SCENE: {current}" in base.seen_query
+    assert "PREVIOUS SCENE: animals African lion savanna hunting" in base.seen_query
+
+
+def test_same_scene_query_does_not_add_transition_penalty_instruction():
+    base = StubVerifier()
+    verifier = NamedSubjectVerifier(base)
+    current = "nature Mount Everest Himalayas summit mountain Nepal"
+    asset = asset_with_previous_query(current)
+
+    assert verifier(current, asset) is True
+
+    assert "NAMED-SUBJECT IDENTITY REQUIREMENT" in base.seen_query
+    assert "SCENE-TRANSITION RELEVANCE REQUIREMENT" not in base.seen_query
+
+
+def test_transition_instruction_does_not_require_previous_named_entity():
+    base = StubVerifier()
+    verifier = NamedSubjectVerifier(base)
+    asset = asset_with_previous_query("nature forest waterfall mist landscape")
+
+    current = "geology broad shield volcano lava field"
+    assert verifier(current, asset) is True
+
+    assert "SCENE-TRANSITION RELEVANCE REQUIREMENT" in base.seen_query
+    assert "PREVIOUS SCENE: nature forest waterfall mist landscape" in base.seen_query
