@@ -206,7 +206,7 @@ def _image_prompt(context: Any) -> str:
 
 
 def _imported_scene_searches(project: Mapping[str, Any] | None) -> list[str]:
-    """Extract the first explicit Search query from each imported timeline scene."""
+    """Extract one explicit Search query per imported timeline scene, preserving order."""
     if not isinstance(project, Mapping):
         return []
 
@@ -215,7 +215,6 @@ def _imported_scene_searches(project: Mapping[str, Any] | None) -> list[str]:
         return []
 
     searches: list[str] = []
-    seen: set[str] = set()
     lines = notes.splitlines()
     for index, line in enumerate(lines):
         if line.strip().casefold() != "search:":
@@ -228,10 +227,7 @@ def _imported_scene_searches(project: Mapping[str, Any] | None) -> list[str]:
                 continue
             if lower in {"free sources:", "search:"} or lower.endswith(" sec"):
                 break
-            key = candidate.casefold()
-            if key not in seen:
-                searches.append(candidate)
-                seen.add(key)
+            searches.append(candidate)
             break
 
     return searches
