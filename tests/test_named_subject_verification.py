@@ -85,9 +85,13 @@ def test_transition_context_is_added_for_different_named_scenes():
     assert "PREVIOUS SCENE: nature Yellowstone National Park geothermal caldera waterfall" in base.seen_query
     assert "reject it as stale-scene imagery" in base.seen_query
     assert "visible content itself" in base.seen_query
+    assert "HARD NAMED-SUBJECT TRANSITION REQUIREMENT" in base.seen_query
+    assert "moved from 'Yellowstone National Park' to 'Mauna Loa'" in base.seen_query
+    assert "signature-characteristic of the PREVIOUS named subject" in base.seen_query
+    assert "Generic topical overlap alone is not enough to pass" in base.seen_query
 
 
-def test_transition_context_also_applies_to_generic_current_scene():
+def test_transition_context_also_applies_to_generic_current_scene_without_hard_named_gate():
     base = StubVerifier()
     verifier = NamedSubjectVerifier(base)
     asset = asset_with_previous_query("animals African lion savanna hunting")
@@ -99,6 +103,7 @@ def test_transition_context_also_applies_to_generic_current_scene():
     assert "SCENE-TRANSITION RELEVANCE REQUIREMENT" in base.seen_query
     assert f"CURRENT SCENE: {current}" in base.seen_query
     assert "PREVIOUS SCENE: animals African lion savanna hunting" in base.seen_query
+    assert "HARD NAMED-SUBJECT TRANSITION REQUIREMENT" not in base.seen_query
 
 
 def test_same_scene_query_does_not_add_transition_penalty_instruction():
@@ -111,6 +116,7 @@ def test_same_scene_query_does_not_add_transition_penalty_instruction():
 
     assert "NAMED-SUBJECT IDENTITY REQUIREMENT" in base.seen_query
     assert "SCENE-TRANSITION RELEVANCE REQUIREMENT" not in base.seen_query
+    assert "HARD NAMED-SUBJECT TRANSITION REQUIREMENT" not in base.seen_query
 
 
 def test_transition_instruction_does_not_require_previous_named_entity():
@@ -123,3 +129,16 @@ def test_transition_instruction_does_not_require_previous_named_entity():
 
     assert "SCENE-TRANSITION RELEVANCE REQUIREMENT" in base.seen_query
     assert "PREVIOUS SCENE: nature forest waterfall mist landscape" in base.seen_query
+    assert "HARD NAMED-SUBJECT TRANSITION REQUIREMENT" not in base.seen_query
+
+
+def test_different_named_landmarks_get_hard_transition_gate():
+    base = StubVerifier()
+    verifier = NamedSubjectVerifier(base)
+    asset = asset_with_previous_query("architecture Eiffel Tower Paris iron lattice")
+
+    current = "architecture Tokyo Skytree Japan observation tower"
+    assert verifier(current, asset) is True
+
+    assert "HARD NAMED-SUBJECT TRANSITION REQUIREMENT" in base.seen_query
+    assert "moved from 'Eiffel Tower' to 'Tokyo Skytree'" in base.seen_query
