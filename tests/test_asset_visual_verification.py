@@ -49,6 +49,7 @@ def decision(
     hard_negative="none",
     hard_negative_confidence=0.0,
     visual_quality="preferred",
+    visual_style="literal",
 ):
     return {
         "obvious_mismatch": obvious_mismatch,
@@ -56,6 +57,7 @@ def decision(
         "hard_negative": hard_negative,
         "hard_negative_confidence": hard_negative_confidence,
         "visual_quality": visual_quality,
+        "visual_style": visual_style,
     }
 
 
@@ -72,6 +74,7 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
         required = schema["schema"]["required"]
         enum = schema["schema"]["properties"]["hard_negative"]["enum"]
         quality_enum = schema["schema"]["properties"]["visual_quality"]["enum"]
+        style_enum = schema["schema"]["properties"]["visual_style"]["enum"]
 
         assert body["model"] == "gpt-5-mini"
         assert body["max_output_tokens"] == 800
@@ -85,8 +88,10 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
             "hard_negative",
             "hard_negative_confidence",
             "visual_quality",
+            "visual_style",
         ]
         assert quality_enum == ["acceptable", "preferred", "weak"]
+        assert style_enum == ["decorative", "literal", "representational"]
         assert "wrong_named_subject" in enum
         assert "unrequested_fantasy_creature" in enum
         assert "unrequested_vehicle_or_spacecraft" in enum
@@ -95,6 +100,7 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
         assert "Never assume a fixed video topic" in prompt
         assert "Big Ben is not the Eiffel Tower" in prompt
         assert "visual_quality" in prompt
+        assert "visual_style" in prompt
         assert content[1]["type"] == "input_image"
         assert content[1]["detail"] == "high"
         assert content[1]["image_url"].startswith("data:image/jpeg;base64,")
@@ -108,21 +114,26 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
 
     assert verifier("Geography Eiffel Tower Paris sunset", asset) is True
     assert verifier.last_quality == "preferred"
+    assert verifier.last_style == "literal"
     assert len(requests) == 1
 
 
-def test_openai_visual_verifier_marks_relevant_symbolic_visual_as_weak_not_rejected(tmp_path):
+def test_openai_visual_verifier_marks_relevant_symbolic_visual_as_weak_decorative(tmp_path):
     asset = asset_for(tmp_path, identifier="icons", title="Scientific topic symbolic composition")
     verifier = OpenAIImageRelevanceVerifier(
         "openai-key",
         transport=lambda _request: {
-            "output_text": json.dumps(decision(visual_quality="weak"))
+            "output_text": json.dumps(
+                decision(visual_quality="weak", visual_style="decorative")
+            )
         },
     )
 
     assert verifier("Science photosynthesis leaf process", asset) is True
     assert verifier.last_quality == "weak"
+    assert verifier.last_style == "decorative"
     assert "quality=weak" in verifier.last_decision
+    assert "style=decorative" in verifier.last_decision
 
 
 def test_openai_visual_verifier_blocks_wrong_named_subject_for_any_topic(tmp_path):
@@ -155,6 +166,7 @@ def test_openai_visual_verifier_blocks_unrequested_fantasy_creature_for_any_topi
                     hard_negative="unrequested_fantasy_creature",
                     hard_negative_confidence=0.96,
                     visual_quality="weak",
+                    visual_style="decorative",
                 )
             )
         },
@@ -222,6 +234,7 @@ def test_openai_visual_verifier_requires_very_high_confidence_for_diagram_or_sym
                     hard_negative="unrequested_generic_diagram",
                     hard_negative_confidence=0.93,
                     visual_quality="weak",
+                    visual_style="decorative",
                 )
             )
         },
@@ -229,6 +242,7 @@ def test_openai_visual_verifier_requires_very_high_confidence_for_diagram_or_sym
 
     assert verifier("Technology steam turbine blades", asset) is True
     assert verifier.last_quality == "weak"
+    assert verifier.last_style == "decorative"
     assert "kept:" in verifier.last_decision
 
 
@@ -242,6 +256,7 @@ def test_openai_visual_verifier_rejects_extremely_confident_unrequested_diagram(
                     hard_negative="unrequested_generic_diagram",
                     hard_negative_confidence=0.99,
                     visual_quality="weak",
+                    visual_style="decorative",
                 )
             )
         },
@@ -251,8 +266,6 @@ def test_openai_visual_verifier_rejects_extremely_confident_unrequested_diagram(
 
 
 def test_visual_verification_rejects_bad_candidate_and_tries_next(tmp_path):
-    # Both candidates are lexically relevant to the query, so the higher-scored
-    # visually-wrong candidate is tried first and the verifier must reject it.
     bad = candidate(
         "wrong",
         "Golden Gate Bridge decorative artwork",
@@ -309,11 +322,17 @@ def test_visual_verification_prefers_stronger_visual_over_accepted_weak_fallback
     class QualityVerifier:
         def __init__(self):
             self.last_quality = "preferred"
+            self.last_style = "literal"
             self.checked = []
 
         def __call__(self, _query, asset):
             self.checked.append(asset.candidate.id)
-            self.last_quality = "weak" if asset.candidate.id == "weak" else "preferred"
+            if asset.candidate.id == "weak":
+                self.last_quality = "weak"
+                self.last_style = "decorative"
+            else:
+                self.last_quality = "preferred"
+                self.last_style = "literal"
             return True
 
     verifier = QualityVerifier()
@@ -323,6 +342,43 @@ def test_visual_verification_prefers_stronger_visual_over_accepted_weak_fallback
     assert result.candidate.id == "strong"
     assert verifier.checked == ["weak", "strong"]
     assert not any("weak" in path.name.casefold() for path in tmp_path.iterdir())
+
+
+def test_visual_verification_can_prefer_acceptable_literal_over_preferred_decorative(tmp_path):
+    decorative = candidate(
+        "decorative",
+        "Redwood forest artistic emblem",
+        100,
+        "https://example.test/decorative.jpg",
+    )
+    literal = candidate(
+        "literal",
+        "Redwood forest trees photograph",
+        1,
+        "https://example.test/literal.jpg",
+    )
+    engine = AssetAcquisitionEngine(
+        [Provider([decorative, literal])],
+        downloader=lambda _url, path: path.write_bytes(b"image"),
+    )
+
+    class StyleVerifier:
+        last_quality = "preferred"
+        last_style = "decorative"
+
+        def __call__(self, _query, asset):
+            if asset.candidate.id == "decorative":
+                self.last_quality = "preferred"
+                self.last_style = "decorative"
+            else:
+                self.last_quality = "acceptable"
+                self.last_style = "literal"
+            return True
+
+    install_visual_verification(engine, StyleVerifier())
+    result = engine.acquire("Nature redwood forest", tmp_path, attempts=2)
+
+    assert result.candidate.id == "literal"
 
 
 def test_visual_verification_uses_weak_fallback_when_no_stronger_visual_exists(tmp_path):
@@ -339,15 +395,53 @@ def test_visual_verification_uses_weak_fallback_when_no_stronger_visual_exists(t
 
     class WeakVerifier:
         last_quality = "weak"
+        last_style = "decorative"
 
         def __call__(self, _query, _asset):
             self.last_quality = "weak"
+            self.last_style = "decorative"
             return True
 
     install_visual_verification(engine, WeakVerifier())
     result = engine.acquire("Technology steam turbine", tmp_path, attempts=1)
 
     assert result.candidate.id == "weak"
+
+
+def test_visual_verification_defers_reusing_excluded_asset_until_last_resort(tmp_path):
+    repeated = candidate(
+        "repeat",
+        "Golden Gate Bridge photograph",
+        100,
+        "https://example.test/repeat.jpg",
+    )
+    engine = AssetAcquisitionEngine(
+        [Provider([repeated])],
+        downloader=lambda _url, path: path.write_bytes(b"image"),
+    )
+
+    class ReuseVerifier:
+        last_quality = "preferred"
+        last_style = "literal"
+
+        def __init__(self):
+            self.checked = []
+
+        def __call__(self, _query, asset):
+            self.checked.append(asset.candidate.id)
+            return True
+
+    verifier = ReuseVerifier()
+    install_visual_verification(engine, verifier)
+    result = engine.acquire(
+        "Architecture Golden Gate Bridge",
+        tmp_path,
+        attempts=1,
+        excluded={repeated.url},
+    )
+
+    assert result.candidate.id == "repeat"
+    assert verifier.checked == ["repeat"]
 
 
 def test_visual_verification_error_rejects_candidate_and_tries_next(tmp_path):
