@@ -256,6 +256,25 @@ def _anchor_searches(prompts: list[str], context: Any) -> list[str]:
     return anchored
 
 
+def _anchor_imported_searches(prompts: list[str], context: Any) -> tuple[list[str], str]:
+    """Keep only the broad category anchor on imported scene-authored searches."""
+    project = getattr(context, "project", None)
+    category = ""
+    if isinstance(project, Mapping):
+        category = str(project.get("category") or "").strip()
+
+    anchored: list[str] = []
+    for prompt in prompts:
+        prompt = str(prompt or "").strip()
+        if not prompt:
+            continue
+        if category and not prompt.casefold().startswith(category.casefold()):
+            anchored.append(f"{category} {prompt}".strip())
+        else:
+            anchored.append(prompt)
+    return anchored, category
+
+
 def build_configured_providers(
     project_folder: str | Path,
     settings: ProviderSettings,
@@ -346,16 +365,23 @@ def _acquisition_stage(prompt_provider, engine, destination: Path, settings: Pro
     def run(context):
         imported = _imported_scene_searches(getattr(context, "project", None))
         if imported:
-            # Imported Search: lines are already scene-specific authoring. Do not
-            # prepend the overall project title/category here: doing so can
-            # resurrect an earlier subject in a later scene and corrupt the exact
-            # visual intent that the imported timeline supplied.
-            prompts = [str(prompt).strip() for prompt in imported if str(prompt).strip()]
+            # Imported Search: lines are scene-specific authoring. Keep the broad
+            # category anchor used by normal relevance filtering, but do not let
+            # the project's concrete title subject get injected afterward. During
+            # acquisition the temporary topic is the category itself, which makes
+            # the downstream subject-enforcement layer intentionally neutral.
+            prompts, category = _anchor_imported_searches(imported, context)
             if hasattr(context, "warnings"):
                 context.warnings.append(
                     f"Using {len(imported)} imported scene search queries for asset selection"
                 )
             context.image_prompts = prompts
+            original_topic = getattr(context, "topic", "")
+            try:
+                context.topic = category
+                return acquire(context)
+            finally:
+                context.topic = original_topic
         else:
             raw = prompt_provider(context)
             prompts = [
@@ -364,8 +390,7 @@ def _acquisition_stage(prompt_provider, engine, destination: Path, settings: Pro
                 if line.strip()
             ]
             context.image_prompts = _anchor_searches(prompts, context)
-
-        return acquire(context)
+            return acquire(context)
 
     return run
 
