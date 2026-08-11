@@ -1,10 +1,10 @@
 """Stricter visual verification for concrete named subjects.
 
-This wrapper keeps the existing topic-neutral verifier, but makes identity checks
-more conservative when a scene names a specific person, place, landmark, machine,
-species, celestial body, organization, or other proper-named subject. Generic
-same-class stock imagery is not good enough for a named subject if it could just
-as easily depict a different entity.
+This wrapper keeps the existing topic-neutral verifier while preserving named
+entities as complete semantic subjects. It rejects clear identity contradictions,
+but does not require stock footage to prove a landmark or place from pixels alone.
+Ambiguous but plausible imagery remains marked uncertain so the acquisition layer
+can keep searching and use it only as a fallback.
 """
 from __future__ import annotations
 
@@ -95,7 +95,7 @@ def named_subject_phrase(query: str) -> str:
 
 
 class NamedSubjectVerifier:
-    """Proxy an existing visual verifier with strict named-identity semantics."""
+    """Proxy an existing visual verifier with balanced named-identity semantics."""
 
     def __init__(self, base_verifier: Any) -> None:
         self.base_verifier = base_verifier
@@ -109,32 +109,23 @@ class NamedSubjectVerifier:
 
         if entity:
             check_query += (
-                "\n\nSTRICT NAMED-SUBJECT IDENTITY REQUIREMENT: "
-                f"The requested named subject is '{entity}'. Judge the visible subject as "
-                "that complete entity, not as separate matching keywords. A generic member "
-                "of the same class is not an acceptable substitute. For example, a generic "
-                "volcano cannot stand in for a specifically named volcano, a generic mountain "
-                "cannot stand in for a named peak, and a generic bridge cannot stand in for a "
-                "named bridge. If the visual could just as plausibly depict a different member "
-                "of the same class and there is no visible evidence supporting the requested "
-                "identity, reject it as wrong_named_subject or mark the subject uncertain. "
-                "Do not use stock metadata, filenames, tags, or the repeated query wording as "
-                "proof of identity. Apply this rule to all named places, people, landmarks, "
-                "species, machines, vehicles, products, celestial bodies, organizations, and "
-                "other concrete named entities."
+                "\n\nNAMED-SUBJECT IDENTITY REQUIREMENT: "
+                f"The requested named subject is '{entity}'. Judge it as that complete "
+                "entity rather than as separate matching keywords. Reject clear evidence "
+                "of a different named subject or a different semantic meaning. However, "
+                "do not demand impossible pixel-only proof for visually similar places, "
+                "landforms, buildings, species, machines, or celestial bodies. Stock "
+                "metadata may corroborate a visually plausible match, but it must never "
+                "override a visible contradiction. If the image is plausible for the "
+                "requested entity but cannot be uniquely identified from pixels, keep it "
+                "and mark subject uncertainty rather than calling it wrong_named_subject. "
+                "The acquisition system will prefer a more certain candidate when one is "
+                "available. Apply this principle to all named people, places, landmarks, "
+                "species, machines, vehicles, products, celestial bodies, organizations, "
+                "and other concrete named entities."
             )
 
-        accepted = bool(self.base_verifier(check_query, asset))
-
-        if entity and accepted and bool(
-            getattr(self.base_verifier, "last_subject_uncertain", False)
-        ):
-            self.base_verifier.last_decision = (
-                f"named subject identity uncertain: {entity}"
-            )
-            return False
-
-        return accepted
+        return bool(self.base_verifier(check_query, asset))
 
 
 __all__ = ["NamedSubjectVerifier", "named_subject_phrase"]
