@@ -25,7 +25,8 @@ AssetVerifier = Callable[[str, AcquiredAsset], bool]
 class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
     """Reject visually wrong images and choose the strongest accepted visual."""
 
-    QUALITY_RANK = {"weak": 1, "acceptable": 2, "preferred": 3}
+    QUALITY_SCORE = {"weak": 0, "acceptable": 3, "preferred": 6}
+    STYLE_SCORE = {"decorative": 0, "representational": 2, "literal": 4}
     MIN_QUALITY_SCAN = 5
 
     def __init__(
@@ -57,9 +58,21 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
 
     def _verifier_quality(self) -> str:
         quality = str(getattr(self.verifier, "last_quality", "preferred") or "preferred").strip().lower()
-        if quality not in self.QUALITY_RANK:
+        if quality not in self.QUALITY_SCORE:
             return "preferred"
         return quality
+
+    def _verifier_style(self) -> str:
+        style = str(getattr(self.verifier, "last_style", "literal") or "literal").strip().lower()
+        if style not in self.STYLE_SCORE:
+            return "literal"
+        return style
+
+    def _visual_score(self) -> tuple[int, str, str]:
+        quality = self._verifier_quality()
+        style = self._verifier_style()
+        score = self.QUALITY_SCORE[quality] + self.STYLE_SCORE[style]
+        return score, quality, style
 
     def _try_candidates(
         self,
@@ -70,17 +83,23 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
         attempts: int,
         excluded: set[str],
         failures: list[str],
+        allow_reuse: bool = False,
     ) -> AcquiredAsset | None:
         distinct = [
             item
             for item in candidates
             if _candidate_key(item) not in excluded and item.url not in excluded
         ]
-        pool = distinct or candidates
+        pool = distinct if distinct else (candidates if allow_reuse else [])
+        if not pool:
+            return None
+
         scan_limit = min(max(attempts, self.MIN_QUALITY_SCAN), len(pool))
         total = scan_limit
         best_asset: AcquiredAsset | None = None
+        best_score = -1
         best_quality = ""
+        best_style = ""
 
         for index, candidate in enumerate(pool[:scan_limit], start=1):
             try:
@@ -127,17 +146,19 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 )
                 continue
 
-            quality = self._verifier_quality()
-            if best_asset is None or self.QUALITY_RANK[quality] > self.QUALITY_RANK[best_quality]:
+            score, quality, style = self._visual_score()
+            if best_asset is None or score > best_score:
                 if best_asset is not None:
                     self._discard_rejected_asset(best_asset)
                 best_asset = asset
+                best_score = score
                 best_quality = quality
+                best_style = style
                 self._progress(
                     "verify",
                     index,
                     total,
-                    f"Best verified visual so far: {quality}; checking remaining candidates",
+                    f"Best visual so far: {quality}/{style} ({score}); checking remaining candidates",
                 )
             else:
                 self._discard_rejected_asset(asset)
@@ -145,7 +166,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                     "verify",
                     index,
                     total,
-                    f"Accepted {quality} visual, but existing {best_quality} candidate is stronger",
+                    f"Accepted {quality}/{style} ({score}), but current {best_quality}/{best_style} ({best_score}) is stronger",
                 )
 
         if best_asset is not None:
@@ -153,7 +174,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 "verify",
                 total,
                 total,
-                f"Selected best verified visual ({best_quality} quality) after comparing {total} candidate(s)",
+                f"Selected best verified visual ({best_quality}/{best_style}, score {best_score}) after comparing {total} candidate(s)",
             )
             return best_asset
         return None
@@ -239,7 +260,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 "retry",
                 1,
                 1,
-                "No verified subject match found; checking broader candidates",
+                "No verified subject match found; checking broader unused candidates",
             )
             candidates = self.search(
                 query,
@@ -255,6 +276,32 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 attempts=attempts,
                 excluded=blocked,
                 failures=failures,
+            )
+            if result is not None:
+                return result
+
+        if blocked:
+            self._progress(
+                "retry",
+                1,
+                1,
+                "No unused verified visual found; allowing a previously used asset only as a last resort",
+            )
+            candidates = self.search(
+                query,
+                kind=kind,
+                limit=limit,
+                target_ratio=target_ratio,
+                require_subject=False,
+            )
+            result = self._try_candidates(
+                query,
+                candidates,
+                folder,
+                attempts=attempts,
+                excluded=blocked,
+                failures=failures,
+                allow_reuse=True,
             )
             if result is not None:
                 return result
