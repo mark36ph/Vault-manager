@@ -21,7 +21,7 @@ def test_plan_preserves_repeated_queries_in_scene_positions():
     assert plan.generated_fallbacks == 1
 
 
-def test_transition_scene_replaces_stale_repeat_with_destination_query():
+def test_transition_scene_replaces_stale_repeat_with_destination_intent():
     script = (
         "Yellowstone has an enormous volcanic caldera.\n\n"
         "But it is not the biggest volcanic system in the comparison.\n\n"
@@ -36,11 +36,34 @@ def test_transition_scene_replaces_stale_repeat_with_destination_query():
         ],
         topic="Volcano comparison",
     )
-    assert plan.queries == (
-        "Yellowstone geothermal caldera landscape",
-        "Mauna Loa Hawaii broad shield volcano",
-        "Mauna Loa Hawaii broad shield volcano",
+
+    transition_query = plan.queries[1]
+    assert plan.queries[0] == "Yellowstone geothermal caldera landscape"
+    assert transition_query.startswith("Mauna Loa Hawaii broad shield volcano")
+    assert "biggest" in transition_query.casefold()
+    assert "volcanic" in transition_query.casefold()
+    assert "yellowstone" not in transition_query.casefold()
+    assert plan.queries[2] == "Mauna Loa Hawaii broad shield volcano"
+
+
+def test_transition_destination_rule_is_topic_neutral():
+    script = (
+        "Earth has a dense atmosphere and blue oceans.\n\n"
+        "However it is not the dry red world in this comparison.\n\n"
+        "Mars has a dry red surface and enormous volcanoes."
     )
+    plan = plan_visual_queries(
+        script,
+        [
+            "Earth blue planet atmosphere oceans",
+            "Earth blue planet atmosphere oceans",
+            "Mars dry red surface volcano",
+        ],
+        topic="Planet comparison",
+    )
+
+    assert plan.queries[1].startswith("Mars dry red surface volcano")
+    assert "earth" not in plan.queries[1].casefold()
 
 
 def test_transition_scene_keeps_distinct_current_search():
