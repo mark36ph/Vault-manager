@@ -129,8 +129,8 @@ _VISUAL_QUALITY = {"preferred", "acceptable", "weak"}
 _VISUAL_STYLE = {"literal", "representational", "decorative"}
 
 
-def _parse_mismatch(text: str) -> tuple[bool, float, str, float, str, str]:
-    """Parse mismatch, hard-negative, quality, and factual-style classifications."""
+def _parse_mismatch(text: str) -> tuple[bool, float, bool, float, str, float, str, str]:
+    """Parse mismatch, physical contradiction, hard-negative, quality, and style."""
     raw = str(text or "").strip()
     if raw.startswith("```"):
         lines = raw.splitlines()
@@ -160,6 +160,21 @@ def _parse_mismatch(text: str) -> tuple[bool, float, str, float, str, str]:
         raise AssetVisualVerificationError("visual verifier confidence must be numeric") from error
     if not 0.0 <= confidence <= 1.0:
         raise AssetVisualVerificationError("visual verifier confidence must be between 0 and 1")
+
+    physical_contradiction = payload.get("physical_contradiction")
+    if not isinstance(physical_contradiction, bool):
+        raise AssetVisualVerificationError("visual verifier physical_contradiction must be boolean")
+
+    try:
+        physical_contradiction_confidence = float(payload.get("physical_contradiction_confidence"))
+    except (TypeError, ValueError) as error:
+        raise AssetVisualVerificationError(
+            "visual verifier physical_contradiction_confidence must be numeric"
+        ) from error
+    if not 0.0 <= physical_contradiction_confidence <= 1.0:
+        raise AssetVisualVerificationError(
+            "visual verifier physical_contradiction_confidence must be between 0 and 1"
+        )
 
     hard_negative = str(payload.get("hard_negative") or "").strip()
     if hard_negative not in _HARD_NEGATIVES:
@@ -193,6 +208,8 @@ def _parse_mismatch(text: str) -> tuple[bool, float, str, float, str, str]:
     return (
         obvious_mismatch,
         confidence,
+        physical_contradiction,
+        physical_contradiction_confidence,
         hard_negative,
         hard_negative_confidence,
         visual_quality,
@@ -204,6 +221,7 @@ class OpenAIImageRelevanceVerifier:
     """Use an image-capable OpenAI model as a topic-neutral mismatch and quality gate."""
 
     REJECT_CONFIDENCE = 0.90
+    PHYSICAL_CONTRADICTION_CONFIDENCE = 0.90
     HARD_NEGATIVE_CONFIDENCE = 0.85
     SOFT_FORMAT_CONFIDENCE = 0.97
 
@@ -249,7 +267,12 @@ class OpenAIImageRelevanceVerifier:
             "The search/ranking system already chose this candidate. Do not demand impossible visual proof. Veto clear contradictions "
             "and unrelated dominant subjects, while separately rating factual usefulness and visual style. Treat filenames, tags, and "
             "stock metadata as hints, never as proof.\n\n"
-            "Return four judgments: obvious_mismatch, hard_negative, visual_quality, and visual_style.\n"
+            "Return five judgments: obvious_mismatch, physical_contradiction, hard_negative, visual_quality, and visual_style.\n"
+            "physical_contradiction is specifically about visible defining features that conflict with a concrete named or typed subject in the query. "
+            "Set it true only when the image provides enough visual evidence to distinguish the requested subject and one or more defining visible traits contradict it. "
+            "Examples across domains: a smooth gas giant shown for a rocky cratered planet; a suspension bridge shown for a stone arch bridge; a tiger's stripes shown for a lion; "
+            "a propeller biplane shown for a modern jet; a Gothic cathedral shown for a glass skyscraper; a wheeled vehicle shown for a tracked tank. "
+            "Do not set physical_contradiction merely because an image is generic, incomplete, stylized, reconstructed, or because a fact/action is not directly visible.\n\n"
             "For hard_negative choose exactly one category. Use none when no forbidden subject is clearly visible. Categories:\n"
             "- wrong_named_subject: the query names a concrete entity or class and the image visibly shows a different identifiable one. "
             "Examples include the wrong planet, landmark, person, animal species, vehicle, building, machine, food, flag, location, or object.\n"
@@ -273,11 +296,12 @@ class OpenAIImageRelevanceVerifier:
             "If a literal visual is realistically possible and the candidate is mostly symbolic, logo-like, generic diagrammatic, or concept-art decoration, use decorative even if it is loosely relevant. "
             "If a diagram, map, chart, artwork, or symbolic representation is explicitly requested by the query, it may be representational instead.\n\n"
             "Apply these general rules across all topics:\n"
+            "- For a concrete named or typed subject, actively compare visible defining traits against the query before deciding the image is acceptable. Broad category similarity alone is not enough when the visual clearly identifies a conflicting subject.\n"
             "- If a named subject is difficult or impossible to uniquely identify from pixels alone, keep a scientifically, historically, or physically plausible representation unless a visible feature clearly contradicts the query.\n"
             "- A still image does not have to demonstrate an abstract action, duration, comparison, cause, motion, direction, measurement, or process when the underlying subject is appropriate.\n"
             "- Reject a clearly different identifiable named subject. Examples: Big Ben is not the Eiffel Tower; a tiger is not a lion; a motorcycle is not a bicycle; Earth is not Mars; a modern jet is not a World War I biplane.\n"
             "- Do not reject merely because the image is a reasonable reconstruction, microscopic view, astronomical view, ancient-event depiction, or other representation that cannot be verified uniquely from pixels.\n"
-            "- If unsure about the overall match, set obvious_mismatch=false. But still classify quality and style based on what is visibly present."
+            "- If unsure about the overall match, set obvious_mismatch=false and physical_contradiction=false. But still classify quality and style based on what is visibly present."
         )
 
         body = {
@@ -289,13 +313,15 @@ class OpenAIImageRelevanceVerifier:
                 "format": {
                     "type": "json_schema",
                     "name": "visual_mismatch_decision",
-                    "description": "Topic-neutral mismatch, hard-negative, quality, and factual-style classification.",
+                    "description": "Topic-neutral mismatch, physical contradiction, hard-negative, quality, and factual-style classification.",
                     "strict": True,
                     "schema": {
                         "type": "object",
                         "properties": {
                             "obvious_mismatch": {"type": "boolean"},
                             "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+                            "physical_contradiction": {"type": "boolean"},
+                            "physical_contradiction_confidence": {"type": "number", "minimum": 0, "maximum": 1},
                             "hard_negative": {"type": "string", "enum": sorted(_HARD_NEGATIVES)},
                             "hard_negative_confidence": {"type": "number", "minimum": 0, "maximum": 1},
                             "visual_quality": {"type": "string", "enum": sorted(_VISUAL_QUALITY)},
@@ -304,6 +330,8 @@ class OpenAIImageRelevanceVerifier:
                         "required": [
                             "obvious_mismatch",
                             "confidence",
+                            "physical_contradiction",
+                            "physical_contradiction_confidence",
                             "hard_negative",
                             "hard_negative_confidence",
                             "visual_quality",
@@ -338,6 +366,8 @@ class OpenAIImageRelevanceVerifier:
         (
             obvious_mismatch,
             confidence,
+            physical_contradiction,
+            physical_contradiction_confidence,
             hard_negative,
             hard_negative_confidence,
             visual_quality,
@@ -345,6 +375,16 @@ class OpenAIImageRelevanceVerifier:
         ) = _parse_mismatch(_response_text(payload))
         self.last_quality = visual_quality
         self.last_style = visual_style
+
+        if (
+            physical_contradiction
+            and physical_contradiction_confidence >= self.PHYSICAL_CONTRADICTION_CONFIDENCE
+        ):
+            self.last_decision = (
+                "physical contradiction "
+                f"({physical_contradiction_confidence:.2f}, threshold {self.PHYSICAL_CONTRADICTION_CONFIDENCE:.2f})"
+            )
+            return False
 
         threshold = self.HARD_NEGATIVE_CONFIDENCE
         if hard_negative in {"unrequested_logo_or_symbol", "unrequested_generic_diagram"}:
@@ -363,6 +403,7 @@ class OpenAIImageRelevanceVerifier:
 
         self.last_decision = (
             f"kept: mismatch={obvious_mismatch}/{confidence:.2f}, "
+            f"physical_contradiction={physical_contradiction}/{physical_contradiction_confidence:.2f}, "
             f"hard_negative={hard_negative}/{hard_negative_confidence:.2f}, "
             f"quality={visual_quality}, style={visual_style}"
         )
