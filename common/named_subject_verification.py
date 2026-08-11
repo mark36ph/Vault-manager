@@ -2,7 +2,7 @@
 
 This wrapper keeps the existing topic-neutral verifier, but makes identity checks
 more conservative when a scene names a specific person, place, landmark, machine,
-species, celestial body, organization, or other proper-named subject.  Generic
+species, celestial body, organization, or other proper-named subject. Generic
 same-class stock imagery is not good enough for a named subject if it could just
 as easily depict a different entity.
 """
@@ -24,6 +24,36 @@ _GENERIC_CAPITALIZED = {
     "Wide", "Landscape", "Photo", "Photography", "Video", "Image",
 }
 
+_TWO_WORD_PREFIXES = {
+    "Mount", "Mt", "Mauna", "Lake", "Cape", "Fort", "Saint", "St",
+}
+
+_ENTITY_TERMINALS = {
+    "Bridge", "Reef", "Telescope", "Station", "Tower", "Building", "Palace",
+    "Temple", "Cathedral", "Church", "Mosque", "River", "Sea", "Ocean",
+    "Lake", "Island", "Falls", "Dam", "Park", "City", "University", "Museum",
+    "Airport", "Volcano", "Mountain", "Peak", "Monument", "Castle", "Canal",
+    "Desert", "Forest", "Bay", "Gulf", "Peninsula", "Spacecraft", "Rover",
+    "Tomb", "Wall", "Capitol", "Center", "Centre",
+}
+
+
+def _trim_named_run(tokens: list[str]) -> list[str]:
+    if not tokens:
+        return []
+
+    if tokens[0] in _TWO_WORD_PREFIXES and len(tokens) >= 2:
+        return tokens[:2]
+
+    for index, token in enumerate(tokens):
+        if token in _ENTITY_TERMINALS:
+            return tokens[: index + 1]
+
+    # Consecutive proper nouns often include a following region/country in stock
+    # queries (for example "Mauna Loa Hawaii"). Without an explicit terminal,
+    # two words is the safest general-purpose entity boundary.
+    return tokens[:2]
+
 
 def named_subject_phrase(query: str) -> str:
     """Return the strongest proper-named phrase visible in a stock search query.
@@ -40,7 +70,7 @@ def named_subject_phrase(query: str) -> str:
     if tokens[0].casefold() in _BROAD_ANCHORS:
         tokens = tokens[1:]
 
-    best: list[str] = []
+    runs: list[list[str]] = []
     current: list[str] = []
     for token in tokens:
         is_named = (
@@ -50,11 +80,17 @@ def named_subject_phrase(query: str) -> str:
         )
         if is_named:
             current.append(token)
-            if len(current) > len(best):
-                best = list(current)
-        else:
+        elif current:
+            runs.append(current)
             current = []
+    if current:
+        runs.append(current)
 
+    if not runs:
+        return ""
+
+    candidates = [_trim_named_run(run) for run in runs]
+    best = max(candidates, key=lambda run: (len(run), len(" ".join(run))))
     return " ".join(best).strip()
 
 
