@@ -7,7 +7,6 @@ import pages.production_page as production_page_module
 from common.asset_visual_verification import OpenAIImageRelevanceVerifier
 from common.fcpxml_paths import rebase_fcpxml_media_paths
 from common.narration_sync import NarrationSyncError, regenerate_narration
-from common.project_filters import in_progress_projects
 from common.provider_setup import ProviderCredentials, ProviderSettingsStore, build_configured_providers
 from common.verified_asset_acquisition import install_visual_verification
 from pages.media_library_page import MediaLibraryPage
@@ -16,6 +15,18 @@ from pages.settings_page import SettingsPage
 from widgets.asset_usage_tracking import install_asset_usage_tracking
 from widgets.message_dialog import ask_confirmation, show_message
 from ui.dashboard import Dashboard
+
+
+PRODUCTION_STATUSES = {"In Progress", "Completed"}
+
+
+def production_projects(projects):
+    """Return projects that can be produced or reproduced from the Production page."""
+    return [
+        dict(project)
+        for project in projects
+        if str(dict(project).get("status") or "") in PRODUCTION_STATUSES
+    ]
 
 
 def add_media_library_button(app):
@@ -140,7 +151,7 @@ def install_production_elapsed_timer():
 
 
 def install_production_status_guard():
-    """Keep completed projects viewable without allowing an accidental rerun."""
+    """Allow completed projects to be deliberately reproduced without moving folders."""
     if getattr(ProductionPage, "_status_guard_installed", False):
         return
 
@@ -150,19 +161,40 @@ def install_production_status_guard():
     def refresh_credentials(page, settings):
         original_refresh_credentials(page, settings)
         project = page._selected_project()
-        if project is not None and str(project.get("status") or "") != "In Progress":
+        status = str(project.get("status") or "") if project is not None else ""
+        if status == "Completed":
+            page.start_button.configure(text="↻ Reproduce Video")
+        else:
+            page.start_button.configure(text="▶ Produce Video")
+        if project is not None and status not in PRODUCTION_STATUSES:
             page.start_button.configure(state="disabled")
 
     def start(page, *, resume: bool):
         project = page._selected_project()
-        if project is not None and str(project.get("status") or "") != "In Progress":
+        status = str(project.get("status") or "") if project is not None else ""
+
+        if project is not None and status == "Completed" and not resume:
+            if not ask_confirmation(
+                page,
+                "Reproduce completed video",
+                "Reproduce this completed project in its current folder?\n\n"
+                "The project will stay Completed. Newly generated production assets and the Resolve export may replace "
+                "or supersede files from the previous production, so you do not need to delete the folder or move the "
+                "project back to In Progress.",
+                confirm_text="Reproduce",
+                cancel_text="Cancel",
+                kind="warning",
+            ):
+                return
+        elif project is not None and status not in PRODUCTION_STATUSES:
             show_message(
                 page,
                 "Production",
-                "This project is already complete. Move it back to In Progress before producing it again.",
+                "This project cannot be produced from its current status.",
                 kind="info",
             )
             return
+
         return original_start(page, resume=resume)
 
     ProductionPage._refresh_credentials = refresh_credentials
@@ -217,17 +249,23 @@ def install_status_move_fcpxml_rebase(app):
 
 
 def load_production_page(app):
-    """Load Production with only In Progress projects as dictionaries."""
+    """Load Production with In Progress and Completed projects as dictionaries."""
     original_get_all_projects = app.pm.get_all_projects
+    original_filter = production_page_module.in_progress_projects
 
     def get_project_dicts():
-        return in_progress_projects(dict(project) for project in original_get_all_projects())
+        return production_projects(original_get_all_projects())
+
+    def keep_production_projects(projects):
+        return production_projects(projects)
 
     app.pm.get_all_projects = get_project_dicts
+    production_page_module.in_progress_projects = keep_production_projects
     try:
         app.load_page(ProductionPage, app)
     finally:
         app.pm.get_all_projects = original_get_all_projects
+        production_page_module.in_progress_projects = original_filter
 
 
 def add_production_button(app):
@@ -294,7 +332,7 @@ def install_legacy_messagebox_bridge(app):
         )
 
     messagebox.showinfo = show_info
-    messagebox.showwarning = show_warning
+    messagebox.showwarning = show_info
     messagebox.showerror = show_error
     messagebox.askyesno = ask_yes_no
     messagebox.askokcancel = ask_yes_no
