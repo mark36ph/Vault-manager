@@ -6,6 +6,10 @@ import pages.production_page as production_page_module
 
 from common.asset_visual_verification import OpenAIImageRelevanceVerifier
 from common.fcpxml_paths import rebase_fcpxml_media_paths
+from common.mixed_asset_acquisition import (
+    install_mixed_visual_acquisition,
+    prepare_selected_videos,
+)
 from common.narration_sync import NarrationSyncError, regenerate_narration
 from common.provider_setup import ProviderCredentials, ProviderSettingsStore, build_configured_providers
 from common.verified_asset_acquisition import install_visual_verification
@@ -249,7 +253,7 @@ def install_production_status_guard():
 
 
 def install_production_visual_verification():
-    """Verify downloaded production images with OpenAI before they enter the timeline."""
+    """Verify and rank both stock images and stock-video frames before timeline use."""
     if getattr(production_page_module, "_visual_verification_installed", False):
         return
 
@@ -265,7 +269,20 @@ def install_production_visual_verification():
             credentials.get("openai"),
             model=str(getattr(settings, "openai_model", "gpt-5-mini") or "gpt-5-mini"),
         )
+
+        # Keep the proven verified-image hierarchy as the fallback path, then
+        # extend acquire_many so every normal production scene can also compete
+        # against verified video footage from the same stock providers.
         install_visual_verification(configured.asset_engine, verifier)
+        install_mixed_visual_acquisition(configured.asset_engine, verifier)
+
+        original_image_stage = configured.registry.require("image_prompts")
+
+        def mixed_image_stage(context):
+            assets = original_image_stage(context)
+            return prepare_selected_videos(context, assets)
+
+        configured.registry.register("image_prompts", mixed_image_stage)
         return configured
 
     production_page_module.build_configured_providers = build_with_visual_verification
