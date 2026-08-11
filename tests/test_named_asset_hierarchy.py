@@ -2,10 +2,12 @@ import pytest
 
 from common.asset_acquisition import AssetCandidate
 from common.named_asset_hierarchy import (
+    NAMED_DESCRIPTIVE_BONUS,
     NAMED_IDENTITY_BONUS,
     NAMED_SEARCH_BONUS,
     named_candidate_bonus,
     named_candidate_rank_tier,
+    named_descriptive_overlap,
     named_identity_evidence,
 )
 
@@ -92,7 +94,7 @@ def test_partial_name_is_not_enough_for_multiword_entity():
 )
 def test_named_entities_receive_strong_tier_from_provider_evidence(query, provider_text):
     item = candidate(source_page=provider_text)
-    assert named_candidate_rank_tier(query, item) == 2
+    assert named_candidate_rank_tier(query, item) == 3
     assert named_candidate_bonus(query, item) == NAMED_IDENTITY_BONUS
 
 
@@ -114,12 +116,67 @@ def test_plausible_focused_named_result_beats_generic_same_class():
     assert named_candidate_bonus(query, generic) == 0
 
 
+@pytest.mark.parametrize(
+    ("query", "entity", "provider_text"),
+    [
+        (
+            "nature Mauna Loa Hawaii shield volcano aerial",
+            "Mauna Loa",
+            "https://stock.example/hawaii-shield-volcano-aerial",
+        ),
+        (
+            "nature Mount Everest Himalayas summit mountain Nepal",
+            "Mount Everest",
+            "https://stock.example/himalayas-nepal-summit-mountain",
+        ),
+        (
+            "architecture Golden Gate Bridge San Francisco aerial",
+            "Golden Gate Bridge",
+            "https://stock.example/san-francisco-suspension-aerial",
+        ),
+        (
+            "technology James Webb Space Telescope deep field",
+            "James Webb Space Telescope",
+            "https://stock.example/deep-field-observatory-space",
+        ),
+    ],
+)
+def test_focused_named_result_with_descriptive_provider_evidence_gets_middle_tier(
+    query, entity, provider_text
+):
+    item = candidate(
+        title=entity,
+        source_page=provider_text,
+        metadata={"_named_subject_search": entity},
+    )
+    assert named_descriptive_overlap(query, item) >= 2
+    assert named_candidate_rank_tier(query, item) == 2
+    assert named_candidate_bonus(query, item) == NAMED_DESCRIPTIVE_BONUS
+
+
+def test_query_echo_does_not_fake_descriptive_overlap():
+    query = "nature Mauna Loa Hawaii shield volcano aerial"
+    item = candidate(
+        title=query,
+        source_page="https://stock.example/volcano-123",
+        metadata={"_named_subject_search": "Mauna Loa"},
+    )
+    assert named_descriptive_overlap(query, item) == 1
+    assert named_candidate_rank_tier(query, item) == 1
+
+
 @pytest.mark.parametrize("kind", ["video", "image"])
 def test_video_and_image_candidates_use_same_named_hierarchy(kind):
     query = "architecture Golden Gate Bridge San Francisco aerial"
     strong = candidate(
         kind=kind,
         source_page="https://stock.example/golden-gate-bridge-san-francisco",
+    )
+    descriptive = candidate(
+        kind=kind,
+        title="Golden Gate Bridge",
+        source_page="https://stock.example/san-francisco-aerial-suspension",
+        metadata={"_named_subject_search": "Golden Gate Bridge"},
     )
     plausible = candidate(
         kind=kind,
@@ -130,16 +187,17 @@ def test_video_and_image_candidates_use_same_named_hierarchy(kind):
 
     assert [
         named_candidate_rank_tier(query, strong),
+        named_candidate_rank_tier(query, descriptive),
         named_candidate_rank_tier(query, plausible),
         named_candidate_rank_tier(query, generic),
-    ] == [2, 1, 0]
+    ] == [3, 2, 1, 0]
 
 
 def test_named_tier_bonuses_are_decisive_over_visual_quality_scores():
-    # Mixed verification currently spans roughly -3..9 points. The hierarchy
-    # bonuses must remain larger than that range so prettier generic footage
-    # cannot outrank a surviving named-subject candidate.
-    assert NAMED_IDENTITY_BONUS > NAMED_SEARCH_BONUS > 9
+    # Mixed verification currently spans roughly -3..9 points. Every named tier
+    # must remain larger than that range so prettier generic footage cannot
+    # outrank a surviving named-subject candidate.
+    assert NAMED_IDENTITY_BONUS > NAMED_DESCRIPTIVE_BONUS > NAMED_SEARCH_BONUS > 9
 
 
 def test_generic_query_has_no_named_identity_requirement():
@@ -149,5 +207,6 @@ def test_generic_query_has_no_named_identity_requirement():
     )
     query = "technology fiber optic cable light data"
     assert named_identity_evidence(query, item) is False
+    assert named_descriptive_overlap(query, item) >= 0
     assert named_candidate_rank_tier(query, item) == 0
     assert named_candidate_bonus(query, item) == 0
