@@ -23,7 +23,10 @@ AssetVerifier = Callable[[str, AcquiredAsset], bool]
 
 
 class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
-    """Reject visually wrong images and prefer stronger accepted visuals."""
+    """Reject visually wrong images and choose the strongest accepted visual."""
+
+    QUALITY_RANK = {"weak": 1, "acceptable": 2, "preferred": 3}
+    MIN_QUALITY_SCAN = 5
 
     def __init__(
         self,
@@ -54,7 +57,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
 
     def _verifier_quality(self) -> str:
         quality = str(getattr(self.verifier, "last_quality", "preferred") or "preferred").strip().lower()
-        if quality not in {"preferred", "acceptable", "weak"}:
+        if quality not in self.QUALITY_RANK:
             return "preferred"
         return quality
 
@@ -74,10 +77,12 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
             if _candidate_key(item) not in excluded and item.url not in excluded
         ]
         pool = distinct or candidates
-        total = min(attempts, len(pool))
-        weak_fallback: AcquiredAsset | None = None
+        scan_limit = min(max(attempts, self.MIN_QUALITY_SCAN), len(pool))
+        total = scan_limit
+        best_asset: AcquiredAsset | None = None
+        best_quality = ""
 
-        for index, candidate in enumerate(pool[:attempts], start=1):
+        for index, candidate in enumerate(pool[:scan_limit], start=1):
             try:
                 asset = self._download_candidate(candidate, folder, index, total)
             except Exception as error:
@@ -85,8 +90,8 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 continue
 
             if candidate.kind != "image":
-                if weak_fallback is not None:
-                    self._discard_rejected_asset(weak_fallback)
+                if best_asset is not None:
+                    self._discard_rejected_asset(best_asset)
                 return asset
 
             self._progress(
@@ -110,49 +115,47 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 )
                 continue
 
-            if accepted:
-                quality = self._verifier_quality()
-                if quality == "weak":
-                    if weak_fallback is None:
-                        weak_fallback = asset
-                        self._progress(
-                            "verify",
-                            index,
-                            total,
-                            "Visual relevance accepted as weak fallback; checking for a stronger visual",
-                        )
-                    else:
-                        self._discard_rejected_asset(asset)
-                    continue
-
-                if weak_fallback is not None:
-                    self._discard_rejected_asset(weak_fallback)
+            if not accepted:
+                decision = self._verifier_decision()
+                failures.append(f"{candidate.provider}/{candidate.id}: {decision}")
+                self._discard_rejected_asset(asset)
                 self._progress(
                     "verify",
                     index,
                     total,
-                    f"Visual relevance accepted ({quality} quality)",
+                    f"Visual relevance rejected ({decision}); trying another asset",
                 )
-                return asset
+                continue
 
-            decision = self._verifier_decision()
-            failures.append(f"{candidate.provider}/{candidate.id}: {decision}")
-            self._discard_rejected_asset(asset)
+            quality = self._verifier_quality()
+            if best_asset is None or self.QUALITY_RANK[quality] > self.QUALITY_RANK[best_quality]:
+                if best_asset is not None:
+                    self._discard_rejected_asset(best_asset)
+                best_asset = asset
+                best_quality = quality
+                self._progress(
+                    "verify",
+                    index,
+                    total,
+                    f"Best verified visual so far: {quality}; checking remaining candidates",
+                )
+            else:
+                self._discard_rejected_asset(asset)
+                self._progress(
+                    "verify",
+                    index,
+                    total,
+                    f"Accepted {quality} visual, but existing {best_quality} candidate is stronger",
+                )
+
+        if best_asset is not None:
             self._progress(
                 "verify",
-                index,
                 total,
-                f"Visual relevance rejected ({decision}); trying another asset",
+                total,
+                f"Selected best verified visual ({best_quality} quality) after comparing {total} candidate(s)",
             )
-
-        if weak_fallback is not None:
-            self._progress(
-                "verify",
-                total,
-                total,
-                "No stronger verified visual found; using accepted weak fallback",
-            )
-            return weak_fallback
+            return best_asset
         return None
 
     @staticmethod
