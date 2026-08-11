@@ -56,6 +56,12 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
         except OSError:
             pass
 
+    @staticmethod
+    def _protect_asset(asset: AcquiredAsset, protected: set[str]) -> None:
+        """Prevent a retained fallback from being downloaded over or deleted by later retries."""
+        protected.add(_candidate_key(asset.candidate))
+        protected.add(asset.candidate.url)
+
     def _verifier_decision(self) -> str:
         detail = str(getattr(self.verifier, "last_decision", "") or "").strip()
         return detail or "visual relevance rejected"
@@ -94,13 +100,26 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
         excluded: set[str],
         failures: list[str],
         allow_reuse: bool = False,
+        protected: set[str] | None = None,
     ) -> AcquiredAsset | None:
+        protected_items = protected or set()
+
+        def is_protected(item: AssetCandidate) -> bool:
+            return _candidate_key(item) in protected_items or item.url in protected_items
+
         distinct = [
             item
             for item in candidates
-            if _candidate_key(item) not in excluded and item.url not in excluded
+            if not is_protected(item)
+            and _candidate_key(item) not in excluded
+            and item.url not in excluded
         ]
-        pool = distinct if distinct else (candidates if allow_reuse else [])
+        if distinct:
+            pool = distinct
+        elif allow_reuse:
+            pool = [item for item in candidates if not is_protected(item)]
+        else:
+            pool = []
         if not pool:
             return None
 
@@ -261,11 +280,17 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
 
         folder = Path(destination_folder)
         folder.mkdir(parents=True, exist_ok=True)
-        blocked = excluded or set()
+        blocked = set(excluded or ())
+        protected: set[str] = set()
         failures: list[str] = []
         required_subject = _required_subject(query)
         decorative_fallback: AcquiredAsset | None = None
         uncertain_fallback: AcquiredAsset | None = None
+
+        def protect_fallbacks() -> None:
+            for fallback_asset in (decorative_fallback, uncertain_fallback):
+                if fallback_asset is not None:
+                    self._protect_asset(fallback_asset, protected)
 
         candidates = self.search(
             query,
@@ -281,6 +306,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
             attempts=attempts,
             excluded=blocked,
             failures=failures,
+            protected=protected,
         )
         if result is not None:
             result, decorative_fallback, uncertain_fallback = self._defer_candidate(
@@ -288,6 +314,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 decorative_fallback=decorative_fallback,
                 uncertain_fallback=uncertain_fallback,
             )
+            protect_fallbacks()
             if result is not None:
                 return result
 
@@ -319,6 +346,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 attempts=attempts,
                 excluded=blocked,
                 failures=failures,
+                protected=protected,
             )
             if result is not None:
                 result, decorative_fallback, uncertain_fallback = self._defer_candidate(
@@ -326,6 +354,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                     decorative_fallback=decorative_fallback,
                     uncertain_fallback=uncertain_fallback,
                 )
+                protect_fallbacks()
                 if result is not None:
                     return result
 
@@ -350,6 +379,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 attempts=attempts,
                 excluded=blocked,
                 failures=failures,
+                protected=protected,
             )
             if result is not None:
                 result, decorative_fallback, uncertain_fallback = self._defer_candidate(
@@ -357,6 +387,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                     decorative_fallback=decorative_fallback,
                     uncertain_fallback=uncertain_fallback,
                 )
+                protect_fallbacks()
                 if result is not None:
                     return result
 
@@ -382,6 +413,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 excluded=blocked,
                 failures=failures,
                 allow_reuse=True,
+                protected=protected,
             )
             if result is not None:
                 result, decorative_fallback, uncertain_fallback = self._defer_candidate(
@@ -389,6 +421,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                     decorative_fallback=decorative_fallback,
                     uncertain_fallback=uncertain_fallback,
                 )
+                protect_fallbacks()
                 if result is not None:
                     return result
 
