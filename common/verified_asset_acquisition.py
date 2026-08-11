@@ -23,7 +23,7 @@ AssetVerifier = Callable[[str, AcquiredAsset], bool]
 
 
 class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
-    """Reject visually wrong downloaded images and continue searching."""
+    """Reject visually wrong images and prefer stronger accepted visuals."""
 
     def __init__(
         self,
@@ -42,7 +42,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
 
     @staticmethod
     def _discard_rejected_asset(asset: AcquiredAsset) -> None:
-        """Remove a rejected download so it cannot be reused as a cached candidate."""
+        """Remove a rejected or superseded download so it is not reused."""
         try:
             Path(asset.path).unlink(missing_ok=True)
         except OSError:
@@ -51,6 +51,12 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
     def _verifier_decision(self) -> str:
         detail = str(getattr(self.verifier, "last_decision", "") or "").strip()
         return detail or "visual relevance rejected"
+
+    def _verifier_quality(self) -> str:
+        quality = str(getattr(self.verifier, "last_quality", "preferred") or "preferred").strip().lower()
+        if quality not in {"preferred", "acceptable", "weak"}:
+            return "preferred"
+        return quality
 
     def _try_candidates(
         self,
@@ -69,6 +75,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
         ]
         pool = distinct or candidates
         total = min(attempts, len(pool))
+        weak_fallback: AcquiredAsset | None = None
 
         for index, candidate in enumerate(pool[:attempts], start=1):
             try:
@@ -78,6 +85,8 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 continue
 
             if candidate.kind != "image":
+                if weak_fallback is not None:
+                    self._discard_rejected_asset(weak_fallback)
                 return asset
 
             self._progress(
@@ -89,9 +98,6 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
             try:
                 accepted = bool(self.verifier(query, asset))
             except Exception as error:
-                # Visual verification is a real quality gate. An unavailable or
-                # malformed verifier result must not silently allow a visibly wrong
-                # asset into the final video.
                 failures.append(
                     f"{candidate.provider}/{candidate.id}: visual verification failed: {error}"
                 )
@@ -105,7 +111,28 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 continue
 
             if accepted:
-                self._progress("verify", index, total, "Visual relevance accepted")
+                quality = self._verifier_quality()
+                if quality == "weak":
+                    if weak_fallback is None:
+                        weak_fallback = asset
+                        self._progress(
+                            "verify",
+                            index,
+                            total,
+                            "Visual relevance accepted as weak fallback; checking for a stronger visual",
+                        )
+                    else:
+                        self._discard_rejected_asset(asset)
+                    continue
+
+                if weak_fallback is not None:
+                    self._discard_rejected_asset(weak_fallback)
+                self._progress(
+                    "verify",
+                    index,
+                    total,
+                    f"Visual relevance accepted ({quality} quality)",
+                )
                 return asset
 
             decision = self._verifier_decision()
@@ -118,6 +145,14 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
                 f"Visual relevance rejected ({decision}); trying another asset",
             )
 
+        if weak_fallback is not None:
+            self._progress(
+                "verify",
+                total,
+                total,
+                "No stronger verified visual found; using accepted weak fallback",
+            )
+            return weak_fallback
         return None
 
     @staticmethod
