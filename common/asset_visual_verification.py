@@ -4,6 +4,7 @@ from __future__ import annotations
 import base64
 import json
 import mimetypes
+import urllib.error
 import urllib.request
 from pathlib import Path
 from typing import Any, Callable, Mapping
@@ -17,9 +18,35 @@ class AssetVisualVerificationError(RuntimeError):
     """Raised when the visual verification service returns an unusable response."""
 
 
+def _http_error_message(error: urllib.error.HTTPError) -> str:
+    """Return the useful OpenAI error body instead of only ``HTTP Error 400``."""
+    try:
+        raw = error.read().decode("utf-8", errors="replace").strip()
+    except Exception:
+        raw = ""
+    if not raw:
+        return str(error.reason or error)
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return raw[:500]
+    if isinstance(payload, Mapping):
+        detail = payload.get("error")
+        if isinstance(detail, Mapping):
+            message = str(detail.get("message") or "").strip()
+            if message:
+                return message
+    return raw[:500]
+
+
 def _json_transport(request: urllib.request.Request) -> Mapping[str, Any]:
-    with urllib.request.urlopen(request, timeout=45) as response:
-        payload = json.loads(response.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(request, timeout=45) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as error:
+        raise AssetVisualVerificationError(
+            f"OpenAI visual verifier HTTP {error.code}: {_http_error_message(error)}"
+        ) from error
     if not isinstance(payload, Mapping):
         raise AssetVisualVerificationError("visual verifier response must be a JSON object")
     return payload
@@ -54,11 +81,34 @@ def _response_text(payload: Mapping[str, Any]) -> str:
     return ""
 
 
-def _image_data_url(path: Path) -> str:
+def _image_mime_type(path: Path, data: bytes) -> str:
+    """Prefer actual image bytes so a mislabeled AVIF/HEIC is not sent as JPEG."""
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith((b"GIF87a", b"GIF89a")):
+        return "image/gif"
+    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    if len(data) >= 12 and data[4:8] == b"ftyp":
+        brand = data[8:12].lower()
+        if brand in {b"avif", b"avis", b"heic", b"heix", b"hevc", b"hevx", b"mif1", b"msf1"}:
+            raise AssetVisualVerificationError(
+                f"unsupported downloaded image format for OpenAI vision: {brand.decode('ascii', errors='replace')}"
+            )
     mime_type = mimetypes.guess_type(path.name)[0] or "image/jpeg"
-    if not mime_type.startswith("image/"):
-        raise AssetVisualVerificationError(f"unsupported visual-verification file type: {path.suffix}")
-    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    if mime_type not in {"image/jpeg", "image/png", "image/gif", "image/webp"}:
+        raise AssetVisualVerificationError(
+            f"unsupported visual-verification file type: {mime_type}"
+        )
+    return mime_type
+
+
+def _image_data_url(path: Path) -> str:
+    data = path.read_bytes()
+    mime_type = _image_mime_type(path, data)
+    encoded = base64.b64encode(data).decode("ascii")
     return f"data:{mime_type};base64,{encoded}"
 
 
@@ -132,7 +182,8 @@ class OpenAIImageRelevanceVerifier:
     """Use an image-capable OpenAI model as a topic-neutral mismatch and hard-negative gate."""
 
     REJECT_CONFIDENCE = 0.90
-    HARD_NEGATIVE_CONFIDENCE = 0.75
+    HARD_NEGATIVE_CONFIDENCE = 0.85
+    SOFT_FORMAT_CONFIDENCE = 0.97
 
     def __init__(
         self,
@@ -144,6 +195,7 @@ class OpenAIImageRelevanceVerifier:
         self.api_key = str(api_key or "").strip()
         self.model = str(model or "gpt-5-mini").strip()
         self.transport = transport
+        self.last_decision = "not checked"
         if not self.api_key:
             raise ValueError("OpenAI API key is required for visual verification")
         if not self.model:
@@ -151,9 +203,12 @@ class OpenAIImageRelevanceVerifier:
 
     def __call__(self, query: str, asset: AcquiredAsset) -> bool:
         path = Path(asset.path)
+        self.last_decision = "not checked"
         if asset.candidate.kind != "image":
+            self.last_decision = "non-image asset"
             return True
         if not path.is_file() or path.stat().st_size <= 0:
+            self.last_decision = "missing or empty image"
             return False
 
         scene_query = " ".join(str(query or "").split()).strip()
@@ -191,6 +246,8 @@ class OpenAIImageRelevanceVerifier:
             "measurement, or process when the underlying subject is otherwise appropriate.\n"
             "- Reject a clearly different identifiable named subject. Examples: Big Ben is not the Eiffel Tower; a tiger is not a lion; "
             "a motorcycle is not a bicycle; Earth is not Mars; a modern jet is not a World War I biplane.\n"
+            "- Diagrams, symbols, and illustrations are weaker visuals, but they are not automatic hard failures. Mark them only when "
+            "they are clearly unrequested and clearly displace a useful literal visual.\n"
             "- Do not reject merely because the image is a reasonable reconstruction, illustration, microscopic view, astronomical view, "
             "ancient-event depiction, or other representation that cannot be verified uniquely from pixels.\n"
             "- If unsure about the overall match, set obvious_mismatch=false. But if a hard-negative subject is clearly present and "
@@ -270,10 +327,25 @@ class OpenAIImageRelevanceVerifier:
             hard_negative_confidence,
         ) = _parse_mismatch(_response_text(payload))
 
-        if hard_negative != "none" and hard_negative_confidence >= self.HARD_NEGATIVE_CONFIDENCE:
+        threshold = self.HARD_NEGATIVE_CONFIDENCE
+        if hard_negative in {"unrequested_logo_or_symbol", "unrequested_generic_diagram"}:
+            threshold = self.SOFT_FORMAT_CONFIDENCE
+
+        if hard_negative != "none" and hard_negative_confidence >= threshold:
+            self.last_decision = (
+                f"hard negative {hard_negative} ({hard_negative_confidence:.2f}, threshold {threshold:.2f})"
+            )
             return False
         if obvious_mismatch and confidence >= self.REJECT_CONFIDENCE:
+            self.last_decision = (
+                f"obvious mismatch ({confidence:.2f}, threshold {self.REJECT_CONFIDENCE:.2f})"
+            )
             return False
+
+        self.last_decision = (
+            f"kept: mismatch={obvious_mismatch}/{confidence:.2f}, "
+            f"hard_negative={hard_negative}/{hard_negative_confidence:.2f}"
+        )
         return True
 
 
