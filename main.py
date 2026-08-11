@@ -10,7 +10,7 @@ from common.narration_sync import NarrationSyncError, regenerate_narration
 from common.provider_setup import ProviderCredentials, ProviderSettingsStore, build_configured_providers
 from common.verified_asset_acquisition import install_visual_verification
 from pages.media_library_page import MediaLibraryPage
-from pages.production_page import ProductionPage, format_elapsed
+from pages.production_page import ProductionPage, format_elapsed, project_choice
 from pages.settings_page import SettingsPage
 from widgets.asset_usage_tracking import install_asset_usage_tracking
 from widgets.message_dialog import ask_confirmation, show_message
@@ -20,13 +20,46 @@ from ui.dashboard import Dashboard
 PRODUCTION_STATUSES = {"In Progress", "Completed"}
 
 
-def production_projects(projects):
-    """Return projects that can be produced or reproduced from the Production page."""
+def production_projects(projects, *, include_completed=True):
+    """Return projects available on Production, optionally hiding Completed items."""
+    allowed = {"In Progress"}
+    if include_completed:
+        allowed.add("Completed")
     return [
         dict(project)
         for project in projects
-        if str(dict(project).get("status") or "") in PRODUCTION_STATUSES
+        if str(dict(project).get("status") or "") in allowed
     ]
+
+
+def refresh_production_project_choices(page):
+    """Refresh Production's project menu after the Completed visibility toggle changes."""
+    include_completed = bool(getattr(page, "show_completed_projects", None).get())
+    projects = production_projects(
+        page.pm.get_all_projects(),
+        include_completed=include_completed,
+    )
+    lookup = {project_choice(project): project for project in projects}
+    current = page.project_menu.get()
+    choices = list(lookup) or ["No projects available"]
+
+    page.projects = projects
+    page.project_lookup = lookup
+    page.project_menu.configure(values=choices)
+    page.project_menu.set(current if current in lookup else choices[0])
+    page._load_selected_project()
+
+
+def install_production_project_visibility():
+    """Make Completed projects available no matter how Production is opened."""
+    if getattr(production_page_module, "_completed_visibility_installed", False):
+        return
+
+    production_page_module.in_progress_projects = lambda projects: production_projects(
+        projects,
+        include_completed=True,
+    )
+    production_page_module._completed_visibility_installed = True
 
 
 def add_media_library_button(app):
@@ -97,7 +130,7 @@ def regenerate_saved_narration(page):
 
 
 def install_production_settings_links():
-    """Add provider-settings and narration shortcuts to Production."""
+    """Add project visibility, provider settings, and narration shortcuts to Production."""
     if getattr(ProductionPage, "_settings_links_installed", False):
         return
 
@@ -105,6 +138,19 @@ def install_production_settings_links():
 
     def build_controls(page, parent):
         original(page, parent)
+
+        page.show_completed_projects = ctk.BooleanVar(value=True)
+        completed_toggle = ctk.CTkCheckBox(
+            page.project_menu.master,
+            text="Show completed projects",
+            variable=page.show_completed_projects,
+            checkbox_width=18,
+            checkbox_height=18,
+            font=("Segoe UI", 12),
+            command=lambda: refresh_production_project_choices(page),
+        )
+        completed_toggle.pack(fill="x", padx=14, pady=(0, 8))
+        completed_toggle.pack_configure(after=page.project_menu)
 
         buttons = page.open_button.master
         ctk.CTkButton(
@@ -249,23 +295,8 @@ def install_status_move_fcpxml_rebase(app):
 
 
 def load_production_page(app):
-    """Load Production with In Progress and Completed projects as dictionaries."""
-    original_get_all_projects = app.pm.get_all_projects
-    original_filter = production_page_module.in_progress_projects
-
-    def get_project_dicts():
-        return production_projects(original_get_all_projects())
-
-    def keep_production_projects(projects):
-        return production_projects(projects)
-
-    app.pm.get_all_projects = get_project_dicts
-    production_page_module.in_progress_projects = keep_production_projects
-    try:
-        app.load_page(ProductionPage, app)
-    finally:
-        app.pm.get_all_projects = original_get_all_projects
-        production_page_module.in_progress_projects = original_filter
+    """Load Production; the page-level visibility toggle controls Completed projects."""
+    app.load_page(ProductionPage, app)
 
 
 def add_production_button(app):
@@ -341,6 +372,7 @@ def install_legacy_messagebox_bridge(app):
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
 install_asset_usage_tracking()
+install_production_project_visibility()
 install_production_settings_links()
 install_production_elapsed_timer()
 install_production_status_guard()
