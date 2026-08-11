@@ -332,7 +332,7 @@ def install_legacy_messagebox_bridge(app):
         )
 
     messagebox.showinfo = show_info
-    messagebox.showwarning = show_info
+    messagebox.showwarning = show_warning
     messagebox.showerror = show_error
     messagebox.askyesno = ask_yes_no
     messagebox.askokcancel = ask_yes_no
