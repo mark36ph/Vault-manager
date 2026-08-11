@@ -120,7 +120,15 @@ def _transition_instruction(current_query: str, previous_query: str) -> str:
     if _normalized_words(current_query) == _normalized_words(previous_query):
         return ""
 
-    return (
+    current_entity = named_subject_phrase(current_query)
+    previous_entity = named_subject_phrase(previous_query)
+    named_transition = bool(
+        current_entity
+        and previous_entity
+        and _normalized_words(current_entity) != _normalized_words(previous_entity)
+    )
+
+    instruction = (
         "\n\nSCENE-TRANSITION RELEVANCE REQUIREMENT:\n"
         f"CURRENT SCENE: {current_query}\n"
         f"PREVIOUS SCENE: {previous_query}\n"
@@ -137,6 +145,22 @@ def _transition_instruction(current_query: str, previous_query: str) -> str:
         "current-scene imagery, keep the normal uncertainty behavior rather than "
         "inventing a contradiction."
     )
+
+    if named_transition:
+        instruction += (
+            "\n\nHARD NAMED-SUBJECT TRANSITION REQUIREMENT: "
+            f"The narration has moved from '{previous_entity}' to '{current_entity}'. "
+            "For this explicit subject change, visible features that are strongly or "
+            "signature-characteristic of the PREVIOUS named subject are a contradiction "
+            "when those features are not also called for by the CURRENT scene. Reject "
+            "such stale imagery even if it shares the same broad category or theme. "
+            "Generic topical overlap alone is not enough to pass. A neutral asset may "
+            "still pass when it does not visibly pull the viewer back to the previous "
+            "subject, and the current named subject still does not require impossible "
+            "pixel-only proof."
+        )
+
+    return instruction
 
 
 class NamedSubjectVerifier:
@@ -170,7 +194,8 @@ class NamedSubjectVerifier:
                 "and other concrete named entities."
             )
 
-        check_query += _transition_instruction(check_query.split("\n\n", 1)[0], _previous_scene_query(asset))
+        current_query = check_query.split("\n\n", 1)[0]
+        check_query += _transition_instruction(current_query, _previous_scene_query(asset))
         return bool(self.base_verifier(check_query, asset))
 
 
