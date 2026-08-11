@@ -72,7 +72,10 @@ _TOPIC_STOP_WORDS = _RELEVANCE_STOP_WORDS | _BROAD_QUERY_ANCHORS | {
 def _download_headers(url: str) -> dict[str, str]:
     headers = {
         "User-Agent": "FactVaultManager/1.0 (+desktop media downloader)",
-        "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,video/*;q=0.9,*/*;q=0.8",
+        # The OpenAI image verifier supports JPEG/PNG/GIF/WebP. Do not advertise
+        # AVIF/HEIC here because some stock CDNs content-negotiate a .jpeg URL
+        # into AVIF bytes, which then cannot be sent through the verifier.
+        "Accept": "image/jpeg,image/png,image/webp,image/gif,video/*;q=0.9,*/*;q=0.8",
     }
     host = urllib.parse.urlparse(url).hostname or ""
     if host == "pixabay.com" or host.endswith(".pixabay.com"):
@@ -86,6 +89,26 @@ def _default_downloader(url: str, destination: Path) -> None:
     request = urllib.request.Request(url, headers=_download_headers(url))
     with urllib.request.urlopen(request, timeout=30) as response, destination.open("wb") as output:
         shutil.copyfileobj(response, output)
+
+
+def _cached_asset_is_usable(candidate: AssetCandidate, path: Path) -> bool:
+    """Reject stale cached image containers that the visual verifier cannot read."""
+    if not path.is_file() or path.stat().st_size <= 0:
+        return False
+    if candidate.kind != "image":
+        return True
+    try:
+        with path.open("rb") as source:
+            header = source.read(16)
+    except OSError:
+        return False
+    if len(header) >= 12 and header[4:8] == b"ftyp":
+        brand = header[8:12].lower()
+        if brand in {
+            b"avif", b"avis", b"heic", b"heix", b"hevc", b"hevx", b"mif1", b"msf1"
+        }:
+            return False
+    return True
 
 
 def _safe_filename(
@@ -218,9 +241,6 @@ def _fallback_search_queries(query: str) -> tuple[str, ...]:
         after_subject = [word for word in meaningful[2:] if word != required_subject]
         add(" ".join([anchor_text, subject_text, *after_subject[:2]]))
 
-        # The final scene-query word is often the concrete visual class
-        # (planet, bridge, animal, engine). Try those simple subject+noun
-        # searches before a fully generic fallback.
         for word in reversed(after_subject):
             add(f"{subject_text} {word}")
 
@@ -350,9 +370,11 @@ class AssetAcquisitionEngine:
 
     def _download_candidate(self, candidate: AssetCandidate, folder: Path, index: int, total: int) -> AcquiredAsset:
         destination = self._destination(candidate, folder)
-        if destination.is_file() and destination.stat().st_size > 0:
+        if _cached_asset_is_usable(candidate, destination):
             self._progress("download", index, total, f"Reusing {destination.name}")
             return AcquiredAsset(candidate=candidate, path=destination, reused=True)
+        if destination.exists():
+            destination.unlink(missing_ok=True)
         temporary = destination.with_suffix(destination.suffix + ".part")
         temporary.unlink(missing_ok=True)
         self._progress("download", index, total, f"Downloading from {candidate.provider}")
@@ -360,6 +382,8 @@ class AssetAcquisitionEngine:
             self.downloader(candidate.url, temporary)
             if not temporary.is_file() or temporary.stat().st_size == 0:
                 raise OSError("downloaded file is empty")
+            if not _cached_asset_is_usable(candidate, temporary):
+                raise OSError("downloaded image used an unsupported AVIF/HEIC container")
             temporary.replace(destination)
             return AcquiredAsset(candidate=candidate, path=destination, reused=False)
         except Exception:
