@@ -221,8 +221,9 @@ class OpenAIImageRelevanceVerifier:
     """Use an image-capable OpenAI model as a topic-neutral mismatch and quality gate."""
 
     REJECT_CONFIDENCE = 0.90
-    PHYSICAL_CONTRADICTION_CONFIDENCE = 0.90
+    PHYSICAL_CONTRADICTION_CONFIDENCE = 0.82
     HARD_NEGATIVE_CONFIDENCE = 0.85
+    DECORATIVE_PERSON_CONFIDENCE = 0.70
     SOFT_FORMAT_CONFIDENCE = 0.97
 
     def __init__(
@@ -269,15 +270,17 @@ class OpenAIImageRelevanceVerifier:
             "stock metadata as hints, never as proof.\n\n"
             "Return five judgments: obvious_mismatch, physical_contradiction, hard_negative, visual_quality, and visual_style.\n"
             "physical_contradiction is specifically about visible defining features that conflict with a concrete named or typed subject in the query. "
-            "Set it true only when the image provides enough visual evidence to distinguish the requested subject and one or more defining visible traits contradict it. "
-            "Examples across domains: a smooth gas giant shown for a rocky cratered planet; a suspension bridge shown for a stone arch bridge; a tiger's stripes shown for a lion; "
-            "a propeller biplane shown for a modern jet; a Gothic cathedral shown for a glass skyscraper; a wheeled vehicle shown for a tracked tank. "
-            "Do not set physical_contradiction merely because an image is generic, incomplete, stylized, reconstructed, or because a fact/action is not directly visible.\n\n"
+            "Set it true when the image provides enough visual evidence to distinguish the requested subject and one or more defining visible traits conflict with it. "
+            "Use this check actively rather than accepting broad category similarity. Examples across domains: a visibly cratered airless-looking body for a cloud-covered planet; "
+            "a smooth gas giant for a rocky cratered planet; a suspension bridge for a stone arch bridge; a tiger's stripes for a lion; a propeller biplane for a modern jet; "
+            "a Gothic cathedral for a glass skyscraper; a wheeled vehicle for a tracked tank. Do not set physical_contradiction merely because an image is generic, incomplete, "
+            "stylized, reconstructed, or because a fact/action is not directly visible.\n\n"
             "For hard_negative choose exactly one category. Use none when no forbidden subject is clearly visible. Categories:\n"
             "- wrong_named_subject: the query names a concrete entity or class and the image visibly shows a different identifiable one. "
             "Examples include the wrong planet, landmark, person, animal species, vehicle, building, machine, food, flag, location, or object.\n"
             "- unrequested_fantasy_creature: dragon, monster, mythical beast, or fantasy creature when not requested.\n"
-            "- unrequested_person: a prominent person when people are not requested by the scene.\n"
+            "- unrequested_person: a prominent human figure when people are not requested by the scene. This includes photographed people, astronauts, illustrated people, silhouettes, "
+            "and fantasy/concept-art human figures. If the person is a major compositional subject and the query does not call for a person, report this category even when the surrounding setting is loosely relevant.\n"
             "- unrequested_statue_or_sculpture: statue, bust, monument sculpture, or artwork standing in for a real subject when not requested.\n"
             "- unrequested_animal: a prominent animal when animals are not requested by the scene.\n"
             "- unrequested_vehicle_or_spacecraft: car, aircraft, ship, train, rocket, spacecraft, or UFO when not requested.\n"
@@ -293,6 +296,7 @@ class OpenAIImageRelevanceVerifier:
             "- literal: photo, documentary image, scientific observation, real object/place/person/animal, or realistic direct depiction of the requested subject.\n"
             "- representational: useful reconstruction, archival artwork, map, diagram specifically requested by the scene, scientific illustration, microscopic rendering, or other explanatory representation.\n"
             "- decorative: logo-like composition, generic icons/symbols, unrelated infographic styling, fantasy/concept-art treatment, ornamental graphic, or aesthetically themed image that does not directly depict the factual subject.\n"
+            "A fantasy/concept-art scene with a prominent unrequested human figure should normally be both decorative and unrequested_person. "
             "If a literal visual is realistically possible and the candidate is mostly symbolic, logo-like, generic diagrammatic, or concept-art decoration, use decorative even if it is loosely relevant. "
             "If a diagram, map, chart, artwork, or symbolic representation is explicitly requested by the query, it may be representational instead.\n\n"
             "Apply these general rules across all topics:\n"
@@ -387,7 +391,9 @@ class OpenAIImageRelevanceVerifier:
             return False
 
         threshold = self.HARD_NEGATIVE_CONFIDENCE
-        if hard_negative in {"unrequested_logo_or_symbol", "unrequested_generic_diagram"}:
+        if hard_negative == "unrequested_person" and visual_style == "decorative":
+            threshold = self.DECORATIVE_PERSON_CONFIDENCE
+        elif hard_negative in {"unrequested_logo_or_symbol", "unrequested_generic_diagram"}:
             threshold = self.SOFT_FORMAT_CONFIDENCE
 
         if hard_negative != "none" and hard_negative_confidence >= threshold:
