@@ -8,6 +8,7 @@ from common.provider_setup import (
     ProviderSettings,
     ProviderSettingsStore,
     ProviderSetupError,
+    _imported_scene_searches,
     build_configured_providers,
     credentials_from_app_settings,
     test_provider_credentials as credential_statuses,
@@ -167,6 +168,34 @@ def test_credential_statuses_show_missing_selected_service():
     pixabay = next(status for status in statuses if status.name == "pixabay")
     assert not pixabay.configured
     assert pixabay.source == "PIXABAY_API_KEY"
+
+
+def test_imported_scene_searches_preserve_repeated_scene_positions():
+    project = {
+        "notes": """0-5 sec
+Search:
+Yellowstone geothermal caldera landscape
+Free Sources:
+Pexels
+
+5-10 sec
+Search:
+Yellowstone geothermal caldera landscape
+Free Sources:
+Pexels
+
+10-15 sec
+Search:
+Mauna Loa Hawaii shield volcano
+Free Sources:
+Pixabay
+"""
+    }
+    assert _imported_scene_searches(project) == [
+        "Yellowstone geothermal caldera landscape",
+        "Yellowstone geothermal caldera landscape",
+        "Mauna Loa Hawaii shield volcano",
+    ]
 
 
 def fake_text_response(request):
