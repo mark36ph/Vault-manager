@@ -222,6 +222,7 @@ class OpenAIImageRelevanceVerifier:
 
     REJECT_CONFIDENCE = 0.90
     PHYSICAL_CONTRADICTION_CONFIDENCE = 0.82
+    SUBJECT_UNCERTAIN_CONFIDENCE = 0.45
     HARD_NEGATIVE_CONFIDENCE = 0.85
     DECORATIVE_PERSON_CONFIDENCE = 0.70
     SOFT_FORMAT_CONFIDENCE = 0.97
@@ -239,6 +240,7 @@ class OpenAIImageRelevanceVerifier:
         self.last_decision = "not checked"
         self.last_quality = "preferred"
         self.last_style = "literal"
+        self.last_subject_uncertain = False
         if not self.api_key:
             raise ValueError("OpenAI API key is required for visual verification")
         if not self.model:
@@ -249,6 +251,7 @@ class OpenAIImageRelevanceVerifier:
         self.last_decision = "not checked"
         self.last_quality = "preferred"
         self.last_style = "literal"
+        self.last_subject_uncertain = False
         if asset.candidate.kind != "image":
             self.last_decision = "non-image asset"
             return True
@@ -271,13 +274,14 @@ class OpenAIImageRelevanceVerifier:
             "Return five judgments: obvious_mismatch, physical_contradiction, hard_negative, visual_quality, and visual_style.\n"
             "physical_contradiction is specifically about visible defining features that conflict with a concrete named or typed subject in the query. "
             "Set it true when the image provides enough visual evidence to distinguish the requested subject and one or more defining visible traits conflict with it. "
-            "Use this check actively rather than accepting broad category similarity. Examples across domains: a visibly cratered airless-looking body for a cloud-covered planet; "
-            "a smooth gas giant for a rocky cratered planet; a suspension bridge for a stone arch bridge; a tiger's stripes for a lion; a propeller biplane for a modern jet; "
-            "a Gothic cathedral for a glass skyscraper; a wheeled vehicle for a tracked tank. Do not set physical_contradiction merely because an image is generic, incomplete, "
-            "stylized, reconstructed, or because a fact/action is not directly visible.\n\n"
+            "Use this check actively rather than accepting broad category similarity. If the image looks broadly related but visible traits make the named subject doubtful, "
+            "set physical_contradiction=true with a moderate confidence rather than silently treating it as a confident match. Examples across domains: a visibly cratered "
+            "airless-looking body for a cloud-covered planet; a smooth gas giant for a rocky cratered planet; a suspension bridge for a stone arch bridge; a tiger's stripes "
+            "for a lion; a propeller biplane for a modern jet; a Gothic cathedral for a glass skyscraper; a wheeled vehicle for a tracked tank. Do not set "
+            "physical_contradiction merely because an image is generic, incomplete, stylized, reconstructed, or because a fact/action is not directly visible.\n\n"
             "For hard_negative choose exactly one category. Use none when no forbidden subject is clearly visible. Categories:\n"
-            "- wrong_named_subject: the query names a concrete entity or class and the image visibly shows a different identifiable one. "
-            "Examples include the wrong planet, landmark, person, animal species, vehicle, building, machine, food, flag, location, or object.\n"
+            "- wrong_named_subject: the query names a concrete entity or class and the image visibly shows a different identifiable one. Examples include the wrong planet, "
+            "landmark, person, animal species, vehicle, building, machine, food, flag, location, or object.\n"
             "- unrequested_fantasy_creature: dragon, monster, mythical beast, or fantasy creature when not requested.\n"
             "- unrequested_person: a prominent human figure when people are not requested by the scene. This includes photographed people, astronauts, illustrated people, silhouettes, "
             "and fantasy/concept-art human figures. If the person is a major compositional subject and the query does not call for a person, report this category even when the surrounding setting is loosely relevant.\n"
@@ -296,16 +300,16 @@ class OpenAIImageRelevanceVerifier:
             "- literal: photo, documentary image, scientific observation, real object/place/person/animal, or realistic direct depiction of the requested subject.\n"
             "- representational: useful reconstruction, archival artwork, map, diagram specifically requested by the scene, scientific illustration, microscopic rendering, or other explanatory representation.\n"
             "- decorative: logo-like composition, generic icons/symbols, unrelated infographic styling, fantasy/concept-art treatment, ornamental graphic, or aesthetically themed image that does not directly depict the factual subject.\n"
-            "A fantasy/concept-art scene with a prominent unrequested human figure should normally be both decorative and unrequested_person. "
-            "If a literal visual is realistically possible and the candidate is mostly symbolic, logo-like, generic diagrammatic, or concept-art decoration, use decorative even if it is loosely relevant. "
-            "If a diagram, map, chart, artwork, or symbolic representation is explicitly requested by the query, it may be representational instead.\n\n"
+            "A fantasy/concept-art scene with a prominent unrequested human figure should normally be both decorative and unrequested_person. If a literal visual is realistically possible "
+            "and the candidate is mostly symbolic, logo-like, generic diagrammatic, or concept-art decoration, use decorative even if it is loosely relevant. If a diagram, map, chart, "
+            "artwork, or symbolic representation is explicitly requested by the query, it may be representational instead.\n\n"
             "Apply these general rules across all topics:\n"
             "- For a concrete named or typed subject, actively compare visible defining traits against the query before deciding the image is acceptable. Broad category similarity alone is not enough when the visual clearly identifies a conflicting subject.\n"
             "- If a named subject is difficult or impossible to uniquely identify from pixels alone, keep a scientifically, historically, or physically plausible representation unless a visible feature clearly contradicts the query.\n"
             "- A still image does not have to demonstrate an abstract action, duration, comparison, cause, motion, direction, measurement, or process when the underlying subject is appropriate.\n"
             "- Reject a clearly different identifiable named subject. Examples: Big Ben is not the Eiffel Tower; a tiger is not a lion; a motorcycle is not a bicycle; Earth is not Mars; a modern jet is not a World War I biplane.\n"
             "- Do not reject merely because the image is a reasonable reconstruction, microscopic view, astronomical view, ancient-event depiction, or other representation that cannot be verified uniquely from pixels.\n"
-            "- If unsure about the overall match, set obvious_mismatch=false and physical_contradiction=false. But still classify quality and style based on what is visibly present."
+            "- If unsure about the overall match, set obvious_mismatch=false. Use physical_contradiction=true with moderate confidence only when visible traits create a real subject-level doubt."
         )
 
         body = {
@@ -379,6 +383,10 @@ class OpenAIImageRelevanceVerifier:
         ) = _parse_mismatch(_response_text(payload))
         self.last_quality = visual_quality
         self.last_style = visual_style
+        self.last_subject_uncertain = bool(
+            physical_contradiction
+            and self.SUBJECT_UNCERTAIN_CONFIDENCE <= physical_contradiction_confidence < self.PHYSICAL_CONTRADICTION_CONFIDENCE
+        )
 
         if (
             physical_contradiction
@@ -407,11 +415,12 @@ class OpenAIImageRelevanceVerifier:
             )
             return False
 
+        uncertainty = ", subject_uncertain" if self.last_subject_uncertain else ""
         self.last_decision = (
             f"kept: mismatch={obvious_mismatch}/{confidence:.2f}, "
             f"physical_contradiction={physical_contradiction}/{physical_contradiction_confidence:.2f}, "
             f"hard_negative={hard_negative}/{hard_negative_confidence:.2f}, "
-            f"quality={visual_quality}, style={visual_style}"
+            f"quality={visual_quality}, style={visual_style}{uncertainty}"
         )
         return True
 
