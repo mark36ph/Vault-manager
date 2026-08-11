@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -24,9 +25,71 @@ STAGES = (
     "resolve",
 )
 
+_SCENE_TIMING_PATTERN = re.compile(
+    r"(?m)^\s*(\d+(?:\.\d+)?)\s*[–—-]\s*(\d+(?:\.\d+)?)\s*(?:sec|secs|seconds?)?\s*$"
+)
+
 
 class ContentProductionError(RuntimeError):
     """Raised when a content-production stage cannot complete."""
+
+
+def _project_scene_timings(project: Mapping[str, Any]) -> list[tuple[float, float]]:
+    """Extract ordered imported on-screen timing ranges from project metadata."""
+    text = str(
+        project.get("on_screen_text")
+        or project.get("onscreen_text")
+        or project.get("On-Screen Text")
+        or ""
+    ).replace("\r\n", "\n")
+    timings: list[tuple[float, float]] = []
+    for match in _SCENE_TIMING_PATTERN.finditer(text):
+        start = float(match.group(1))
+        end = float(match.group(2))
+        if end <= start:
+            return []
+        timings.append((start, end))
+    return timings
+
+
+def _apply_project_scene_timings(
+    timeline: Timeline,
+    project: Mapping[str, Any],
+    warnings: list[str] | None = None,
+) -> bool:
+    """Use imported scene timings only when they safely map one-to-one to scenes.
+
+    Generated scripts still use speaking-rate estimates. Imported productions can
+    carry authoritative scene ranges in their on-screen text; when those ranges
+    are complete, ordered, and match the scene count, they become the single
+    timing source for visuals and Resolve placement.
+    """
+    timings = _project_scene_timings(project)
+    if not timings:
+        return False
+    if len(timings) != len(timeline.scenes):
+        if warnings is not None:
+            warnings.append(
+                "Imported on-screen timings were ignored because they do not match "
+                f"the timeline scene count ({len(timings)} timing range(s), "
+                f"{len(timeline.scenes)} scene(s))"
+            )
+        return False
+
+    previous_end: float | None = None
+    for start, end in timings:
+        if previous_end is not None and start < previous_end:
+            if warnings is not None:
+                warnings.append("Imported on-screen timings were ignored because ranges overlap")
+            return False
+        previous_end = end
+
+    for scene, (start, end) in zip(timeline.scenes, timings):
+        scene.start = start
+        scene.duration = end - start
+        scene.metadata["timing_source"] = "imported_on_screen_text"
+    timeline.metadata["scene_timing_source"] = "imported_on_screen_text"
+    return True
 
 
 @dataclass
@@ -187,6 +250,7 @@ class ContentProductionEngine:
                 context.script,
                 name=str(context.project.get("title") or context.topic or "Fact Vault Video"),
             )
+            _apply_project_scene_timings(timeline, context.project, context.warnings)
             return assemble_timeline(
                 timeline,
                 context.image_prompts,
