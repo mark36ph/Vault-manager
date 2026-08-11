@@ -26,7 +26,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
     """Reject visually wrong images and choose the strongest accepted visual."""
 
     QUALITY_SCORE = {"weak": 0, "acceptable": 3, "preferred": 6}
-    STYLE_SCORE = {"decorative": 0, "representational": 2, "literal": 4}
+    STYLE_SCORE = {"decorative": -10, "representational": 1, "literal": 2}
     MIN_QUALITY_SCAN = 5
 
     def __init__(
@@ -97,7 +97,7 @@ class VerifiedAssetAcquisitionEngine(AssetAcquisitionEngine):
         scan_limit = min(max(attempts, self.MIN_QUALITY_SCAN), len(pool))
         total = scan_limit
         best_asset: AcquiredAsset | None = None
-        best_score = -1
+        best_score = -100
         best_quality = ""
         best_style = ""
 
