@@ -99,20 +99,34 @@ def named_subject_phrase(query: str) -> str:
 
 
 def explicit_subject_phrase(query: str) -> str:
-    """Return the named entity or the concrete anchor immediately after a category.
+    """Return the concrete subject anchored immediately after a broad category.
 
-    The production query format is ``<broad category> <concrete subject> ...``.
-    Proper names keep their full semantic phrase; lowercase subjects such as
-    ``wombat`` still receive a concrete visual identity gate.
+    Category-anchored production queries use ``<category> <subject> ...``.  The
+    anchored token wins over unrelated proper nouns later in the query, so
+    ``Nature wombat ... Australia`` resolves to ``wombat`` rather than Australia.
+    When the anchored token itself begins a proper named entity, preserve the full
+    entity phrase (for example ``Nature Mauna Loa ...`` -> ``Mauna Loa``).
     """
-    named = named_subject_phrase(query)
-    if named:
-        return named
-
     tokens = re.findall(r"[A-Za-z0-9][A-Za-z0-9'’-]*", str(query or ""))
+    if not tokens:
+        return ""
+
     if len(tokens) >= 2 and tokens[0].casefold() in _BROAD_ANCHORS:
-        return tokens[1]
-    return ""
+        anchored = tokens[1]
+        anchored_is_named = (
+            len(anchored) > 1
+            and (anchored[0].isupper() or anchored.isupper())
+            and anchored not in _GENERIC_CAPITALIZED
+        )
+        if not anchored_is_named:
+            return anchored
+
+        named = named_subject_phrase(query)
+        if named and _normalized_words(named).split()[0] == anchored.casefold():
+            return named
+        return anchored
+
+    return named_subject_phrase(query)
 
 
 def _previous_scene_query(asset: Any) -> str:
@@ -234,7 +248,16 @@ class NamedSubjectVerifier:
         subject = explicit_subject_phrase(query)
         check_query = str(query or "").strip()
 
-        if entity:
+        # Only treat a proper-named phrase as the primary entity when it begins at
+        # the category-anchored subject position.  A later location such as
+        # Australia must not suppress the common-subject wombat gate.
+        anchored_entity = bool(
+            entity
+            and subject
+            and _normalized_words(entity) == _normalized_words(subject)
+        )
+
+        if anchored_entity:
             check_query += (
                 "\n\nNAMED-SUBJECT IDENTITY REQUIREMENT: "
                 f"The requested named subject is '{entity}'. Judge it as that complete "
@@ -261,7 +284,7 @@ class NamedSubjectVerifier:
         # Named places retain their intentionally tolerant uncertainty behavior.
         # Common category-anchored subjects fail closed when the base verifier's
         # own soft-keep detail still reports substantial wrong-subject evidence.
-        if accepted and subject and not entity and _soft_keep_contradicts_explicit_subject(self.base_verifier):
+        if accepted and subject and not anchored_entity and _soft_keep_contradicts_explicit_subject(self.base_verifier):
             self.base_verifier.last_decision = (
                 f"explicit subject contradiction for {subject}: "
                 + str(getattr(self.base_verifier, "last_decision", "") or "visual mismatch")
