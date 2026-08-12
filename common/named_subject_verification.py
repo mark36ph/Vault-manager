@@ -39,7 +39,18 @@ _ENTITY_TERMINALS = {
     "Desert", "Forest", "Bay", "Gulf", "Peninsula", "Spacecraft", "Rover",
     "Tomb", "Wall", "Capitol", "Center", "Centre",
 }
-_ENTITY_TERMINALS_LOWER = {value.casefold() for value in _ENTITY_TERMINALS}
+
+# Lowercase recovery is intentionally narrower than proper-name parsing. Generic
+# landform words such as volcano, mountain, forest, river, or ocean occur freely in
+# ordinary descriptive queries (for example "broad shield volcano") and must not
+# make those queries look like named entities. These terminals are much stronger
+# evidence that a lowercase multiword phrase is an actual place/landmark name.
+_LOWERCASE_NAMED_TERMINALS = {
+    "airport", "bridge", "building", "canal", "capitol", "castle", "cathedral",
+    "center", "centre", "church", "city", "dam", "monument", "mosque", "museum",
+    "palace", "park", "rover", "spacecraft", "station", "telescope", "temple",
+    "tomb", "tower", "university", "wall",
+}
 
 _PREVIOUS_QUERY_METADATA_KEY = "_selection_previous_query"
 _EXPLICIT_REJECT_CONFIDENCE = 0.55
@@ -135,9 +146,9 @@ def _lowercase_named_phrase(query: str) -> str:
 
     Imported stock searches sometimes lose capitalization. A phrase such as
     ``nature yellowstone national park ...`` should retain named-place tolerance,
-    while a single common noun such as ``nature wombat ...`` must remain under the
-    strict explicit-subject gate. Requiring a later entity terminal keeps the
-    heuristic narrow and topic-neutral.
+    while a single common noun such as ``nature wombat ...`` and generic landform
+    descriptions such as ``geology broad shield volcano ...`` must remain under
+    the strict explicit-subject gate.
     """
     tokens = re.findall(r"[A-Za-z0-9][A-Za-z0-9'’-]*", str(query or ""))
     if len(tokens) < 3 or tokens[0].casefold() not in _BROAD_ANCHORS:
@@ -148,10 +159,10 @@ def _lowercase_named_phrase(query: str) -> str:
     if anchored and (anchored[0].isupper() or anchored.isupper()):
         return ""
 
-    # The terminal must follow the anchored word. This deliberately does not turn
-    # generic one-word queries like "nature forest" into named places.
+    # Only strong identity-bearing terminals qualify for lowercase recovery.
+    # Generic landform/type terminals intentionally stay on the explicit gate.
     for index in range(2, min(len(tokens), 5)):
-        if tokens[index].casefold() in _ENTITY_TERMINALS_LOWER:
+        if tokens[index].casefold() in _LOWERCASE_NAMED_TERMINALS:
             return " ".join(tokens[1:index + 1])
     return ""
 
