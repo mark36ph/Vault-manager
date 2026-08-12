@@ -62,6 +62,19 @@ def timeline_for(folder: Path):
     return Timeline(name="Ocean Fact", width=1080, height=1920, tracks=[video, narration])
 
 
+def test_drawtext_normalizes_straight_apostrophes_before_filter_quoting():
+    escaped = resolve_production._escape_drawtext("IT'S CUBE-SHAPED")
+
+    assert "'" not in escaped
+    assert "IT’S CUBE-SHAPED" == escaped
+
+
+def test_drawtext_keeps_other_filter_escaping():
+    escaped = resolve_production._escape_drawtext("VALUE: 50% [TEST]")
+
+    assert r"VALUE\: 50\% \[TEST\]" == escaped
+
+
 def test_rejects_non_mapping_project(tmp_path):
     with pytest.raises(TypeError, match="project"):
         ResolveProductionService().run([], tmp_path, settings())
