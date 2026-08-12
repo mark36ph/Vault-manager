@@ -174,6 +174,7 @@ class PexelsAssetProvider:
         for item in items if isinstance(items, list) else []:
             if not isinstance(item, Mapping):
                 continue
+            candidate_text = ""
             if kind == "image":
                 sources = item.get("src") if isinstance(item.get("src"), Mapping) else {}
                 media_url = str(sources.get("portrait") or sources.get("large2x") or sources.get("original") or "")
@@ -185,12 +186,6 @@ class PexelsAssetProvider:
                         str(item.get("url") or ""),
                     ]
                 )
-
-                if not _candidate_is_relevant(
-                    query,
-                    candidate_text,
-                ):
-                    continue
             else:
                 files = [entry for entry in item.get("video_files", []) if isinstance(entry, Mapping) and entry.get("link")]
                 files.sort(key=lambda entry: int(entry.get("width") or 0) * int(entry.get("height") or 0), reverse=True)
@@ -200,8 +195,18 @@ class PexelsAssetProvider:
                 duration = float(item.get("duration") or 0)
                 user = item.get("user") if isinstance(item.get("user"), Mapping) else {}
                 credit = str(user.get("name") or "")
+                candidate_text = " ".join(
+                    [
+                        str(item.get("alt") or ""),
+                        str(item.get("url") or ""),
+                    ]
+                )
+
+            if not _candidate_is_relevant(query, candidate_text):
+                continue
+
             if media_url:
-                results.append(AssetCandidate(provider=self.name, id=str(item.get("id") or media_url), url=media_url, kind=kind, title=str(item.get("alt") or query), width=width, height=height, duration=duration, score=float(item.get("liked") or 0), credit=credit, license="Pexels License", metadata={"source_page": str(item.get("url") or "")}))
+                results.append(AssetCandidate(provider=self.name, id=str(item.get("id") or media_url), url=media_url, kind=kind, title=str(item.get("alt") or item.get("url") or ""), width=width, height=height, duration=duration, score=float(item.get("liked") or 0), credit=credit, license="Pexels License", metadata={"source_page": str(item.get("url") or "")}))
         return results
 
 
