@@ -1,6 +1,10 @@
 from types import SimpleNamespace
 
-from common.named_subject_verification import NamedSubjectVerifier, named_subject_phrase
+from common.named_subject_verification import (
+    NamedSubjectVerifier,
+    explicit_subject_phrase,
+    named_subject_phrase,
+)
 
 
 def test_named_subject_phrase_preserves_multiword_entities():
@@ -15,11 +19,18 @@ def test_named_subject_phrase_returns_empty_for_generic_lowercase_query():
     assert named_subject_phrase("technology fiber optic cable light data") == ""
 
 
+def test_explicit_subject_phrase_keeps_named_entity_or_category_anchor():
+    assert explicit_subject_phrase("nature Mauna Loa Hawaii shield volcano aerial") == "Mauna Loa"
+    assert explicit_subject_phrase("Nature wombat close up Australia wildlife") == "wombat"
+    assert explicit_subject_phrase("technology fiber optic cable light data") == "fiber"
+    assert explicit_subject_phrase("misty forest landscape") == ""
+
+
 class StubVerifier:
-    def __init__(self, *, accepted=True, uncertain=False):
+    def __init__(self, *, accepted=True, uncertain=False, decision="accepted"):
         self.accepted = accepted
         self.last_subject_uncertain = uncertain
-        self.last_decision = "accepted"
+        self.last_decision = decision
         self.last_quality = "preferred"
         self.last_style = "literal"
         self.seen_query = ""
@@ -46,6 +57,50 @@ def test_named_subject_verifier_adds_identity_instruction():
     assert "Mauna Loa" in base.seen_query
 
 
+def test_common_subject_verifier_adds_pixel_only_identity_instruction():
+    base = StubVerifier()
+    verifier = NamedSubjectVerifier(base)
+
+    assert verifier("Nature wombat close up Australia wildlife", SimpleNamespace()) is True
+    assert "EXPLICIT-SUBJECT VISUAL REQUIREMENT" in base.seen_query
+    assert "required concrete subject is 'wombat'" in base.seen_query
+    assert "stock titles, tags, URLs, search terms, filenames" in base.seen_query
+    assert "Ancient ruins" in base.seen_query
+    assert "scene-specific evidence" in base.seen_query
+    assert "NAMED-SUBJECT IDENTITY REQUIREMENT" not in base.seen_query
+
+
+def test_common_subject_soft_keep_with_unrelated_visual_is_overridden():
+    base = StubVerifier(
+        accepted=True,
+        decision=(
+            "kept: mismatch=True/0.70, physical_contradiction=False/0.00, "
+            "hard_negative=other_obvious_unrelated_subject/0.72, "
+            "quality=preferred, style=literal"
+        ),
+    )
+    verifier = NamedSubjectVerifier(base)
+
+    assert verifier("Nature wombat close up Australia wildlife", SimpleNamespace()) is False
+    assert "explicit subject contradiction for wombat" in base.last_decision
+
+
+def test_common_subject_scene_specific_derivative_can_remain_plausible():
+    base = StubVerifier(
+        accepted=True,
+        uncertain=True,
+        decision=(
+            "kept: mismatch=False/0.20, physical_contradiction=True/0.50, "
+            "hard_negative=none/0.00, quality=acceptable, style=literal, subject_uncertain"
+        ),
+    )
+    verifier = NamedSubjectVerifier(base)
+
+    query = "Nature wombat droppings cube shaped ground Australia"
+    assert verifier(query, SimpleNamespace()) is True
+    assert "scene-specific evidence" in base.seen_query
+
+
 def test_named_subject_verifier_preserves_uncertain_plausible_fallback():
     base = StubVerifier(accepted=True, uncertain=True)
     verifier = NamedSubjectVerifier(base)
@@ -61,11 +116,13 @@ def test_named_subject_verifier_preserves_base_rejection():
     assert verifier("nature Mount Everest summit mountain", SimpleNamespace()) is False
 
 
-def test_generic_query_keeps_normal_verification_behavior_without_scene_context():
-    base = StubVerifier(accepted=True, uncertain=True)
+def test_category_anchored_generic_query_gets_explicit_subject_gate_without_named_gate():
+    base = StubVerifier(accepted=True, uncertain=False)
     verifier = NamedSubjectVerifier(base)
 
     assert verifier("technology fiber optic cable light data", SimpleNamespace()) is True
+    assert "EXPLICIT-SUBJECT VISUAL REQUIREMENT" in base.seen_query
+    assert "required concrete subject is 'fiber'" in base.seen_query
     assert "NAMED-SUBJECT IDENTITY REQUIREMENT" not in base.seen_query
     assert "SCENE-TRANSITION RELEVANCE REQUIREMENT" not in base.seen_query
 
@@ -99,6 +156,7 @@ def test_transition_context_also_applies_to_generic_current_scene_without_hard_n
     current = "animals striped big cat stalking through forest"
     assert verifier(current, asset) is True
 
+    assert "EXPLICIT-SUBJECT VISUAL REQUIREMENT" in base.seen_query
     assert "NAMED-SUBJECT IDENTITY REQUIREMENT" not in base.seen_query
     assert "SCENE-TRANSITION RELEVANCE REQUIREMENT" in base.seen_query
     assert f"CURRENT SCENE: {current}" in base.seen_query
@@ -127,6 +185,7 @@ def test_transition_instruction_does_not_require_previous_named_entity():
     current = "geology broad shield volcano lava field"
     assert verifier(current, asset) is True
 
+    assert "EXPLICIT-SUBJECT VISUAL REQUIREMENT" in base.seen_query
     assert "SCENE-TRANSITION RELEVANCE REQUIREMENT" in base.seen_query
     assert "PREVIOUS SCENE: nature forest waterfall mist landscape" in base.seen_query
     assert "HARD NAMED-SUBJECT TRANSITION REQUIREMENT" not in base.seen_query
