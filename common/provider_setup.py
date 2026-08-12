@@ -7,7 +7,12 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
-from common.asset_acquisition import AssetAcquisitionEngine, _topic_subject, make_asset_acquisition_provider
+from common.asset_acquisition import (
+    AssetAcquisitionEngine,
+    _relevance_words,
+    _topic_subject,
+    make_asset_acquisition_provider,
+)
 from common.content_production import ProviderRegistry
 from common.named_subject_verification import named_subject_phrase
 from common.provider_integrations import (
@@ -262,8 +267,10 @@ def _anchor_imported_searches(prompts: list[str], context: Any) -> tuple[list[st
 
     A generic imported query still benefits from the project's concrete subject
     (for example ``rotating planet`` -> ``Space Venus rotating planet``). But if
-    the scene already names another concrete subject such as ``Mauna Loa``, that
-    explicit scene identity wins and the overall title subject is not injected.
+    the scene already contains the project subject, do not inject a capitalized
+    duplicate. A different named entity only overrides the project subject when it
+    actually begins the scene query; a later location such as Australia is context,
+    not the scene's primary subject.
     """
     project = getattr(context, "project", None)
     category = ""
@@ -279,12 +286,26 @@ def _anchor_imported_searches(prompts: list[str], context: Any) -> tuple[list[st
         if not prompt:
             continue
 
+        prompt_words = _relevance_words(prompt)
+        prompt_word_set = set(prompt_words)
         explicit_subject = named_subject_phrase(prompt)
+        explicit_words = _relevance_words(explicit_subject)
+        explicit_starts_prompt = bool(
+            explicit_words
+            and prompt_words
+            and explicit_words[0] == prompt_words[0]
+        )
+
         pieces: list[str] = []
         if category and not prompt.casefold().startswith(category.casefold()):
             pieces.append(category)
 
-        if topic_subject and not explicit_subject:
+        topic_key = topic_subject.casefold()
+        if (
+            topic_subject
+            and topic_key not in prompt_word_set
+            and not explicit_starts_prompt
+        ):
             pieces.append(topic_subject)
 
         pieces.append(prompt)
