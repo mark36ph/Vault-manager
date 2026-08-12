@@ -52,6 +52,10 @@ def decision(
     hard_negative_confidence=0.0,
     visual_quality="preferred",
     visual_style="literal",
+    requested_subject_visible=True,
+    requested_scene_evidence_visible=False,
+    explicit_subject_contradiction=False,
+    explicit_subject_confidence=0.0,
 ):
     return {
         "obvious_mismatch": obvious_mismatch,
@@ -62,6 +66,10 @@ def decision(
         "hard_negative_confidence": hard_negative_confidence,
         "visual_quality": visual_quality,
         "visual_style": visual_style,
+        "requested_subject_visible": requested_subject_visible,
+        "requested_scene_evidence_visible": requested_scene_evidence_visible,
+        "explicit_subject_contradiction": explicit_subject_contradiction,
+        "explicit_subject_confidence": explicit_subject_confidence,
     }
 
 
@@ -95,6 +103,10 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
             "hard_negative_confidence",
             "visual_quality",
             "visual_style",
+            "requested_subject_visible",
+            "requested_scene_evidence_visible",
+            "explicit_subject_contradiction",
+            "explicit_subject_confidence",
         ]
         assert quality_enum == ["acceptable", "preferred", "weak"]
         assert style_enum == ["decorative", "literal", "representational"]
@@ -109,6 +121,8 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
         assert "Big Ben is not the Eiffel Tower" in prompt
         assert "visual_quality" in prompt
         assert "visual_style" in prompt
+        assert "requested_subject_visible" in prompt
+        assert "requested_scene_evidence_visible" in prompt
         assert content[1]["type"] == "input_image"
         assert content[1]["detail"] == "high"
         assert content[1]["image_url"].startswith("data:image/jpeg;base64,")
@@ -124,6 +138,77 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
     assert verifier.last_quality == "preferred"
     assert verifier.last_style == "literal"
     assert len(requests) == 1
+
+
+def test_explicit_subject_gate_rejects_when_neither_subject_nor_scene_evidence_is_visible(tmp_path):
+    asset = asset_for(tmp_path, identifier="ruins", title="Ancient stone ruins")
+    verifier = OpenAIImageRelevanceVerifier(
+        "openai-key",
+        transport=lambda _request: {
+            "output_text": json.dumps(
+                decision(
+                    requested_subject_visible=False,
+                    requested_scene_evidence_visible=False,
+                    explicit_subject_contradiction=False,
+                    explicit_subject_confidence=0.2,
+                )
+            )
+        },
+    )
+
+    query = (
+        "Nature wombat close up Australia wildlife\n\n"
+        "EXPLICIT-SUBJECT VISUAL REQUIREMENT: The required concrete subject is 'wombat'."
+    )
+    assert verifier(query, asset) is False
+    assert "explicit subject missing from pixels" in verifier.last_decision
+
+
+def test_explicit_subject_gate_accepts_requested_scene_specific_evidence(tmp_path):
+    asset = asset_for(tmp_path, identifier="droppings", title="Cube shaped droppings on ground")
+    verifier = OpenAIImageRelevanceVerifier(
+        "openai-key",
+        transport=lambda _request: {
+            "output_text": json.dumps(
+                decision(
+                    requested_subject_visible=False,
+                    requested_scene_evidence_visible=True,
+                    explicit_subject_contradiction=False,
+                    explicit_subject_confidence=0.05,
+                )
+            )
+        },
+    )
+
+    query = (
+        "Nature wombat droppings cube shaped ground Australia\n\n"
+        "EXPLICIT-SUBJECT VISUAL REQUIREMENT: The required concrete subject is 'wombat'."
+    )
+    assert verifier(query, asset) is True
+    assert verifier.last_requested_scene_evidence_visible is True
+
+
+def test_explicit_subject_gate_rejects_structured_contradiction(tmp_path):
+    asset = asset_for(tmp_path, identifier="temple", title="Ancient temple")
+    verifier = OpenAIImageRelevanceVerifier(
+        "openai-key",
+        transport=lambda _request: {
+            "output_text": json.dumps(
+                decision(
+                    requested_subject_visible=True,
+                    explicit_subject_contradiction=True,
+                    explicit_subject_confidence=0.92,
+                )
+            )
+        },
+    )
+
+    query = (
+        "Nature wombat close up Australia wildlife\n\n"
+        "EXPLICIT-SUBJECT VISUAL REQUIREMENT: The required concrete subject is 'wombat'."
+    )
+    assert verifier(query, asset) is False
+    assert "explicit subject contradiction" in verifier.last_decision
 
 
 def test_openai_visual_verifier_marks_relevant_symbolic_visual_as_weak_decorative(tmp_path):
