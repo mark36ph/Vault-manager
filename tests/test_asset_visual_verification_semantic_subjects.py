@@ -32,6 +32,10 @@ def _decision(*, hard_negative="none", hard_negative_confidence=0.0):
         "hard_negative_confidence": hard_negative_confidence,
         "visual_quality": "acceptable",
         "visual_style": "literal",
+        "requested_subject_visible": True,
+        "requested_scene_evidence_visible": False,
+        "explicit_subject_contradiction": False,
+        "explicit_subject_confidence": 0.0,
     }
 
 
