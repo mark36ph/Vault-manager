@@ -1,15 +1,13 @@
-"""Stricter visual verification for named subjects and scene transitions.
+"""Stricter visual verification for concrete subjects and scene transitions.
 
 This wrapper keeps the existing topic-neutral verifier while preserving named
-entities as complete semantic subjects. It rejects clear identity contradictions,
-but does not require stock footage to prove a landmark or place from pixels alone.
-Ambiguous but plausible imagery remains marked uncertain so the acquisition layer
-can keep searching and use it only as a fallback.
+entities as complete semantic subjects and adding a fail-closed visual identity
+gate for category-anchored common subjects such as animals, objects, and species.
+Metadata may help find candidates, but visible content remains the final authority.
 
 Candidates may also carry the previous scene query in metadata. When they do, the
 visual verifier is explicitly asked to judge the pixels for the current scene and
-reject imagery that is clearly more characteristic of the previous scene. This
-catches stale-scene bleed that provider titles and tags cannot identify.
+reject imagery that is clearly more characteristic of the previous scene.
 """
 from __future__ import annotations
 
@@ -43,6 +41,7 @@ _ENTITY_TERMINALS = {
 }
 
 _PREVIOUS_QUERY_METADATA_KEY = "_selection_previous_query"
+_EXPLICIT_REJECT_CONFIDENCE = 0.55
 
 
 def _normalized_words(value: str) -> str:
@@ -67,13 +66,7 @@ def _trim_named_run(tokens: list[str]) -> list[str]:
 
 
 def named_subject_phrase(query: str) -> str:
-    """Return the strongest proper-named phrase visible in a stock search query.
-
-    Imported searches preserve proper-name capitalization, which lets us retain
-    multiword entities such as ``Mauna Loa``, ``Mount Everest``, ``Great Barrier
-    Reef``, and ``James Webb Space Telescope`` as one semantic subject instead of
-    reducing them to a single keyword.
-    """
+    """Return the strongest proper-named phrase visible in a stock search query."""
     tokens = re.findall(r"[A-Za-z0-9][A-Za-z0-9'’-]*", str(query or ""))
     if not tokens:
         return ""
@@ -103,6 +96,23 @@ def named_subject_phrase(query: str) -> str:
     candidates = [_trim_named_run(run) for run in runs]
     best = max(candidates, key=lambda run: (len(run), len(" ".join(run))))
     return " ".join(best).strip()
+
+
+def explicit_subject_phrase(query: str) -> str:
+    """Return the named entity or the concrete anchor immediately after a category.
+
+    The production query format is ``<broad category> <concrete subject> ...``.
+    Proper names keep their full semantic phrase; lowercase subjects such as
+    ``wombat`` still receive a concrete visual identity gate.
+    """
+    named = named_subject_phrase(query)
+    if named:
+        return named
+
+    tokens = re.findall(r"[A-Za-z0-9][A-Za-z0-9'’-]*", str(query or ""))
+    if len(tokens) >= 2 and tokens[0].casefold() in _BROAD_ANCHORS:
+        return tokens[1]
+    return ""
 
 
 def _previous_scene_query(asset: Any) -> str:
@@ -163,8 +173,55 @@ def _transition_instruction(current_query: str, previous_query: str) -> str:
     return instruction
 
 
+def _explicit_subject_instruction(subject: str, query: str) -> str:
+    return (
+        "\n\nEXPLICIT-SUBJECT VISUAL REQUIREMENT: "
+        f"The required concrete subject is '{subject}'. Inspect the visible pixels; "
+        "stock titles, tags, URLs, search terms, filenames, or other metadata must not "
+        "prove that the subject is present. For an ordinary visually recognizable "
+        "animal, species, object, machine, material, or other concrete subject, reject "
+        "a candidate whose dominant visible content is clearly unrelated to that "
+        "subject and to the requested scene. Ancient ruins, buildings, landscapes, "
+        "people, or other unrelated subjects must not pass merely because metadata "
+        "matches the search. However, the subject itself does not need to be visible "
+        "when the CURRENT query specifically asks for a distinctive product, trace, "
+        "result, body part, habitat detail, or other scene-specific evidence associated "
+        f"with it. For example, a query like '{query}' may be satisfied by clearly "
+        "requested scene-specific evidence even if the source animal/object is outside "
+        "the frame. Do not mark such a scene as mismatched merely because the anchor "
+        "subject itself is absent. If neither the anchor subject nor credible requested "
+        "scene-specific evidence is visible, classify the candidate as an obvious "
+        "mismatch or other_obvious_unrelated_subject with appropriately high confidence."
+    )
+
+
+def _decision_confidence(decision: str, pattern: str) -> float:
+    match = re.search(pattern, str(decision or ""), flags=re.IGNORECASE)
+    if not match:
+        return 0.0
+    try:
+        return float(match.group(1))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _soft_keep_contradicts_explicit_subject(verifier: Any) -> bool:
+    """Override a soft keep when the verifier itself still reports wrong subject evidence."""
+    decision = str(getattr(verifier, "last_decision", "") or "")
+    unrelated = _decision_confidence(
+        decision,
+        r"hard_negative=other_obvious_unrelated_subject/([0-9.]+)",
+    )
+    mismatch = _decision_confidence(decision, r"mismatch=True/([0-9.]+)")
+    contradiction = _decision_confidence(
+        decision,
+        r"physical_contradiction=True/([0-9.]+)",
+    )
+    return max(unrelated, mismatch, contradiction) >= _EXPLICIT_REJECT_CONFIDENCE
+
+
 class NamedSubjectVerifier:
-    """Proxy an existing verifier with named-identity and scene-context semantics."""
+    """Proxy an existing verifier with subject-identity and scene-context semantics."""
 
     def __init__(self, base_verifier: Any) -> None:
         self.base_verifier = base_verifier
@@ -174,6 +231,7 @@ class NamedSubjectVerifier:
 
     def __call__(self, query: str, asset: Any) -> bool:
         entity = named_subject_phrase(query)
+        subject = explicit_subject_phrase(query)
         check_query = str(query or "").strip()
 
         if entity:
@@ -193,10 +251,23 @@ class NamedSubjectVerifier:
                 "species, machines, vehicles, products, celestial bodies, organizations, "
                 "and other concrete named entities."
             )
+        elif subject:
+            check_query += _explicit_subject_instruction(subject, str(query or "").strip())
 
         current_query = check_query.split("\n\n", 1)[0]
         check_query += _transition_instruction(current_query, _previous_scene_query(asset))
-        return bool(self.base_verifier(check_query, asset))
+        accepted = bool(self.base_verifier(check_query, asset))
+
+        # Named places retain their intentionally tolerant uncertainty behavior.
+        # Common category-anchored subjects fail closed when the base verifier's
+        # own soft-keep detail still reports substantial wrong-subject evidence.
+        if accepted and subject and not entity and _soft_keep_contradicts_explicit_subject(self.base_verifier):
+            self.base_verifier.last_decision = (
+                f"explicit subject contradiction for {subject}: "
+                + str(getattr(self.base_verifier, "last_decision", "") or "visual mismatch")
+            )
+            return False
+        return accepted
 
 
-__all__ = ["NamedSubjectVerifier", "named_subject_phrase"]
+__all__ = ["NamedSubjectVerifier", "explicit_subject_phrase", "named_subject_phrase"]
