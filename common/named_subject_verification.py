@@ -39,6 +39,7 @@ _ENTITY_TERMINALS = {
     "Desert", "Forest", "Bay", "Gulf", "Peninsula", "Spacecraft", "Rover",
     "Tomb", "Wall", "Capitol", "Center", "Centre",
 }
+_ENTITY_TERMINALS_LOWER = {value.casefold() for value in _ENTITY_TERMINALS}
 
 _PREVIOUS_QUERY_METADATA_KEY = "_selection_previous_query"
 _EXPLICIT_REJECT_CONFIDENCE = 0.55
@@ -101,7 +102,7 @@ def named_subject_phrase(query: str) -> str:
 def explicit_subject_phrase(query: str) -> str:
     """Return the concrete subject anchored immediately after a broad category.
 
-    Category-anchored production queries use ``<category> <subject> ...``.  The
+    Category-anchored production queries use ``<category> <subject> ...``. The
     anchored token wins over unrelated proper nouns later in the query, so
     ``Nature wombat ... Australia`` resolves to ``wombat`` rather than Australia.
     When the anchored token itself begins a proper named entity, preserve the full
@@ -127,6 +128,32 @@ def explicit_subject_phrase(query: str) -> str:
         return anchored
 
     return named_subject_phrase(query)
+
+
+def _lowercase_named_phrase(query: str) -> str:
+    """Recover lowercase multiword places/landmarks from category-anchored queries.
+
+    Imported stock searches sometimes lose capitalization. A phrase such as
+    ``nature yellowstone national park ...`` should retain named-place tolerance,
+    while a single common noun such as ``nature wombat ...`` must remain under the
+    strict explicit-subject gate. Requiring a later entity terminal keeps the
+    heuristic narrow and topic-neutral.
+    """
+    tokens = re.findall(r"[A-Za-z0-9][A-Za-z0-9'’-]*", str(query or ""))
+    if len(tokens) < 3 or tokens[0].casefold() not in _BROAD_ANCHORS:
+        return ""
+
+    # Do not reinterpret an already-capitalized anchored entity here.
+    anchored = tokens[1]
+    if anchored and (anchored[0].isupper() or anchored.isupper()):
+        return ""
+
+    # The terminal must follow the anchored word. This deliberately does not turn
+    # generic one-word queries like "nature forest" into named places.
+    for index in range(2, min(len(tokens), 5)):
+        if tokens[index].casefold() in _ENTITY_TERMINALS_LOWER:
+            return " ".join(tokens[1:index + 1])
+    return ""
 
 
 def _previous_scene_query(asset: Any) -> str:
@@ -246,21 +273,23 @@ class NamedSubjectVerifier:
     def __call__(self, query: str, asset: Any) -> bool:
         entity = named_subject_phrase(query)
         subject = explicit_subject_phrase(query)
+        lowercase_entity = _lowercase_named_phrase(query)
         check_query = str(query or "").strip()
 
         # Only treat a proper-named phrase as the primary entity when it begins at
-        # the category-anchored subject position.  A later location such as
-        # Australia must not suppress the common-subject wombat gate.
-        anchored_entity = bool(
-            entity
-            and subject
-            and _normalized_words(entity) == _normalized_words(subject)
-        )
+        # the category-anchored subject position. A later location such as
+        # Australia must not suppress the common-subject wombat gate. Lowercase
+        # multiword place/landmark phrases recover the same tolerant named behavior.
+        anchored_entity = ""
+        if entity and subject and _normalized_words(entity) == _normalized_words(subject):
+            anchored_entity = entity
+        elif lowercase_entity:
+            anchored_entity = lowercase_entity
 
         if anchored_entity:
             check_query += (
                 "\n\nNAMED-SUBJECT IDENTITY REQUIREMENT: "
-                f"The requested named subject is '{entity}'. Judge it as that complete "
+                f"The requested named subject is '{anchored_entity}'. Judge it as that complete "
                 "entity rather than as separate matching keywords. Reject clear evidence "
                 "of a different named subject or a different semantic meaning. However, "
                 "do not demand impossible pixel-only proof for visually similar places, "
