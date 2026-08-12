@@ -287,19 +287,6 @@ def _candidate_pool(
                 except Exception:
                     broader = []
                 add_candidates(broader)
-        elif not required_subject and not per_kind:
-            try:
-                add_candidates(
-                    engine.search(
-                        query,
-                        kind=kind,
-                        limit=limit,
-                        target_ratio=target_ratio,
-                        require_subject=False,
-                    )
-                )
-            except Exception:
-                pass
 
         collected.extend(per_kind)
 
