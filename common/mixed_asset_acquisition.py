@@ -29,6 +29,7 @@ from common.asset_acquisition import (
     AssetAcquisitionError,
     AssetCandidate,
     _candidate_key,
+    _required_subject,
 )
 
 
@@ -236,14 +237,19 @@ def _candidate_pool(
     used: set[str],
 ) -> list[AssetCandidate]:
     collected: list[AssetCandidate] = []
+    required_subject = _required_subject(query)
     for kind in ("video", "image"):
         try:
+            # Keep a concrete category-anchored subject out of the generic mixed
+            # pool unless provider metadata supports it. If no such candidates
+            # exist, return an empty pool for that kind and let the established
+            # verified fallback hierarchy broaden the search safely.
             items = engine.search(
                 query,
                 kind=kind,
                 limit=limit,
                 target_ratio=target_ratio,
-                require_subject=False,
+                require_subject=bool(required_subject),
             )
         except Exception:
             items = []
