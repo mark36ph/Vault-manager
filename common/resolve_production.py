@@ -484,12 +484,14 @@ def _create_outro_video(
     return destination
     
 def _escape_drawtext(value: str) -> str:
-    text = str(value or "").strip()
+    # Straight apostrophes inside FFmpeg single-quoted drawtext values can break
+    # the filtergraph quoting state. Normalize them to a visually equivalent
+    # typographic apostrophe before applying the ordinary filter escaping.
+    text = str(value or "").strip().replace("'", "’")
 
     replacements = {
         "\\": r"\\",
         ":": r"\:",
-        "'": r"\'",
         "%": r"\%",
         "[": r"\[",
         "]": r"\]",
