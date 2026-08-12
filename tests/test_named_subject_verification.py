@@ -57,6 +57,17 @@ def test_named_subject_verifier_adds_identity_instruction():
     assert "Mauna Loa" in base.seen_query
 
 
+def test_lowercase_multiword_place_uses_named_identity_gate():
+    base = StubVerifier()
+    verifier = NamedSubjectVerifier(base)
+
+    query = "nature yellowstone national park geothermal caldera waterfall"
+    assert verifier(query, SimpleNamespace()) is True
+    assert "NAMED-SUBJECT IDENTITY REQUIREMENT" in base.seen_query
+    assert "yellowstone national park" in base.seen_query
+    assert "EXPLICIT-SUBJECT VISUAL REQUIREMENT" not in base.seen_query
+
+
 def test_common_subject_verifier_adds_pixel_only_identity_instruction():
     base = StubVerifier()
     verifier = NamedSubjectVerifier(base)
