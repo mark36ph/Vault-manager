@@ -22,7 +22,15 @@ BUT NOT THE BIGGEST
     ]
 
 
-def test_candidate_pool_requires_explicit_category_anchored_subject():
+def test_candidate_pool_broadens_subject_discovery_for_pixel_verification():
+    candidate = AssetCandidate(
+        provider="pexels",
+        id="sparse-video",
+        url="https://example.invalid/sparse-video.mp4",
+        kind="video",
+        title="",
+    )
+
     class Engine:
         def __init__(self):
             self.calls = []
@@ -31,15 +39,9 @@ def test_candidate_pool_requires_explicit_category_anchored_subject():
             self.calls.append((query, kind, require_subject))
             if require_subject:
                 return []
-            return [
-                AssetCandidate(
-                    provider="pexels",
-                    id=f"ruins-{kind}",
-                    url=f"https://example.invalid/ruins-{kind}",
-                    kind=kind,
-                    title="ancient stone ruins archaeological site",
-                )
-            ]
+            if kind == "video" and query.casefold() == "wombat":
+                return [candidate]
+            return []
 
     engine = Engine()
     pool = mixed._candidate_pool(
@@ -50,11 +52,49 @@ def test_candidate_pool_requires_explicit_category_anchored_subject():
         used=set(),
     )
 
-    assert pool == []
-    assert engine.calls == [
-        ("Nature wombat close up Australia wildlife", "video", True),
-        ("Nature wombat close up Australia wildlife", "image", True),
-    ]
+    assert pool == [candidate]
+    assert engine.calls[0] == (
+        "Nature wombat close up Australia wildlife",
+        "video",
+        True,
+    )
+    assert ("wombat", "video", False) in engine.calls
+
+
+def test_candidate_pool_prefers_metadata_supported_subject_results_first():
+    preferred = AssetCandidate(
+        provider="pixabay",
+        id="wombat-image",
+        url="https://example.invalid/wombat.jpg",
+        kind="image",
+        title="wombat wildlife",
+    )
+
+    class Engine:
+        def __init__(self):
+            self.calls = []
+
+        def search(self, query, *, kind, limit, target_ratio, require_subject):
+            self.calls.append((query, kind, require_subject))
+            if kind == "image" and require_subject:
+                return [preferred]
+            return []
+
+    engine = Engine()
+    pool = mixed._candidate_pool(
+        engine,
+        "Nature wombat close up Australia wildlife",
+        limit=20,
+        target_ratio=None,
+        used=set(),
+    )
+
+    assert preferred in pool
+    assert (
+        "Nature wombat close up Australia wildlife",
+        "image",
+        True,
+    ) in engine.calls
 
 
 def test_candidate_pool_keeps_unanchored_queries_broad():
