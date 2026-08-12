@@ -93,7 +93,9 @@ def _image_mime_type(path: Path, data: bytes) -> str:
         return "image/webp"
     if len(data) >= 12 and data[4:8] == b"ftyp":
         brand = data[8:12].lower()
-        if brand in {b"avif", b"avis", b"heic", b"heix", b"hevc", b"hevx", b"mif1", b"msf1"}:
+        if brand in {
+            b"avif", b"avis", b"heic", b"heix", b"hevc", b"hevx", b"mif1", b"msf1"
+        }:
             raise AssetVisualVerificationError(
                 f"unsupported downloaded image format for OpenAI vision: {brand.decode('ascii', errors='replace')}"
             )
@@ -129,8 +131,27 @@ _VISUAL_QUALITY = {"preferred", "acceptable", "weak"}
 _VISUAL_STYLE = {"literal", "representational", "decorative"}
 
 
-def _parse_mismatch(text: str) -> tuple[bool, float, bool, float, str, float, str, str]:
-    """Parse mismatch, physical contradiction, hard-negative, quality, and style."""
+def _required_bool(payload: Mapping[str, Any], key: str) -> bool:
+    value = payload.get(key)
+    if not isinstance(value, bool):
+        raise AssetVisualVerificationError(f"visual verifier {key} must be boolean")
+    return value
+
+
+def _required_confidence(payload: Mapping[str, Any], key: str) -> float:
+    try:
+        value = float(payload.get(key))
+    except (TypeError, ValueError) as error:
+        raise AssetVisualVerificationError(f"visual verifier {key} must be numeric") from error
+    if not 0.0 <= value <= 1.0:
+        raise AssetVisualVerificationError(f"visual verifier {key} must be between 0 and 1")
+    return value
+
+
+def _parse_mismatch(
+    text: str,
+) -> tuple[bool, float, bool, float, str, float, str, str, bool, bool, bool, float]:
+    """Parse mismatch, quality, and mandatory pixel-level subject judgments."""
     raw = str(text or "").strip()
     if raw.startswith("```"):
         lines = raw.splitlines()
@@ -146,64 +167,44 @@ def _parse_mismatch(text: str) -> tuple[bool, float, bool, float, str, float, st
         raise AssetVisualVerificationError(
             f"visual verifier returned invalid JSON: {raw or '<empty>'}"
         ) from error
-
     if not isinstance(payload, Mapping):
         raise AssetVisualVerificationError("visual verifier decision must be a JSON object")
 
-    obvious_mismatch = payload.get("obvious_mismatch")
-    if not isinstance(obvious_mismatch, bool):
-        raise AssetVisualVerificationError("visual verifier obvious_mismatch must be boolean")
-
-    try:
-        confidence = float(payload.get("confidence"))
-    except (TypeError, ValueError) as error:
-        raise AssetVisualVerificationError("visual verifier confidence must be numeric") from error
-    if not 0.0 <= confidence <= 1.0:
-        raise AssetVisualVerificationError("visual verifier confidence must be between 0 and 1")
-
-    physical_contradiction = payload.get("physical_contradiction")
-    if not isinstance(physical_contradiction, bool):
-        raise AssetVisualVerificationError("visual verifier physical_contradiction must be boolean")
-
-    try:
-        physical_contradiction_confidence = float(payload.get("physical_contradiction_confidence"))
-    except (TypeError, ValueError) as error:
-        raise AssetVisualVerificationError(
-            "visual verifier physical_contradiction_confidence must be numeric"
-        ) from error
-    if not 0.0 <= physical_contradiction_confidence <= 1.0:
-        raise AssetVisualVerificationError(
-            "visual verifier physical_contradiction_confidence must be between 0 and 1"
-        )
+    obvious_mismatch = _required_bool(payload, "obvious_mismatch")
+    confidence = _required_confidence(payload, "confidence")
+    physical_contradiction = _required_bool(payload, "physical_contradiction")
+    physical_contradiction_confidence = _required_confidence(
+        payload, "physical_contradiction_confidence"
+    )
 
     hard_negative = str(payload.get("hard_negative") or "").strip()
     if hard_negative not in _HARD_NEGATIVES:
         raise AssetVisualVerificationError(
             f"visual verifier returned invalid hard_negative: {hard_negative or '<empty>'}"
         )
-
-    try:
-        hard_negative_confidence = float(payload.get("hard_negative_confidence"))
-    except (TypeError, ValueError) as error:
-        raise AssetVisualVerificationError(
-            "visual verifier hard_negative_confidence must be numeric"
-        ) from error
-    if not 0.0 <= hard_negative_confidence <= 1.0:
-        raise AssetVisualVerificationError(
-            "visual verifier hard_negative_confidence must be between 0 and 1"
-        )
+    hard_negative_confidence = _required_confidence(payload, "hard_negative_confidence")
 
     visual_quality = str(payload.get("visual_quality") or "").strip()
     if visual_quality not in _VISUAL_QUALITY:
         raise AssetVisualVerificationError(
             f"visual verifier returned invalid visual_quality: {visual_quality or '<empty>'}"
         )
-
     visual_style = str(payload.get("visual_style") or "").strip()
     if visual_style not in _VISUAL_STYLE:
         raise AssetVisualVerificationError(
             f"visual verifier returned invalid visual_style: {visual_style or '<empty>'}"
         )
+
+    requested_subject_visible = _required_bool(payload, "requested_subject_visible")
+    requested_scene_evidence_visible = _required_bool(
+        payload, "requested_scene_evidence_visible"
+    )
+    explicit_subject_contradiction = _required_bool(
+        payload, "explicit_subject_contradiction"
+    )
+    explicit_subject_confidence = _required_confidence(
+        payload, "explicit_subject_confidence"
+    )
 
     return (
         obvious_mismatch,
@@ -214,6 +215,10 @@ def _parse_mismatch(text: str) -> tuple[bool, float, bool, float, str, float, st
         hard_negative_confidence,
         visual_quality,
         visual_style,
+        requested_subject_visible,
+        requested_scene_evidence_visible,
+        explicit_subject_contradiction,
+        explicit_subject_confidence,
     )
 
 
@@ -227,6 +232,7 @@ class OpenAIImageRelevanceVerifier:
     WRONG_NAMED_SUBJECT_CONFIDENCE = 0.72
     DECORATIVE_PERSON_CONFIDENCE = 0.70
     SOFT_FORMAT_CONFIDENCE = 0.97
+    EXPLICIT_SUBJECT_CONTRADICTION_CONFIDENCE = 0.55
 
     def __init__(
         self,
@@ -242,6 +248,10 @@ class OpenAIImageRelevanceVerifier:
         self.last_quality = "preferred"
         self.last_style = "literal"
         self.last_subject_uncertain = False
+        self.last_requested_subject_visible = False
+        self.last_requested_scene_evidence_visible = False
+        self.last_explicit_subject_contradiction = False
+        self.last_explicit_subject_confidence = 0.0
         if not self.api_key:
             raise ValueError("OpenAI API key is required for visual verification")
         if not self.model:
@@ -249,10 +259,17 @@ class OpenAIImageRelevanceVerifier:
 
     def __call__(self, query: str, asset: AcquiredAsset) -> bool:
         path = Path(asset.path)
+        raw_query = str(query or "")
+        explicit_subject_gate = "EXPLICIT-SUBJECT VISUAL REQUIREMENT:" in raw_query
         self.last_decision = "not checked"
         self.last_quality = "preferred"
         self.last_style = "literal"
         self.last_subject_uncertain = False
+        self.last_requested_subject_visible = False
+        self.last_requested_scene_evidence_visible = False
+        self.last_explicit_subject_contradiction = False
+        self.last_explicit_subject_confidence = 0.0
+
         if asset.candidate.kind != "image":
             self.last_decision = "non-image asset"
             return True
@@ -260,7 +277,7 @@ class OpenAIImageRelevanceVerifier:
             self.last_decision = "missing or empty image"
             return False
 
-        scene_query = " ".join(str(query or "").split()).strip()
+        scene_query = " ".join(raw_query.split()).strip()
         candidate_title = " ".join(str(asset.candidate.title or "").split()).strip()
         instruction = (
             "You are a topic-neutral visual mismatch and factual-quality detector for short-form factual video stock imagery. "
@@ -269,57 +286,51 @@ class OpenAIImageRelevanceVerifier:
             "Never assume a fixed video topic.\n\n"
             f"Scene search query: {scene_query}\n"
             f"Stock metadata title: {candidate_title}\n\n"
-            "The search/ranking system already chose this candidate. Do not demand impossible visual proof. Veto clear contradictions "
-            "and unrelated dominant subjects, while separately rating factual usefulness and visual style. Treat filenames, tags, and "
-            "stock metadata as hints, never as proof.\n\n"
-            "Before judging the match, infer the intended meaning and semantic class of the requested subject from the FULL scene query, "
-            "especially category/type words such as planet, animal, river, company, vehicle, person, landmark, plant, machine, or place. "
-            "A shared name or keyword is not evidence that two subjects are the same entity. If the candidate visibly belongs to a different "
-            "meaning of the same word, use wrong_named_subject with high confidence. General examples: a Venus flytrap for the planet Venus; "
-            "a Jaguar car for a jaguar animal; the Amazon company/logo for the Amazon River; a Mercury-branded vehicle for the planet Mercury. "
-            "Apply this rule generically to homonyms, brands, species, places, people, products, celestial bodies, and other same-name entities.\n\n"
-            "Return five judgments: obvious_mismatch, physical_contradiction, hard_negative, visual_quality, and visual_style.\n"
-            "physical_contradiction is specifically about visible defining features that conflict with a concrete named or typed subject in the query. "
-            "Set it true when the image provides enough visual evidence to distinguish the requested subject and one or more defining visible traits conflict with it. "
-            "Use this check actively rather than accepting broad category similarity. If the image looks broadly related but visible traits make the named subject doubtful, "
-            "set physical_contradiction=true with a moderate confidence rather than silently treating it as a confident match. Examples across domains: a visibly cratered "
-            "airless-looking body for a cloud-covered planet; a smooth gas giant for a rocky cratered planet; a suspension bridge for a stone arch bridge; a tiger's stripes "
-            "for a lion; a propeller biplane for a modern jet; a Gothic cathedral for a glass skyscraper; a wheeled vehicle for a tracked tank. Do not set "
-            "physical_contradiction merely because an image is generic, incomplete, stylized, reconstructed, or because a fact/action is not directly visible.\n\n"
+            "The search/ranking system already chose this candidate. Treat filenames, tags, URLs, search terms, and stock metadata as hints, never as proof. "
+            "Judge visible pixels first. Veto clear contradictions and unrelated dominant subjects while separately rating factual usefulness and visual style.\n\n"
+            "Return the normal mismatch/quality judgments plus FOUR explicit pixel-level subject judgments on every request:\n"
+            "- requested_subject_visible: true only when the requested concrete subject itself is visibly present or, for a named subject that cannot be uniquely proven from pixels, the visible object/place is genuinely plausible for that requested subject. Do not use metadata to make this true.\n"
+            "- requested_scene_evidence_visible: true only when the visible image directly shows distinctive scene-specific evidence requested by the query, such as a product, trace, result, body part, habitat detail, material, or other concrete derivative that can legitimately satisfy the scene even when the anchor subject is outside the frame. Generic scenery or thematic similarity is not scene-specific evidence.\n"
+            "- explicit_subject_contradiction: true when the visible dominant content is unrelated to or incompatible with the requested concrete subject/scene, especially when neither the requested subject nor credible requested scene-specific evidence is visible.\n"
+            "- explicit_subject_confidence: confidence from 0 to 1 in that explicit subject contradiction judgment. If explicit_subject_contradiction is false, give confidence in the absence of a contradiction.\n\n"
+            "When the scene query contains an EXPLICIT-SUBJECT VISUAL REQUIREMENT, be strict: if neither requested_subject_visible nor requested_scene_evidence_visible is true, the candidate must not be treated as a safe subject match. Ancient ruins cannot satisfy an animal query merely because metadata contains the animal name.\n\n"
+            "Before judging the match, infer the intended meaning and semantic class of the requested subject from the FULL scene query, especially category/type words such as planet, animal, river, company, vehicle, person, landmark, plant, machine, or place. "
+            "A shared name or keyword is not evidence that two subjects are the same entity. If the candidate visibly belongs to a different meaning of the same word, use wrong_named_subject with high confidence. General examples: a Venus flytrap for the planet Venus; a Jaguar car for a jaguar animal; the Amazon company/logo for the Amazon River; a Mercury-branded vehicle for the planet Mercury.\n\n"
+            "physical_contradiction is specifically about visible defining features that conflict with a concrete named or typed subject in the query. Use this check actively rather than accepting broad category similarity. Examples: a tiger's stripes for a lion; a propeller biplane for a modern jet; a Gothic cathedral for a glass skyscraper; a wheeled vehicle for a tracked tank. Do not set physical_contradiction merely because an image is generic, incomplete, stylized, reconstructed, or because an abstract fact/action is not directly visible.\n\n"
             "For hard_negative choose exactly one category. Use none when no forbidden subject is clearly visible. Categories:\n"
-            "- wrong_named_subject: the query names a concrete entity or class and the image visibly shows a different identifiable one, including a different semantic meaning "
-            "that happens to share the same name or keyword. Examples include the wrong planet, landmark, person, animal species, vehicle, building, machine, food, flag, location, "
-            "object, brand, plant, company, or other same-name entity.\n"
+            "- wrong_named_subject: a different identifiable entity/class or different semantic meaning.\n"
             "- unrequested_fantasy_creature: dragon, monster, mythical beast, or fantasy creature when not requested.\n"
-            "- unrequested_person: a prominent human figure when people are not requested by the scene. This includes photographed people, astronauts, illustrated people, silhouettes, "
-            "and fantasy/concept-art human figures. If the person is a major compositional subject and the query does not call for a person, report this category even when the surrounding setting is loosely relevant.\n"
+            "- unrequested_person: a prominent human figure when people are not requested.\n"
             "- unrequested_statue_or_sculpture: statue, bust, monument sculpture, or artwork standing in for a real subject when not requested.\n"
-            "- unrequested_animal: a prominent animal when animals are not requested by the scene.\n"
-            "- unrequested_vehicle_or_spacecraft: car, aircraft, ship, train, rocket, spacecraft, or UFO when not requested.\n"
+            "- unrequested_animal: a prominent animal when animals are not requested.\n"
+            "- unrequested_vehicle_or_spacecraft: vehicle, aircraft, ship, train, rocket, spacecraft, or UFO when not requested.\n"
             "- unrequested_logo_or_symbol: logo, emblem, icon, decorative symbol, or mostly symbolic graphic when a literal visual is expected.\n"
             "- unrequested_generic_diagram: generic chart, schematic, infographic, mechanical model, or diagram when the scene does not request one.\n"
-            "- other_obvious_unrelated_subject: another unmistakable dominant subject that contradicts the requested scene.\n"
-            "Set a hard-negative category only when that subject is inconsistent with or unrequested by the scene. If the query asks for it, use none.\n\n"
-            "Rate visual_quality independently from relevance:\n"
-            "- preferred: clear, compelling, useful visual that directly supports the factual scene.\n"
-            "- acceptable: relevant and usable, but less direct, less clear, or less visually strong.\n"
-            "- weak: relevant enough to keep only as a fallback, such as placeholder-like, generic, cluttered, or low-information imagery.\n\n"
-            "Rate visual_style independently from quality:\n"
-            "- literal: photo, documentary image, scientific observation, real object/place/person/animal, or realistic direct depiction of the requested subject.\n"
-            "- representational: useful reconstruction, archival artwork, map, diagram specifically requested by the scene, scientific illustration, microscopic rendering, or other explanatory representation.\n"
-            "- decorative: logo-like composition, generic icons/symbols, unrelated infographic styling, fantasy/concept-art treatment, ornamental graphic, or aesthetically themed image that does not directly depict the factual subject.\n"
-            "A fantasy/concept-art scene with a prominent unrequested human figure should normally be both decorative and unrequested_person. If a literal visual is realistically possible "
-            "and the candidate is mostly symbolic, logo-like, generic diagrammatic, or concept-art decoration, use decorative even if it is loosely relevant. If a diagram, map, chart, "
-            "artwork, or symbolic representation is explicitly requested by the query, it may be representational instead.\n\n"
+            "- other_obvious_unrelated_subject: another unmistakable dominant subject that contradicts the requested scene.\n\n"
+            "Rate visual_quality independently from relevance: preferred, acceptable, or weak.\n"
+            "Rate visual_style independently: literal, representational, or decorative.\n\n"
             "Apply these general rules across all topics:\n"
             "- For a concrete named or typed subject, actively compare visible defining traits and semantic class against the full query before deciding the image is acceptable. Broad lexical similarity alone is not enough.\n"
             "- If a named subject is difficult or impossible to uniquely identify from pixels alone, keep a scientifically, historically, or physically plausible representation unless a visible feature clearly contradicts the query.\n"
             "- A still image does not have to demonstrate an abstract action, duration, comparison, cause, motion, direction, measurement, or process when the underlying subject is appropriate.\n"
             "- Reject a clearly different identifiable named subject. Examples: Big Ben is not the Eiffel Tower; a tiger is not a lion; a motorcycle is not a bicycle; Earth is not Mars; a modern jet is not a World War I biplane.\n"
-            "- Do not reject merely because the image is a reasonable reconstruction, microscopic view, astronomical view, ancient-event depiction, or other representation that cannot be verified uniquely from pixels.\n"
-            "- If unsure about the overall match, set obvious_mismatch=false. Use physical_contradiction=true with moderate confidence only when visible traits create a real subject-level doubt."
+            "- visual_quality describes usefulness; visual_style describes literal/representational/decorative treatment."
         )
 
+        required_fields = [
+            "obvious_mismatch",
+            "confidence",
+            "physical_contradiction",
+            "physical_contradiction_confidence",
+            "hard_negative",
+            "hard_negative_confidence",
+            "visual_quality",
+            "visual_style",
+            "requested_subject_visible",
+            "requested_scene_evidence_visible",
+            "explicit_subject_contradiction",
+            "explicit_subject_confidence",
+        ]
         body = {
             "model": self.model,
             "max_output_tokens": 800,
@@ -329,7 +340,7 @@ class OpenAIImageRelevanceVerifier:
                 "format": {
                     "type": "json_schema",
                     "name": "visual_mismatch_decision",
-                    "description": "Topic-neutral mismatch, physical contradiction, hard-negative, quality, and factual-style classification.",
+                    "description": "Topic-neutral mismatch, explicit visual subject, quality, and factual-style classification.",
                     "strict": True,
                     "schema": {
                         "type": "object",
@@ -342,17 +353,12 @@ class OpenAIImageRelevanceVerifier:
                             "hard_negative_confidence": {"type": "number", "minimum": 0, "maximum": 1},
                             "visual_quality": {"type": "string", "enum": sorted(_VISUAL_QUALITY)},
                             "visual_style": {"type": "string", "enum": sorted(_VISUAL_STYLE)},
+                            "requested_subject_visible": {"type": "boolean"},
+                            "requested_scene_evidence_visible": {"type": "boolean"},
+                            "explicit_subject_contradiction": {"type": "boolean"},
+                            "explicit_subject_confidence": {"type": "number", "minimum": 0, "maximum": 1},
                         },
-                        "required": [
-                            "obvious_mismatch",
-                            "confidence",
-                            "physical_contradiction",
-                            "physical_contradiction_confidence",
-                            "hard_negative",
-                            "hard_negative_confidence",
-                            "visual_quality",
-                            "visual_style",
-                        ],
+                        "required": required_fields,
                         "additionalProperties": False,
                     },
                 },
@@ -388,13 +394,43 @@ class OpenAIImageRelevanceVerifier:
             hard_negative_confidence,
             visual_quality,
             visual_style,
+            requested_subject_visible,
+            requested_scene_evidence_visible,
+            explicit_subject_contradiction,
+            explicit_subject_confidence,
         ) = _parse_mismatch(_response_text(payload))
+
         self.last_quality = visual_quality
         self.last_style = visual_style
+        self.last_requested_subject_visible = requested_subject_visible
+        self.last_requested_scene_evidence_visible = requested_scene_evidence_visible
+        self.last_explicit_subject_contradiction = explicit_subject_contradiction
+        self.last_explicit_subject_confidence = explicit_subject_confidence
         self.last_subject_uncertain = bool(
             physical_contradiction
-            and self.SUBJECT_UNCERTAIN_CONFIDENCE <= physical_contradiction_confidence < self.PHYSICAL_CONTRADICTION_CONFIDENCE
+            and self.SUBJECT_UNCERTAIN_CONFIDENCE
+            <= physical_contradiction_confidence
+            < self.PHYSICAL_CONTRADICTION_CONFIDENCE
         )
+
+        if explicit_subject_gate:
+            if not requested_subject_visible and not requested_scene_evidence_visible:
+                self.last_decision = (
+                    "explicit subject missing from pixels: "
+                    f"subject_visible={requested_subject_visible}, "
+                    f"scene_evidence_visible={requested_scene_evidence_visible}, "
+                    f"contradiction={explicit_subject_contradiction}/{explicit_subject_confidence:.2f}"
+                )
+                return False
+            if (
+                explicit_subject_contradiction
+                and explicit_subject_confidence >= self.EXPLICIT_SUBJECT_CONTRADICTION_CONFIDENCE
+            ):
+                self.last_decision = (
+                    "explicit subject contradiction "
+                    f"({explicit_subject_confidence:.2f}, threshold {self.EXPLICIT_SUBJECT_CONTRADICTION_CONFIDENCE:.2f})"
+                )
+                return False
 
         if (
             physical_contradiction
@@ -430,6 +466,9 @@ class OpenAIImageRelevanceVerifier:
             f"kept: mismatch={obvious_mismatch}/{confidence:.2f}, "
             f"physical_contradiction={physical_contradiction}/{physical_contradiction_confidence:.2f}, "
             f"hard_negative={hard_negative}/{hard_negative_confidence:.2f}, "
+            f"subject_visible={requested_subject_visible}, "
+            f"scene_evidence_visible={requested_scene_evidence_visible}, "
+            f"explicit_contradiction={explicit_subject_contradiction}/{explicit_subject_confidence:.2f}, "
             f"quality={visual_quality}, style={visual_style}{uncertainty}"
         )
         return True
