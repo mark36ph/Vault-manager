@@ -30,6 +30,10 @@ def _decision(**overrides):
         "hard_negative_confidence": 0.0,
         "visual_quality": "preferred",
         "visual_style": "literal",
+        "requested_subject_visible": True,
+        "requested_scene_evidence_visible": False,
+        "explicit_subject_contradiction": False,
+        "explicit_subject_confidence": 0.0,
     }
     payload.update(overrides)
     return {"output_text": json.dumps(payload)}
