@@ -1,7 +1,7 @@
 """Verified mixed image/video acquisition for production scenes.
 
 The existing provider layer already knows how to search and download both images
-and videos.  This module adds a production-only policy on top of it:
+and videos. This module adds a production-only policy on top of it:
 
 * search both media kinds for every scene;
 * verify still images directly with the existing visual verifier;
@@ -29,6 +29,7 @@ from common.asset_acquisition import (
     AssetAcquisitionError,
     AssetCandidate,
     _candidate_key,
+    _fallback_search_queries,
     _required_subject,
 )
 
@@ -37,7 +38,7 @@ QUALITY_SCORE = {"weak": 0, "acceptable": 3, "preferred": 6}
 STYLE_SCORE = {"decorative": -10, "representational": 1, "literal": 2}
 VIDEO_BONUS = 1
 SUBJECT_UNCERTAIN_PENALTY = 4
-VERIFY_PER_KIND = 3
+VERIFY_PER_KIND = 5
 VIDEO_SAMPLE_FRACTIONS = (0.20, 0.50, 0.80)
 
 
@@ -168,8 +169,6 @@ def _video_decision(
         else:
             rejected += 1
 
-    # A video must be relevant through most of the sampled section. This prevents
-    # accepting a clip because one transient frame happened to match the query.
     if len(accepted_frames) < 2 or rejected > len(frames) // 2:
         return False, -100, {"decision": "most sampled video frames failed visual verification"}
 
@@ -236,15 +235,32 @@ def _candidate_pool(
     target_ratio: float | None,
     used: set[str],
 ) -> list[AssetCandidate]:
+    """Build a discovery pool; visual verification, not metadata, is the final gate.
+
+    For category-anchored subjects, first prefer provider-text-supported results.
+    Then try subject-preserving fallback queries (including the bare subject) with
+    metadata filtering disabled. This lets genuine media with sparse provider text
+    reach pixel verification without allowing unrelated imagery to be accepted.
+    """
     collected: list[AssetCandidate] = []
     required_subject = _required_subject(query)
+
     for kind in ("video", "image"):
+        per_kind: list[AssetCandidate] = []
+        seen: set[str] = set()
+
+        def add_candidates(candidates: Iterable[AssetCandidate]) -> None:
+            for candidate in candidates:
+                key = _candidate_key(candidate)
+                if key in seen or key in used or candidate.url in used:
+                    continue
+                seen.add(key)
+                per_kind.append(candidate)
+                if len(per_kind) >= VERIFY_PER_KIND:
+                    break
+
         try:
-            # Keep a concrete category-anchored subject out of the generic mixed
-            # pool unless provider metadata supports it. If no such candidates
-            # exist, return an empty pool for that kind and let the established
-            # verified fallback hierarchy broaden the search safely.
-            items = engine.search(
+            preferred = engine.search(
                 query,
                 kind=kind,
                 limit=limit,
@@ -252,16 +268,41 @@ def _candidate_pool(
                 require_subject=bool(required_subject),
             )
         except Exception:
-            items = []
-        per_kind = 0
-        for candidate in items:
-            key = _candidate_key(candidate)
-            if key in used or candidate.url in used:
-                continue
-            collected.append(candidate)
-            per_kind += 1
-            if per_kind >= VERIFY_PER_KIND:
-                break
+            preferred = []
+        add_candidates(preferred)
+
+        if required_subject and len(per_kind) < VERIFY_PER_KIND:
+            variants = _fallback_search_queries(query)
+            for variant in variants:
+                if len(per_kind) >= VERIFY_PER_KIND:
+                    break
+                try:
+                    broader = engine.search(
+                        variant,
+                        kind=kind,
+                        limit=limit,
+                        target_ratio=target_ratio,
+                        require_subject=False,
+                    )
+                except Exception:
+                    broader = []
+                add_candidates(broader)
+        elif not required_subject and not per_kind:
+            try:
+                add_candidates(
+                    engine.search(
+                        query,
+                        kind=kind,
+                        limit=limit,
+                        target_ratio=target_ratio,
+                        require_subject=False,
+                    )
+                )
+            except Exception:
+                pass
+
+        collected.extend(per_kind)
+
     return collected
 
 
@@ -293,7 +334,6 @@ def acquire_mixed_many(
             used=used if unique else set(),
         )
         if not pool:
-            # Preserve the proven image-only path as a final fallback.
             fallback = engine.acquire(
                 query,
                 folder,
@@ -338,8 +378,6 @@ def acquire_mixed_many(
                 _discard(asset)
 
         if best is None:
-            # If mixed verification found nothing, ask the existing verified
-            # image acquisition path for its established fallback hierarchy.
             fallback = engine.acquire(
                 query,
                 folder,
@@ -404,8 +442,6 @@ def _scene_caption_specs(value: str) -> list[tuple[float, float, str]]:
 
 
 def _remove_emojis(value: str) -> str:
-    # Keep this deliberately broad and cheap. The Resolve renderer uses the same
-    # policy: captions should be readable text rather than unsupported emoji.
     return "".join(ch for ch in str(value or "") if ord(ch) < 0x1F000).strip()
 
 
@@ -468,8 +504,6 @@ def _prepare_video_scene(
     if not ffmpeg or not font or source_duration <= 0:
         return asset
 
-    # Give the timeline a little handle room so narration rescaling can shorten
-    # the scene without ever running past the physical stock clip.
     output_duration = min(source_duration, max(2.0, desired_duration * 1.20))
     best_time = float(asset.candidate.metadata.get("verified_best_time") or source_duration / 2.0)
     start = max(0.0, min(source_duration - output_duration, best_time - output_duration / 2.0))
