@@ -56,6 +56,7 @@ def decision(
     requested_scene_evidence_visible=False,
     explicit_subject_contradiction=False,
     explicit_subject_confidence=0.0,
+    subject_identity_mode="visually_recognizable",
 ):
     return {
         "obvious_mismatch": obvious_mismatch,
@@ -70,6 +71,7 @@ def decision(
         "requested_scene_evidence_visible": requested_scene_evidence_visible,
         "explicit_subject_contradiction": explicit_subject_contradiction,
         "explicit_subject_confidence": explicit_subject_confidence,
+        "subject_identity_mode": subject_identity_mode,
     }
 
 
@@ -87,6 +89,7 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
         enum = schema["schema"]["properties"]["hard_negative"]["enum"]
         quality_enum = schema["schema"]["properties"]["visual_quality"]["enum"]
         style_enum = schema["schema"]["properties"]["visual_style"]["enum"]
+        identity_enum = schema["schema"]["properties"]["subject_identity_mode"]["enum"]
 
         assert body["model"] == "gpt-5-mini"
         assert body["max_output_tokens"] == 800
@@ -107,9 +110,11 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
             "requested_scene_evidence_visible",
             "explicit_subject_contradiction",
             "explicit_subject_confidence",
+            "subject_identity_mode",
         ]
         assert quality_enum == ["acceptable", "preferred", "weak"]
         assert style_enum == ["decorative", "literal", "representational"]
+        assert identity_enum == ["named_or_contextual", "visually_recognizable"]
         assert "wrong_named_subject" in enum
         assert "unrequested_fantasy_creature" in enum
         assert "unrequested_vehicle_or_spacecraft" in enum
@@ -123,6 +128,7 @@ def test_openai_visual_verifier_is_topic_neutral_and_keeps_plausible_asset(tmp_p
         assert "visual_style" in prompt
         assert "requested_subject_visible" in prompt
         assert "requested_scene_evidence_visible" in prompt
+        assert "subject_identity_mode" in prompt
         assert content[1]["type"] == "input_image"
         assert content[1]["detail"] == "high"
         assert content[1]["image_url"].startswith("data:image/jpeg;base64,")
@@ -151,6 +157,7 @@ def test_explicit_subject_gate_rejects_when_neither_subject_nor_scene_evidence_i
                     requested_scene_evidence_visible=False,
                     explicit_subject_contradiction=False,
                     explicit_subject_confidence=0.2,
+                    subject_identity_mode="visually_recognizable",
                 )
             )
         },
@@ -162,6 +169,33 @@ def test_explicit_subject_gate_rejects_when_neither_subject_nor_scene_evidence_i
     )
     assert verifier(query, asset) is False
     assert "explicit subject missing from pixels" in verifier.last_decision
+
+
+def test_explicit_named_contextual_subject_can_survive_missing_unique_pixel_proof(tmp_path):
+    asset = asset_for(tmp_path, identifier="geothermal", title="Geothermal landscape")
+    verifier = OpenAIImageRelevanceVerifier(
+        "openai-key",
+        transport=lambda _request: {
+            "output_text": json.dumps(
+                decision(
+                    requested_subject_visible=False,
+                    requested_scene_evidence_visible=False,
+                    explicit_subject_contradiction=False,
+                    explicit_subject_confidence=0.93,
+                    subject_identity_mode="named_or_contextual",
+                    visual_quality="acceptable",
+                )
+            )
+        },
+    )
+
+    query = (
+        "Nature yellowstone geothermal caldera landscape\n\n"
+        "EXPLICIT-SUBJECT VISUAL REQUIREMENT: The required concrete subject is 'yellowstone'."
+    )
+    assert verifier(query, asset) is True
+    assert verifier.last_subject_identity_mode == "named_or_contextual"
+    assert "identity_mode=named_or_contextual" in verifier.last_decision
 
 
 def test_explicit_subject_gate_accepts_requested_scene_specific_evidence(tmp_path):
