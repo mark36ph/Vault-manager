@@ -40,11 +40,59 @@ def test_pexels_photo_search_maps_candidate_and_authorization():
 
 
 def test_pexels_video_search_selects_largest_file():
-    payload = {"videos": [{"id": 3, "duration": 5, "video_files": [{"link": "small.mp4", "width": 640, "height": 360}, {"link": "large.mp4", "width": 1920, "height": 1080}], "user": {"name": "Sam"}}]}
+    payload = {"videos": [{"id": 3, "duration": 5, "url": "https://www.pexels.com/video/space-stars-3/", "video_files": [{"link": "small.mp4", "width": 640, "height": 360}, {"link": "large.mp4", "width": 1920, "height": 1080}], "user": {"name": "Sam"}}]}
     result = PexelsAssetProvider("key", transport=lambda request: payload).search("space", kind="video", limit=5)
     assert result[0].url == "large.mp4"
     assert result[0].duration == 5
     assert result[0].credit == "Sam"
+    assert result[0].title == "https://www.pexels.com/video/space-stars-3/"
+
+
+def test_pexels_video_does_not_use_query_as_fake_subject_evidence():
+    payload = {
+        "videos": [
+            {
+                "id": 99,
+                "duration": 8,
+                "url": "https://www.pexels.com/video/ancient-civilizations-ruins-99/",
+                "video_files": [
+                    {"link": "ruins.mp4", "width": 1080, "height": 1920},
+                ],
+                "user": {"name": "Sam"},
+            }
+        ]
+    }
+
+    result = PexelsAssetProvider("key", transport=lambda request: payload).search(
+        "Nature wombat close up Australia wildlife",
+        kind="video",
+        limit=5,
+    )
+
+    assert result == []
+
+
+def test_pexels_video_without_descriptive_provider_text_is_not_query_titled():
+    payload = {
+        "videos": [
+            {
+                "id": 100,
+                "duration": 4,
+                "video_files": [
+                    {"link": "opaque.mp4", "width": 1080, "height": 1920},
+                ],
+                "user": {"name": "Sam"},
+            }
+        ]
+    }
+
+    result = PexelsAssetProvider("key", transport=lambda request: payload).search(
+        "wombat",
+        kind="video",
+        limit=5,
+    )
+
+    assert result == []
 
 
 def test_pexels_rejects_unknown_kind_without_request():
