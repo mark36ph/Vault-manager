@@ -52,6 +52,21 @@ _LOWERCASE_NAMED_TERMINALS = {
     "tomb", "tower", "university", "wall",
 }
 
+# A lowercase single-token place name can still be recoverable when the rest of
+# the scene query contains multiple strong place-specific cues. Keep this narrow:
+# generic natural-form subjects are excluded, and generic volcano/river/mountain
+# words are deliberately not sufficient evidence on their own.
+_CONTEXTUAL_PLACE_ANCHORS = {"nature", "geography", "geology", "earth", "environment"}
+_CONTEXTUAL_PLACE_CUES = {
+    "basin", "caldera", "geyser", "geothermal", "hot", "spring", "springs",
+    "waterfall", "falls", "national", "park", "thermal",
+}
+_GENERIC_CONTEXTUAL_SUBJECTS = {
+    "broad", "canyon", "desert", "forest", "glacier", "island", "lake",
+    "mountain", "ocean", "peak", "river", "sea", "valley", "volcano",
+    "waterfall", "falls",
+}
+
 _PREVIOUS_QUERY_METADATA_KEY = "_selection_previous_query"
 _EXPLICIT_REJECT_CONFIDENCE = 0.55
 
@@ -142,7 +157,7 @@ def explicit_subject_phrase(query: str) -> str:
 
 
 def _lowercase_named_phrase(query: str) -> str:
-    """Recover lowercase multiword places/landmarks from category-anchored queries.
+    """Recover lowercase places/landmarks from category-anchored queries.
 
     Imported stock searches sometimes lose capitalization. A phrase such as
     ``nature yellowstone national park ...`` should retain named-place tolerance,
@@ -159,12 +174,40 @@ def _lowercase_named_phrase(query: str) -> str:
     if anchored and (anchored[0].isupper() or anchored.isupper()):
         return ""
 
-    # Only strong identity-bearing terminals qualify for lowercase recovery.
-    # Generic landform/type terminals intentionally stay on the explicit gate.
+    # Only strong identity-bearing terminals qualify for lowercase multiword recovery.
     for index in range(2, min(len(tokens), 5)):
         if tokens[index].casefold() in _LOWERCASE_NAMED_TERMINALS:
             return " ".join(tokens[1:index + 1])
+
+    # Some named natural places are commonly searched without a terminal, e.g.
+    # "yellowstone geothermal caldera waterfall". Require multiple independent
+    # place cues and exclude generic natural-form subjects so descriptors such as
+    # "broad shield volcano" cannot become named identities.
+    anchor_key = tokens[0].casefold()
+    subject_key = anchored.casefold()
+    if anchor_key in _CONTEXTUAL_PLACE_ANCHORS and subject_key not in _GENERIC_CONTEXTUAL_SUBJECTS:
+        following = {token.casefold() for token in tokens[2:7]}
+        if len(following & _CONTEXTUAL_PLACE_CUES) >= 2:
+            return anchored
     return ""
+
+
+def _duplicated_anchored_subject(query: str, entity: str) -> bool:
+    """Detect title-subject injection such as ``Nature Wombat wombat ...``.
+
+    A duplicated single token immediately after the broad category is not evidence
+    of a proper named entity; it is an anchoring artifact and must retain the
+    fail-closed common-subject gate.
+    """
+    words = re.findall(r"[A-Za-z0-9][A-Za-z0-9'’-]*", str(query or ""))
+    entity_words = _normalized_words(entity).split()
+    return bool(
+        len(entity_words) == 1
+        and len(words) >= 3
+        and words[0].casefold() in _BROAD_ANCHORS
+        and words[1].casefold() == entity_words[0]
+        and words[2].casefold() == entity_words[0]
+    )
 
 
 def _previous_scene_query(asset: Any) -> str:
@@ -272,6 +315,22 @@ def _soft_keep_contradicts_explicit_subject(verifier: Any) -> bool:
     return max(unrelated, mismatch, contradiction) >= _EXPLICIT_REJECT_CONFIDENCE
 
 
+def _structured_subject_missing(verifier: Any) -> bool:
+    """Fail closed when the structured verifier saw neither subject nor evidence.
+
+    The semantic identity mode reported by the model is advisory only. It must not
+    be able to promote a common category-anchored subject out of this invariant.
+    """
+    if not (
+        hasattr(verifier, "last_requested_subject_visible")
+        and hasattr(verifier, "last_requested_scene_evidence_visible")
+    ):
+        return False
+    return not bool(getattr(verifier, "last_requested_subject_visible", False)) and not bool(
+        getattr(verifier, "last_requested_scene_evidence_visible", False)
+    )
+
+
 class NamedSubjectVerifier:
     """Proxy an existing verifier with subject-identity and scene-context semantics."""
 
@@ -290,9 +349,14 @@ class NamedSubjectVerifier:
         # Only treat a proper-named phrase as the primary entity when it begins at
         # the category-anchored subject position. A later location such as
         # Australia must not suppress the common-subject wombat gate. Lowercase
-        # multiword place/landmark phrases recover the same tolerant named behavior.
+        # place/landmark phrases recover the same tolerant named behavior.
         anchored_entity = ""
-        if entity and subject and _normalized_words(entity) == _normalized_words(subject):
+        if (
+            entity
+            and subject
+            and _normalized_words(entity) == _normalized_words(subject)
+            and not _duplicated_anchored_subject(query, entity)
+        ):
             anchored_entity = entity
         elif lowercase_entity:
             anchored_entity = lowercase_entity
@@ -321,8 +385,19 @@ class NamedSubjectVerifier:
         check_query += _transition_instruction(current_query, _previous_scene_query(asset))
         accepted = bool(self.base_verifier(check_query, asset))
 
-        # Named places retain their intentionally tolerant uncertainty behavior.
-        # Common category-anchored subjects fail closed when the base verifier's
+        # Common category-anchored subjects have a non-negotiable pixel invariant:
+        # if the structured verifier saw neither the requested subject nor legitimate
+        # scene-specific evidence, reject even when its semantic identity mode tried
+        # to classify the subject as named/contextual. Only a wrapper-recognized named
+        # entity receives the tolerant identity behavior.
+        if accepted and subject and not anchored_entity and _structured_subject_missing(self.base_verifier):
+            self.base_verifier.last_decision = (
+                f"explicit subject missing from pixels for {subject}: "
+                + str(getattr(self.base_verifier, "last_decision", "") or "no subject evidence")
+            )
+            return False
+
+        # Common category-anchored subjects also fail closed when the base verifier's
         # own soft-keep detail still reports substantial wrong-subject evidence.
         if accepted and subject and not anchored_entity and _soft_keep_contradicts_explicit_subject(self.base_verifier):
             self.base_verifier.last_decision = (
