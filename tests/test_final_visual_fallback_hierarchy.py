@@ -107,6 +107,10 @@ def test_verifier_exposes_moderate_physical_doubt_as_subject_uncertain(tmp_path)
         "hard_negative_confidence": 0.0,
         "visual_quality": "acceptable",
         "visual_style": "literal",
+        "requested_subject_visible": True,
+        "requested_scene_evidence_visible": False,
+        "explicit_subject_contradiction": False,
+        "explicit_subject_confidence": 0.0,
     }
     verifier = OpenAIImageRelevanceVerifier(
         "openai-key",
