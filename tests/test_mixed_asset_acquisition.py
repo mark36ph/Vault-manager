@@ -22,6 +22,71 @@ BUT NOT THE BIGGEST
     ]
 
 
+def test_candidate_pool_requires_explicit_category_anchored_subject():
+    class Engine:
+        def __init__(self):
+            self.calls = []
+
+        def search(self, query, *, kind, limit, target_ratio, require_subject):
+            self.calls.append((query, kind, require_subject))
+            if require_subject:
+                return []
+            return [
+                AssetCandidate(
+                    provider="pexels",
+                    id=f"ruins-{kind}",
+                    url=f"https://example.invalid/ruins-{kind}",
+                    kind=kind,
+                    title="ancient stone ruins archaeological site",
+                )
+            ]
+
+    engine = Engine()
+    pool = mixed._candidate_pool(
+        engine,
+        "Nature wombat close up Australia wildlife",
+        limit=20,
+        target_ratio=None,
+        used=set(),
+    )
+
+    assert pool == []
+    assert engine.calls == [
+        ("Nature wombat close up Australia wildlife", "video", True),
+        ("Nature wombat close up Australia wildlife", "image", True),
+    ]
+
+
+def test_candidate_pool_keeps_unanchored_queries_broad():
+    candidate = AssetCandidate(
+        provider="pexels",
+        id="forest-1",
+        url="https://example.invalid/forest.jpg",
+        kind="image",
+        title="forest landscape",
+    )
+
+    class Engine:
+        def __init__(self):
+            self.calls = []
+
+        def search(self, query, *, kind, limit, target_ratio, require_subject):
+            self.calls.append((kind, require_subject))
+            return [candidate] if kind == "image" else []
+
+    engine = Engine()
+    pool = mixed._candidate_pool(
+        engine,
+        "misty forest landscape",
+        limit=20,
+        target_ratio=None,
+        used=set(),
+    )
+
+    assert pool == [candidate]
+    assert engine.calls == [("video", False), ("image", False)]
+
+
 def test_install_mixed_visual_acquisition_routes_normal_image_stage(monkeypatch, tmp_path):
     class Engine:
         def __init__(self):
