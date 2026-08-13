@@ -91,13 +91,12 @@ public sealed class PythonWorkerClient : IAsyncDisposable
             return;
         }
 
-        var marker = Path.Combine(appDataRoot, "development-root.txt");
-        if (!File.Exists(marker))
+        var developmentRoot = FindDevelopmentRoot(appDataRoot);
+        if (string.IsNullOrWhiteSpace(developmentRoot))
         {
             return;
         }
 
-        var developmentRoot = File.ReadAllText(marker).Trim();
         var source = Path.Combine(developmentRoot, "data");
         if (!Directory.Exists(source))
         {
@@ -107,12 +106,41 @@ public sealed class PythonWorkerClient : IAsyncDisposable
         CopyDirectory(source, destination);
     }
 
+    private static string? FindDevelopmentRoot(string appDataRoot)
+    {
+        var marker = Path.Combine(appDataRoot, "development-root.txt");
+        if (File.Exists(marker))
+        {
+            var markedRoot = File.ReadAllText(marker).Trim();
+            if (File.Exists(Path.Combine(markedRoot, "data", "factvault.db")))
+            {
+                return markedRoot;
+            }
+        }
+
+        var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        foreach (var folderName in new[] { "FactVaultManager", "Vault-manager" })
+        {
+            var candidate = Path.Combine(documents, folderName);
+            if (File.Exists(Path.Combine(candidate, "data", "factvault.db")))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
     private static void CopyDirectory(string source, string destination)
     {
         Directory.CreateDirectory(destination);
         foreach (var file in Directory.GetFiles(source))
         {
-            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), overwrite: false);
+            var target = Path.Combine(destination, Path.GetFileName(file));
+            if (!File.Exists(target))
+            {
+                File.Copy(file, target);
+            }
         }
         foreach (var directory in Directory.GetDirectories(source))
         {
