@@ -100,6 +100,7 @@ jobs:
             --repoUrl https://github.com/${{ github.repository }} `
             --token $env:VPK_TOKEN `
             --publish `
+            --merge `
             --releaseName "FactVaultManager $version" `
             --tag "v$version" `
             --channel win-x64-stable `
