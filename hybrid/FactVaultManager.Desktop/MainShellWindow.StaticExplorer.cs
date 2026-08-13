@@ -12,6 +12,7 @@ public partial class MainShellWindow
     private static readonly Brush NavSelectedBorder = new SolidColorBrush(Color.FromRgb(15, 108, 189));
     private static readonly Brush NavTransparent = Brushes.Transparent;
     private bool _dashboardLayoutApplied;
+    private bool _embeddedProductionInitialized;
 
     protected override void OnInitialized(EventArgs e)
     {
@@ -42,6 +43,7 @@ public partial class MainShellWindow
         }
 
         ApplyPythonDashboardLayout();
+        EnsureEmbeddedProductionHost();
 
         ProjectsGrid.RowHeight = 42;
         ProjectsGrid.ColumnHeaderHeight = 38;
@@ -61,6 +63,46 @@ public partial class MainShellWindow
         }
 
         ApplyNavigationSelection(MainTabs.SelectedIndex);
+    }
+
+    private void EnsureEmbeddedProductionHost()
+    {
+        if (_embeddedProductionInitialized)
+        {
+            return;
+        }
+
+        _embeddedProductionInitialized = true;
+        _ = InitializeEmbeddedProductionAsync();
+        Closed += async (_, _) => await DisposeEmbeddedProductionAsync();
+
+        if (Content is not DependencyObject root)
+        {
+            return;
+        }
+
+        foreach (var button in FindVisualChildren<Button>(root))
+        {
+            if (button.Tag is not null)
+            {
+                continue;
+            }
+
+            var text = button.Content?.ToString() ?? "";
+            if (!text.Contains("Production", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            button.Click -= OpenProduction_Click;
+            button.Click += EmbeddedProductionNavigation_Click;
+        }
+    }
+
+    private void EmbeddedProductionNavigation_Click(object sender, RoutedEventArgs e)
+    {
+        MainTabs.SelectedIndex = 2;
+        ApplyNavigationSelection(2);
     }
 
     private void ApplyPythonDashboardLayout()
@@ -129,7 +171,7 @@ public partial class MainShellWindow
         };
         actions.Children.Add(projects);
         var production = DashboardSecondaryButton("Production");
-        production.Click += OpenProduction_Click;
+        production.Click += EmbeddedProductionNavigation_Click;
         actions.Children.Add(production);
         page.Children.Add(actions);
 
