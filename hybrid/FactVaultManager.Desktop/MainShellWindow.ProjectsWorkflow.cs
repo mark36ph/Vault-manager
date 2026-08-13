@@ -17,6 +17,12 @@ public partial class MainShellWindow
     private TabControl? _projectsWorkspaceTabs;
     private bool _projectsWorkflowInitialized;
 
+    protected override void OnActivated(EventArgs e)
+    {
+        base.OnActivated(e);
+        InitializeProjectsWorkflow();
+    }
+
     private void InitializeProjectsWorkflow()
     {
         if (_projectsWorkflowInitialized || MainTabs.Items.Count < 2 || MainTabs.Items[1] is not TabItem projectsPage)
@@ -53,8 +59,13 @@ public partial class MainShellWindow
             }
         }
 
-        var toolbarPanel = _projectsSearchBox?.Parent as Panel;
-        if (toolbarPanel is not null)
+        var filterRow = FindVisualChildren<StackPanel>(projectsPage)
+            .FirstOrDefault(panel =>
+                panel.Orientation == Orientation.Horizontal &&
+                panel.Children.OfType<Button>().Any(button =>
+                    _projectFilterButtons.ContainsKey(button.Content?.ToString()?.Trim() ?? "")));
+
+        if (filterRow is not null)
         {
             _projectsResultCount = new TextBlock
             {
@@ -63,7 +74,7 @@ public partial class MainShellWindow
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(10, 0, 0, 0),
             };
-            toolbarPanel.Children.Add(_projectsResultCount);
+            filterRow.Children.Add(_projectsResultCount);
         }
 
         ProjectsGrid.MouseDoubleClick += ProjectsGrid_MouseDoubleClick;
