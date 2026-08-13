@@ -27,19 +27,20 @@ public sealed class PythonWorkerClient : IAsyncDisposable
 
         var bundledWorker = Path.Combine(AppContext.BaseDirectory, "FactVaultWorker.exe");
         var developmentWorker = Path.Combine(_runtimeRoot, "hybrid", "python_worker.py");
+        var appDataRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "FactVaultManager"
+        );
+        Directory.CreateDirectory(appDataRoot);
         ProcessStartInfo startInfo;
 
         if (File.Exists(bundledWorker))
         {
-            var dataRoot = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "FactVaultManager"
-            );
-            Directory.CreateDirectory(dataRoot);
+            MigrateDevelopmentDataIfNeeded(appDataRoot);
             startInfo = new ProcessStartInfo
             {
                 FileName = bundledWorker,
-                WorkingDirectory = dataRoot,
+                WorkingDirectory = appDataRoot,
                 UseShellExecute = false,
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
@@ -54,6 +55,7 @@ public sealed class PythonWorkerClient : IAsyncDisposable
                 throw new FileNotFoundException("Python worker was not found.", developmentWorker);
             }
 
+            File.WriteAllText(Path.Combine(appDataRoot, "development-root.txt"), _runtimeRoot);
             startInfo = new ProcessStartInfo
             {
                 FileName = "py",
@@ -79,6 +81,43 @@ public sealed class PythonWorkerClient : IAsyncDisposable
         _ = PumpOutputAsync(_process.StandardError, ErrorReceived);
 
         await SendAsync(new { command = "ping", request_id = Guid.NewGuid().ToString("N") });
+    }
+
+    private static void MigrateDevelopmentDataIfNeeded(string appDataRoot)
+    {
+        var destination = Path.Combine(appDataRoot, "data");
+        if (File.Exists(Path.Combine(destination, "factvault.db")))
+        {
+            return;
+        }
+
+        var marker = Path.Combine(appDataRoot, "development-root.txt");
+        if (!File.Exists(marker))
+        {
+            return;
+        }
+
+        var developmentRoot = File.ReadAllText(marker).Trim();
+        var source = Path.Combine(developmentRoot, "data");
+        if (!Directory.Exists(source))
+        {
+            return;
+        }
+
+        CopyDirectory(source, destination);
+    }
+
+    private static void CopyDirectory(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (var file in Directory.GetFiles(source))
+        {
+            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), overwrite: false);
+        }
+        foreach (var directory in Directory.GetDirectories(source))
+        {
+            CopyDirectory(directory, Path.Combine(destination, Path.GetFileName(directory)));
+        }
     }
 
     public async Task SendAsync(object payload)
