@@ -28,8 +28,12 @@
                     <TextBlock Text="Python production worker" FontWeight="SemiBold" />
                     <TextBlock x:Name="WorkerStatusText" Text="Connecting..." Margin="0,4,0,0" />
                     <TextBlock x:Name="RepositoryText" Margin="0,4,0,0" Opacity="0.7" />
+                    <TextBlock x:Name="UpdateStatusText" Text="Updates: development build" Margin="0,4,0,0" Opacity="0.7" />
                 </StackPanel>
-                <Button x:Name="RefreshProjectsButton" Grid.Column="1" Content="Refresh Projects" Padding="16,8" VerticalAlignment="Center" Click="RefreshProjects_Click" IsEnabled="False" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="CheckUpdatesButton" Content="Check for Updates" Padding="16,8" Margin="0,0,8,0" Click="CheckUpdates_Click" />
+                    <Button x:Name="RefreshProjectsButton" Content="Refresh Projects" Padding="16,8" Click="RefreshProjects_Click" IsEnabled="False" />
+                </StackPanel>
             </Grid>
         </Border>
 
