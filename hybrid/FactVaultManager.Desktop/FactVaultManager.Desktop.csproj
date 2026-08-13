@@ -7,5 +7,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>FactVaultManager.Desktop</RootNamespace>
     <AssemblyName>FactVaultManager.Desktop</AssemblyName>
+    <StartupObject>FactVaultManager.Desktop.Program</StartupObject>
   </PropertyGroup>
 </Project>
