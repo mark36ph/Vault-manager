@@ -9,4 +9,8 @@
     <AssemblyName>FactVaultManager.Desktop</AssemblyName>
     <StartupObject>FactVaultManager.Desktop.Program</StartupObject>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Velopack" Version="1.2.0" />
+  </ItemGroup>
 </Project>
