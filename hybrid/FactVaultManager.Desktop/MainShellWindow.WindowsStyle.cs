@@ -41,6 +41,7 @@ public partial class MainShellWindow
 
         StyleDashboardWorkspace();
         StyleProjectsWorkspace();
+        ApplyCommandPolish();
     }
 
     private void StyleDashboardWorkspace()
