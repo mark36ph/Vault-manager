@@ -31,4 +31,21 @@ public sealed class AppUpdateService
         await _manager.DownloadUpdatesAsync(update, progress);
         _manager.ApplyUpdatesAndRestart(update);
     }
+
+    public async Task<string> RunAsync(Action<int>? progress = null)
+    {
+        if (!IsInstalled)
+        {
+            return "In-app updates are enabled after installing a FactVaultManager release build.";
+        }
+
+        var update = await CheckAsync();
+        if (update is null)
+        {
+            return $"FactVaultManager {CurrentVersion} is up to date.";
+        }
+
+        await InstallAsync(update, progress);
+        return "Update installed.";
+    }
 }
