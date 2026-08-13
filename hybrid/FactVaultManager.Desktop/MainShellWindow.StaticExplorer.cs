@@ -21,7 +21,7 @@ public partial class MainShellWindow
         base.OnContentRendered(e);
 
         MainTabs.Margin = new Thickness(0);
-        MainTabs.Padding = new Thickness(0);
+        MainTabs.Padding = new Thickness(10);
         MainTabs.BorderThickness = new Thickness(0);
         MainTabs.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         MainTabs.VerticalContentAlignment = VerticalAlignment.Stretch;
@@ -31,6 +31,23 @@ public partial class MainShellWindow
             foreach (var tab in MainTabs.Items.OfType<TabItem>())
             {
                 tab.Style = hiddenPageStyle;
+            }
+        }
+
+        ProjectsGrid.RowHeight = 42;
+        ProjectsGrid.ColumnHeaderHeight = 38;
+        ProjectsGrid.Margin = new Thickness(0, 0, 18, 0);
+
+        if (ProjectsGrid.Parent is Grid projectsWorkspace && projectsWorkspace.ColumnDefinitions.Count >= 3)
+        {
+            projectsWorkspace.ColumnDefinitions[0].Width = new GridLength(460);
+
+            var editor = projectsWorkspace.Children
+                .OfType<Grid>()
+                .FirstOrDefault(child => Grid.GetColumn(child) == 2);
+            if (editor is not null)
+            {
+                editor.Margin = new Thickness(24, 0, 0, 0);
             }
         }
     }
