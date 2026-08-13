@@ -22,7 +22,7 @@ public sealed class AppUpdateService
         return await _manager.CheckForUpdatesAsync();
     }
 
-    public async Task DownloadAndRestartAsync(UpdateInfo update, Action<int>? progress = null)
+    public async Task InstallAsync(UpdateInfo update, Action<int>? progress = null)
     {
         if (!IsInstalled)
         {
