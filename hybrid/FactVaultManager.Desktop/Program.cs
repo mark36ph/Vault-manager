@@ -11,6 +11,6 @@ public static class Program
         VelopackApp.Build().Run();
 
         var application = new Application();
-        application.Run(new ProductionWindow());
+        application.Run(new MainShellWindow());
     }
 }
