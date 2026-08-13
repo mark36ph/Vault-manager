@@ -40,8 +40,11 @@ public partial class MainShellWindow
         }
 
         StyleDashboardWorkspace();
-        StyleProjectsWorkspace();
-        ApplyCommandPolish();
+
+        // Projects has its own native Windows workspace. Rebuild it here, after the
+        // shell has rendered, so older styling passes cannot restore the legacy form.
+        _nativeProjectsApplied = false;
+        ApplyNativeProjectsWorkspace();
     }
 
     private void StyleDashboardWorkspace()
@@ -55,63 +58,10 @@ public partial class MainShellWindow
 
     private void StyleProjectsWorkspace()
     {
-        if (MainTabs.Items.Count < 2 || MainTabs.Items[1] is not TabItem projectsTab || projectsTab.Content is not Grid projectsGrid)
-        {
-            return;
-        }
-
-        projectsGrid.Margin = new Thickness(10, 0, 8, 8);
-        if (projectsGrid.ColumnDefinitions.Count >= 3)
-        {
-            projectsGrid.ColumnDefinitions[0].Width = new GridLength(355);
-            projectsGrid.ColumnDefinitions[1].Width = new GridLength(10);
-        }
-
-        foreach (var border in projectsGrid.Children.OfType<Border>())
-        {
-            border.Background = MakeBrush("#202020");
-            border.BorderBrush = MakeBrush("#343434");
-            border.CornerRadius = new CornerRadius(6);
-        }
-
-        ProjectsGrid.Background = MakeBrush("#1B1B1B");
-        ProjectsGrid.BorderBrush = MakeBrush("#343434");
-        ProjectsGrid.RowHeight = 38;
-        ProjectsGrid.ColumnHeaderHeight = 36;
-        ProjectsGrid.HorizontalGridLinesBrush = MakeBrush("#303030");
-        ProjectsGrid.RowBackground = MakeBrush("#1B1B1B");
-        ProjectsGrid.AlternatingRowBackground = MakeBrush("#202020");
-
-        NewProjectTitleTextBox.MinHeight = 34;
-        ProjectCategoryTextBox.MinHeight = 34;
-        ProjectStatusComboBox.MinHeight = 34;
-        ProjectEditorTitle.FontSize = 21;
-        ProjectEditorFolderText.FontSize = 11;
-        ProjectEditorFolderText.Foreground = MakeBrush("#9D9D9D");
-
-        ProjectScriptTextBox.MinHeight = 180;
-        ProjectDescriptionTextBox.MinHeight = 82;
-        ProjectPinnedCommentTextBox.MinHeight = 82;
-        ProjectNotesTextBox.MinHeight = 105;
-        ProjectSourcesTextBox.MinHeight = 95;
-
-        foreach (var textBox in new[]
-                 {
-                     NewProjectTitleTextBox,
-                     ProjectCategoryTextBox,
-                     ProjectScriptTextBox,
-                     ProjectDescriptionTextBox,
-                     ProjectPinnedCommentTextBox,
-                     ProjectTagsTextBox,
-                     ProjectNotesTextBox,
-                     ProjectSourcesTextBox,
-                 })
-        {
-            textBox.Background = MakeBrush("#1A1A1A");
-            textBox.BorderBrush = MakeBrush("#464646");
-            textBox.Foreground = MakeBrush("#F5F5F5");
-            textBox.Padding = new Thickness(8, 5, 8, 5);
-        }
+        // Kept for source compatibility with earlier polish passes. The native
+        // workspace is now the only code allowed to shape the Projects page.
+        _nativeProjectsApplied = false;
+        ApplyNativeProjectsWorkspace();
     }
 
     private static SolidColorBrush MakeBrush(string value)
