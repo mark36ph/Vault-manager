@@ -5,7 +5,7 @@ namespace FactVaultManager.Desktop;
 
 public sealed class PythonWorkerClient : IAsyncDisposable
 {
-    private readonly string _repositoryRoot;
+    private readonly string _runtimeRoot;
     private Process? _process;
 
     public event Action<string>? MessageReceived;
@@ -13,9 +13,9 @@ public sealed class PythonWorkerClient : IAsyncDisposable
 
     public bool IsRunning => _process is { HasExited: false };
 
-    public PythonWorkerClient(string repositoryRoot)
+    public PythonWorkerClient(string runtimeRoot)
     {
-        _repositoryRoot = repositoryRoot;
+        _runtimeRoot = runtimeRoot;
     }
 
     public async Task StartAsync()
@@ -25,23 +25,47 @@ public sealed class PythonWorkerClient : IAsyncDisposable
             return;
         }
 
-        var workerPath = Path.Combine(_repositoryRoot, "hybrid", "python_worker.py");
-        if (!File.Exists(workerPath))
-        {
-            throw new FileNotFoundException("Python worker was not found.", workerPath);
-        }
+        var bundledWorker = Path.Combine(AppContext.BaseDirectory, "FactVaultWorker.exe");
+        var developmentWorker = Path.Combine(_runtimeRoot, "hybrid", "python_worker.py");
+        ProcessStartInfo startInfo;
 
-        var startInfo = new ProcessStartInfo
+        if (File.Exists(bundledWorker))
         {
-            FileName = "py",
-            Arguments = $"-u \"{workerPath}\"",
-            WorkingDirectory = _repositoryRoot,
-            UseShellExecute = false,
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true,
-        };
+            var dataRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "FactVaultManager"
+            );
+            Directory.CreateDirectory(dataRoot);
+            startInfo = new ProcessStartInfo
+            {
+                FileName = bundledWorker,
+                WorkingDirectory = dataRoot,
+                UseShellExecute = false,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+        }
+        else
+        {
+            if (!File.Exists(developmentWorker))
+            {
+                throw new FileNotFoundException("Python worker was not found.", developmentWorker);
+            }
+
+            startInfo = new ProcessStartInfo
+            {
+                FileName = "py",
+                Arguments = $"-u \"{developmentWorker}\"",
+                WorkingDirectory = _runtimeRoot,
+                UseShellExecute = false,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+        }
 
         _process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
         _process.Exited += (_, _) => MessageReceived?.Invoke("Python worker exited.");
@@ -89,17 +113,11 @@ public sealed class PythonWorkerClient : IAsyncDisposable
             try
             {
                 await SendAsync(new { command = "shutdown", request_id = Guid.NewGuid().ToString("N") });
-                if (!await Task.Run(() => _process.WaitForExit(1500)))
-                {
-                    _process.Kill(entireProcessTree: true);
-                }
+                await Task.WhenAny(_process.WaitForExitAsync(), Task.Delay(1500));
             }
             catch
             {
-                if (!_process.HasExited)
-                {
-                    _process.Kill(entireProcessTree: true);
-                }
+                // App shutdown should never be blocked by worker cleanup.
             }
         }
 
