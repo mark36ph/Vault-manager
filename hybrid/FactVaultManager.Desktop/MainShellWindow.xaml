@@ -13,7 +13,7 @@
         <SolidColorBrush x:Key="AccentBrush" Color="#2563EB" />
 
         <Style TargetType="Button">
-            <Setter Property="Height" Value="34" />
+            <Setter Property="Height" Value="32" />
             <Setter Property="Padding" Value="12,0" />
             <Setter Property="Margin" Value="0,0,6,0" />
             <Setter Property="Background" Value="#252525" />
@@ -27,6 +27,20 @@
         </Style>
         <Style x:Key="DangerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
             <Setter Property="Foreground" Value="#FFB4AB" />
+        </Style>
+        <Style x:Key="NavButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Margin" Value="6,1" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="3,0,0,0" />
+            <Setter Property="Foreground" Value="#F0F0F0" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#282828" /></Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True"><Setter Property="Background" Value="#2B2B2B" /><Setter Property="BorderBrush" Value="#60CDFF" /></Trigger>
+            </Style.Triggers>
         </Style>
 
         <Style TargetType="TextBox">
@@ -51,7 +65,6 @@
             <Setter Property="Foreground" Value="#111111" />
             <Setter Property="BorderBrush" Value="#666666" />
         </Style>
-
         <Style TargetType="DataGrid">
             <Setter Property="Background" Value="#151515" />
             <Setter Property="Foreground" Value="#F3F3F3" />
@@ -62,18 +75,15 @@
             <Setter Property="RowBackground" Value="#151515" />
             <Setter Property="AlternatingRowBackground" Value="#191919" />
             <Setter Property="HeadersVisibility" Value="Column" />
-            <Setter Property="RowHeight" Value="38" />
-            <Setter Property="ColumnHeaderHeight" Value="34" />
+            <Setter Property="RowHeight" Value="36" />
+            <Setter Property="ColumnHeaderHeight" Value="32" />
             <Setter Property="SelectionMode" Value="Single" />
             <Setter Property="SelectionUnit" Value="FullRow" />
         </Style>
         <Style TargetType="DataGridRow">
             <Setter Property="Foreground" Value="#F3F3F3" />
             <Style.Triggers>
-                <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#153E75" />
-                    <Setter Property="Foreground" Value="White" />
-                </Trigger>
+                <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#153E75" /><Setter Property="Foreground" Value="White" /></Trigger>
             </Style.Triggers>
         </Style>
         <Style TargetType="DataGridCell">
@@ -81,27 +91,35 @@
             <Setter Property="Padding" Value="9,0" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
-
+        <Style x:Key="HiddenPageTabStyle" TargetType="TabItem">
+            <Setter Property="Width" Value="0" />
+            <Setter Property="Height" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="#111111" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value><ControlTemplate TargetType="TabItem"><Border Width="0" Height="0" /></ControlTemplate></Setter.Value>
+            </Setter>
+        </Style>
         <Style x:Key="SectionTabStyle" TargetType="TabItem">
-            <Setter Property="Height" Value="36" />
+            <Setter Property="Height" Value="34" />
             <Setter Property="Padding" Value="14,0" />
             <Setter Property="Background" Value="#1B1B1B" />
             <Setter Property="Foreground" Value="#D8D8D8" />
             <Setter Property="BorderBrush" Value="#303030" />
             <Style.Triggers>
-                <Trigger Property="IsSelected" Value="True">
-                    <Setter Property="Background" Value="#262626" />
-                    <Setter Property="Foreground" Value="White" />
-                    <Setter Property="FontWeight" Value="SemiBold" />
-                </Trigger>
+                <Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="#262626" /><Setter Property="Foreground" Value="White" /><Setter Property="FontWeight" Value="SemiBold" /></Trigger>
             </Style.Triggers>
         </Style>
     </Window.Resources>
 
     <Grid Background="{StaticResource WindowBrush}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="52" />
-            <RowDefinition Height="42" />
+            <RowDefinition Height="48" />
+            <RowDefinition Height="44" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -118,159 +136,153 @@
 
         <Border Grid.Row="1" Background="#161616" BorderBrush="#303030" BorderThickness="0,0,0,1">
             <Grid Margin="14,0">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                <TextBlock Text="FactVaultManager" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                <TextBlock Text="FactVaultManager" Foreground="#D0D0D0" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="1" Text="›" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" HorizontalAlignment="Center" />
                 <TextBlock Grid.Column="2" x:Name="HeaderStatusText" Text="C# desktop shell • Python production engine" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                <Button Grid.Column="3" Content="Refresh" Click="RefreshAll_Click" Margin="0" />
             </Grid>
         </Border>
 
-        <TabControl Grid.Row="2" x:Name="MainTabs" TabStripPlacement="Left" Background="#111111" BorderThickness="0"
-                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-            <TabItem>
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="⌂" Width="24"/><TextBlock Text="Home"/></StackPanel></TabItem.Header>
-                <Grid Margin="18,14,20,20">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                    <Grid Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <StackPanel>
-                            <TextBlock Text="Home" FontFamily="Segoe UI Variable Display" FontSize="24" FontWeight="SemiBold" />
-                            <TextBlock Text="Production workspace overview" Foreground="{StaticResource MutedBrush}" Margin="0,2,0,0" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button Content="Refresh" Click="RefreshAll_Click" />
-                            <Button Content="Projects" Click="GoProjects_Click" />
-                            <Button Content="Media library" Click="GoMedia_Click" />
-                            <Button Content="Production" Style="{StaticResource PrimaryButton}" Click="OpenProduction_Click" Margin="0" />
-                        </StackPanel>
-                    </Grid>
-                    <Border Grid.Row="1" Background="#303030" />
-                    <StackPanel Grid.Row="2" Margin="0,16,0,10">
-                        <TextBlock Text="Production overview" FontSize="17" FontWeight="SemiBold" />
-                        <TextBlock Text="Project status summary" Foreground="{StaticResource MutedBrush}" Margin="0,2,0,0" />
-                    </StackPanel>
-                    <Border Grid.Row="3" BorderBrush="#303030" BorderThickness="1" HorizontalAlignment="Left" VerticalAlignment="Top">
-                        <Grid Width="500">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="350"/><ColumnDefinition Width="150"/></Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="34"/><RowDefinition Height="42"/><RowDefinition Height="42"/><RowDefinition Height="42"/><RowDefinition Height="42"/><RowDefinition Height="42"/>
-                            </Grid.RowDefinitions>
-                            <Border Grid.Row="0" Grid.Column="0" Background="#1D1D1D" BorderBrush="#303030" BorderThickness="0,0,1,1" Padding="10,0"><TextBlock Text="Status" Foreground="#BEBEBE" VerticalAlignment="Center" FontWeight="SemiBold"/></Border>
-                            <Border Grid.Row="0" Grid.Column="1" Background="#1D1D1D" BorderBrush="#303030" BorderThickness="0,0,0,1" Padding="10,0"><TextBlock Text="Projects" Foreground="#BEBEBE" VerticalAlignment="Center" FontWeight="SemiBold"/></Border>
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Total projects" Margin="10,0" VerticalAlignment="Center"/><TextBlock Grid.Row="1" Grid.Column="1" x:Name="TotalCountText" Text="0" Margin="10,0" VerticalAlignment="Center" FontSize="16"/>
-                            <Border Grid.Row="1" Grid.ColumnSpan="2" VerticalAlignment="Bottom" Height="1" Background="#2B2B2B"/>
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="In progress" Margin="10,0" VerticalAlignment="Center"/><TextBlock Grid.Row="2" Grid.Column="1" x:Name="InProgressCountText" Text="0" Margin="10,0" VerticalAlignment="Center" FontSize="16"/>
-                            <Border Grid.Row="2" Grid.ColumnSpan="2" VerticalAlignment="Bottom" Height="1" Background="#2B2B2B"/>
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Completed" Margin="10,0" VerticalAlignment="Center"/><TextBlock Grid.Row="3" Grid.Column="1" x:Name="CompletedCountText" Text="0" Margin="10,0" VerticalAlignment="Center" FontSize="16"/>
-                            <Border Grid.Row="3" Grid.ColumnSpan="2" VerticalAlignment="Bottom" Height="1" Background="#2B2B2B"/>
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Scheduled" Margin="10,0" VerticalAlignment="Center"/><TextBlock Grid.Row="4" Grid.Column="1" x:Name="ScheduledCountText" Text="0" Margin="10,0" VerticalAlignment="Center" FontSize="16"/>
-                            <Border Grid.Row="4" Grid.ColumnSpan="2" VerticalAlignment="Bottom" Height="1" Background="#2B2B2B"/>
-                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Published" Margin="10,0" VerticalAlignment="Center"/><TextBlock Grid.Row="5" Grid.Column="1" x:Name="PublishedCountText" Text="0" Margin="10,0" VerticalAlignment="Center" FontSize="16"/>
-                        </Grid>
-                    </Border>
-                </Grid>
-            </TabItem>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="220"/><ColumnDefinition Width="1"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
 
-            <TabItem>
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="▤" Width="24"/><TextBlock Text="Projects"/></StackPanel></TabItem.Header>
-                <Grid Margin="18,14,20,20">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                    <Grid Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="300"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                        <TextBlock Text="Projects" FontFamily="Segoe UI Variable Display" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        <TextBox Grid.Column="2" x:Name="NewProjectTitleTextBox" Margin="0,0,6,0" ToolTip="New project title" />
-                        <Button Grid.Column="3" Content="+ New" Style="{StaticResource PrimaryButton}" Click="CreateProject_Click" Margin="0" />
-                    </Grid>
-                    <Border Grid.Row="1" Background="#303030" />
-                    <Grid Grid.Row="2" Margin="0,10,0,0">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="390"/><ColumnDefinition Width="1"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                        <DataGrid Grid.Column="0" x:Name="ProjectsGrid" AutoGenerateColumns="False" IsReadOnly="True" SelectionChanged="ProjectsGrid_SelectionChanged" AlternationCount="2" Margin="0,0,10,0">
+            <Border Grid.Column="0" Background="#181818">
+                <DockPanel LastChildFill="True">
+                    <StackPanel DockPanel.Dock="Top" Margin="0,8,0,0">
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="0" Click="Navigate_Click" Content="⌂   Home" />
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="1" Click="Navigate_Click" Content="▤   Projects" />
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="2" Click="Navigate_Click" Content="▷   Production" />
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="3" Click="Navigate_Click" Content="□   Media Library" />
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="4" Click="Navigate_Click" Content="◉   Asset Review" />
+                        <Border Height="1" Background="#303030" Margin="12,10" />
+                        <Button Style="{StaticResource NavButtonStyle}" Tag="5" Click="Navigate_Click" Content="⚙   Settings" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+            <Border Grid.Column="1" Background="#303030" />
+
+            <TabControl Grid.Column="2" x:Name="MainTabs" Background="#111111" Foreground="White" BorderThickness="0" Margin="0" Padding="0"
+                        HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                <TabItem Style="{StaticResource HiddenPageTabStyle}">
+                    <Grid Margin="18,14,18,18">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <TextBlock Text="Home" FontFamily="Segoe UI Variable Display" FontSize="24" FontWeight="SemiBold" Foreground="White" />
+                        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,6,0,10">
+                            <TextBlock Text="Projects: " Foreground="{StaticResource MutedBrush}"/><TextBlock x:Name="TotalCountText" Text="0" Margin="0,0,18,0"/>
+                            <TextBlock Text="In progress: " Foreground="{StaticResource MutedBrush}"/><TextBlock x:Name="InProgressCountText" Text="0" Margin="0,0,18,0"/>
+                            <TextBlock Text="Completed: " Foreground="{StaticResource MutedBrush}"/><TextBlock x:Name="CompletedCountText" Text="0" Margin="0,0,18,0"/>
+                            <TextBlock Text="Scheduled: " Foreground="{StaticResource MutedBrush}"/><TextBlock x:Name="ScheduledCountText" Text="0" Margin="0,0,18,0"/>
+                            <TextBlock Text="Published: " Foreground="{StaticResource MutedBrush}"/><TextBlock x:Name="PublishedCountText" Text="0"/>
+                        </StackPanel>
+                        <Border Grid.Row="2" Background="#303030" />
+                        <DataGrid Grid.Row="3" Margin="0,10,0,0" ItemsSource="{Binding ItemsSource, ElementName=ProjectsGrid}" AutoGenerateColumns="False" IsReadOnly="True" AlternationCount="2">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Name" Binding="{Binding Title}" Width="*" />
-                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="105" />
+                                <DataGridTextColumn Header="Name" Binding="{Binding Title}" Width="2*" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="160" />
+                                <DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="220" />
+                                <DataGridCheckBoxColumn Header="Pinned" Binding="{Binding Pinned}" Width="90" />
                             </DataGrid.Columns>
                         </DataGrid>
-                        <Border Grid.Column="1" Background="#303030" />
-                        <Grid Grid.Column="2" Margin="16,0,0,0">
-                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <StackPanel>
-                                    <TextBlock x:Name="ProjectEditorTitle" Text="Select a project" FontFamily="Segoe UI Variable Display" FontSize="22" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="ProjectEditorFolderText" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Button Content="Save" Style="{StaticResource PrimaryButton}" Click="SaveProject_Click" />
-                                    <Button Content="Apply status" Click="ApplyStatus_Click" />
-                                    <Button Content="Delete" Style="{StaticResource DangerButton}" Click="DeleteProject_Click" Margin="0" />
-                                </StackPanel>
+                    </Grid>
+                </TabItem>
+
+                <TabItem Style="{StaticResource HiddenPageTabStyle}">
+                    <Grid Margin="18,12,18,18">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="300"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Text="Projects" FontFamily="Segoe UI Variable Display" FontSize="24" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" />
+                            <TextBox Grid.Column="2" x:Name="NewProjectTitleTextBox" Margin="0,0,6,0" ToolTip="New project title" />
+                            <Button Grid.Column="3" Content="+ New" Style="{StaticResource PrimaryButton}" Click="CreateProject_Click" Margin="0" />
+                        </Grid>
+                        <Border Grid.Row="1" Background="#303030" />
+                        <Grid Grid.Row="2" Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="410"/><ColumnDefinition Width="1"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                            <DataGrid Grid.Column="0" x:Name="ProjectsGrid" AutoGenerateColumns="False" IsReadOnly="True" SelectionChanged="ProjectsGrid_SelectionChanged" AlternationCount="2" Margin="0,0,10,0">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Name" Binding="{Binding Title}" Width="*" />
+                                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="110" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                            <Border Grid.Column="1" Background="#303030" />
+                            <Grid Grid.Column="2" Margin="16,0,0,0">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock x:Name="ProjectEditorTitle" Text="Select a project" FontFamily="Segoe UI Variable Display" FontSize="22" FontWeight="SemiBold" Foreground="White" />
+                                        <TextBlock x:Name="ProjectEditorFolderText" Foreground="{StaticResource MutedBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Content="Save" Style="{StaticResource PrimaryButton}" Click="SaveProject_Click" />
+                                        <Button Content="Apply status" Click="ApplyStatus_Click" />
+                                        <Button Content="Delete" Style="{StaticResource DangerButton}" Click="DeleteProject_Click" Margin="0" />
+                                    </StackPanel>
+                                </Grid>
+                                <Border Grid.Row="1" Background="#303030" />
+                                <Grid Grid.Row="2" Margin="0,10,0,10">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="220"/><ColumnDefinition Width="12"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
+                                    <StackPanel><TextBlock Text="Category" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/><TextBox x:Name="ProjectCategoryTextBox" /></StackPanel>
+                                    <StackPanel Grid.Column="2"><TextBlock Text="Status" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/><ComboBox x:Name="ProjectStatusComboBox"><ComboBoxItem Content="Idea"/><ComboBoxItem Content="In Progress"/><ComboBoxItem Content="Completed"/><ComboBoxItem Content="Scheduled"/><ComboBoxItem Content="Published"/></ComboBox></StackPanel>
+                                    <CheckBox Grid.Column="4" x:Name="ProjectPinnedCheckBox" Content="Pinned" VerticalAlignment="Bottom" Margin="0,0,0,7" />
+                                </Grid>
+                                <TabControl Grid.Row="3" Background="#151515" BorderBrush="#303030" BorderThickness="1">
+                                    <TabItem Header="Content" Style="{StaticResource SectionTabStyle}">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="14,12"><TextBlock Text="Script" FontWeight="SemiBold" Margin="0,0,0,5"/><TextBox x:Name="ProjectScriptTextBox" Height="250" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"/><TextBlock Text="Description" FontWeight="SemiBold" Margin="0,12,0,5"/><TextBox x:Name="ProjectDescriptionTextBox" Height="110" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"/></StackPanel></ScrollViewer>
+                                    </TabItem>
+                                    <TabItem Header="Social" Style="{StaticResource SectionTabStyle}">
+                                        <StackPanel Margin="14,12"><TextBlock Text="Pinned comment" FontWeight="SemiBold" Margin="0,0,0,5"/><TextBox x:Name="ProjectPinnedCommentTextBox" Height="110" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"/><TextBlock Text="Tags" FontWeight="SemiBold" Margin="0,12,0,5"/><TextBox x:Name="ProjectTagsTextBox" /></StackPanel>
+                                    </TabItem>
+                                    <TabItem Header="Notes &amp; Sources" Style="{StaticResource SectionTabStyle}">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="14,12"><TextBlock Text="Notes" FontWeight="SemiBold" Margin="0,0,0,5"/><TextBox x:Name="ProjectNotesTextBox" Height="160" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"/><TextBlock Text="Sources" FontWeight="SemiBold" Margin="0,12,0,5"/><TextBox x:Name="ProjectSourcesTextBox" Height="145" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"/></StackPanel></ScrollViewer>
+                                    </TabItem>
+                                </TabControl>
                             </Grid>
-                            <Border Grid.Row="1" Background="#303030" />
-                            <Grid Grid.Row="2" Margin="0,10,0,10">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="220"/><ColumnDefinition Width="12"/><ColumnDefinition Width="90"/></Grid.ColumnDefinitions>
-                                <StackPanel><TextBlock Text="Category" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/><TextBox x:Name="ProjectCategoryTextBox" /></StackPanel>
-                                <StackPanel Grid.Column="2"><TextBlock Text="Status" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/><ComboBox x:Name="ProjectStatusComboBox"><ComboBoxItem Content="Idea"/><ComboBoxItem Content="In Progress"/><ComboBoxItem Content="Completed"/><ComboBoxItem Content="Scheduled"/><ComboBoxItem Content="Published"/></ComboBox></StackPanel>
-                                <CheckBox Grid.Column="4" x:Name="ProjectPinnedCheckBox" Content="Pinned" VerticalAlignment="Bottom" Margin="0,0,0,7" />
-                            </Grid>
-                            <TabControl Grid.Row="3" Background="#151515" BorderBrush="#303030" BorderThickness="1">
-                                <TabItem Header="Content" Style="{StaticResource SectionTabStyle}">
-                                    <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="14,12"><TextBlock Text="Script" FontWeight="SemiBold" Margin="0,0,0,5"/><TextBox x:Name="ProjectScriptTextBox" Height="250" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"/><TextBlock Text="Description" FontWeight="SemiBold" Margin="0,12,0,5"/><TextBox x:Name="ProjectDescriptionTextBox" Height="110" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"/></StackPanel></ScrollViewer>
-                                </TabItem>
-                                <TabItem Header="Social" Style="{StaticResource SectionTabStyle}">
-                                    <StackPanel Margin="14,12"><TextBlock Text="Pinned comment" FontWeight="SemiBold" Margin="0,0,0,5"/><TextBox x:Name="ProjectPinnedCommentTextBox" Height="110" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"/><TextBlock Text="Tags" FontWeight="SemiBold" Margin="0,12,0,5"/><TextBox x:Name="ProjectTagsTextBox" /></StackPanel>
-                                </TabItem>
-                                <TabItem Header="Notes &amp; Sources" Style="{StaticResource SectionTabStyle}">
-                                    <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="14,12"><TextBlock Text="Notes" FontWeight="SemiBold" Margin="0,0,0,5"/><TextBox x:Name="ProjectNotesTextBox" Height="160" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"/><TextBlock Text="Sources" FontWeight="SemiBold" Margin="0,12,0,5"/><TextBox x:Name="ProjectSourcesTextBox" Height="145" AcceptsReturn="True" TextWrapping="Wrap" VerticalContentAlignment="Top"/></StackPanel></ScrollViewer>
-                                </TabItem>
-                            </TabControl>
                         </Grid>
                     </Grid>
-                </Grid>
-            </TabItem>
+                </TabItem>
 
-            <TabItem>
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="▷" Width="24"/><TextBlock Text="Production"/></StackPanel></TabItem.Header>
-                <Grid Margin="18,14,20,20">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                    <Grid Margin="0,0,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Production" FontFamily="Segoe UI Variable Display" FontSize="24" FontWeight="SemiBold"/><Button Grid.Column="1" Content="Open production" Style="{StaticResource PrimaryButton}" Click="OpenProduction_Click" Margin="0"/></Grid>
-                    <Border Grid.Row="1" Background="#303030" />
-                    <TextBlock Grid.Row="2" Text="Run, reproduce or resume projects in the production workspace. The Python worker remains the AI and media engine underneath." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,14,0,0" MaxWidth="760" HorizontalAlignment="Left"/>
-                </Grid>
-            </TabItem>
-
-            <TabItem>
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="□" Width="24"/><TextBlock Text="Media Library"/></StackPanel></TabItem.Header>
-                <Grid Margin="18,14,20,20">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                    <Grid Margin="0,0,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Media library" FontFamily="Segoe UI Variable Display" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center"/><ComboBox Grid.Column="2" x:Name="MediaProjectComboBox" DisplayMemberPath="DisplayName" SelectionChanged="MediaProjectComboBox_SelectionChanged"/><Button Grid.Column="3" Content="Refresh" Click="RefreshMedia_Click" Margin="8,0,0,0"/></Grid>
-                    <Border Grid.Row="1" Background="#303030" />
-                    <DataGrid Grid.Row="2" x:Name="MediaGrid" AutoGenerateColumns="False" IsReadOnly="True" AlternationCount="2" Margin="0,10,0,0"><DataGrid.Columns><DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="110"/><DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*"/><DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="100"/><DataGridTextColumn Header="Modified" Binding="{Binding Modified}" Width="160"/><DataGridTextColumn Header="Path" Binding="{Binding Path}" Width="3*"/></DataGrid.Columns></DataGrid>
-                </Grid>
-            </TabItem>
-
-            <TabItem>
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="◉" Width="24"/><TextBlock Text="Asset Review"/></StackPanel></TabItem.Header>
-                <Grid Margin="18,14,20,20">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-                    <Grid Margin="0,0,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Asset review" FontFamily="Segoe UI Variable Display" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center"/><ComboBox Grid.Column="2" x:Name="AssetProjectComboBox" DisplayMemberPath="DisplayName" SelectionChanged="AssetProjectComboBox_SelectionChanged"/><Button Grid.Column="3" Content="Refresh" Click="RefreshAssetReview_Click" Margin="8,0,0,0"/></Grid>
-                    <Border Grid.Row="1" Background="#303030" />
-                    <DataGrid Grid.Row="2" x:Name="AssetReviewGrid" AutoGenerateColumns="False" IsReadOnly="True" AlternationCount="2" Margin="0,10,0,0"><DataGrid.Columns><DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="90"/><DataGridTextColumn Header="Asset" Binding="{Binding Name}" Width="2*"/><DataGridTextColumn Header="Scene / context" Binding="{Binding Scene}" Width="3*"/><DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="2*"/><DataGridTextColumn Header="Path" Binding="{Binding Path}" Width="3*"/></DataGrid.Columns></DataGrid>
-                </Grid>
-            </TabItem>
-
-            <TabItem>
-                <TabItem.Header><StackPanel Orientation="Horizontal"><TextBlock Text="⚙" Width="24"/><TextBlock Text="Settings"/></StackPanel></TabItem.Header>
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <Grid Margin="18,14,20,24" MaxWidth="980" HorizontalAlignment="Left">
-                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                        <TextBlock Text="Settings" FontFamily="Segoe UI Variable Display" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,10"/>
+                <TabItem Style="{StaticResource HiddenPageTabStyle}">
+                    <Grid Margin="18,14,18,18">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                        <Grid Margin="0,0,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Production" FontFamily="Segoe UI Variable Display" FontSize="24" FontWeight="SemiBold" Foreground="White"/><Button Grid.Column="1" Content="Open production" Style="{StaticResource PrimaryButton}" Click="OpenProduction_Click" Margin="0"/></Grid>
                         <Border Grid.Row="1" Background="#303030" />
-                        <StackPanel Grid.Row="2" Margin="0,14,0,18"><TextBlock Text="General" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/><TextBlock Text="Projects folder" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/><TextBox x:Name="ProjectsFolderTextBox"/><CheckBox x:Name="CheckUpdatesCheckBox" Content="Check for application updates" Margin="0,12,0,0"/></StackPanel>
-                        <StackPanel Grid.Row="3" Margin="0,0,0,18"><Border Background="#303030" Height="1" Margin="0,0,0,14"/><TextBlock Text="Providers" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/><TextBlock Text="OpenAI API key" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/><PasswordBox x:Name="OpenAiKeyPasswordBox"/><TextBlock Text="OpenAI model" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,10,0,4"/><TextBox x:Name="OpenAiModelTextBox"/><Grid Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="Pexels API key" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/><PasswordBox x:Name="PexelsKeyPasswordBox"/></StackPanel><StackPanel Grid.Column="2"><TextBlock Text="Pixabay API key" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/><PasswordBox x:Name="PixabayKeyPasswordBox"/></StackPanel></Grid></StackPanel>
-                        <StackPanel Grid.Row="4"><Border Background="#303030" Height="1" Margin="0,0,0,14"/><TextBlock Text="Video &amp; Resolve" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/><TextBlock Text="DaVinci Resolve path" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/><TextBox x:Name="ResolvePathTextBox"/><Grid Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="Timeline width" Foreground="{StaticResource MutedBrush}" FontSize="11"/><TextBox x:Name="TimelineWidthTextBox" Margin="0,4,0,0"/></StackPanel><StackPanel Grid.Column="2"><TextBlock Text="Timeline height" Foreground="{StaticResource MutedBrush}" FontSize="11"/><TextBox x:Name="TimelineHeightTextBox" Margin="0,4,0,0"/></StackPanel><StackPanel Grid.Column="4"><TextBlock Text="Frame rate" Foreground="{StaticResource MutedBrush}" FontSize="11"/><TextBox x:Name="FrameRateTextBox" Margin="0,4,0,0"/></StackPanel></Grid><StackPanel Orientation="Horizontal" Margin="0,16,0,0"><Button Content="Save settings" Style="{StaticResource PrimaryButton}" Click="SaveSettings_Click"/><TextBlock x:Name="SettingsStatusText" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}"/></StackPanel></StackPanel>
+                        <TextBlock Grid.Row="2" Text="Run, reproduce or resume projects in the production workspace. Python remains the AI and media engine underneath." Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" Margin="0,14,0,0" />
                     </Grid>
-                </ScrollViewer>
-            </TabItem>
-        </TabControl>
+                </TabItem>
+
+                <TabItem Style="{StaticResource HiddenPageTabStyle}">
+                    <Grid Margin="18,12,18,18">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <Grid Margin="0,0,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Media library" FontFamily="Segoe UI Variable Display" FontSize="24" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/><ComboBox Grid.Column="2" x:Name="MediaProjectComboBox" DisplayMemberPath="DisplayName" SelectionChanged="MediaProjectComboBox_SelectionChanged"/><Button Grid.Column="3" Content="Refresh" Click="RefreshMedia_Click" Margin="8,0,0,0"/></Grid>
+                        <Border Grid.Row="1" Background="#303030" />
+                        <DataGrid Grid.Row="2" x:Name="MediaGrid" AutoGenerateColumns="False" IsReadOnly="True" AlternationCount="2" Margin="0,10,0,0"><DataGrid.Columns><DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="110"/><DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*"/><DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="100"/><DataGridTextColumn Header="Modified" Binding="{Binding Modified}" Width="160"/><DataGridTextColumn Header="Path" Binding="{Binding Path}" Width="3*"/></DataGrid.Columns></DataGrid>
+                    </Grid>
+                </TabItem>
+
+                <TabItem Style="{StaticResource HiddenPageTabStyle}">
+                    <Grid Margin="18,12,18,18">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                        <Grid Margin="0,0,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBlock Text="Asset review" FontFamily="Segoe UI Variable Display" FontSize="24" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center"/><ComboBox Grid.Column="2" x:Name="AssetProjectComboBox" DisplayMemberPath="DisplayName" SelectionChanged="AssetProjectComboBox_SelectionChanged"/><Button Grid.Column="3" Content="Refresh" Click="RefreshAssetReview_Click" Margin="8,0,0,0"/></Grid>
+                        <Border Grid.Row="1" Background="#303030" />
+                        <DataGrid Grid.Row="2" x:Name="AssetReviewGrid" AutoGenerateColumns="False" IsReadOnly="True" AlternationCount="2" Margin="0,10,0,0"><DataGrid.Columns><DataGridTextColumn Header="Type" Binding="{Binding Kind}" Width="90"/><DataGridTextColumn Header="Asset" Binding="{Binding Name}" Width="2*"/><DataGridTextColumn Header="Scene / context" Binding="{Binding Scene}" Width="3*"/><DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="2*"/><DataGridTextColumn Header="Path" Binding="{Binding Path}" Width="3*"/></DataGrid.Columns></DataGrid>
+                    </Grid>
+                </TabItem>
+
+                <TabItem Style="{StaticResource HiddenPageTabStyle}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <Grid Margin="18,14,18,24" MaxWidth="980" HorizontalAlignment="Left">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="1"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <TextBlock Text="Settings" FontFamily="Segoe UI Variable Display" FontSize="24" FontWeight="SemiBold" Foreground="White" Margin="0,0,0,10"/>
+                            <Border Grid.Row="1" Background="#303030" />
+                            <StackPanel Grid.Row="2" Margin="0,14,0,18"><TextBlock Text="General" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/><TextBlock Text="Projects folder" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/><TextBox x:Name="ProjectsFolderTextBox"/><CheckBox x:Name="CheckUpdatesCheckBox" Content="Check for application updates" Margin="0,12,0,0"/></StackPanel>
+                            <StackPanel Grid.Row="3" Margin="0,0,0,18"><Border Background="#303030" Height="1" Margin="0,0,0,14"/><TextBlock Text="Providers" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/><TextBlock Text="OpenAI API key" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/><PasswordBox x:Name="OpenAiKeyPasswordBox"/><TextBlock Text="OpenAI model" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,10,0,4"/><TextBox x:Name="OpenAiModelTextBox"/><Grid Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="Pexels API key" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/><PasswordBox x:Name="PexelsKeyPasswordBox"/></StackPanel><StackPanel Grid.Column="2"><TextBlock Text="Pixabay API key" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/><PasswordBox x:Name="PixabayKeyPasswordBox"/></StackPanel></Grid></StackPanel>
+                            <StackPanel Grid.Row="4"><Border Background="#303030" Height="1" Margin="0,0,0,14"/><TextBlock Text="Video &amp; Resolve" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/><TextBlock Text="DaVinci Resolve path" Foreground="{StaticResource MutedBrush}" FontSize="11" Margin="0,0,0,4"/><TextBox x:Name="ResolvePathTextBox"/><Grid Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions><StackPanel><TextBlock Text="Timeline width" Foreground="{StaticResource MutedBrush}" FontSize="11"/><TextBox x:Name="TimelineWidthTextBox" Margin="0,4,0,0"/></StackPanel><StackPanel Grid.Column="2"><TextBlock Text="Timeline height" Foreground="{StaticResource MutedBrush}" FontSize="11"/><TextBox x:Name="TimelineHeightTextBox" Margin="0,4,0,0"/></StackPanel><StackPanel Grid.Column="4"><TextBlock Text="Frame rate" Foreground="{StaticResource MutedBrush}" FontSize="11"/><TextBox x:Name="FrameRateTextBox" Margin="0,4,0,0"/></StackPanel></Grid><StackPanel Orientation="Horizontal" Margin="0,16,0,0"><Button Content="Save settings" Style="{StaticResource PrimaryButton}" Click="SaveSettings_Click"/><TextBlock x:Name="SettingsStatusText" VerticalAlignment="Center" Foreground="{StaticResource MutedBrush}"/></StackPanel></StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+                </TabItem>
+            </TabControl>
+        </Grid>
     </Grid>
 </Window>
