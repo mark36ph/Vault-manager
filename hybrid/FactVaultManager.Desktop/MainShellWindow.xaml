@@ -42,6 +42,16 @@
             <Setter Property="AlternatingRowBackground" Value="#15191F" />
             <Setter Property="HeadersVisibility" Value="Column" />
         </Style>
+        <Style TargetType="TabItem">
+            <Setter Property="Width" Value="190" />
+            <Setter Property="Height" Value="52" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+            <Setter Property="Padding" Value="18,0" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="HorizontalContentAlignment" Value="Left" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -67,10 +77,10 @@
             </Grid>
         </Border>
 
-        <TabControl Grid.Row="1" x:Name="MainTabs" Background="#0F1115" BorderThickness="0" Margin="18">
+        <TabControl Grid.Row="1" x:Name="MainTabs" TabStripPlacement="Left" Background="#0F1115" BorderThickness="0" Margin="18">
             <TabItem Header="Dashboard">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="8">
+                    <StackPanel Margin="20,8,8,8">
                         <TextBlock Text="Dashboard" FontSize="26" FontWeight="SemiBold" />
                         <TextBlock Text="Project overview and quick actions" Foreground="{StaticResource MutedBrush}" Margin="0,4,0,18" />
                         <UniformGrid Columns="5" Margin="0,0,0,18">
@@ -96,7 +106,7 @@
             </TabItem>
 
             <TabItem Header="Projects">
-                <Grid Margin="8">
+                <Grid Margin="20,8,8,8">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="410"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
                     <Border Grid.Column="0" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
                         <Grid>
@@ -144,7 +154,7 @@
             </TabItem>
 
             <TabItem Header="Production">
-                <Grid Margin="8">
+                <Grid Margin="20,8,8,8">
                     <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="28" HorizontalAlignment="Center" VerticalAlignment="Center" Width="620">
                         <StackPanel>
                             <TextBlock Text="Production" FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center" />
@@ -156,7 +166,7 @@
             </TabItem>
 
             <TabItem Header="Media Library">
-                <Grid Margin="8">
+                <Grid Margin="20,8,8,8">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,12">
                         <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -177,7 +187,7 @@
             </TabItem>
 
             <TabItem Header="Asset Review">
-                <Grid Margin="8">
+                <Grid Margin="20,8,8,8">
                     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
                     <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,12">
                         <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
@@ -199,7 +209,7 @@
 
             <TabItem Header="Settings">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="20" Margin="8" MaxWidth="900" HorizontalAlignment="Left">
+                    <Border Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="20" Margin="20,8,8,8" MaxWidth="900" HorizontalAlignment="Left">
                         <StackPanel Width="820">
                             <TextBlock Text="Settings" FontSize="24" FontWeight="SemiBold" />
                             <TextBlock Text="These settings are now edited directly by C#. The Python production engine reads the same settings file." Foreground="{StaticResource MutedBrush}" Margin="0,4,0,18" />
