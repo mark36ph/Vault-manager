@@ -44,6 +44,7 @@ public partial class MainShellWindow
 
         ApplyPythonDashboardLayout();
         EnsureEmbeddedProductionHost();
+        InitializeProjectsWorkflow();
 
         ProjectsGrid.RowHeight = 42;
         ProjectsGrid.ColumnHeaderHeight = 38;
