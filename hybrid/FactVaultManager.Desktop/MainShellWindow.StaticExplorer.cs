@@ -6,6 +6,15 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
+    protected override void OnInitialized(EventArgs e)
+    {
+        WindowStyle = WindowStyle.SingleBorderWindow;
+        ResizeMode = ResizeMode.CanResize;
+        ShowInTaskbar = true;
+        AllowsTransparency = false;
+        base.OnInitialized(e);
+    }
+
     protected override void OnContentRendered(EventArgs e)
     {
         base.OnContentRendered(e);
