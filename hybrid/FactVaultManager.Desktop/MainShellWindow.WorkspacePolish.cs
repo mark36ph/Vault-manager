@@ -11,7 +11,11 @@ public partial class MainShellWindow
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
-        Loaded += (_, _) => ApplyWorkspacePolish();
+        Loaded += (_, _) =>
+        {
+            ApplyWorkspacePolish();
+            ApplyChromePolish();
+        };
     }
 
     private void ApplyWorkspacePolish()
