@@ -9,6 +9,7 @@ public static class Program
     public static void Main()
     {
         VelopackApp.Build().Run();
+        InstalledDataMigration.Run();
 
         var application = new Application();
         application.Run(new MainShellWindow());
