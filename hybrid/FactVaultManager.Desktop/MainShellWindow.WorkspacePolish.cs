@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -7,6 +8,12 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        Loaded += (_, _) => ApplyWorkspacePolish();
+    }
+
     private void ApplyWorkspacePolish()
     {
         FontFamily = new FontFamily("Segoe UI");
