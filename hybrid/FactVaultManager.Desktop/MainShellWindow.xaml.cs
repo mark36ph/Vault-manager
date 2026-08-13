@@ -76,13 +76,49 @@ public partial class MainShellWindow : Window
         try
         {
             HeaderStatusText.Text = "Checking for updates...";
-            var result = await _updates.RunAsync(percent => Dispatcher.Invoke(() =>
+
+            if (!_updates.IsInstalled)
+            {
+                const string developmentMessage =
+                    "This is the development build, so the in-app updater is not active yet.\n\n" +
+                    "Check for Updates will become fully active after you install the first FactVaultManager release build.";
+                HeaderStatusText.Text = "Updates: development build";
+                MessageBox.Show(
+                    this,
+                    developmentMessage,
+                    "FactVaultManager Updates",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            var update = await _updates.CheckAsync();
+            if (update is null)
+            {
+                var message = $"FactVaultManager {_updates.CurrentVersion} is up to date.";
+                HeaderStatusText.Text = message;
+                MessageBox.Show(
+                    this,
+                    message,
+                    "FactVaultManager Updates",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            HeaderStatusText.Text = "Update found. Downloading...";
+            await _updates.InstallAsync(update, percent => Dispatcher.Invoke(() =>
                 HeaderStatusText.Text = $"Downloading update... {percent}%"));
-            HeaderStatusText.Text = result;
         }
         catch (Exception error)
         {
             HeaderStatusText.Text = $"Update failed: {error.Message}";
+            MessageBox.Show(
+                this,
+                error.Message,
+                "Update Failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 
