@@ -45,6 +45,10 @@ public partial class MainShellWindow
 
         var hiddenHeaderStyle = new Style(typeof(TabItem));
         hiddenHeaderStyle.Setters.Add(new Setter(UIElement.VisibilityProperty, Visibility.Collapsed));
+        hiddenHeaderStyle.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+        hiddenHeaderStyle.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(17, 17, 17))));
+        hiddenHeaderStyle.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
+        hiddenHeaderStyle.Setters.Add(new Setter(Control.VerticalContentAlignmentProperty, VerticalAlignment.Stretch));
         foreach (var tab in MainTabs.Items.OfType<TabItem>())
         {
             tab.Style = hiddenHeaderStyle;
@@ -53,6 +57,10 @@ public partial class MainShellWindow
         MainTabs.Margin = new Thickness(0);
         MainTabs.Padding = new Thickness(0);
         MainTabs.BorderThickness = new Thickness(0);
+        MainTabs.Background = new SolidColorBrush(Color.FromRgb(17, 17, 17));
+        MainTabs.Foreground = Brushes.White;
+        MainTabs.HorizontalAlignment = HorizontalAlignment.Stretch;
+        MainTabs.VerticalAlignment = VerticalAlignment.Stretch;
         MainTabs.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         MainTabs.VerticalContentAlignment = VerticalAlignment.Stretch;
         Grid.SetColumn(MainTabs, 2);
