@@ -1,0 +1,106 @@
+name: Release Hybrid App
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install Python build dependencies
+        run: python -m pip install -r requirements-build.txt
+
+      - name: Run Python tests
+        run: python -m pytest
+
+      - name: Build frozen Python worker
+        run: >-
+          python -m PyInstaller
+          --noconfirm
+          --clean
+          --onefile
+          --name FactVaultWorker
+          --distpath hybrid-build\worker
+          --workpath hybrid-build\pyinstaller-work
+          --specpath hybrid-build\pyinstaller-spec
+          hybrid\python_worker.py
+
+      - name: Publish self-contained .NET app
+        run: >-
+          dotnet publish
+          hybrid\FactVaultManager.Desktop\FactVaultManager.Desktop.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -o hybrid-build\publish
+
+      - name: Assemble installed runtime
+        shell: pwsh
+        run: |
+          Copy-Item hybrid-build\worker\FactVaultWorker.exe hybrid-build\publish\FactVaultWorker.exe
+          Copy-Item main.py hybrid-build\publish\main.py
+          Copy-Item common hybrid-build\publish\common -Recurse
+          Copy-Item assets hybrid-build\publish\assets -Recurse
+
+      - name: Restore pinned Velopack CLI
+        run: dotnet tool restore
+
+      - name: Download previous release metadata
+        continue-on-error: true
+        run: >-
+          dotnet tool run vpk --
+          download github
+          --repoUrl https://github.com/${{ github.repository }}
+          --channel win-x64-stable
+          --outputDir Releases
+
+      - name: Package Velopack release
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          dotnet tool run vpk -- pack `
+            --packId FactVaultManager `
+            --packVersion $version `
+            --packDir hybrid-build\publish `
+            --mainExe FactVaultManager.Desktop.exe `
+            --packTitle "FactVaultManager" `
+            --packAuthors "FactVaultManager" `
+            --runtime win-x64 `
+            --channel win-x64-stable `
+            --outputDir Releases
+
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          VPK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          dotnet tool run vpk -- upload github `
+            --repoUrl https://github.com/${{ github.repository }} `
+            --token $env:VPK_TOKEN `
+            --publish `
+            --releaseName "FactVaultManager $version" `
+            --tag "v$version" `
+            --channel win-x64-stable `
+            --outputDir Releases
