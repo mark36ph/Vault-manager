@@ -25,7 +25,6 @@ public partial class MainShellWindow
         InitializeProjectsWorkflow();
         InitializeProjectCardsWorkflow();
         InitializeProjectMetadataEditor();
-        InitializeProjectEditorWorkflow();
         InitializeNewFactWorkflow();
         InitializeMediaLibraryWorkflow();
         Dispatcher.BeginInvoke(new Action(InitializeAssetReviewWorkflow));
@@ -107,11 +106,7 @@ public partial class MainShellWindow
         UpdateProjectFilterStyles();
         ApplyProjectsFilter();
         UpdateProjectsModeLayout();
-        Dispatcher.BeginInvoke(new Action(() =>
-        {
-            InitializeProjectMetadataEditor();
-            InitializeProjectEditorWorkflow();
-        }));
+        Dispatcher.BeginInvoke(new Action(InitializeProjectMetadataEditor));
     }
 
     private void ProjectsWorkspaceTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -134,13 +129,7 @@ public partial class MainShellWindow
             _projectsFilterArea.Visibility = editing ? Visibility.Collapsed : Visibility.Visible;
 
         if (editing)
-        {
-            Dispatcher.BeginInvoke(new Action(() =>
-            {
-                InitializeProjectMetadataEditor();
-                InitializeProjectEditorWorkflow();
-            }));
-        }
+            Dispatcher.BeginInvoke(new Action(InitializeProjectMetadataEditor));
     }
 
     private void ProjectFilter_Click(object sender, RoutedEventArgs e)
