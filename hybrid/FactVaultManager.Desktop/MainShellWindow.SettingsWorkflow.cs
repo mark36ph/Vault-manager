@@ -421,7 +421,7 @@ public partial class MainShellWindow
 
             var message = "Settings saved.";
             SettingsStatusText.Text = message;
-            _settingsPageStatus!.Text = message;
+            if (_settingsPageStatus is not null) _settingsPageStatus.Text = message;
             HeaderStatusText.Text = message;
         }
         catch (Exception error)
@@ -569,8 +569,9 @@ public partial class MainShellWindow
         var grid = new Grid { Margin = new Thickness(0, 2, 0, 0) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        _settingsPageStatus ??= new TextBlock { Foreground = SettingsMutedBrush(), VerticalAlignment = VerticalAlignment.Center };
-        grid.Children.Add(_settingsPageStatus);
+        var status = new TextBlock { Foreground = SettingsMutedBrush(), VerticalAlignment = VerticalAlignment.Center };
+        _settingsPageStatus ??= status;
+        grid.Children.Add(status);
         var save = new Button { Content = buttonText, HorizontalAlignment = HorizontalAlignment.Right, MinWidth = 126, Margin = new Thickness(0) };
         save.Click += (_, _) => saveAction();
         Grid.SetColumn(save, 1);
