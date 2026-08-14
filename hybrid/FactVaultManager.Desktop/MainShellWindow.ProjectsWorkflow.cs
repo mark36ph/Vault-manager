@@ -21,6 +21,7 @@ public partial class MainShellWindow
     {
         base.OnActivated(e);
         InitializeProjectsWorkflow();
+        InitializeMediaLibraryWorkflow();
     }
 
     private void InitializeProjectsWorkflow()
