@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -449,19 +448,12 @@ public partial class MainShellWindow
         _productionAssetKindComboBox.SelectedItem = "image";
         try
         {
-            var path = Path.Combine(project.Folder, "provider_settings.json");
-            if (!File.Exists(path)) return;
-            var node = JsonNode.Parse(File.ReadAllText(path)) as JsonObject;
-            if (node is null) return;
-            if (node["asset_providers"] is JsonArray providers)
-            {
-                var selected = providers.Select(item => item?.ToString() ?? "").ToHashSet(StringComparer.OrdinalIgnoreCase);
-                _productionPexelsCheckBox.IsChecked = selected.Contains("pexels");
-                _productionPixabayCheckBox.IsChecked = selected.Contains("pixabay");
-            }
-            var kind = node["asset_kind"]?.ToString() ?? "image";
-            _productionAssetKindComboBox.SelectedItem = string.Equals(kind, "video", StringComparison.OrdinalIgnoreCase) ? "video" : "image";
-            _productionVoiceCheckBox.IsChecked = !string.Equals(node["voice_provider"]?.ToString(), "none", StringComparison.OrdinalIgnoreCase);
+            var settings = NativeProductionProviderWorkflow.Load(project.Folder);
+            var selected = settings.AssetProviders.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            _productionPexelsCheckBox.IsChecked = selected.Contains("pexels");
+            _productionPixabayCheckBox.IsChecked = selected.Contains("pixabay");
+            _productionAssetKindComboBox.SelectedItem = string.Equals(settings.AssetKind, "video", StringComparison.OrdinalIgnoreCase) ? "video" : "image";
+            _productionVoiceCheckBox.IsChecked = !string.Equals(settings.VoiceProvider, "none", StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception error)
         {
@@ -471,25 +463,13 @@ public partial class MainShellWindow
 
     private void SaveEmbeddedProviderSettings(HybridProject project)
     {
-        var providers = new JsonArray();
-        if (_productionPexelsCheckBox.IsChecked == true) providers.Add("pexels");
-        if (_productionPixabayCheckBox.IsChecked == true) providers.Add("pixabay");
-        if (providers.Count == 0) throw new InvalidOperationException("Select at least one media provider.");
-        var appSettings = _data.LoadSettings();
-        var payload = new JsonObject
-        {
-            ["text_provider"] = "openai",
-            ["asset_providers"] = providers,
-            ["voice_provider"] = _productionVoiceCheckBox.IsChecked == true ? "openai" : "none",
-            ["openai_model"] = string.IsNullOrWhiteSpace(appSettings.OpenAiModel) ? "gpt-5-mini" : appSettings.OpenAiModel,
-            ["openai_voice_model"] = "gpt-4o-mini-tts",
-            ["openai_voice"] = "alloy",
-            ["asset_kind"] = _productionAssetKindComboBox.SelectedItem?.ToString() ?? "image",
-            ["asset_limit"] = 20,
-            ["asset_attempts"] = 3,
-        };
-        Directory.CreateDirectory(project.Folder);
-        File.WriteAllText(Path.Combine(project.Folder, "provider_settings.json"), payload.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + Environment.NewLine);
+        NativeProductionProviderWorkflow.Save(
+            project.Folder,
+            _data.LoadSettings(),
+            _productionPexelsCheckBox.IsChecked == true,
+            _productionPixabayCheckBox.IsChecked == true,
+            _productionVoiceCheckBox.IsChecked == true,
+            _productionAssetKindComboBox.SelectedItem?.ToString() ?? "image");
     }
 
     private void RefreshEmbeddedProviderReadiness()
@@ -497,26 +477,15 @@ public partial class MainShellWindow
         if (_productionCredentialText is null) return;
         try
         {
-            var settings = _data.LoadSettings();
-            var lines = new List<string>();
-            var ready = true;
-            void Add(string label, bool configured)
-            {
-                lines.Add($"{(configured ? "✓" : "✗")} {label}");
-                ready &= configured;
-            }
-            Add("OpenAI", !string.IsNullOrWhiteSpace(settings.OpenAiKey));
-            if (_productionPexelsCheckBox.IsChecked == true) Add("Pexels", !string.IsNullOrWhiteSpace(settings.PexelsKey));
-            if (_productionPixabayCheckBox.IsChecked == true) Add("Pixabay", !string.IsNullOrWhiteSpace(settings.PixabayKey));
-            if (_productionPexelsCheckBox.IsChecked != true && _productionPixabayCheckBox.IsChecked != true)
-            {
-                ready = false;
-                lines.Add("✗ Select at least one media provider");
-            }
-            _productionCredentialText.Text = string.Join(Environment.NewLine, lines);
-            _productionCredentialText.Foreground = ready ? ProductionReadyBrush() : ProductionWarningBrush();
+            var readiness = NativeProductionProviderWorkflow.CheckReadiness(
+                _data.LoadSettings(),
+                _productionPexelsCheckBox.IsChecked == true,
+                _productionPixabayCheckBox.IsChecked == true);
+
+            _productionCredentialText.Text = string.Join(Environment.NewLine, readiness.Lines);
+            _productionCredentialText.Foreground = readiness.Ready ? ProductionReadyBrush() : ProductionWarningBrush();
             var project = EmbeddedSelectedProject;
-            _productionActionButton.IsEnabled = ready && !_embeddedProductionRunning && project is { FolderExists: true } && project.Status is "In Progress" or "Completed";
+            _productionActionButton.IsEnabled = readiness.Ready && !_embeddedProductionRunning && project is { FolderExists: true } && project.Status is "In Progress" or "Completed";
         }
         catch (Exception error)
         {
@@ -562,6 +531,7 @@ public partial class MainShellWindow
         try
         {
             SaveEmbeddedProviderSettings(project);
+            NativeProductionProviderWorkflow.ValidateProject(project.Folder, _data.LoadSettings());
         }
         catch (Exception error)
         {
