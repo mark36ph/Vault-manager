@@ -1,4 +1,4 @@
-"""JSON-lines worker for the hybrid .NET desktop shell."""
+"""JSON-lines production executor for the .NET desktop shell."""
 from __future__ import annotations
 
 import json
@@ -7,7 +7,6 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Mapping
 
-PROTOCOL_VERSION = 2
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -24,14 +23,6 @@ def emit(payload: Mapping[str, Any]) -> None:
 
 def run_worker() -> int:
     runtime = HybridProductionRuntime(emit)
-    emit(
-        {
-            "type": "ready",
-            "protocol": PROTOCOL_VERSION,
-            "python": sys.version.split()[0],
-            "root": str(ROOT),
-        }
-    )
 
     for raw_line in sys.stdin:
         raw = raw_line.strip()
@@ -45,19 +36,7 @@ def run_worker() -> int:
             command = str(payload.get("command") or "").strip().casefold()
             request_id = payload.get("request_id")
 
-            if command == "ping":
-                emit({"type": "pong", "request_id": request_id, "protocol": PROTOCOL_VERSION})
-            elif command == "status":
-                emit(
-                    {
-                        "type": "status",
-                        "request_id": request_id,
-                        "root": str(ROOT),
-                        "legacy_entry": str(ROOT / "main.py"),
-                        "production_running": runtime.running,
-                    }
-                )
-            elif command == "start_production":
+            if command == "start_production":
                 runtime.start(payload)
                 emit({"type": "accepted", "request_id": request_id, "command": command})
             elif command == "export_resolve":
@@ -71,7 +50,7 @@ def run_worker() -> int:
                 emit({"type": "shutdown", "request_id": request_id})
                 return 0
             else:
-                raise ValueError(f"unknown command: {command or '<empty>'}")
+                raise ValueError(f"unknown production command: {command or '<empty>'}")
         except (json.JSONDecodeError, ValueError, OSError, RuntimeError) as error:
             emit({"type": "error", "request_id": request_id, "message": str(error)})
 
