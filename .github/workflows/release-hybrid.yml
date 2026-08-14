@@ -5,14 +5,20 @@ on:
     inputs:
       version:
         description: "Release version, for example 1.0.0"
-        required: true
-        default: "1.0.0"
+        required: false
+        default: ""
   push:
+    branches:
+      - main
     tags:
       - "v*.*.*"
 
 permissions:
   contents: write
+
+concurrency:
+  group: factvault-release
+  cancel-in-progress: false
 
 jobs:
   release-windows:
@@ -28,10 +34,12 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+          if ("${{ github.event_name }}" -eq "workflow_dispatch" -and -not [string]::IsNullOrWhiteSpace("${{ inputs.version }}")) {
             $version = "${{ inputs.version }}"
-          } else {
+          } elseif ("${{ github.ref_type }}" -eq "tag") {
             $version = "${{ github.ref_name }}".TrimStart("v")
+          } else {
+            $version = "0.1.${{ github.run_number }}"
           }
           if ($version -notmatch '^\d+\.\d+\.\d+([+-][0-9A-Za-z.-]+)?$') {
             throw "Version must be SemVer, for example 1.0.0"
@@ -73,6 +81,7 @@ jobs:
           -c Release
           -r win-x64
           --self-contained true
+          -p:Version=${{ steps.version.outputs.version }}
           -o hybrid-build\publish
 
       - name: Assemble installed runtime
