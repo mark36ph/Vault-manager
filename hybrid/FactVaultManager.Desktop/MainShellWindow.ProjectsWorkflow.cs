@@ -100,7 +100,12 @@ public partial class MainShellWindow
         }
 
         ProjectsGrid.MouseDoubleClick += ProjectsGrid_MouseDoubleClick;
-        ProjectsGrid.SelectionChanged += (_, _) => UpdateProjectBrowserStatus();
+        ProjectsGrid.SelectionChanged += (_, _) =>
+        {
+            UpdateProjectBrowserStatus();
+            if (_safeProjectEditorInitialized)
+                LoadSafeProjectEditor(ProjectsGrid.SelectedItem as DesktopProject);
+        };
 
         InitializeProjectCardsWorkflow();
         UpdateProjectFilterStyles();
@@ -129,7 +134,10 @@ public partial class MainShellWindow
             _projectsFilterArea.Visibility = editing ? Visibility.Collapsed : Visibility.Visible;
 
         if (editing)
-            Dispatcher.BeginInvoke(new Action(InitializeProjectMetadataEditor));
+        {
+            InitializeSafeProjectEditor();
+            LoadSafeProjectEditor(ProjectsGrid.SelectedItem as DesktopProject ?? _editingProject);
+        }
     }
 
     private void ProjectFilter_Click(object sender, RoutedEventArgs e)
