@@ -33,8 +33,8 @@ public sealed partial class DesktopDataService
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT id, title, category, status, folder, created,
-                   COALESCE(script, ''), COALESCE(description, ''),
-                   COALESCE(pinned_comment, ''), COALESCE(notes, ''),
+                   COALESCE(script, ''), COALESCE(on_screen_text, ''), COALESCE(visual_plan, ''),
+                   COALESCE(description, ''), COALESCE(pinned_comment, ''), COALESCE(notes, ''),
                    COALESCE(tags, ''), COALESCE(sources, ''), COALESCE(pinned, 0)
             FROM projects
             ORDER BY pinned DESC, id DESC
@@ -48,7 +48,7 @@ public sealed partial class DesktopDataService
                 reader.GetInt32(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
                 reader.GetString(4), reader.GetString(5), reader.GetString(6), reader.GetString(7),
                 reader.GetString(8), reader.GetString(9), reader.GetString(10), reader.GetString(11),
-                reader.GetInt32(12) != 0));
+                reader.GetString(12), reader.GetString(13), reader.GetInt32(14) != 0));
         }
         return results;
     }
@@ -120,13 +120,15 @@ public sealed partial class DesktopDataService
         using var command = connection.CreateCommand();
         command.CommandText = """
             UPDATE projects
-            SET category=$category, script=$script, description=$description,
-                pinned_comment=$pinnedComment, notes=$notes, tags=$tags, sources=$sources,
+            SET category=$category, script=$script, on_screen_text=$onScreenText, visual_plan=$visualPlan,
+                description=$description, pinned_comment=$pinnedComment, notes=$notes, tags=$tags, sources=$sources,
                 pinned=$pinned, updated=$updated
             WHERE id=$id
             """;
         command.Parameters.AddWithValue("$category", project.Category);
         command.Parameters.AddWithValue("$script", project.Script);
+        command.Parameters.AddWithValue("$onScreenText", project.OnScreenText);
+        command.Parameters.AddWithValue("$visualPlan", project.VisualPlan);
         command.Parameters.AddWithValue("$description", project.Description);
         command.Parameters.AddWithValue("$pinnedComment", project.PinnedComment);
         command.Parameters.AddWithValue("$notes", project.Notes);
@@ -353,7 +355,8 @@ public sealed partial class DesktopDataService
 }
 
 public sealed record DesktopProject(int Id, string Title, string Category, string Status, string Folder, string Created,
-    string Script, string Description, string PinnedComment, string Notes, string Tags, string Sources, bool Pinned)
+    string Script, string OnScreenText, string VisualPlan, string Description, string PinnedComment, string Notes,
+    string Tags, string Sources, bool Pinned)
 {
     public string DisplayName => $"{Title}  •  {Status}";
 }
