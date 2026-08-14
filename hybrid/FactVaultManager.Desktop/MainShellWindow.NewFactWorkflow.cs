@@ -234,7 +234,7 @@ public partial class MainShellWindow
         _newFactCreateButton.IsEnabled = false;
         _newFactCreateButton.Content = "Creating...";
         _newFactStatusText.Text = "Creating project...";
-        await Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
+        await System.Windows.Threading.Dispatcher.Yield(System.Windows.Threading.DispatcherPriority.Background);
 
         try
         {
