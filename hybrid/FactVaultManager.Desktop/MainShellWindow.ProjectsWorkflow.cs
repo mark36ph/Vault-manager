@@ -23,6 +23,7 @@ public partial class MainShellWindow
     {
         base.OnActivated(e);
         InitializeProjectsWorkflow();
+        InitializeProjectCardsWorkflow();
         InitializeProjectMetadataEditor();
         InitializeNewFactWorkflow();
         InitializeMediaLibraryWorkflow();
@@ -101,6 +102,7 @@ public partial class MainShellWindow
         ProjectsGrid.MouseDoubleClick += ProjectsGrid_MouseDoubleClick;
         ProjectsGrid.SelectionChanged += (_, _) => UpdateProjectBrowserStatus();
 
+        InitializeProjectCardsWorkflow();
         UpdateProjectFilterStyles();
         ApplyProjectsFilter();
         UpdateProjectsModeLayout();
@@ -182,6 +184,8 @@ public partial class MainShellWindow
             ProjectsGrid.SelectedItem = filtered.FirstOrDefault(project => project.Id == id);
         if (ProjectsGrid.SelectedItem is null && filtered.Count > 0)
             ProjectsGrid.SelectedIndex = 0;
+
+        RenderProjectCards(filtered);
 
         if (_projectsResultCount is not null)
             _projectsResultCount.Text = filtered.Count == 1 ? "1 project" : $"{filtered.Count} projects";
