@@ -62,6 +62,9 @@ def run_worker() -> int:
             elif command == "start_production":
                 runtime.start(payload)
                 emit({"type": "accepted", "request_id": request_id, "command": command})
+            elif command == "export_resolve":
+                result = runtime.export_resolve(payload)
+                emit({**result, "request_id": request_id})
             elif command == "cancel_production":
                 emit({"type": "cancel_requested", "request_id": request_id, "accepted": runtime.cancel()})
             elif command == "shutdown":
