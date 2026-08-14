@@ -426,7 +426,7 @@ public sealed class NativeFfmpegTimelineService
             narrationDuration = await MediaDurationAsync(narration.Source, cancellationToken);
 
         Progress?.Invoke("timeline", 0.35, "Converting still images into Resolve-compatible video clips");
-        var captionEndLimit = narrationDuration is null ? null : Math.Max(0, narrationDuration.Value - 1.25);
+        double? captionEndLimit = narrationDuration is null ? null : Math.Max(0, narrationDuration.Value - 1.25);
         await ConvertStillsToVideoAsync(exportTimeline, projectFolder, onscreenText, captionEndLimit, cancellationToken);
         await AddFactUnlockedOutroAsync(exportTimeline, projectFolder, cancellationToken);
         CleanupUnusedResolveClips(exportTimeline, projectFolder);
