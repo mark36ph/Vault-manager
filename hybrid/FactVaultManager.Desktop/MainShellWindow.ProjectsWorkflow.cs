@@ -107,7 +107,10 @@ public partial class MainShellWindow
             UpdateProjectBrowserStatus();
             UpdateProjectCardSelectionStyles();
             if (_safeProjectEditorInitialized)
+            {
                 LoadSafeProjectEditor(ProjectsGrid.SelectedItem as DesktopProject);
+                UpdateProjectWorkspaceActions();
+            }
         };
 
         InitializeProjectCardsWorkflow();
@@ -140,6 +143,8 @@ public partial class MainShellWindow
         {
             InitializeSafeProjectEditor();
             LoadSafeProjectEditor(ProjectsGrid.SelectedItem as DesktopProject ?? _editingProject);
+            EnsureProjectWorkspaceActions();
+            UpdateProjectWorkspaceActions();
         }
     }
 
