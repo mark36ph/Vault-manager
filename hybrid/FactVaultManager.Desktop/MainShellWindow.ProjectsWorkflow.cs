@@ -22,6 +22,7 @@ public partial class MainShellWindow
         base.OnActivated(e);
         InitializeProjectsWorkflow();
         InitializeMediaLibraryWorkflow();
+        Dispatcher.BeginInvoke(new Action(InitializeAssetReviewWorkflow));
     }
 
     private void InitializeProjectsWorkflow()
