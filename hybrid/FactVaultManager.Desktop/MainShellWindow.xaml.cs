@@ -151,6 +151,7 @@ public partial class MainShellWindow : Window
         ProjectTagsTextBox.Text = project.Tags;
         ProjectNotesTextBox.Text = project.Notes;
         ProjectSourcesTextBox.Text = project.Sources;
+        ApplyProjectProductionMetadata(project);
     }
 
     private void SaveProject_Click(object sender, RoutedEventArgs e)
@@ -162,6 +163,8 @@ public partial class MainShellWindow : Window
             {
                 Category = ProjectCategoryTextBox.Text.Trim(),
                 Script = ProjectScriptTextBox.Text,
+                OnScreenText = CurrentProjectOnScreenText(),
+                VisualPlan = CurrentProjectVisualPlan(),
                 Description = ProjectDescriptionTextBox.Text,
                 PinnedComment = ProjectPinnedCommentTextBox.Text,
                 Tags = ProjectTagsTextBox.Text,
