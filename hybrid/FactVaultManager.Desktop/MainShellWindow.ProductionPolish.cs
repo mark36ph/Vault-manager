@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -7,6 +8,8 @@ namespace FactVaultManager.Desktop;
 public partial class MainShellWindow
 {
     private bool _productionPolishApplied;
+    private bool _productionProjectFilterUpdating;
+    private CheckBox? _productionShowCompletedCheckBox;
 
     private void ApplyProductionPolish()
     {
@@ -49,6 +52,8 @@ public partial class MainShellWindow
         _productionTopicTextBox.Padding = new Thickness(10, 5, 10, 5);
         _productionTopicTextBox.ToolTip = "Video topic";
         _productionAssetKindComboBox.Height = 36;
+
+        AddProductionCompletedProjectToggle();
 
         _productionPexelsCheckBox.Margin = new Thickness(2, 3, 22, 3);
         _productionPixabayCheckBox.Margin = new Thickness(0, 3, 0, 3);
@@ -104,5 +109,81 @@ public partial class MainShellWindow
         _productionLogTextBox.BorderBrush = new SolidColorBrush(Color.FromRgb(228, 231, 236));
         _productionLogTextBox.BorderThickness = new Thickness(1);
         _productionLogTextBox.FontSize = 11.5;
+    }
+
+    private void AddProductionCompletedProjectToggle()
+    {
+        if (_productionShowCompletedCheckBox is not null ||
+            _productionProjectComboBox.Parent is not StackPanel projectPanel)
+        {
+            return;
+        }
+
+        _productionShowCompletedCheckBox = new CheckBox
+        {
+            Content = "Show completed projects",
+            IsChecked = true,
+            Margin = new Thickness(2, 8, 0, 1),
+            Foreground = ProductionMutedBrush(),
+        };
+        _productionShowCompletedCheckBox.Checked += (_, _) => ApplyProductionProjectVisibility();
+        _productionShowCompletedCheckBox.Unchecked += (_, _) => ApplyProductionProjectVisibility();
+
+        var comboIndex = projectPanel.Children.IndexOf(_productionProjectComboBox);
+        projectPanel.Children.Insert(Math.Max(0, comboIndex + 1), _productionShowCompletedCheckBox);
+
+        var descriptor = DependencyPropertyDescriptor.FromProperty(
+            ItemsControl.ItemsSourceProperty,
+            typeof(ComboBox));
+        descriptor?.AddValueChanged(_productionProjectComboBox, (_, _) =>
+        {
+            if (_productionProjectFilterUpdating)
+            {
+                return;
+            }
+            Dispatcher.BeginInvoke(new Action(ApplyProductionProjectVisibility));
+        });
+
+        ApplyProductionProjectVisibility();
+    }
+
+    private void ApplyProductionProjectVisibility()
+    {
+        if (_productionShowCompletedCheckBox is null || _productionProjectComboBox is null || _productionProjectFilterUpdating)
+        {
+            return;
+        }
+
+        _productionProjectFilterUpdating = true;
+        try
+        {
+            var selectedId = EmbeddedSelectedProject?.Id;
+            var showCompleted = _productionShowCompletedCheckBox.IsChecked == true;
+            var visibleProjects = _productionProjects
+                .Where(project => showCompleted || !string.Equals(project.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            _productionProjectComboBox.ItemsSource = null;
+            _productionProjectComboBox.ItemsSource = visibleProjects;
+            _productionProjectComboBox.SelectedItem = selectedId is int id
+                ? visibleProjects.FirstOrDefault(project => project.Id == id) ?? visibleProjects.FirstOrDefault()
+                : visibleProjects.FirstOrDefault();
+
+            if (visibleProjects.Count == 0)
+            {
+                _productionProjectStatusText.Text = showCompleted
+                    ? "No In Progress or Completed projects found."
+                    : "No In Progress projects found. Turn on Show completed projects to include completed work.";
+                _productionProjectFolderText.Text = "";
+            }
+            else
+            {
+                ApplyEmbeddedSelectedProject();
+            }
+        }
+        finally
+        {
+            _productionProjectFilterUpdating = false;
+        }
     }
 }
