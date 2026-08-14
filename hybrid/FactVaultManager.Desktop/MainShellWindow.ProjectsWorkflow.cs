@@ -21,6 +21,7 @@ public partial class MainShellWindow
     {
         base.OnActivated(e);
         InitializeProjectsWorkflow();
+        InitializeNewFactWorkflow();
         InitializeMediaLibraryWorkflow();
         Dispatcher.BeginInvoke(new Action(InitializeAssetReviewWorkflow));
         Dispatcher.BeginInvoke(new Action(InitializeSettingsWorkflow));
