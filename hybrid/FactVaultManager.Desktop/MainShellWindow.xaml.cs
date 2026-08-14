@@ -41,6 +41,10 @@ public partial class MainShellWindow : Window
                 if (MediaProjectComboBox.SelectedItem is null) MediaProjectComboBox.SelectedIndex = 0;
                 if (AssetProjectComboBox.SelectedItem is null) AssetProjectComboBox.SelectedIndex = 0;
             }
+
+            if (_projectsWorkflowInitialized)
+                ApplyProjectsFilter();
+
             LoadSettings();
             HeaderStatusText.Text = $"C# desktop shell • {_projects.Count} projects • Python production engine";
         }
