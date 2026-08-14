@@ -5,7 +5,6 @@ using System.Text.RegularExpressions;
 
 namespace FactVaultManager.Desktop;
 
-[JsonConverter(typeof(JsonStringEnumConverter<NativeTimelineTrackKind>))]
 public enum NativeTimelineTrackKind
 {
     Video,
@@ -14,7 +13,6 @@ public enum NativeTimelineTrackKind
     Marker,
 }
 
-[JsonConverter(typeof(JsonStringEnumConverter<NativeTimelineClipKind>))]
 public enum NativeTimelineClipKind
 {
     Image,
@@ -269,12 +267,19 @@ public sealed class NativeProjectTimelineStore
 {
     public const string TimelineFilename = "timeline.json";
 
-    internal static readonly JsonSerializerOptions SerializerOptions = new()
+    internal static readonly JsonSerializerOptions SerializerOptions = CreateSerializerOptions();
+
+    private static JsonSerializerOptions CreateSerializerOptions()
     {
-        WriteIndented = true,
-        PropertyNameCaseInsensitive = true,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-    };
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNameCaseInsensitive = true,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        };
+        options.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase));
+        return options;
+    }
 
     public string ProjectFolder { get; }
     public string Path { get; }
