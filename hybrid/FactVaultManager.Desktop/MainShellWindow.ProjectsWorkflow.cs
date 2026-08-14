@@ -103,6 +103,7 @@ public partial class MainShellWindow
         ProjectsGrid.SelectionChanged += (_, _) =>
         {
             UpdateProjectBrowserStatus();
+            UpdateProjectCardSelectionStyles();
             if (_safeProjectEditorInitialized)
                 LoadSafeProjectEditor(ProjectsGrid.SelectedItem as DesktopProject);
         };
