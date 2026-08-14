@@ -15,12 +15,10 @@ public partial class MainShellWindow
         if (_projectMetadataEditorInitialized || _projectsWorkspaceTabs is null || _projectsWorkspaceTabs.Items.Count < 2)
             return;
 
-        var editorTab = _projectsWorkspaceTabs.Items[1] as TabItem;
-        if (editorTab is null)
+        if (_projectsWorkspaceTabs.Items[1] is not TabItem editorTab || editorTab.Content is not DependencyObject editorContent)
             return;
 
-        var editorSections = FindVisualChildren<TabControl>(editorTab)
-            .FirstOrDefault(control => !ReferenceEquals(control, _projectsWorkspaceTabs));
+        var editorSections = FindLogicalChild<TabControl>(editorContent);
         if (editorSections is null)
             return;
 
@@ -88,6 +86,24 @@ public partial class MainShellWindow
 
         if (ProjectsGrid.SelectedItem is DesktopProject project)
             ApplyProjectProductionMetadata(project);
+    }
+
+    private static T? FindLogicalChild<T>(DependencyObject root) where T : DependencyObject
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(root))
+        {
+            if (child is T match)
+                return match;
+
+            if (child is DependencyObject dependencyObject)
+            {
+                var nested = FindLogicalChild<T>(dependencyObject);
+                if (nested is not null)
+                    return nested;
+            }
+        }
+
+        return null;
     }
 
     private void ApplyProjectProductionMetadata(DesktopProject project)
