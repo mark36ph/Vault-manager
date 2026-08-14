@@ -9,17 +9,23 @@ public sealed class NativeAssetProviderRegistry : IDisposable
 
     public static NativeAssetProviderRegistry FromSettings(AppSettingsModel settings)
     {
+        var credentials = NativeProviderCredentials.FromSettings(settings);
         var registry = new NativeAssetProviderRegistry();
-        if (!string.IsNullOrWhiteSpace(settings.PexelsKey))
+
+        var pexelsKey = credentials.Get("pexels", required: false);
+        if (!string.IsNullOrWhiteSpace(pexelsKey))
         {
-            var provider = new NativePexelsAssetProvider(settings.PexelsKey);
+            var provider = new NativePexelsAssetProvider(pexelsKey);
             registry.Add(provider);
         }
-        if (!string.IsNullOrWhiteSpace(settings.PixabayKey))
+
+        var pixabayKey = credentials.Get("pixabay", required: false);
+        if (!string.IsNullOrWhiteSpace(pixabayKey))
         {
-            var provider = new NativePixabayAssetProvider(settings.PixabayKey);
+            var provider = new NativePixabayAssetProvider(pixabayKey);
             registry.Add(provider);
         }
+
         return registry;
     }
 
