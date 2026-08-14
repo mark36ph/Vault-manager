@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -18,7 +19,7 @@ public sealed record NativeAssetCandidate(
     string License,
     string SourcePage);
 
-public sealed class NativeProviderIntegrationException : RuntimeException
+public sealed class NativeProviderIntegrationException : Exception
 {
     public NativeProviderIntegrationException(string message) : base(message) { }
 }
@@ -26,7 +27,11 @@ public sealed class NativeProviderIntegrationException : RuntimeException
 public interface INativeAssetProvider
 {
     string Name { get; }
-    Task<IReadOnlyList<NativeAssetCandidate>> SearchAsync(string query, string kind, int limit, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<NativeAssetCandidate>> SearchAsync(
+        string query,
+        string kind,
+        int limit,
+        CancellationToken cancellationToken = default);
 }
 
 public abstract class NativeAssetProviderBase
@@ -55,8 +60,7 @@ public abstract class NativeAssetProviderBase
         if (!queryWords.Any(candidateWords.Contains))
             return false;
 
-        var anchors = queryWords.Take(2).ToList();
-        return anchors.Count == 0 || anchors.Any(candidateWords.Contains);
+        return queryWords.Take(2).Any(candidateWords.Contains);
     }
 
     private static List<string> SearchKeywords(string value)
@@ -72,27 +76,41 @@ public abstract class NativeAssetProviderBase
         return result;
     }
 
-    protected static async Task<JsonDocument> GetJsonAsync(HttpClient client, HttpRequestMessage request, CancellationToken cancellationToken)
+    protected static async Task<JsonDocument> GetJsonAsync(
+        HttpClient client,
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
     {
-        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new NativeProviderIntegrationException(
-                $"HTTP {(int)response.StatusCode}\nURL: {request.RequestUri}\nResponse:\n{body}");
-        }
-
         try
         {
-            var document = JsonDocument.Parse(body);
-            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode)
             {
-                document.Dispose();
-                throw new NativeProviderIntegrationException("provider response must be a JSON object");
+                throw new NativeProviderIntegrationException(
+                    $"HTTP {(int)response.StatusCode}\nURL: {request.RequestUri}\nResponse:\n{body}");
             }
-            return document;
+
+            try
+            {
+                var document = JsonDocument.Parse(body);
+                if (document.RootElement.ValueKind != JsonValueKind.Object)
+                {
+                    document.Dispose();
+                    throw new NativeProviderIntegrationException("provider response must be a JSON object");
+                }
+                return document;
+            }
+            catch (JsonException error)
+            {
+                throw new NativeProviderIntegrationException(error.Message);
+            }
         }
-        catch (JsonException error)
+        catch (NativeProviderIntegrationException)
+        {
+            throw;
+        }
+        catch (Exception error)
         {
             throw new NativeProviderIntegrationException(error.Message);
         }
@@ -107,7 +125,29 @@ public abstract class NativeAssetProviderBase
     }
 
     protected static string QueryString(IEnumerable<KeyValuePair<string, string>> values) =>
-        string.Join("&", values.Select(pair => $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}"));
+        string.Join("&", values.Select(pair =>
+            $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}"));
+
+    protected static string ReadString(JsonElement element, string name)
+    {
+        if (!element.TryGetProperty(name, out var value) || value.ValueKind is JsonValueKind.Null or JsonValueKind.Undefined)
+            return "";
+        return value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : value.ToString();
+    }
+
+    protected static int ReadInt(JsonElement element, string name)
+    {
+        if (!element.TryGetProperty(name, out var value)) return 0;
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number)) return number;
+        return int.TryParse(value.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0;
+    }
+
+    protected static double ReadDouble(JsonElement element, string name)
+    {
+        if (!element.TryGetProperty(name, out var value)) return 0;
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var number)) return number;
+        return double.TryParse(value.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0;
+    }
 }
 
 public sealed class NativePexelsAssetProvider : NativeAssetProviderBase, INativeAssetProvider, IDisposable
@@ -125,7 +165,11 @@ public sealed class NativePexelsAssetProvider : NativeAssetProviderBase, INative
         _ownsClient = client is null;
     }
 
-    public async Task<IReadOnlyList<NativeAssetCandidate>> SearchAsync(string query, string kind, int limit, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<NativeAssetCandidate>> SearchAsync(
+        string query,
+        string kind,
+        int limit,
+        CancellationToken cancellationToken = default)
     {
         query = Required(query, "query");
         if (kind is not ("image" or "video"))
@@ -137,12 +181,12 @@ public sealed class NativePexelsAssetProvider : NativeAssetProviderBase, INative
         var queryString = QueryString(new Dictionary<string, string>
         {
             ["query"] = query,
-            ["per_page"] = Math.Clamp(limit, 1, 80).ToString(),
+            ["per_page"] = Math.Clamp(limit, 1, 80).ToString(CultureInfo.InvariantCulture),
             ["orientation"] = "portrait",
         });
 
         using var request = new HttpRequestMessage(HttpMethod.Get, $"{endpoint}?{queryString}");
-        request.Headers.Authorization = new AuthenticationHeaderValue(_apiKey);
+        request.Headers.TryAddWithoutValidation("Authorization", _apiKey);
         using var document = await GetJsonAsync(_client, request, cancellationToken);
         var root = document.RootElement;
         var property = kind == "image" ? "photos" : "videos";
@@ -177,7 +221,7 @@ public sealed class NativePexelsAssetProvider : NativeAssetProviderBase, INative
             }
             else
             {
-                var selected = default(JsonElement?);
+                JsonElement? selected = null;
                 var bestPixels = -1L;
                 if (item.TryGetProperty("video_files", out var files) && files.ValueKind == JsonValueKind.Array)
                 {
@@ -186,15 +230,13 @@ public sealed class NativePexelsAssetProvider : NativeAssetProviderBase, INative
                         if (file.ValueKind != JsonValueKind.Object || string.IsNullOrWhiteSpace(ReadString(file, "link")))
                             continue;
                         var pixels = (long)ReadInt(file, "width") * ReadInt(file, "height");
-                        if (pixels > bestPixels)
-                        {
-                            bestPixels = pixels;
-                            selected = file;
-                        }
+                        if (pixels <= bestPixels) continue;
+                        bestPixels = pixels;
+                        selected = file;
                     }
                 }
 
-                mediaUrl = selected is JsonElement fileElement ? ReadString(fileElement, "link") : "";
+                mediaUrl = selected is JsonElement selectedFile ? ReadString(selectedFile, "link") : "";
                 width = selected is JsonElement selectedWidth ? ReadInt(selectedWidth, "width") : ReadInt(item, "width");
                 height = selected is JsonElement selectedHeight ? ReadInt(selectedHeight, "height") : ReadInt(item, "height");
                 duration = ReadDouble(item, "duration");
@@ -205,8 +247,7 @@ public sealed class NativePexelsAssetProvider : NativeAssetProviderBase, INative
 
             var title = ReadString(item, "alt");
             var sourcePage = ReadString(item, "url");
-            var candidateText = $"{title} {sourcePage}";
-            if (!CandidateIsRelevant(query, candidateText) || string.IsNullOrWhiteSpace(mediaUrl))
+            if (!CandidateIsRelevant(query, $"{title} {sourcePage}") || string.IsNullOrWhiteSpace(mediaUrl))
                 continue;
 
             var id = ReadString(item, "id");
@@ -222,27 +263,6 @@ public sealed class NativePexelsAssetProvider : NativeAssetProviderBase, INative
     public void Dispose()
     {
         if (_ownsClient) _client.Dispose();
-    }
-
-    private static string ReadString(JsonElement element, string name)
-    {
-        if (!element.TryGetProperty(name, out var value) || value.ValueKind == JsonValueKind.Null)
-            return "";
-        return value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : value.ToString();
-    }
-
-    private static int ReadInt(JsonElement element, string name)
-    {
-        if (!element.TryGetProperty(name, out var value)) return 0;
-        if (value.TryGetInt32(out var result)) return result;
-        return int.TryParse(value.ToString(), out result) ? result : 0;
-    }
-
-    private static double ReadDouble(JsonElement element, string name)
-    {
-        if (!element.TryGetProperty(name, out var value)) return 0;
-        if (value.TryGetDouble(out var result)) return result;
-        return double.TryParse(value.ToString(), out result) ? result : 0;
     }
 }
 
@@ -261,7 +281,11 @@ public sealed class NativePixabayAssetProvider : NativeAssetProviderBase, INativ
         _ownsClient = client is null;
     }
 
-    public async Task<IReadOnlyList<NativeAssetCandidate>> SearchAsync(string query, string kind, int limit, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<NativeAssetCandidate>> SearchAsync(
+        string query,
+        string kind,
+        int limit,
+        CancellationToken cancellationToken = default)
     {
         query = Required(query, "query");
         if (kind is not ("image" or "video"))
@@ -272,7 +296,7 @@ public sealed class NativePixabayAssetProvider : NativeAssetProviderBase, INativ
         {
             ["key"] = _apiKey,
             ["q"] = query[..Math.Min(query.Length, 100)],
-            ["per_page"] = Math.Clamp(limit, 3, 200).ToString(),
+            ["per_page"] = Math.Clamp(limit, 3, 200).ToString(CultureInfo.InvariantCulture),
             ["safesearch"] = "true",
             ["orientation"] = "vertical",
         });
@@ -306,7 +330,7 @@ public sealed class NativePixabayAssetProvider : NativeAssetProviderBase, INativ
             }
             else
             {
-                var selected = default(JsonElement?);
+                JsonElement? selected = null;
                 var bestPixels = -1L;
                 if (item.TryGetProperty("videos", out var videos) && videos.ValueKind == JsonValueKind.Object)
                 {
@@ -316,11 +340,9 @@ public sealed class NativePixabayAssetProvider : NativeAssetProviderBase, INativ
                         if (video.ValueKind != JsonValueKind.Object || string.IsNullOrWhiteSpace(ReadString(video, "url")))
                             continue;
                         var pixels = (long)ReadInt(video, "width") * ReadInt(video, "height");
-                        if (pixels > bestPixels)
-                        {
-                            bestPixels = pixels;
-                            selected = video;
-                        }
+                        if (pixels <= bestPixels) continue;
+                        bestPixels = pixels;
+                        selected = video;
                     }
                 }
 
@@ -349,26 +371,5 @@ public sealed class NativePixabayAssetProvider : NativeAssetProviderBase, INativ
     public void Dispose()
     {
         if (_ownsClient) _client.Dispose();
-    }
-
-    private static string ReadString(JsonElement element, string name)
-    {
-        if (!element.TryGetProperty(name, out var value) || value.ValueKind == JsonValueKind.Null)
-            return "";
-        return value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : value.ToString();
-    }
-
-    private static int ReadInt(JsonElement element, string name)
-    {
-        if (!element.TryGetProperty(name, out var value)) return 0;
-        if (value.TryGetInt32(out var result)) return result;
-        return int.TryParse(value.ToString(), out result) ? result : 0;
-    }
-
-    private static double ReadDouble(JsonElement element, string name)
-    {
-        if (!element.TryGetProperty(name, out var value)) return 0;
-        if (value.TryGetDouble(out var result)) return result;
-        return double.TryParse(value.ToString(), out result) ? result : 0;
     }
 }
