@@ -75,6 +75,8 @@ public partial class MainShellWindow
 
         foreach (var project in projects)
             _projectCardsPanel.Children.Add(BuildProjectCard(project));
+
+        UpdateProjectCardSelectionStyles();
     }
 
     private Border BuildProjectCard(DesktopProject project)
@@ -184,13 +186,37 @@ public partial class MainShellWindow
                 return;
             ProjectsGrid.SelectedItem = project;
             UpdateProjectBrowserStatus();
+            UpdateProjectCardSelectionStyles();
         };
         return card;
+    }
+
+    private void UpdateProjectCardSelectionStyles()
+    {
+        if (_projectCardsPanel is null)
+            return;
+
+        var selectedId = (ProjectsGrid.SelectedItem as DesktopProject)?.Id;
+        foreach (var card in _projectCardsPanel.Children.OfType<Border>())
+        {
+            if (card.Tag is not DesktopProject project)
+                continue;
+
+            var selected = selectedId == project.Id;
+            card.Background = selected
+                ? new SolidColorBrush(Color.FromRgb(242, 247, 255))
+                : Brushes.White;
+            card.BorderBrush = selected
+                ? new SolidColorBrush(Color.FromRgb(15, 108, 189))
+                : ProjectCardBorderBrush();
+            card.BorderThickness = selected ? new Thickness(2) : new Thickness(1);
+        }
     }
 
     private void OpenProjectEditor(DesktopProject project)
     {
         ProjectsGrid.SelectedItem = project;
+        UpdateProjectCardSelectionStyles();
         if (_projectsWorkspaceTabs is not null && _projectsWorkspaceTabs.Items.Count > 1)
         {
             _projectsWorkspaceTabs.SelectedIndex = 1;
@@ -200,6 +226,8 @@ public partial class MainShellWindow
 
     private void OpenProjectInProduction(DesktopProject project)
     {
+        ProjectsGrid.SelectedItem = project;
+        UpdateProjectCardSelectionStyles();
         MainTabs.SelectedIndex = 2;
         ApplyNavigationSelection(2);
 
@@ -213,6 +241,8 @@ public partial class MainShellWindow
 
     private void OpenProjectFolderFromCard(DesktopProject project)
     {
+        ProjectsGrid.SelectedItem = project;
+        UpdateProjectCardSelectionStyles();
         try
         {
             var folder = _data.ResolveProjectFolder(project);
