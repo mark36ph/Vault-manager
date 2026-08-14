@@ -5,7 +5,7 @@ using Microsoft.Data.Sqlite;
 
 namespace FactVaultManager.Desktop;
 
-public sealed class DesktopDataService
+public sealed partial class DesktopDataService
 {
     private readonly string _runtimeRoot;
     private readonly string _dataRoot;
