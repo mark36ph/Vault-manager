@@ -17,16 +17,17 @@ Goal: make the desktop application fully C# while preserving current production 
 - Project status/file operations
 - Installed-data migration and updater UI
 - Production project catalog/readiness (`list_projects` retired from Python)
+- Production executor connection/ready handshake (`ping` and `status` retired from Python)
 
 ## Runtime Python still in use
 
-The C# shell currently starts `hybrid/python_worker.py`, which delegates production execution to `hybrid/production_runtime.py`. Project discovery/readiness is now handled natively by C# and is no longer a Python worker command.
+The C# shell currently starts `hybrid/python_worker.py`, which delegates production execution to `hybrid/production_runtime.py`. Project discovery/readiness and worker connection status are now handled natively by C#.
 
-### Worker/protocol
+### Worker/executor
 
 - `hybrid/python_worker.py`
 - `hybrid/production_runtime.py`
-- Remaining worker commands: ping/status, start production, Resolve export, cancel, shutdown
+- Remaining Python worker commands: start production, Resolve export, cancel, shutdown
 
 ### Production orchestration
 
@@ -61,7 +62,7 @@ The `pages/`, `widgets/`, and Python desktop UI entry-point code are no longer t
 ## Migration order
 
 1. **Project catalog/readiness — COMPLETE** — C# `ProductionProjectCatalog` now supplies the Production page. Python `list_projects` and `HybridProductionRuntime.list_projects()` have been removed.
-2. **Worker protocol shell** — replace Python ping/status responsibilities with native C# services; leave only production execution behind the worker temporarily.
+2. **Worker protocol shell — COMPLETE** — C# now owns executor connection/readiness. Python `ping`, `status`, protocol handshake and ready event have been removed; Python is limited to production execution/control commands.
 3. **Provider settings and HTTP clients** — implement native OpenAI, Pexels and Pixabay clients in C# with the same configuration and error behavior.
 4. **Voice/TTS** — move OpenAI narration generation to C# and preserve existing voice file/checkpoint conventions.
 5. **Asset acquisition** — port provider querying, ranking, download, image/video preparation and format handling.
