@@ -44,20 +44,6 @@ class HybridProductionRuntime:
             "timeline_exists": (folder / "timeline.json").is_file(),
         }
 
-    def list_projects(self) -> list[dict[str, Any]]:
-        manager = ProjectManager()
-        try:
-            items = []
-            for row in manager.get_all_projects():
-                project = dict(row)
-                if str(project.get("status") or "") not in {"In Progress", "Completed"}:
-                    continue
-                folder = Path(manager.resolve_project_folder(project))
-                items.append(self._project_payload(project, folder))
-            return items
-        finally:
-            manager.close()
-
     @staticmethod
     def _find_project(project_id: int) -> tuple[dict[str, Any], Path]:
         manager = ProjectManager()
