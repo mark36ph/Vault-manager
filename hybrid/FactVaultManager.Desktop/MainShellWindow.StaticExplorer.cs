@@ -45,6 +45,7 @@ public partial class MainShellWindow
         ApplyPythonDashboardLayout();
         EnsureEmbeddedProductionHost();
         InitializeProjectsWorkflow();
+        InitializeNewFactWorkflow();
         InitializeMediaLibraryWorkflow();
 
         ProjectsGrid.RowHeight = 42;
@@ -157,13 +158,8 @@ public partial class MainShellWindow
 
         page.Children.Add(DashboardSectionTitle("Quick actions"));
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 8, 0, 22) };
-        var newProject = DashboardPrimaryButton("New project");
-        newProject.Click += (_, _) =>
-        {
-            MainTabs.SelectedIndex = 1;
-            ApplyNavigationSelection(1);
-            NewProjectTitleTextBox.Focus();
-        };
+        var newProject = DashboardPrimaryButton("New Fact");
+        newProject.Click += (_, _) => ShowNewFactWorkspace();
         actions.Children.Add(newProject);
         var projects = DashboardSecondaryButton("Projects");
         projects.Click += (_, _) =>
