@@ -22,6 +22,7 @@ public partial class MainShellWindow
 
         var host = new Grid { Margin = new Thickness(0, 10, 0, 0) };
         ProjectsGrid.Visibility = Visibility.Collapsed;
+        Detach(ProjectsGrid);
         host.Children.Add(ProjectsGrid);
 
         _projectCardsPanel = new WrapPanel
