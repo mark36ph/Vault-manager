@@ -5,6 +5,7 @@ namespace FactVaultManager.Desktop;
 
 public sealed class PythonWorkerClient : IAsyncDisposable
 {
+    private const int ProtocolVersion = 2;
     private readonly string _runtimeRoot;
     private readonly ProductionProjectCatalog _projectCatalog;
     private Process? _process;
@@ -20,11 +21,11 @@ public sealed class PythonWorkerClient : IAsyncDisposable
         _projectCatalog = new ProductionProjectCatalog(new DesktopDataService());
     }
 
-    public async Task StartAsync()
+    public Task StartAsync()
     {
         if (IsRunning)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         var bundledWorker = Path.Combine(AppContext.BaseDirectory, "FactVaultWorker.exe");
@@ -82,7 +83,13 @@ public sealed class PythonWorkerClient : IAsyncDisposable
         _ = PumpOutputAsync(_process.StandardOutput, MessageReceived);
         _ = PumpOutputAsync(_process.StandardError, ErrorReceived);
 
-        await SendAsync(new { command = "ping", request_id = Guid.NewGuid().ToString("N") });
+        MessageReceived?.Invoke(JsonSerializer.Serialize(new
+        {
+            type = "ready",
+            protocol = ProtocolVersion,
+            executor = File.Exists(bundledWorker) ? "bundled" : "python",
+        }));
+        return Task.CompletedTask;
     }
 
     private static void MigrateDevelopmentDataIfNeeded(string appDataRoot)
