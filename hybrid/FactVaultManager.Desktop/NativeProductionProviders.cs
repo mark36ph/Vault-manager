@@ -12,6 +12,7 @@ public sealed class NativeProductionProviders : IDisposable
     public NativeOpenAITextProvider ImagePrompts { get; }
     public NativeOpenAISpeechProvider? Voice { get; }
     public NativeAssetProviderRegistry Assets { get; }
+    public NativeAssetAcquisitionEngine AssetAcquisition { get; }
 
     private NativeProductionProviders(
         NativeProviderSettings settings,
@@ -21,7 +22,8 @@ public sealed class NativeProductionProviders : IDisposable
         NativeOpenAITextProvider script,
         NativeOpenAITextProvider imagePrompts,
         NativeOpenAISpeechProvider? voice,
-        NativeAssetProviderRegistry assets)
+        NativeAssetProviderRegistry assets,
+        NativeAssetAcquisitionEngine assetAcquisition)
     {
         Settings = settings;
         Credentials = credentials;
@@ -31,6 +33,7 @@ public sealed class NativeProductionProviders : IDisposable
         ImagePrompts = imagePrompts;
         Voice = voice;
         Assets = assets;
+        AssetAcquisition = assetAcquisition;
 
         _owned.Add(research);
         _owned.Add(facts);
@@ -39,6 +42,7 @@ public sealed class NativeProductionProviders : IDisposable
         if (voice is not null)
             _owned.Add(voice);
         _owned.Add(assets);
+        _owned.Add(assetAcquisition);
     }
 
     public static NativeProductionProviders FromProject(string projectFolder, AppSettingsModel appSettings)
@@ -77,7 +81,8 @@ public sealed class NativeProductionProviders : IDisposable
         }
 
         var assets = NativeAssetProviderRegistry.FromSettings(appSettings);
-        assets.Resolve(settings.AssetProviders);
+        var configuredAssets = assets.Resolve(settings.AssetProviders);
+        var assetAcquisition = new NativeAssetAcquisitionEngine(configuredAssets);
 
         return new NativeProductionProviders(
             settings,
@@ -87,7 +92,8 @@ public sealed class NativeProductionProviders : IDisposable
             script,
             imagePrompts,
             voice,
-            assets);
+            assets,
+            assetAcquisition);
     }
 
     public void Dispose()
