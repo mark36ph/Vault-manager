@@ -20,7 +20,7 @@ public sealed class NativeFfmpegTimelineService
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly Regex EmojiPattern = new(
-        "[\\u2600-\\u27BF\\u200D\\uFE0F\\U0001F1E6-\\U0001FAFF]+",
+        "(?:[\\u2600-\\u27BF\\u200D\\uFE0F]|\\uD83C[\\uDDE6-\\uDDFF\\uDF00-\\uDFFF]|\\uD83D[\\uDC00-\\uDE4F\\uDE80-\\uDFFF]|\\uD83E[\\uDC00-\\uDEFF])+",
         RegexOptions.Compiled);
 
     public Action<string, double, string>? Progress { get; set; }
@@ -110,7 +110,7 @@ public sealed class NativeFfmpegTimelineService
             .Where(track => track.Kind == NativeTimelineTrackKind.Video)
             .SelectMany(track => track.Clips)
             .Where(clip =>
-                clip.Kind is NativeTimelineClipKind.Image or NativeTimelineClipKind.Video &&
+                (clip.Kind is NativeTimelineClipKind.Image or NativeTimelineClipKind.Video) &&
                 !string.IsNullOrWhiteSpace(clip.Source))
             .OrderBy(clip => clip.Start)
             .ToList();
