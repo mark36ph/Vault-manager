@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Markup;
 
 namespace FactVaultManager.Desktop;
 
@@ -10,70 +9,11 @@ public partial class MainShellWindow : Window
     private readonly AppUpdateService _updates = new();
     private List<DesktopProject> _projects = new();
     private DesktopProject? _editingProject;
-    private ProductionWindow? _productionWindow;
 
     public MainShellWindow()
     {
         InitializeComponent();
-        ConfigureNavigation();
         Loaded += (_, _) => RefreshAll();
-    }
-
-    private void ConfigureNavigation()
-    {
-        MainTabs.Padding = new Thickness(10, 8, 0, 8);
-        MainTabs.Margin = new Thickness(20, 18, 18, 18);
-
-        const string navigationStyle = """
-            <Style xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                   TargetType="{x:Type TabItem}">
-                <Setter Property="Width" Value="210" />
-                <Setter Property="Height" Value="48" />
-                <Setter Property="Margin" Value="0,0,12,8" />
-                <Setter Property="Padding" Value="16,0" />
-                <Setter Property="FontSize" Value="14" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="Foreground" Value="#D0D5DD" />
-                <Setter Property="Background" Value="#171A20" />
-                <Setter Property="BorderBrush" Value="#292D36" />
-                <Setter Property="HorizontalContentAlignment" Value="Left" />
-                <Setter Property="VerticalContentAlignment" Value="Center" />
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="{x:Type TabItem}">
-                            <Border x:Name="NavBorder"
-                                    Background="{TemplateBinding Background}"
-                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                    BorderThickness="1"
-                                    CornerRadius="8"
-                                    Margin="{TemplateBinding Margin}"
-                                    Padding="{TemplateBinding Padding}">
-                                <ContentPresenter ContentSource="Header"
-                                                  HorizontalAlignment="Left"
-                                                  VerticalAlignment="Center" />
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="NavBorder" Property="Background" Value="#242932" />
-                                </Trigger>
-                                <Trigger Property="IsSelected" Value="True">
-                                    <Setter TargetName="NavBorder" Property="Background" Value="#2563EB" />
-                                    <Setter TargetName="NavBorder" Property="BorderBrush" Value="#3B82F6" />
-                                    <Setter Property="Foreground" Value="#FFFFFF" />
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-            """;
-
-        var style = (Style)XamlReader.Parse(navigationStyle);
-        foreach (var tab in MainTabs.Items.OfType<TabItem>())
-        {
-            tab.Style = style;
-        }
     }
 
     private void RefreshAll()
@@ -116,18 +56,8 @@ public partial class MainShellWindow : Window
 
     private void OpenProduction_Click(object sender, RoutedEventArgs e)
     {
-        if (_productionWindow is { IsVisible: true })
-        {
-            _productionWindow.Activate();
-            return;
-        }
-        _productionWindow = new ProductionWindow { Owner = this };
-        _productionWindow.Closed += (_, _) =>
-        {
-            _productionWindow = null;
-            RefreshAll();
-        };
-        _productionWindow.Show();
+        MainTabs.SelectedIndex = 2;
+        ApplyNavigationSelection(2);
     }
 
     private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
