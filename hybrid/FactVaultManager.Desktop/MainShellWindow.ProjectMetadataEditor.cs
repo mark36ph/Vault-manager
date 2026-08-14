@@ -18,14 +18,18 @@ public partial class MainShellWindow
         if (_projectsWorkspaceTabs.Items[1] is not TabItem editorTab || editorTab.Content is not DependencyObject editorContent)
             return;
 
-        var editorSections = FindLogicalChild<TabControl>(editorContent);
+        var editorSections = FindEditorSections(editorContent);
         if (editorSections is null)
             return;
 
-        var productionTab = new TabItem
+        if (editorSections.Items.OfType<TabItem>().Any(item =>
+                string.Equals(item.Header?.ToString(), "Production Content", StringComparison.OrdinalIgnoreCase)))
         {
-            Header = "Production Content",
-        };
+            _projectMetadataEditorInitialized = true;
+            return;
+        }
+
+        var productionTab = new TabItem { Header = "Production Content" };
         if (FindResource("SectionTabStyle") is Style sectionStyle)
             productionTab.Style = sectionStyle;
 
@@ -66,7 +70,7 @@ public partial class MainShellWindow
         });
         content.Children.Add(new TextBlock
         {
-            Text = "Scene and visual guidance kept separate from notes and search instructions.",
+            Text = "Scene and visual guidance kept separate from Notes and search instructions.",
             Foreground = new SolidColorBrush(Color.FromRgb(102, 112, 133)),
             FontSize = 11,
             Margin = new Thickness(0, 3, 0, 6),
@@ -88,19 +92,42 @@ public partial class MainShellWindow
             ApplyProjectProductionMetadata(project);
     }
 
-    private static T? FindLogicalChild<T>(DependencyObject root) where T : DependencyObject
+    private static TabControl? FindEditorSections(DependencyObject root)
     {
+        if (root is TabControl tabs)
+            return tabs;
+
+        if (root is ContentControl contentControl && contentControl.Content is DependencyObject contentChild)
+        {
+            var found = FindEditorSections(contentChild);
+            if (found is not null)
+                return found;
+        }
+
+        if (root is Decorator decorator && decorator.Child is DependencyObject decoratorChild)
+        {
+            var found = FindEditorSections(decoratorChild);
+            if (found is not null)
+                return found;
+        }
+
+        if (root is Panel panel)
+        {
+            foreach (UIElement child in panel.Children)
+            {
+                var found = FindEditorSections(child);
+                if (found is not null)
+                    return found;
+            }
+        }
+
         foreach (var child in LogicalTreeHelper.GetChildren(root))
         {
-            if (child is T match)
-                return match;
-
-            if (child is DependencyObject dependencyObject)
-            {
-                var nested = FindLogicalChild<T>(dependencyObject);
-                if (nested is not null)
-                    return nested;
-            }
+            if (child is not DependencyObject dependencyObject)
+                continue;
+            var found = FindEditorSections(dependencyObject);
+            if (found is not null)
+                return found;
         }
 
         return null;
