@@ -191,4 +191,4 @@ public sealed record NewFactData(
     string Tags,
     string Notes,
     string Sources,
-    string Template);
+    string Template = "Standard Fact");
