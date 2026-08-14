@@ -6,6 +6,7 @@ namespace FactVaultManager.Desktop;
 public sealed class PythonWorkerClient : IAsyncDisposable
 {
     private readonly string _runtimeRoot;
+    private readonly ProductionProjectCatalog _projectCatalog;
     private Process? _process;
 
     public event Action<string>? MessageReceived;
@@ -16,6 +17,7 @@ public sealed class PythonWorkerClient : IAsyncDisposable
     public PythonWorkerClient(string runtimeRoot)
     {
         _runtimeRoot = runtimeRoot;
+        _projectCatalog = new ProductionProjectCatalog(new DesktopDataService());
     }
 
     public async Task StartAsync()
@@ -156,6 +158,39 @@ public sealed class PythonWorkerClient : IAsyncDisposable
         }
 
         var json = JsonSerializer.Serialize(payload);
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        var command = root.TryGetProperty("command", out var commandElement)
+            ? commandElement.GetString() ?? ""
+            : "";
+
+        if (string.Equals(command, "list_projects", StringComparison.OrdinalIgnoreCase))
+        {
+            var requestId = root.TryGetProperty("request_id", out var requestIdElement)
+                ? requestIdElement.ToString()
+                : "";
+            var projects = _projectCatalog.GetProjects()
+                .Select(project => new
+                {
+                    id = project.Id,
+                    title = project.Title,
+                    status = project.Status,
+                    category = project.Category,
+                    folder = project.Folder,
+                    folder_exists = project.FolderExists,
+                    checkpoint_exists = project.CheckpointExists,
+                    timeline_exists = project.TimelineExists,
+                })
+                .ToList();
+            MessageReceived?.Invoke(JsonSerializer.Serialize(new
+            {
+                type = "projects",
+                request_id = requestId,
+                projects,
+            }));
+            return;
+        }
+
         await _process.StandardInput.WriteLineAsync(json);
         await _process.StandardInput.FlushAsync();
     }
