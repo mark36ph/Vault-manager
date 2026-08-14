@@ -13,6 +13,8 @@ public sealed class NativeProductionProviders : IDisposable
     public NativeOpenAISpeechProvider? Voice { get; }
     public NativeAssetProviderRegistry Assets { get; }
     public NativeAssetAcquisitionEngine AssetAcquisition { get; }
+    public INativeAssetVerifier AssetVerifier { get; }
+    public NativeVerifiedAssetAcquisitionEngine VerifiedAssetAcquisition { get; }
 
     private NativeProductionProviders(
         NativeProviderSettings settings,
@@ -23,7 +25,10 @@ public sealed class NativeProductionProviders : IDisposable
         NativeOpenAITextProvider imagePrompts,
         NativeOpenAISpeechProvider? voice,
         NativeAssetProviderRegistry assets,
-        NativeAssetAcquisitionEngine assetAcquisition)
+        NativeAssetAcquisitionEngine assetAcquisition,
+        INativeAssetVerifier assetVerifier,
+        NativeVerifiedAssetAcquisitionEngine verifiedAssetAcquisition,
+        IDisposable ownedVerifier)
     {
         Settings = settings;
         Credentials = credentials;
@@ -34,6 +39,8 @@ public sealed class NativeProductionProviders : IDisposable
         Voice = voice;
         Assets = assets;
         AssetAcquisition = assetAcquisition;
+        AssetVerifier = assetVerifier;
+        VerifiedAssetAcquisition = verifiedAssetAcquisition;
 
         _owned.Add(research);
         _owned.Add(facts);
@@ -43,6 +50,7 @@ public sealed class NativeProductionProviders : IDisposable
             _owned.Add(voice);
         _owned.Add(assets);
         _owned.Add(assetAcquisition);
+        _owned.Add(ownedVerifier);
     }
 
     public static NativeProductionProviders FromProject(string projectFolder, AppSettingsModel appSettings)
@@ -83,6 +91,9 @@ public sealed class NativeProductionProviders : IDisposable
         var assets = NativeAssetProviderRegistry.FromSettings(appSettings);
         var configuredAssets = assets.Resolve(settings.AssetProviders);
         var assetAcquisition = new NativeAssetAcquisitionEngine(configuredAssets);
+        var openAiVerifier = new NativeOpenAIImageRelevanceVerifier(openAiKey, settings.OpenAiModel);
+        INativeAssetVerifier assetVerifier = new NativeNamedSubjectVerifier(openAiVerifier);
+        var verifiedAssetAcquisition = new NativeVerifiedAssetAcquisitionEngine(assetAcquisition, assetVerifier);
 
         return new NativeProductionProviders(
             settings,
@@ -93,7 +104,10 @@ public sealed class NativeProductionProviders : IDisposable
             imagePrompts,
             voice,
             assets,
-            assetAcquisition);
+            assetAcquisition,
+            assetVerifier,
+            verifiedAssetAcquisition,
+            openAiVerifier);
     }
 
     public void Dispose()
