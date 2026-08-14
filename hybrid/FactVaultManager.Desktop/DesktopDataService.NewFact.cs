@@ -21,6 +21,34 @@ public sealed partial class DesktopDataService
         return categories.Count > 0 ? categories : new[] { "Misc" };
     }
 
+    public IReadOnlyList<string> GetTemplates()
+    {
+        var root = ResolveTemplatesRoot();
+        if (!Directory.Exists(root)) return new[] { "Standard Fact" };
+
+        var templates = Directory.GetDirectories(root)
+            .Select(Path.GetFileName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Cast<string>()
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return templates.Count > 0 ? templates : new[] { "Standard Fact" };
+    }
+
+    public void ApplyTemplate(DesktopProject project, string template)
+    {
+        var selected = (template ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(selected)) return;
+
+        var source = Path.Combine(ResolveTemplatesRoot(), selected);
+        if (!Directory.Exists(source)) return;
+
+        var destination = ResolveProjectFolder(project);
+        Directory.CreateDirectory(destination);
+        CopyTemplateDirectory(source, destination);
+    }
+
     public DesktopProject CreateFactProject(NewFactData fact)
     {
         var title = fact.Title.Trim();
@@ -119,6 +147,35 @@ public sealed partial class DesktopDataService
 
         return GetProjects().First(item => item.Id == id);
     }
+
+    private static string ResolveTemplatesRoot()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(Directory.GetCurrentDirectory(), "templates"),
+            Path.Combine(AppContext.BaseDirectory, "templates"),
+            Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "templates")),
+        };
+
+        return candidates.FirstOrDefault(Directory.Exists) ?? candidates[0];
+    }
+
+    private static void CopyTemplateDirectory(string source, string destination)
+    {
+        foreach (var directory in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(source, directory);
+            Directory.CreateDirectory(Path.Combine(destination, relative));
+        }
+
+        foreach (var file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(source, file);
+            var target = Path.Combine(destination, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.Copy(file, target, overwrite: true);
+        }
+    }
 }
 
 public sealed record NewFactData(
@@ -133,4 +190,5 @@ public sealed record NewFactData(
     string PinnedComment,
     string Tags,
     string Notes,
-    string Sources);
+    string Sources,
+    string Template);
