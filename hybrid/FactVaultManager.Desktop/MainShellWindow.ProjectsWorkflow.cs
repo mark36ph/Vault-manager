@@ -15,6 +15,8 @@ public partial class MainShellWindow
     private readonly Dictionary<string, Button> _projectFilterButtons = new(StringComparer.OrdinalIgnoreCase);
     private string _projectsStatusFilter = "All";
     private TabControl? _projectsWorkspaceTabs;
+    private UIElement? _projectsHeaderArea;
+    private UIElement? _projectsFilterArea;
     private bool _projectsWorkflowInitialized;
 
     protected override void OnActivated(EventArgs e)
@@ -39,6 +41,17 @@ public partial class MainShellWindow
         _projectsWorkflowInitialized = true;
         _projectsWorkspaceTabs = FindVisualChildren<TabControl>(projectsPage)
             .FirstOrDefault(control => !ReferenceEquals(control, MainTabs));
+
+        if (_projectsWorkspaceTabs?.Parent is Grid projectsRoot)
+        {
+            _projectsHeaderArea = projectsRoot.Children
+                .Cast<UIElement>()
+                .FirstOrDefault(child => Grid.GetRow(child) == 0);
+            _projectsFilterArea = projectsRoot.Children
+                .Cast<UIElement>()
+                .FirstOrDefault(child => Grid.GetRow(child) == 1);
+            _projectsWorkspaceTabs.SelectionChanged += (_, _) => UpdateProjectsModeLayout();
+        }
 
         var textBoxes = FindVisualChildren<TextBox>(projectsPage).ToList();
         _projectsSearchBox = textBoxes.FirstOrDefault(box =>
@@ -88,7 +101,23 @@ public partial class MainShellWindow
 
         UpdateProjectFilterStyles();
         ApplyProjectsFilter();
+        UpdateProjectsModeLayout();
         Dispatcher.BeginInvoke(new Action(InitializeProjectMetadataEditor));
+    }
+
+    private void UpdateProjectsModeLayout()
+    {
+        if (_projectsWorkspaceTabs is null)
+            return;
+
+        var editing = _projectsWorkspaceTabs.SelectedIndex == 1;
+        if (_projectsHeaderArea is not null)
+            _projectsHeaderArea.Visibility = editing ? Visibility.Collapsed : Visibility.Visible;
+        if (_projectsFilterArea is not null)
+            _projectsFilterArea.Visibility = editing ? Visibility.Collapsed : Visibility.Visible;
+
+        if (editing)
+            InitializeProjectMetadataEditor();
     }
 
     private void ProjectFilter_Click(object sender, RoutedEventArgs e)
@@ -170,6 +199,7 @@ public partial class MainShellWindow
         if (_projectsWorkspaceTabs is not null && _projectsWorkspaceTabs.Items.Count > 1)
         {
             _projectsWorkspaceTabs.SelectedIndex = 1;
+            UpdateProjectsModeLayout();
         }
     }
 
