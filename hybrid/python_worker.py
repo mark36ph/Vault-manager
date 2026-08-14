@@ -57,8 +57,6 @@ def run_worker() -> int:
                         "production_running": runtime.running,
                     }
                 )
-            elif command == "list_projects":
-                emit({"type": "projects", "request_id": request_id, "projects": runtime.list_projects()})
             elif command == "start_production":
                 runtime.start(payload)
                 emit({"type": "accepted", "request_id": request_id, "command": command})
