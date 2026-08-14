@@ -34,24 +34,26 @@ public partial class MainShellWindow
     private void InitializeProjectsWorkflow()
     {
         if (_projectsWorkflowInitialized || MainTabs.Items.Count < 2 || MainTabs.Items[1] is not TabItem projectsPage)
-        {
             return;
-        }
+
+        if (projectsPage.Content is not Grid projectsRoot)
+            return;
+
+        _projectsHeaderArea = projectsRoot.Children
+            .Cast<UIElement>()
+            .FirstOrDefault(child => Grid.GetRow(child) == 0);
+        _projectsFilterArea = projectsRoot.Children
+            .Cast<UIElement>()
+            .FirstOrDefault(child => Grid.GetRow(child) == 1);
+        _projectsWorkspaceTabs = projectsRoot.Children
+            .OfType<TabControl>()
+            .FirstOrDefault(control => Grid.GetRow(control) == 2);
+
+        if (_projectsWorkspaceTabs is null)
+            return;
 
         _projectsWorkflowInitialized = true;
-        _projectsWorkspaceTabs = FindVisualChildren<TabControl>(projectsPage)
-            .FirstOrDefault(control => !ReferenceEquals(control, MainTabs));
-
-        if (_projectsWorkspaceTabs?.Parent is Grid projectsRoot)
-        {
-            _projectsHeaderArea = projectsRoot.Children
-                .Cast<UIElement>()
-                .FirstOrDefault(child => Grid.GetRow(child) == 0);
-            _projectsFilterArea = projectsRoot.Children
-                .Cast<UIElement>()
-                .FirstOrDefault(child => Grid.GetRow(child) == 1);
-            _projectsWorkspaceTabs.SelectionChanged += (_, _) => UpdateProjectsModeLayout();
-        }
+        _projectsWorkspaceTabs.SelectionChanged += ProjectsWorkspaceTabs_SelectionChanged;
 
         var textBoxes = FindVisualChildren<TextBox>(projectsPage).ToList();
         _projectsSearchBox = textBoxes.FirstOrDefault(box =>
@@ -105,6 +107,14 @@ public partial class MainShellWindow
         Dispatcher.BeginInvoke(new Action(InitializeProjectMetadataEditor));
     }
 
+    private void ProjectsWorkspaceTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!ReferenceEquals(e.OriginalSource, _projectsWorkspaceTabs))
+            return;
+
+        UpdateProjectsModeLayout();
+    }
+
     private void UpdateProjectsModeLayout()
     {
         if (_projectsWorkspaceTabs is null)
@@ -117,15 +127,13 @@ public partial class MainShellWindow
             _projectsFilterArea.Visibility = editing ? Visibility.Collapsed : Visibility.Visible;
 
         if (editing)
-            InitializeProjectMetadataEditor();
+            Dispatcher.BeginInvoke(new Action(InitializeProjectMetadataEditor));
     }
 
     private void ProjectFilter_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button button)
-        {
             return;
-        }
 
         var requested = button.Content?.ToString()?.Trim() ?? "All";
         _projectsStatusFilter = _projectFilterButtons.ContainsKey(requested) ? requested : "All";
@@ -152,9 +160,7 @@ public partial class MainShellWindow
     private void ApplyProjectsFilter()
     {
         if (ProjectsGrid is null)
-        {
             return;
-        }
 
         var search = (_projectsSearchBox?.Text ?? "").Trim();
         var selectedId = (ProjectsGrid.SelectedItem as DesktopProject)?.Id;
@@ -173,18 +179,12 @@ public partial class MainShellWindow
         ProjectsGrid.ItemsSource = filtered;
 
         if (selectedId is int id)
-        {
             ProjectsGrid.SelectedItem = filtered.FirstOrDefault(project => project.Id == id);
-        }
         if (ProjectsGrid.SelectedItem is null && filtered.Count > 0)
-        {
             ProjectsGrid.SelectedIndex = 0;
-        }
 
         if (_projectsResultCount is not null)
-        {
             _projectsResultCount.Text = filtered.Count == 1 ? "1 project" : $"{filtered.Count} projects";
-        }
 
         UpdateProjectBrowserStatus();
     }
@@ -192,9 +192,7 @@ public partial class MainShellWindow
     private void ProjectsGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (ProjectsGrid.SelectedItem is not DesktopProject)
-        {
             return;
-        }
 
         if (_projectsWorkspaceTabs is not null && _projectsWorkspaceTabs.Items.Count > 1)
         {
@@ -206,9 +204,7 @@ public partial class MainShellWindow
     private void UpdateProjectBrowserStatus()
     {
         if (ProjectsGrid.SelectedItem is not DesktopProject project)
-        {
             return;
-        }
 
         HeaderStatusText.Text = $"Selected: {project.Title} • {project.Status}";
     }
