@@ -21,6 +21,7 @@ public partial class MainShellWindow
     {
         base.OnActivated(e);
         InitializeProjectsWorkflow();
+        InitializeProjectMetadataEditor();
         InitializeNewFactWorkflow();
         InitializeMediaLibraryWorkflow();
         Dispatcher.BeginInvoke(new Action(InitializeAssetReviewWorkflow));
@@ -87,6 +88,7 @@ public partial class MainShellWindow
 
         UpdateProjectFilterStyles();
         ApplyProjectsFilter();
+        Dispatcher.BeginInvoke(new Action(InitializeProjectMetadataEditor));
     }
 
     private void ProjectFilter_Click(object sender, RoutedEventArgs e)
