@@ -11,6 +11,7 @@ from common.named_asset_hierarchy import install_named_asset_hierarchy
 from common.named_subject_verification import NamedSubjectVerifier
 from common.production_ui import ProductionUIController, ProductionViewState
 from common.provider_setup import ProviderCredentials, ProviderSettingsStore, build_configured_providers
+from common.resolve_production import ResolveProductionService
 from common.settings_manager import SettingsManager
 from common.verified_asset_acquisition import install_visual_verification
 from project_manager import ProjectManager
@@ -213,6 +214,30 @@ class HybridProductionRuntime:
             self.controller.resume(project, folder, settings, **options)
         else:
             self.controller.start(project, folder, settings, **options)
+
+    def export_resolve(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        if self.running:
+            raise ValueError("cannot create a Resolve export while production is running")
+        try:
+            project_id = int(payload.get("project_id"))
+        except (TypeError, ValueError) as error:
+            raise ValueError("project_id must be an integer") from error
+        project, folder = self._find_project(project_id)
+        timeline_path = folder / "timeline.json"
+        if not timeline_path.is_file():
+            raise ValueError("this project does not have a completed timeline yet")
+        result = ResolveProductionService().run(
+            project,
+            folder,
+            self._production_settings(),
+            materialize=False,
+            launch=False,
+        )
+        return {
+            "type": "resolve_export_ready",
+            "project_id": project_id,
+            "path": str(result.fcpxml.path),
+        }
 
     def cancel(self) -> bool:
         return bool(self.controller is not None and self.controller.cancel())
