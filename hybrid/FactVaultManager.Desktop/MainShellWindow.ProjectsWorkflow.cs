@@ -24,6 +24,7 @@ public partial class MainShellWindow
         InitializeMediaLibraryWorkflow();
         Dispatcher.BeginInvoke(new Action(InitializeAssetReviewWorkflow));
         Dispatcher.BeginInvoke(new Action(InitializeSettingsWorkflow));
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, new Action(ApplyProductionPolish));
     }
 
     private void InitializeProjectsWorkflow()
