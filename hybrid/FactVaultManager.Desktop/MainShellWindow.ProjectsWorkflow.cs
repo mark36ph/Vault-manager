@@ -23,6 +23,7 @@ public partial class MainShellWindow
     {
         base.OnActivated(e);
         InitializeProjectsWorkflow();
+        ConfigureNewFactToolbar();
         InitializeProjectCardsWorkflow();
         InitializeProjectMetadataEditor();
         InitializeNewFactWorkflow();
@@ -55,6 +56,7 @@ public partial class MainShellWindow
 
         _projectsWorkflowInitialized = true;
         _projectsWorkspaceTabs.SelectionChanged += ProjectsWorkspaceTabs_SelectionChanged;
+        ConfigureNewFactToolbar();
 
         var textBoxes = FindVisualChildren<TextBox>(projectsPage).ToList();
         _projectsSearchBox = textBoxes.FirstOrDefault(box =>
