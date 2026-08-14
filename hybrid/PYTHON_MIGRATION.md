@@ -18,6 +18,7 @@ Goal: make the desktop application fully C# while preserving current production 
 - Installed-data migration and updater UI
 - Production project catalog/readiness (`list_projects` retired from Python)
 - Production executor connection/ready handshake (`ping` and `status` retired from Python)
+- Native Pexels/Pixabay search clients and configured-provider registry (not yet switched into production execution)
 
 ## Runtime Python still in use
 
@@ -39,7 +40,8 @@ The C# shell currently starts `hybrid/python_worker.py`, which delegates product
 
 - `common/provider_setup.py`
 - OpenAI text/TTS provider code reached through provider setup
-- Pexels/Pixabay provider integrations reached through provider setup
+- Python Pexels/Pixabay integrations are still used by production until the C# asset-acquisition path is wired in
+- Native C# equivalents now exist in `NativeAssetProviders.cs` and `NativeAssetProviderRegistry.cs`
 
 ### Asset acquisition and verification
 
@@ -63,9 +65,9 @@ The `pages/`, `widgets/`, and Python desktop UI entry-point code are no longer t
 
 1. **Project catalog/readiness — COMPLETE** — C# `ProductionProjectCatalog` now supplies the Production page. Python `list_projects` and `HybridProductionRuntime.list_projects()` have been removed.
 2. **Worker protocol shell — COMPLETE** — C# now owns executor connection/readiness. Python `ping`, `status`, protocol handshake and ready event have been removed; Python is limited to production execution/control commands.
-3. **Provider settings and HTTP clients** — implement native OpenAI, Pexels and Pixabay clients in C# with the same configuration and error behavior.
+3. **Provider settings and HTTP clients — IN PROGRESS** — native Pexels and Pixabay search clients plus a settings-backed provider registry are now in C#. Production still uses the Python provider path until native asset acquisition is connected. OpenAI HTTP clients remain to be ported.
 4. **Voice/TTS** — move OpenAI narration generation to C# and preserve existing voice file/checkpoint conventions.
-5. **Asset acquisition** — port provider querying, ranking, download, image/video preparation and format handling.
+5. **Asset acquisition** — port provider querying, ranking, download, image/video preparation and format handling, then switch production from Python Pexels/Pixabay to the native clients.
 6. **Visual/named-subject verification** — port the current topic-neutral verifier behavior and uncertainty/fallback rules with parity tests.
 7. **Timeline/FFmpeg** — port production assembly, inline captions and FFmpeg process control while preserving current output files.
 8. **Resolve/FCPXML** — port export generation and path rebasing to C#.
