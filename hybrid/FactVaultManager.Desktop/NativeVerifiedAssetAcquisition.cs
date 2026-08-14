@@ -57,7 +57,9 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         if (!kind.Equals("image", StringComparison.OrdinalIgnoreCase))
             return await _engine.AcquireAsync(query, destinationFolder, kind, limit, targetRatio, attempts, excluded, cancellationToken);
 
-        var blocked = new HashSet<string>(excluded ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+        var blocked = excluded is null
+            ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(excluded, StringComparer.OrdinalIgnoreCase);
         var checkedItems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var failures = new List<string>();
         NativeAcquiredAsset? decorativeFallback = null;
