@@ -35,6 +35,7 @@ public partial class MainShellWindow
         Detach(AssetProjectComboBox);
         Detach(AssetReviewGrid);
 
+        AssetProjectComboBox.SelectionChanged += (_, _) => RefreshAssetReviewWorkspace();
         AssetReviewGrid.SelectionChanged += (_, _) => UpdateSelectedAssetReviewDetails();
         AssetReviewGrid.AutoGenerateColumns = false;
         AssetReviewGrid.IsReadOnly = true;
