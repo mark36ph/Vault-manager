@@ -22,5 +22,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FactVaultManager.Desktop\FactVaultManager.Desktop.csproj" />
+    <Using Include="Xunit" />
   </ItemGroup>
 </Project>
