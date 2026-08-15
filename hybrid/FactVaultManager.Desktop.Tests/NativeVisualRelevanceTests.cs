@@ -170,7 +170,7 @@ public sealed class NativeVisualRelevanceTests
     }
 
     [Fact]
-    public async Task SuspiciousMetadata_TriggersIndependentSubjectOnlyRecheck()
+    public async Task SpecificMetadataWithoutSubject_IsRejectedEvenWhenVisionMisidentifiesIt()
     {
         var candidates = new[]
         {
@@ -183,15 +183,6 @@ public sealed class NativeVisualRelevanceTests
         var verifier = new StubVerifier((query, asset) =>
         {
             seenQueries.Add($"{asset.Candidate.Id}:{query}");
-            if (asset.Candidate.Id == "marmot" &&
-                query.Equals("subject wombat", StringComparison.OrdinalIgnoreCase))
-            {
-                return VerificationResult(
-                    subjectVisible: false,
-                    sceneEvidenceVisible: false,
-                    accepted: false,
-                    decision: "wombat absent");
-            }
             return VerificationResult(subjectVisible: true, sceneEvidenceVisible: true);
         });
         var verified = new NativeVerifiedAssetAcquisitionEngine(engine, verifier);
@@ -206,8 +197,41 @@ public sealed class NativeVisualRelevanceTests
                 requiredSubject: "wombat");
 
             Assert.Equal("wombat", result.Candidate.Id);
-            Assert.Contains(seenQueries, value =>
+            Assert.DoesNotContain(seenQueries, value =>
                 value.Equals("marmot:subject wombat", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            DeleteFolder(folder);
+        }
+    }
+
+    [Fact]
+    public async Task VagueMetadataWithoutSubject_StillGetsIndependentVisualChance()
+    {
+        var candidate = TestCandidate("vague", 100, "wildlife portrait");
+        using var client = new HttpClient(new StubDownloadHandler());
+        using var engine = new NativeAssetAcquisitionEngine(new[] { new StubProvider(new[] { candidate }) }, client);
+        var seenQueries = new List<string>();
+        var verifier = new StubVerifier((query, _) =>
+        {
+            seenQueries.Add(query);
+            return VerificationResult(subjectVisible: true, sceneEvidenceVisible: false);
+        });
+        var verified = new NativeVerifiedAssetAcquisitionEngine(engine, verifier);
+        var folder = TestFolder();
+
+        try
+        {
+            var result = await verified.AcquireAsync(
+                "wombat close up wildlife",
+                folder,
+                attempts: 1,
+                requiredSubject: "wombat");
+
+            Assert.Equal("vague", result.Candidate.Id);
+            Assert.Contains(seenQueries, query =>
+                query.Equals("subject wombat", StringComparison.OrdinalIgnoreCase));
         }
         finally
         {
