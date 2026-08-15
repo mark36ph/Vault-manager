@@ -257,20 +257,27 @@ public sealed partial class DesktopDataService
     {
         if (!File.Exists(_settingsPath)) return new AppSettingsModel();
         var node = JsonNode.Parse(File.ReadAllText(_settingsPath)) as JsonObject ?? new JsonObject();
-        return new AppSettingsModel
+        var openAiStored = node["ai"]?["api_key"]?.GetValue<string>() ?? "";
+        var pexelsStored = node["images"]?["pexels_api_key"]?.GetValue<string>() ?? "";
+        var pixabayStored = node["images"]?["pixabay_api_key"]?.GetValue<string>() ?? "";
+
+        var settings = new AppSettingsModel
         {
             ProjectsFolder = node["general"]?["projects_folder"]?.GetValue<string>() ?? "",
             Theme = node["general"]?["theme"]?.GetValue<string>() ?? "dark",
-            OpenAiKey = node["ai"]?["api_key"]?.GetValue<string>() ?? "",
+            OpenAiKey = LocalSecretProtector.Unprotect(openAiStored),
             OpenAiModel = node["ai"]?["model"]?.GetValue<string>() ?? "",
-            PexelsKey = node["images"]?["pexels_api_key"]?.GetValue<string>() ?? "",
-            PixabayKey = node["images"]?["pixabay_api_key"]?.GetValue<string>() ?? "",
+            PexelsKey = LocalSecretProtector.Unprotect(pexelsStored),
+            PixabayKey = LocalSecretProtector.Unprotect(pixabayStored),
             ResolvePath = node["resolve"]?["application_path"]?.GetValue<string>() ?? "",
             TimelineWidth = node["resolve"]?["timeline_width"]?.GetValue<int>() ?? 1080,
             TimelineHeight = node["resolve"]?["timeline_height"]?.GetValue<int>() ?? 1920,
             FrameRate = node["resolve"]?["frame_rate"]?.GetValue<double>() ?? 30,
             CheckUpdates = node["general"]?["check_updates"]?.GetValue<bool>() ?? true,
         };
+
+        TryMigrateLegacySecrets(node, openAiStored, pexelsStored, pixabayStored);
+        return settings;
     }
 
     public void SaveSettings(AppSettingsModel settings)
@@ -287,15 +294,50 @@ public sealed partial class DesktopDataService
         general["projects_folder"] = settings.ProjectsFolder;
         general["theme"] = settings.Theme;
         general["check_updates"] = settings.CheckUpdates;
-        ai["api_key"] = settings.OpenAiKey;
+        ai["api_key"] = LocalSecretProtector.Protect(settings.OpenAiKey);
         ai["model"] = settings.OpenAiModel;
-        images["pexels_api_key"] = settings.PexelsKey;
-        images["pixabay_api_key"] = settings.PixabayKey;
+        images["pexels_api_key"] = LocalSecretProtector.Protect(settings.PexelsKey);
+        images["pixabay_api_key"] = LocalSecretProtector.Protect(settings.PixabayKey);
         resolve["application_path"] = settings.ResolvePath;
         resolve["timeline_width"] = settings.TimelineWidth;
         resolve["timeline_height"] = settings.TimelineHeight;
         resolve["frame_rate"] = settings.FrameRate;
-        File.WriteAllText(_settingsPath, node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        WriteSettingsNode(node);
+    }
+
+    private void TryMigrateLegacySecrets(JsonObject node, string openAiStored, string pexelsStored, string pixabayStored)
+    {
+        if (!LocalSecretProtector.NeedsMigration(openAiStored) &&
+            !LocalSecretProtector.NeedsMigration(pexelsStored) &&
+            !LocalSecretProtector.NeedsMigration(pixabayStored))
+            return;
+
+        try
+        {
+            var ai = node["ai"] as JsonObject ?? new JsonObject();
+            var images = node["images"] as JsonObject ?? new JsonObject();
+            node["ai"] = ai;
+            node["images"] = images;
+            if (LocalSecretProtector.NeedsMigration(openAiStored))
+                ai["api_key"] = LocalSecretProtector.Protect(openAiStored);
+            if (LocalSecretProtector.NeedsMigration(pexelsStored))
+                images["pexels_api_key"] = LocalSecretProtector.Protect(pexelsStored);
+            if (LocalSecretProtector.NeedsMigration(pixabayStored))
+                images["pixabay_api_key"] = LocalSecretProtector.Protect(pixabayStored);
+            WriteSettingsNode(node);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            System.Diagnostics.Debug.WriteLine($"Could not migrate plaintext provider credentials: {error.Message}");
+        }
+    }
+
+    private void WriteSettingsNode(JsonObject node)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
+        var temporary = _settingsPath + ".tmp";
+        File.WriteAllText(temporary, node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        File.Move(temporary, _settingsPath, overwrite: true);
     }
 
     private string GetProjectsRoot()
