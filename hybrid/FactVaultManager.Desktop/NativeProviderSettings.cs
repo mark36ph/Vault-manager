@@ -5,7 +5,7 @@ namespace FactVaultManager.Desktop;
 public sealed record NativeProviderSettings
 {
     public string TextProvider { get; init; } = "openai";
-    public IReadOnlyList<string> AssetProviders { get; init; } = ["pexels", "pixabay"];
+    public IReadOnlyList<string> AssetProviders { get; init; } = ["pexels", "pixabay", "openverse"];
     public string VoiceProvider { get; init; } = "openai";
     public string OpenAiModel { get; init; } = "gpt-5-mini";
     public string OpenAiVoiceModel { get; init; } = "gpt-4o-mini-tts";
@@ -25,7 +25,8 @@ public sealed record NativeProviderSettings
 
         var unknownAssets = AssetProviders
             .Where(name => !string.Equals(name, "pexels", StringComparison.OrdinalIgnoreCase) &&
-                           !string.Equals(name, "pixabay", StringComparison.OrdinalIgnoreCase))
+                           !string.Equals(name, "pixabay", StringComparison.OrdinalIgnoreCase) &&
+                           !string.Equals(name, "openverse", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -71,6 +72,7 @@ public sealed class NativeProviderSettingsStore
             var json = File.ReadAllText(Path);
             var settings = JsonSerializer.Deserialize<NativeProviderSettings>(json, JsonOptions)
                 ?? throw new InvalidOperationException("provider settings must contain a JSON object");
+            settings = UpgradeLegacyAssetProviders(settings);
             settings.Validate();
             return settings;
         }
@@ -94,6 +96,22 @@ public sealed class NativeProviderSettingsStore
         File.WriteAllText(temporary, json);
         File.Move(temporary, Path, overwrite: true);
         return Path;
+    }
+
+    private static NativeProviderSettings UpgradeLegacyAssetProviders(NativeProviderSettings settings)
+    {
+        var providers = settings.AssetProviders;
+        if (providers.Count == 2 &&
+            providers.Contains("pexels", StringComparer.OrdinalIgnoreCase) &&
+            providers.Contains("pixabay", StringComparer.OrdinalIgnoreCase))
+        {
+            return settings with
+            {
+                AssetProviders = providers.Concat(new[] { "openverse" }).ToArray(),
+            };
+        }
+
+        return settings;
     }
 }
 
