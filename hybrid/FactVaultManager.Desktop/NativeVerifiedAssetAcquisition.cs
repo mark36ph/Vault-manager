@@ -370,7 +370,8 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         $"{candidate.Provider}:{(string.IsNullOrWhiteSpace(candidate.Id) ? candidate.Url : candidate.Id)}";
 
     private static bool IsUniquenessExhaustion(NativeAssetAcquisitionException error) =>
-        error.Message.Contains("no unexcluded", StringComparison.OrdinalIgnoreCase);
+        error.Message.Contains("no unexcluded", StringComparison.OrdinalIgnoreCase) ||
+        error.Message.Contains("no factual unexcluded", StringComparison.OrdinalIgnoreCase);
 
     public static string BuildVerificationQuery(string query, string requiredSubject)
     {
