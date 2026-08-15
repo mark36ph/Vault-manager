@@ -1,11 +1,14 @@
 using System.Globalization;
 using System.Net.Http;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace FactVaultManager.Desktop;
 
 public sealed class NativeOpenverseAssetProvider : NativeAssetProviderBase, INativeAssetProvider, IDisposable
 {
+    private const string FecesSearchGroup = "(droppings | feces | faeces | poop | scat)";
+
     private readonly HttpClient _client;
     private readonly bool _ownsClient;
 
@@ -27,10 +30,14 @@ public sealed class NativeOpenverseAssetProvider : NativeAssetProviderBase, INat
         if (!kind.Equals("image", StringComparison.OrdinalIgnoreCase))
             return Array.Empty<NativeAssetCandidate>();
 
+        var searchQuery = ExpandSearchVocabulary(query);
+        if (searchQuery.Length > 200)
+            searchQuery = query[..Math.Min(query.Length, 200)];
+
         var pageSize = Math.Clamp(limit, 1, 20);
         var queryString = QueryString(new Dictionary<string, string>
         {
-            ["q"] = query[..Math.Min(query.Length, 200)],
+            ["q"] = searchQuery,
             ["page_size"] = pageSize.ToString(CultureInfo.InvariantCulture),
             ["license"] = "cc0,pdm",
             ["mature"] = "false",
@@ -102,6 +109,13 @@ public sealed class NativeOpenverseAssetProvider : NativeAssetProviderBase, INat
 
         return results;
     }
+
+    private static string ExpandSearchVocabulary(string query) =>
+        Regex.Replace(
+            query,
+            @"\b(?:droppings|feces|faeces|poop|scat)\b",
+            FecesSearchGroup,
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private static string ReadTags(JsonElement item)
     {
