@@ -43,6 +43,11 @@ public abstract class NativeAssetProviderBase
         "close", "up", "photo", "photography", "portrait", "vertical", "realistic",
     };
 
+    private static readonly HashSet<string> SensitiveQueryKeys = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "key", "api_key", "apikey", "token", "access_token", "client_secret", "secret",
+    };
+
     protected static string Required(string? value, string name)
     {
         var text = (value ?? "").Trim();
@@ -89,7 +94,7 @@ public abstract class NativeAssetProviderBase
             if (!response.IsSuccessStatusCode)
             {
                 throw new NativeProviderIntegrationException(
-                    $"HTTP {(int)response.StatusCode}\nURL: {request.RequestUri}\nResponse:\n{body}");
+                    $"HTTP {(int)response.StatusCode}\nURL: {RedactSensitiveQuery(request.RequestUri)}\nResponse:\n{body}");
             }
 
             try
@@ -115,6 +120,30 @@ public abstract class NativeAssetProviderBase
         {
             throw new NativeProviderIntegrationException(error.Message);
         }
+    }
+
+    internal static string RedactSensitiveQuery(Uri? uri)
+    {
+        if (uri is null)
+            return "";
+        if (string.IsNullOrEmpty(uri.Query))
+            return uri.ToString();
+
+        var builder = new UriBuilder(uri);
+        var pairs = uri.Query.TrimStart('?')
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(pair => pair.Split('=', 2))
+            .Select(parts =>
+            {
+                var encodedKey = parts[0];
+                var key = Uri.UnescapeDataString(encodedKey.Replace("+", " ", StringComparison.Ordinal));
+                var encodedValue = parts.Length > 1 ? parts[1] : "";
+                return SensitiveQueryKeys.Contains(key)
+                    ? $"{encodedKey}=%5BREDACTED%5D"
+                    : parts.Length > 1 ? $"{encodedKey}={encodedValue}" : encodedKey;
+            });
+        builder.Query = string.Join("&", pairs);
+        return builder.Uri.ToString();
     }
 
     protected static HttpClient CreateClient(TimeSpan timeout)
