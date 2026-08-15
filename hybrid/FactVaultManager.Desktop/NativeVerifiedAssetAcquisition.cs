@@ -19,6 +19,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
     };
 
     private const int SubjectUncertainPenalty = 4;
+    private const int SceneEvidenceBonus = 6;
     private const int MinQualityScan = 5;
 
     private readonly NativeAssetAcquisitionEngine _engine;
@@ -66,6 +67,9 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         var failures = new List<string>();
         NativeAcquiredAsset? decorativeFallback = null;
         NativeAcquiredAsset? uncertainFallback = null;
+        NativeAcquiredAsset? sceneFallback = null;
+        NativeAssetVerificationResult? sceneFallbackDecision = null;
+        var sceneFallbackScore = int.MinValue;
         var fallbackQueries = new List<string> { query };
         fallbackQueries.AddRange(FallbackSearchQueries(query));
         var verificationQuery = BuildVerificationQuery(query, requiredSubject);
@@ -137,7 +141,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                     bestDecision = decision;
                     bestScore = score;
                     Report("verify", index + 1, scanLimit,
-                        $"Best visual so far: {decision.Quality}/{decision.Style} ({score}{(decision.SubjectUncertain ? ", subject uncertain" : "")})");
+                        $"Best visual so far: {decision.Quality}/{decision.Style} ({score}{(decision.SubjectUncertain ? ", subject uncertain" : "")}{(decision.RequestedSceneEvidenceVisible ? ", scene evidence" : "")})");
                 }
                 else
                 {
@@ -170,10 +174,36 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                 continue;
             }
 
+            if (requiredSubject.Length > 0 &&
+                bestDecision.RequestedSubjectVisible &&
+                !bestDecision.RequestedSceneEvidenceVisible)
+            {
+                if (sceneFallback is null || bestScore > sceneFallbackScore)
+                {
+                    if (sceneFallback is not null) Discard(sceneFallback);
+                    sceneFallback = best;
+                    sceneFallbackDecision = bestDecision;
+                    sceneFallbackScore = bestScore;
+                    Report("verify", 1, 1, "Subject-only visual retained as fallback; searching for scene-specific evidence");
+                }
+                else Discard(best);
+                continue;
+            }
+
+            if (sceneFallback is not null) Discard(sceneFallback);
             if (uncertainFallback is not null) Discard(uncertainFallback);
             if (decorativeFallback is not null) Discard(decorativeFallback);
             Remember(bestDecision);
             return best;
+        }
+
+        if (sceneFallback is not null && sceneFallbackDecision is not null)
+        {
+            if (uncertainFallback is not null) Discard(uncertainFallback);
+            if (decorativeFallback is not null) Discard(decorativeFallback);
+            Remember(sceneFallbackDecision);
+            Report("verify", 1, 1, "No scene-specific evidence found; using the best subject-only factual fallback");
+            return sceneFallback;
         }
 
         if (uncertainFallback is not null)
@@ -236,7 +266,8 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
     {
         var quality = QualityScore.GetValueOrDefault(decision.Quality, 6);
         var style = StyleScore.GetValueOrDefault(decision.Style, 2);
-        return quality + style - (decision.SubjectUncertain ? SubjectUncertainPenalty : 0);
+        var sceneEvidence = decision.RequestedSceneEvidenceVisible ? SceneEvidenceBonus : 0;
+        return quality + style + sceneEvidence - (decision.SubjectUncertain ? SubjectUncertainPenalty : 0);
     }
 
     private void Remember(NativeAssetVerificationResult decision)
