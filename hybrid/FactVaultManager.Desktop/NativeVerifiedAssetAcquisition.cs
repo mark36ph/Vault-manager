@@ -205,32 +205,46 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
 
                 if (evidenceSubject.Length > 0 && decision.RequestedSceneEvidenceVisible)
                 {
-                    try
+                    if (CandidateTitleIsSpecific(asset.Candidate.Title) &&
+                        !CandidateTitleMentionsSubject(asset.Candidate.Title, evidenceSubject))
                     {
-                        var evidenceDecision = await _verifier.VerifyAsync(
-                            BuildEvidenceVerificationQuery(query, evidenceSubject), asset, cancellationToken);
-                        if (!evidenceDecision.Accepted ||
-                            (!evidenceDecision.RequestedSubjectVisible && !evidenceDecision.RequestedSceneEvidenceVisible))
-                        {
-                            decision = decision with
-                            {
-                                RequestedSceneEvidenceVisible = false,
-                                Decision = decision.Decision + $"; scene evidence '{evidenceSubject}' was not independently confirmed",
-                            };
-                            Report("verify", index + 1, scanLimit,
-                                $"Scene-specific evidence '{evidenceSubject}' was not confirmed; treating asset as subject-only fallback");
-                        }
-                    }
-                    catch (Exception error)
-                    {
-                        failures.Add($"{asset.Candidate.Provider}/{asset.Candidate.Id}: scene-evidence verification failed: {error.Message}");
                         decision = decision with
                         {
                             RequestedSceneEvidenceVisible = false,
-                            Decision = decision.Decision + $"; scene evidence '{evidenceSubject}' could not be confirmed",
+                            Decision = decision.Decision + $"; specific stock metadata does not mention scene evidence '{evidenceSubject}'",
                         };
                         Report("verify", index + 1, scanLimit,
-                            $"Scene-specific evidence '{evidenceSubject}' could not be confirmed; treating asset as subject-only fallback");
+                            $"Specific stock metadata does not mention scene evidence '{evidenceSubject}'; treating asset as subject-only fallback");
+                    }
+                    else
+                    {
+                        try
+                        {
+                            var evidenceDecision = await _verifier.VerifyAsync(
+                                BuildEvidenceVerificationQuery(query, evidenceSubject), asset, cancellationToken);
+                            if (!evidenceDecision.Accepted ||
+                                (!evidenceDecision.RequestedSubjectVisible && !evidenceDecision.RequestedSceneEvidenceVisible))
+                            {
+                                decision = decision with
+                                {
+                                    RequestedSceneEvidenceVisible = false,
+                                    Decision = decision.Decision + $"; scene evidence '{evidenceSubject}' was not independently confirmed",
+                                };
+                                Report("verify", index + 1, scanLimit,
+                                    $"Scene-specific evidence '{evidenceSubject}' was not confirmed; treating asset as subject-only fallback");
+                            }
+                        }
+                        catch (Exception error)
+                        {
+                            failures.Add($"{asset.Candidate.Provider}/{asset.Candidate.Id}: scene-evidence verification failed: {error.Message}");
+                            decision = decision with
+                            {
+                                RequestedSceneEvidenceVisible = false,
+                                Decision = decision.Decision + $"; scene evidence '{evidenceSubject}' could not be confirmed",
+                            };
+                            Report("verify", index + 1, scanLimit,
+                                $"Scene-specific evidence '{evidenceSubject}' could not be confirmed; treating asset as subject-only fallback");
+                        }
                     }
                 }
 
