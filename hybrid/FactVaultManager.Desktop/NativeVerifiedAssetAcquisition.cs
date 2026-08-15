@@ -45,7 +45,8 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         double? targetRatio = null,
         int attempts = 3,
         ISet<string>? excluded = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string requiredSubject = "")
     {
         if (attempts < 1)
             throw new ArgumentException("attempts must be at least 1", nameof(attempts));
@@ -53,6 +54,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         query = (query ?? "").Trim();
         if (query.Length == 0)
             throw new ArgumentException("query is required", nameof(query));
+        requiredSubject = (requiredSubject ?? "").Trim();
 
         if (!kind.Equals("image", StringComparison.OrdinalIgnoreCase))
             return await _engine.AcquireAsync(query, destinationFolder, kind, limit, targetRatio, attempts, excluded, cancellationToken);
@@ -66,6 +68,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         NativeAcquiredAsset? uncertainFallback = null;
         var fallbackQueries = new List<string> { query };
         fallbackQueries.AddRange(FallbackSearchQueries(query));
+        var verificationQuery = BuildVerificationQuery(query, requiredSubject);
 
         foreach (var searchQuery in fallbackQueries)
         {
@@ -109,7 +112,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                 NativeAssetVerificationResult decision;
                 try
                 {
-                    decision = await _verifier.VerifyAsync(query, asset, cancellationToken);
+                    decision = await _verifier.VerifyAsync(verificationQuery, asset, cancellationToken);
                 }
                 catch (Exception error)
                 {
@@ -206,7 +209,8 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         double? targetRatio = null,
         int attempts = 3,
         bool unique = true,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string requiredSubject = "")
     {
         var items = queries.Select(value => (value ?? "").Trim()).Where(value => value.Length > 0).ToArray();
         var results = new List<NativeAcquiredAsset>();
@@ -217,7 +221,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
             Report("acquire", index + 1, items.Length, items[index]);
             var result = await AcquireAsync(
                 items[index], destinationFolder, kind, limit, targetRatio, attempts,
-                unique ? used : null, cancellationToken);
+                unique ? used : null, cancellationToken, requiredSubject);
             results.Add(result);
             if (unique)
             {
@@ -252,6 +256,23 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
 
     private static string CandidateKey(NativeAssetCandidate candidate) =>
         $"{candidate.Provider}:{(string.IsNullOrWhiteSpace(candidate.Id) ? candidate.Url : candidate.Id)}";
+
+    public static string BuildVerificationQuery(string query, string requiredSubject)
+    {
+        var cleanQuery = Regex.Replace((query ?? "").Trim(), @"\s+", " ");
+        var subjectMatch = Regex.Match(requiredSubject ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*");
+        if (!subjectMatch.Success)
+            return cleanQuery;
+
+        var subject = subjectMatch.Value.ToLowerInvariant();
+        var subjectPattern = new Regex(
+            $@"\b{Regex.Escape(subject)}\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var remainder = subjectPattern.Replace(cleanQuery, "", 1);
+        remainder = Regex.Replace(remainder, @"\s+", " ").Trim();
+        return string.Join(" ", new[] { "subject", subject, remainder }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+    }
 
     private static IReadOnlyList<string> FallbackSearchQueries(string query)
     {
