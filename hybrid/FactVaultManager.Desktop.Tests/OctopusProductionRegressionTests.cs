@@ -1,0 +1,132 @@
+using System.Text.Json;
+
+namespace FactVaultManager.Desktop.Tests;
+
+public sealed class OctopusProductionRegressionTests
+{
+    [Fact]
+    public void ThreeDPrintedThingiverseVisual_IsSyntheticUnlessRequested()
+    {
+        var candidate = Candidate(
+            "3D Printed Octopuses for quality test size 50mm",
+            "https://www.thingiverse.com/thing:110948",
+            "3D printed plastic model from Thingiverse");
+
+        var cue = NativeVisualSelectionPolicy.UnrequestedSyntheticRepresentation(
+            "octopuses octopus swimming underwater",
+            candidate);
+        var requestedCue = NativeVisualSelectionPolicy.UnrequestedSyntheticRepresentation(
+            "octopus 3d printed model",
+            candidate);
+
+        Assert.NotEmpty(cue);
+        Assert.Empty(requestedCue);
+    }
+
+    [Fact]
+    public void AnatomyScene_RejectsPreparedFoodButNormalWildlifeSceneDoesNot()
+    {
+        var candidate = Candidate(
+            "Fried octopuses on display at a street food shop",
+            "https://wordpress.org/photos/photo/13365c5fbd/",
+            "street food market stall");
+
+        var anatomyConflict = NativeVisualSelectionPolicy.SceneContradiction(
+            "octopuses octopus gills anatomy illustration",
+            candidate);
+        var wildlifeConflict = NativeVisualSelectionPolicy.SceneContradiction(
+            "octopuses octopus swimming underwater",
+            candidate);
+
+        Assert.Contains("prepared-food", anatomyConflict, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(wildlifeConflict);
+    }
+
+    [Fact]
+    public void SameSourcePage_ProducesSameFamilyKeyAcrossDifferentFiles()
+    {
+        var first = Candidate(
+            "3D Printed Octopus A",
+            "https://www.thingiverse.com/thing:110948",
+            "",
+            id: "first");
+        var second = Candidate(
+            "3D Printed Octopus B",
+            "https://www.thingiverse.com/thing:110948/",
+            "",
+            id: "second");
+        var other = Candidate(
+            "Real octopus",
+            "https://commons.wikimedia.org/wiki/File:Octopus.jpg",
+            "",
+            id: "third");
+
+        Assert.Equal(
+            NativeVisualSelectionPolicy.SourceFamilyKey(first),
+            NativeVisualSelectionPolicy.SourceFamilyKey(second));
+        Assert.NotEqual(
+            NativeVisualSelectionPolicy.SourceFamilyKey(first),
+            NativeVisualSelectionPolicy.SourceFamilyKey(other));
+    }
+
+    [Fact]
+    public void PortableResolveFiles_RebaseFromInProgressToCompleted()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "factvault-rebase-" + Guid.NewGuid().ToString("N"));
+        var oldFolder = Path.Combine(root, "projects", "In Progress", "Octopuses Have Three Hearts");
+        var newFolder = Path.Combine(root, "projects", "Completed", "Octopuses Have Three Hearts");
+        var portable = Path.Combine(newFolder, "Resolve", "Portable", "Octopuses Have Three Hearts");
+        Directory.CreateDirectory(portable);
+
+        try
+        {
+            var mediaPath = Path.Combine(
+                oldFolder,
+                "Resolve",
+                "Portable",
+                "Octopuses Have Three Hearts",
+                "Media",
+                "Video",
+                "scene.mp4");
+            var fcpxml = Path.Combine(portable, "Octopuses Have Three Hearts.fcpxml");
+            File.WriteAllText(fcpxml, $"<asset src=\"{new Uri(mediaPath).AbsoluteUri}\" />");
+
+            var manifest = Path.Combine(portable, "package_manifest.json");
+            File.WriteAllText(manifest, JsonSerializer.Serialize(new { source = Path.Combine(oldFolder, "ResolveClips", "scene.mp4") }));
+
+            var changed = NativeResolvePortablePathRebaser.Rebase(oldFolder, newFolder);
+            var rebasedXml = File.ReadAllText(fcpxml);
+            var rebasedManifest = File.ReadAllText(manifest);
+
+            Assert.Equal(2, changed);
+            Assert.DoesNotContain("In%20Progress", rebasedXml, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Completed", rebasedXml, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("In Progress", rebasedManifest, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Completed", rebasedManifest, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static NativeAssetCandidate Candidate(
+        string title,
+        string sourcePage,
+        string credit,
+        string id = "candidate") =>
+        new(
+            "openverse",
+            id,
+            "https://example.test/" + id + ".jpg",
+            "image",
+            title,
+            1080,
+            1920,
+            0,
+            1,
+            credit,
+            "CC0",
+            sourcePage);
+}
