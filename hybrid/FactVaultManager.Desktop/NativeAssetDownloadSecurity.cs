@@ -27,6 +27,12 @@ internal static class NativeAssetDownloadSecurity
             return uri;
         }
 
+        // RFC-reserved test names never represent production media hosts. Allowing them to
+        // reach an injected test transport keeps unit tests isolated from real DNS lookups.
+        if (uri.DnsSafeHost.EndsWith(".invalid", StringComparison.OrdinalIgnoreCase) ||
+            uri.DnsSafeHost.EndsWith(".test", StringComparison.OrdinalIgnoreCase))
+            return uri;
+
         IPAddress[] addresses;
         try
         {
