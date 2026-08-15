@@ -240,6 +240,45 @@ public sealed class NativeVisualRelevanceTests
     }
 
     [Fact]
+    public async Task SpecificMetadataWithoutDistinctiveEvidence_CannotReceiveEvidenceBonus()
+    {
+        var candidates = new[]
+        {
+            TestCandidate("generic", 100, "An intimate view of a wombat foraging on Maria Island Tasmania"),
+            TestCandidate("evidence", 1, "Wombat droppings on rocky ground in Australia"),
+        };
+        using var client = new HttpClient(new StubDownloadHandler());
+        using var engine = new NativeAssetAcquisitionEngine(new[] { new StubProvider(candidates) }, client);
+        var seenQueries = new List<string>();
+        var verifier = new StubVerifier((query, asset) =>
+        {
+            seenQueries.Add($"{asset.Candidate.Id}:{query}");
+            return VerificationResult(subjectVisible: true, sceneEvidenceVisible: true);
+        });
+        var verified = new NativeVerifiedAssetAcquisitionEngine(engine, verifier);
+        var folder = TestFolder();
+
+        try
+        {
+            var result = await verified.AcquireAsync(
+                "wombat droppings rock ground Australia wildlife",
+                folder,
+                attempts: 2,
+                requiredSubject: "wombat");
+
+            Assert.Equal("evidence", result.Candidate.Id);
+            Assert.DoesNotContain(seenQueries, value =>
+                value.Equals("generic:subject droppings", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(seenQueries, value =>
+                value.Equals("evidence:subject droppings", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            DeleteFolder(folder);
+        }
+    }
+
+    [Fact]
     public async Task ClaimedSceneEvidence_IsIndependentlyRecheckedAsExplicitVisualSubject()
     {
         var candidate = TestCandidate("1", 100);
