@@ -15,7 +15,7 @@ public sealed partial class DesktopDataService
     public DesktopDataService()
     {
         _runtimeRoot = LocateRuntimeRoot();
-        _dataRoot = File.Exists(Path.Combine(_runtimeRoot, "database.py"))
+        _dataRoot = IsDevelopmentRepositoryRoot(_runtimeRoot)
             ? _runtimeRoot
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FactVaultManager");
         _databasePath = Path.Combine(_dataRoot, "data", "factvault.db");
@@ -314,6 +314,11 @@ public sealed partial class DesktopDataService
         if (!File.Exists(_databasePath)) throw new FileNotFoundException("FactVault database was not found.", _databasePath);
     }
 
+    private static bool IsDevelopmentRepositoryRoot(string root)
+    {
+        return File.Exists(Path.Combine(root, "hybrid", "FactVaultManager.Desktop", "FactVaultManager.Desktop.csproj"));
+    }
+
     private static string LocateRuntimeRoot()
     {
         foreach (var candidate in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
@@ -321,7 +326,7 @@ public sealed partial class DesktopDataService
             var directory = new DirectoryInfo(candidate);
             while (directory is not null)
             {
-                if (File.Exists(Path.Combine(directory.FullName, "database.py")) || File.Exists(Path.Combine(directory.FullName, "FactVaultWorker.exe")))
+                if (IsDevelopmentRepositoryRoot(directory.FullName))
                     return directory.FullName;
                 directory = directory.Parent;
             }
