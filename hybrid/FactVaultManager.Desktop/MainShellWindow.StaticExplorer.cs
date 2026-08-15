@@ -76,9 +76,10 @@ public partial class MainShellWindow
         }
 
         _embeddedProductionInitialized = true;
-        _ = InitializeEmbeddedProductionAsync();
+        BuildEmbeddedProductionPage();
+        _productionElapsedTimer.Tick += (_, _) => UpdateEmbeddedElapsed();
         WireNativeResolveExportButton();
-        Closed += async (_, _) => await DisposeEmbeddedProductionAsync();
+        Closed += (_, _) => _productionElapsedTimer.Stop();
 
         if (Content is not DependencyObject root)
         {
