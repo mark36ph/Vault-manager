@@ -21,8 +21,8 @@ public static class NativeProductionProviderWorkflow
         var providers = new List<string>();
         if (usePexels) providers.Add("pexels");
         if (usePixabay) providers.Add("pixabay");
-        if (providers.Count == 0)
-            throw new InvalidOperationException("Select at least one media provider.");
+        providers.Add("openverse");
+        providers.Add("wikimedia");
 
         var settings = new NativeProviderSettings
         {
@@ -53,11 +53,8 @@ public static class NativeProductionProviderWorkflow
         if (usePixabay)
             Add("Pixabay", !string.IsNullOrWhiteSpace(credentials.Get("pixabay", required: false)));
 
-        if (!usePexels && !usePixabay)
-        {
-            ready = false;
-            lines.Add("✗ Select at least one media provider");
-        }
+        lines.Add("✓ Openverse (no API key)");
+        lines.Add("✓ Wikimedia Commons (no API key)");
 
         return new NativeProviderReadiness(ready, lines);
 
