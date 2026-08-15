@@ -15,9 +15,9 @@ public sealed partial class DesktopDataService
     public DesktopDataService()
     {
         _runtimeRoot = LocateRuntimeRoot();
-        _dataRoot = File.Exists(Path.Combine(AppContext.BaseDirectory, "FactVaultWorker.exe"))
-            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FactVaultManager")
-            : _runtimeRoot;
+        _dataRoot = File.Exists(Path.Combine(_runtimeRoot, "database.py"))
+            ? _runtimeRoot
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FactVaultManager");
         _databasePath = Path.Combine(_dataRoot, "data", "factvault.db");
         _settingsPath = Path.Combine(_dataRoot, "data", "settings.json");
     }
