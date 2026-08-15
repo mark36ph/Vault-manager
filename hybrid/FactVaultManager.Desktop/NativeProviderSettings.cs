@@ -5,7 +5,7 @@ namespace FactVaultManager.Desktop;
 public sealed record NativeProviderSettings
 {
     public string TextProvider { get; init; } = "openai";
-    public IReadOnlyList<string> AssetProviders { get; init; } = ["pexels", "pixabay", "openverse"];
+    public IReadOnlyList<string> AssetProviders { get; init; } = ["pexels", "pixabay", "openverse", "wikimedia"];
     public string VoiceProvider { get; init; } = "openai";
     public string OpenAiModel { get; init; } = "gpt-5-mini";
     public string OpenAiVoiceModel { get; init; } = "gpt-4o-mini-tts";
@@ -26,7 +26,8 @@ public sealed record NativeProviderSettings
         var unknownAssets = AssetProviders
             .Where(name => !string.Equals(name, "pexels", StringComparison.OrdinalIgnoreCase) &&
                            !string.Equals(name, "pixabay", StringComparison.OrdinalIgnoreCase) &&
-                           !string.Equals(name, "openverse", StringComparison.OrdinalIgnoreCase))
+                           !string.Equals(name, "openverse", StringComparison.OrdinalIgnoreCase) &&
+                           !string.Equals(name, "wikimedia", StringComparison.OrdinalIgnoreCase))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
@@ -107,7 +108,18 @@ public sealed class NativeProviderSettingsStore
         {
             return settings with
             {
-                AssetProviders = providers.Concat(new[] { "openverse" }).ToArray(),
+                AssetProviders = providers.Concat(new[] { "openverse", "wikimedia" }).ToArray(),
+            };
+        }
+
+        if (providers.Count == 3 &&
+            providers.Contains("pexels", StringComparer.OrdinalIgnoreCase) &&
+            providers.Contains("pixabay", StringComparer.OrdinalIgnoreCase) &&
+            providers.Contains("openverse", StringComparer.OrdinalIgnoreCase))
+        {
+            return settings with
+            {
+                AssetProviders = providers.Concat(new[] { "wikimedia" }).ToArray(),
             };
         }
 
