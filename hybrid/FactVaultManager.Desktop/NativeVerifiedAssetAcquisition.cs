@@ -423,19 +423,10 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
 
     public static string BuildEvidenceVerificationQuery(string query, string evidenceSubject)
     {
-        var cleanQuery = Regex.Replace((query ?? "").Trim(), @"\s+", " ");
         var subjectMatch = Regex.Match(evidenceSubject ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*");
-        if (!subjectMatch.Success)
-            return cleanQuery;
-
-        var subject = subjectMatch.Value.ToLowerInvariant();
-        var subjectPattern = new Regex(
-            $@"\b{Regex.Escape(subject)}\b",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        var remainder = subjectPattern.Replace(cleanQuery, "", 1);
-        remainder = Regex.Replace(remainder, @"\s+", " ").Trim();
-        return string.Join(" ", new[] { "subject", subject, remainder }
-            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        return subjectMatch.Success
+            ? $"subject {subjectMatch.Value.ToLowerInvariant()}"
+            : Regex.Replace((query ?? "").Trim(), @"\s+", " ");
     }
 
     private static IReadOnlyList<string> FallbackSearchQueries(string query)
