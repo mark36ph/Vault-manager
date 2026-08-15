@@ -13,15 +13,6 @@ public partial class MainShellWindow
         if (_nativeProductionWired || _productionActionButton is null)
             return;
 
-        if (string.Equals(
-                Environment.GetEnvironmentVariable("FACTVAULT_USE_PYTHON_PRODUCTION"),
-                "1",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            AppendEmbeddedProductionLog("Python production fallback selected by FACTVAULT_USE_PYTHON_PRODUCTION=1.");
-            return;
-        }
-
         _productionActionButton.Click -= EmbeddedProductionAction_Click;
         _productionResumeButton.Click -= EmbeddedResumeProduction_Click;
         _productionCancelButton.Click -= EmbeddedCancelProduction_Click;
@@ -40,7 +31,7 @@ public partial class MainShellWindow
         _nativeProductionWired = true;
         _productionWorkerStatusText.Text = "Native C# engine ready";
         _productionRefreshButton.IsEnabled = true;
-        AppendEmbeddedProductionLog("Native C# production orchestration enabled. Python worker remains available as fallback.");
+        AppendEmbeddedProductionLog("Native C# production orchestration enabled.");
         RefreshNativeProductionProjects();
     }
 
