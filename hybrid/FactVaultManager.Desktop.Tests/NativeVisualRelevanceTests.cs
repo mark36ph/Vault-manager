@@ -237,6 +237,69 @@ public sealed class NativeVisualRelevanceTests
     }
 
     [Fact]
+    public async Task UnrequestedPuppet_IsDowngradedBehindRealSubjectImage()
+    {
+        var candidates = new[]
+        {
+            TestCandidate("puppet", 100, "wombat walking rocky ground puppet creature"),
+            TestCandidate("real", 1, "wombat walking rocky ground Australia wildlife"),
+        };
+        using var client = new HttpClient(new StubDownloadHandler());
+        using var engine = new NativeAssetAcquisitionEngine(new[] { new StubProvider(candidates) }, client);
+        var verifier = new StubVerifier(VerificationResult(
+            subjectVisible: true,
+            sceneEvidenceVisible: false,
+            style: "representational"));
+        var verified = new NativeVerifiedAssetAcquisitionEngine(engine, verifier);
+        var folder = TestFolder();
+
+        try
+        {
+            var result = await verified.AcquireAsync(
+                "wombat walking rocky ground Australia",
+                folder,
+                attempts: 2,
+                requiredSubject: "wombat");
+
+            Assert.Equal("real", result.Candidate.Id);
+        }
+        finally
+        {
+            DeleteFolder(folder);
+        }
+    }
+
+    [Fact]
+    public async Task RequestedPuppet_RemainsRepresentationalRatherThanDecorative()
+    {
+        var candidate = TestCandidate("puppet", 100, "wombat puppet creature walking on rocky ground");
+        using var client = new HttpClient(new StubDownloadHandler());
+        using var engine = new NativeAssetAcquisitionEngine(new[] { new StubProvider(new[] { candidate }) }, client);
+        var verifier = new StubVerifier(VerificationResult(
+            subjectVisible: true,
+            sceneEvidenceVisible: false,
+            style: "representational"));
+        var verified = new NativeVerifiedAssetAcquisitionEngine(engine, verifier);
+        var folder = TestFolder();
+
+        try
+        {
+            var result = await verified.AcquireAsync(
+                "wombat puppet walking rocky ground",
+                folder,
+                attempts: 1,
+                requiredSubject: "wombat");
+
+            Assert.Equal("puppet", result.Candidate.Id);
+            Assert.Equal("representational", verified.LastSelectedStyle);
+        }
+        finally
+        {
+            DeleteFolder(folder);
+        }
+    }
+
+    [Fact]
     public async Task ExcludedAsset_IsNotReintroducedWhenNoFreshCandidateExists()
     {
         var candidate = TestCandidate("1", 100);
@@ -295,12 +358,12 @@ public sealed class NativeVisualRelevanceTests
         "unused.jpg",
         true);
 
-    private static NativeAssetCandidate TestCandidate(string id, double score) => new(
+    private static NativeAssetCandidate TestCandidate(string id, double score, string? title = null) => new(
         "test",
         id,
         $"https://example.invalid/{id}.jpg",
         "image",
-        "wombat droppings ground wildlife Australia",
+        title ?? "wombat droppings ground wildlife Australia",
         100,
         100,
         0,
