@@ -569,23 +569,8 @@ public sealed class NativeFfmpegTimelineService
         return text.Replace("\n", "\\n", StringComparison.Ordinal);
     }
 
-    private static string FindExecutable(string name)
-    {
-        var fileName = OperatingSystem.IsWindows() && !name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
-            ? name + ".exe"
-            : name;
-        var path = Environment.GetEnvironmentVariable("PATH") ?? "";
-        foreach (var folder in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
-        {
-            try
-            {
-                var candidate = Path.Combine(folder.Trim('"'), fileName);
-                if (File.Exists(candidate)) return candidate;
-            }
-            catch { }
-        }
-        throw new NativeFfmpegTimelineException($"{(name.Equals("ffprobe", StringComparison.OrdinalIgnoreCase) ? "FFprobe" : "FFmpeg")} was not found in PATH");
-    }
+    private static string FindExecutable(string name) =>
+        TrustedMediaExecutableLocator.Find(name);
 
     private static async Task<ProcessResult> RunAsync(
         string executable,
