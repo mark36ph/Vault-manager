@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Sockets;
 
 namespace FactVaultManager.Desktop;
 
@@ -101,7 +102,7 @@ internal static class NativeAssetDownloadSecurity
             return false;
 
         var bytes = address.GetAddressBytes();
-        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+        if (address.AddressFamily == AddressFamily.InterNetwork)
         {
             var a = bytes[0];
             var b = bytes[1];
@@ -118,7 +119,7 @@ internal static class NativeAssetDownloadSecurity
             return true;
         }
 
-        if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6)
+        if (address.AddressFamily == AddressFamily.InterNetworkV6)
         {
             if (address.IsIPv6LinkLocal || address.IsIPv6Multicast) return false;
             if ((bytes[0] & 0xFE) == 0xFC) return false; // fc00::/7 unique-local
