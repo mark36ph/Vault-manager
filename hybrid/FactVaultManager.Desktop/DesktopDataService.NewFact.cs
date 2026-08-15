@@ -40,8 +40,10 @@ public sealed partial class DesktopDataService
     {
         var selected = (template ?? "").Trim();
         if (string.IsNullOrWhiteSpace(selected)) return;
+        selected = ProjectPathSecurity.ValidateSegment(selected, "Template name");
 
-        var source = Path.Combine(ResolveTemplatesRoot(), selected);
+        var templatesRoot = ResolveTemplatesRoot();
+        var source = ProjectPathSecurity.CombineContained(templatesRoot, selected);
         if (!Directory.Exists(source)) return;
 
         var destination = ResolveProjectFolder(project);
@@ -51,17 +53,18 @@ public sealed partial class DesktopDataService
 
     public DesktopProject CreateFactProject(NewFactData fact)
     {
-        var title = fact.Title.Trim();
+        var title = ProjectPathSecurity.ValidateSegment(fact.Title, "Project title");
         var category = fact.Category.Trim();
-        var desiredStatus = string.IsNullOrWhiteSpace(fact.Status) ? "In Progress" : fact.Status.Trim();
-        if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("Project title is required.");
+        var desiredStatus = string.IsNullOrWhiteSpace(fact.Status)
+            ? "In Progress"
+            : ProjectPathSecurity.ValidateSegment(fact.Status, "Project status");
         if (string.IsNullOrWhiteSpace(category)) category = "Misc";
         if (desiredStatus == "Scheduled" && fact.ScheduledFor is null)
             throw new ArgumentException("Choose a date and time for a scheduled project.");
 
         var createStatus = desiredStatus == "Scheduled" ? "In Progress" : desiredStatus;
         var root = GetProjectsRoot();
-        var folder = Path.Combine(root, createStatus, title);
+        var folder = ProjectPathSecurity.CombineContained(root, createStatus, title);
         if (Directory.Exists(folder)) throw new IOException($"Project folder already exists: {folder}");
 
         foreach (var path in new[]
@@ -118,7 +121,7 @@ public sealed partial class DesktopDataService
         var project = GetProjects().First(item => item.Id == id);
         if (desiredStatus != "Scheduled") return project;
 
-        var scheduledFolder = Path.Combine(root, "Scheduled", title);
+        var scheduledFolder = ProjectPathSecurity.CombineContained(root, "Scheduled", title);
         if (Directory.Exists(scheduledFolder))
             throw new IOException($"Scheduled project folder already exists: {scheduledFolder}");
 
@@ -165,13 +168,13 @@ public sealed partial class DesktopDataService
         foreach (var directory in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
         {
             var relative = Path.GetRelativePath(source, directory);
-            Directory.CreateDirectory(Path.Combine(destination, relative));
+            Directory.CreateDirectory(ProjectPathSecurity.EnsureContained(destination, Path.Combine(destination, relative)));
         }
 
         foreach (var file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
         {
             var relative = Path.GetRelativePath(source, file);
-            var target = Path.Combine(destination, relative);
+            var target = ProjectPathSecurity.EnsureContained(destination, Path.Combine(destination, relative));
             Directory.CreateDirectory(Path.GetDirectoryName(target)!);
             File.Copy(file, target, overwrite: true);
         }
