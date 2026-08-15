@@ -5,12 +5,12 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class OctopusProductionRegressionTests
 {
     [Fact]
-    public void ThreeDPrintedThingiverseVisual_IsSyntheticUnlessRequested()
+    public void ThreeDPrintedVisual_IsSyntheticUnlessRequested()
     {
         var candidate = Candidate(
-            "3D Printed Octopuses for quality test size 50mm",
-            "https://www.thingiverse.com/thing:110948",
-            "3D printed plastic model from Thingiverse");
+            "3D Printed Octopus model",
+            "https://example.test/models/octopus",
+            "");
 
         var cue = NativeVisualSelectionPolicy.UnrequestedSyntheticRepresentation(
             "octopuses octopus swimming underwater",
