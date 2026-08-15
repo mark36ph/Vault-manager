@@ -260,6 +260,13 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
 
         if (decorativeFallback is not null)
         {
+            if (excluded is not null && excluded.Count > 0)
+            {
+                Discard(decorativeFallback);
+                throw new NativeAssetAcquisitionException(
+                    $"no factual unexcluded {kind} assets found for: {query}");
+            }
+
             LastSelectedQuality = "acceptable";
             LastSelectedStyle = "decorative";
             LastSelectedSubjectUncertain = false;
