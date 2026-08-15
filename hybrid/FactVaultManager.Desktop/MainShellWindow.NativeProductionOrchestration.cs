@@ -161,10 +161,13 @@ public partial class MainShellWindow
                 try
                 {
                     NativeProductionOrchestrator.RebaseProjectPaths(oldFolder, newFolder);
+                    var portableChanges = NativeResolvePortablePathRebaser.Rebase(oldFolder, newFolder);
+                    if (portableChanges > 0)
+                        AppendEmbeddedProductionLog($"Rebased {portableChanges} portable Resolve package file(s) to Completed paths.");
                 }
                 catch (Exception error)
                 {
-                    AppendEmbeddedProductionLog($"Warning: project completed but timeline path rebasing failed: {error.Message}");
+                    AppendEmbeddedProductionLog($"Warning: project completed but path rebasing failed: {error.Message}");
                 }
                 AppendEmbeddedProductionLog("Project status changed to Completed.");
                 RefreshAll();
