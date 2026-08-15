@@ -152,6 +152,18 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                     continue;
                 }
 
+                if (requiredSubject.Length > 0 &&
+                    decision.SubjectIdentityMode.Equals("visually_recognizable", StringComparison.OrdinalIgnoreCase) &&
+                    !decision.RequestedSubjectVisible &&
+                    evidenceSubject.Length == 0)
+                {
+                    const string reason = "generic scene evidence cannot replace the explicit visual subject";
+                    failures.Add($"{asset.Candidate.Provider}/{asset.Candidate.Id}: {reason}");
+                    Report("verify", index + 1, scanLimit, $"Visual relevance rejected ({reason}); trying another asset");
+                    Discard(asset);
+                    continue;
+                }
+
                 if (evidenceSubject.Length > 0 && decision.RequestedSceneEvidenceVisible)
                 {
                     try
