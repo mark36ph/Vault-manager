@@ -92,7 +92,7 @@ public sealed class NativeOpenverseAssetProvider : NativeAssetProviderBase, INat
             if (string.IsNullOrWhiteSpace(credit))
                 credit = ReadString(item, "creator");
 
-            results.Add(new NativeAssetCandidate(
+            var candidate = new NativeAssetCandidate(
                 Name,
                 id,
                 mediaUrl,
@@ -104,7 +104,12 @@ public sealed class NativeOpenverseAssetProvider : NativeAssetProviderBase, INat
                 Math.Max(0, pageSize - results.Count),
                 credit,
                 licenseName,
-                sourcePage));
+                sourcePage);
+
+            if (NativeVisualSelectionPolicy.BlockedSourceReason(candidate).Length > 0)
+                continue;
+
+            results.Add(candidate);
         }
 
         return results;
