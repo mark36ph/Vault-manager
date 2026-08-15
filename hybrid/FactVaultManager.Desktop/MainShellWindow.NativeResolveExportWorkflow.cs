@@ -15,6 +15,7 @@ public partial class MainShellWindow
         _productionExportButton.Click -= EmbeddedExportResolve_Click;
         _productionExportButton.Click += EmbeddedNativeResolveExport_Click;
         _nativeResolveExportWired = true;
+        WireNativeProductionOrchestration();
     }
 
     private async void EmbeddedNativeResolveExport_Click(object sender, RoutedEventArgs e)
