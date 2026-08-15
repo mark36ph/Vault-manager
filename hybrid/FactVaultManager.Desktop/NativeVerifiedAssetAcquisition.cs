@@ -169,6 +169,15 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                     decision.RequestedSubjectVisible &&
                     !CandidateTitleMentionsSubject(asset.Candidate.Title, requiredSubject))
                 {
+                    if (CandidateTitleIsSpecific(asset.Candidate.Title))
+                    {
+                        var reason = $"specific stock metadata does not name required subject '{requiredSubject}'";
+                        failures.Add($"{asset.Candidate.Provider}/{asset.Candidate.Id}: {reason}");
+                        Report("verify", index + 1, scanLimit, $"Visual relevance rejected ({reason}); trying another asset");
+                        Discard(asset);
+                        continue;
+                    }
+
                     try
                     {
                         var subjectDecision = await _verifier.VerifyAsync(
@@ -182,7 +191,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                             continue;
                         }
                         Report("verify", index + 1, scanLimit,
-                            $"Independent subject-only verification confirmed '{requiredSubject}'");
+                            $"Independent subject-only verification confirmed '{requiredSubject}' for vague metadata");
                     }
                     catch (Exception error)
                     {
@@ -444,6 +453,9 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
             $@"\b{Regex.Escape(subjectMatch.Value)}\b",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
+
+    private static bool CandidateTitleIsSpecific(string candidateTitle) =>
+        Regex.Matches(candidateTitle ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*").Count >= 3;
 
     private static bool IsUniquenessExhaustion(NativeAssetAcquisitionException error) =>
         error.Message.Contains("no unexcluded", StringComparison.OrdinalIgnoreCase) ||
