@@ -18,9 +18,12 @@ public static class NativeProductionProviderWorkflow
         ArgumentException.ThrowIfNullOrWhiteSpace(projectFolder);
         ArgumentNullException.ThrowIfNull(appSettings);
 
+        var credentials = NativeProviderCredentials.FromSettings(appSettings);
         var providers = new List<string>();
-        if (usePexels) providers.Add("pexels");
-        if (usePixabay) providers.Add("pixabay");
+        if (usePexels && !string.IsNullOrWhiteSpace(credentials.Get("pexels", required: false)))
+            providers.Add("pexels");
+        if (usePixabay && !string.IsNullOrWhiteSpace(credentials.Get("pixabay", required: false)))
+            providers.Add("pixabay");
         providers.Add("openverse");
         providers.Add("wikimedia");
 
@@ -45,23 +48,25 @@ public static class NativeProductionProviderWorkflow
 
         var credentials = NativeProviderCredentials.FromSettings(appSettings);
         var lines = new List<string>();
-        var ready = true;
+        var openAiConfigured = !string.IsNullOrWhiteSpace(credentials.Get("openai", required: false));
+        lines.Add($"{(openAiConfigured ? "✓" : "✗")} OpenAI");
 
-        Add("OpenAI", !string.IsNullOrWhiteSpace(credentials.Get("openai", required: false)));
-        if (usePexels)
-            Add("Pexels", !string.IsNullOrWhiteSpace(credentials.Get("pexels", required: false)));
-        if (usePixabay)
-            Add("Pixabay", !string.IsNullOrWhiteSpace(credentials.Get("pixabay", required: false)));
-
+        AddOptionalStockProvider("Pexels", "pexels", usePexels);
+        AddOptionalStockProvider("Pixabay", "pixabay", usePixabay);
         lines.Add("✓ Openverse (no API key)");
         lines.Add("✓ Wikimedia Commons (no API key)");
 
-        return new NativeProviderReadiness(ready, lines);
+        return new NativeProviderReadiness(openAiConfigured, lines);
 
-        void Add(string label, bool configured)
+        void AddOptionalStockProvider(string label, string provider, bool selected)
         {
-            lines.Add($"{(configured ? "✓" : "✗")} {label}");
-            ready &= configured;
+            if (!selected)
+                return;
+
+            var configured = !string.IsNullOrWhiteSpace(credentials.Get(provider, required: false));
+            lines.Add(configured
+                ? $"✓ {label}"
+                : $"— {label} selected but no API key; free providers will be used instead");
         }
     }
 
