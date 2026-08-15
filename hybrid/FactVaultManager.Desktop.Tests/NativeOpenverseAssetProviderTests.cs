@@ -72,6 +72,53 @@ public sealed class NativeOpenverseAssetProviderTests
     }
 
     [Fact]
+    public async Task Search_DropsThingiverseResultsBeforeTheyReachAcquisition()
+    {
+        const string response = """
+        {
+          "results": [
+            {
+              "id": "thingiverse-octopus",
+              "title": "3D Printed Octopus",
+              "foreign_landing_url": "https://www.thingiverse.com/thing:123456",
+              "url": "https://cdn.thingiverse.com/assets/octopus.jpg",
+              "creator": "Maker",
+              "license": "cc0",
+              "mature": false,
+              "width": 1200,
+              "height": 1800,
+              "tags": [{ "name": "octopus" }]
+            },
+            {
+              "id": "commons-octopus",
+              "title": "Common octopus underwater",
+              "foreign_landing_url": "https://commons.wikimedia.org/wiki/File:Octopus.jpg",
+              "url": "https://upload.wikimedia.org/octopus.jpg",
+              "creator": "Photographer",
+              "license": "cc0",
+              "mature": false,
+              "width": 1200,
+              "height": 1800,
+              "tags": [{ "name": "octopus" }]
+            }
+          ]
+        }
+        """;
+
+        var handler = new StubHandler(response);
+        using var client = new HttpClient(handler);
+        using var provider = new NativeOpenverseAssetProvider(client);
+
+        var results = await provider.SearchAsync("octopus underwater", "image", 20);
+
+        var result = Assert.Single(results);
+        Assert.Equal("commons-octopus", result.Id);
+        Assert.DoesNotContain(results, item =>
+            item.SourcePage.Contains("thingiverse", StringComparison.OrdinalIgnoreCase) ||
+            item.Url.Contains("thingiverse", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public void FecesSearch_UsesWordImmediatelyBeforeEvidenceAsSubject()
     {
         Assert.Equal(
