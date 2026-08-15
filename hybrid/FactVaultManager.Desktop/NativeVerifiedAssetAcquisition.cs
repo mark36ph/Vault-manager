@@ -164,6 +164,36 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                     continue;
                 }
 
+                if (requiredSubject.Length > 0 &&
+                    decision.SubjectIdentityMode.Equals("visually_recognizable", StringComparison.OrdinalIgnoreCase) &&
+                    decision.RequestedSubjectVisible &&
+                    !CandidateTitleMentionsSubject(asset.Candidate.Title, requiredSubject))
+                {
+                    try
+                    {
+                        var subjectDecision = await _verifier.VerifyAsync(
+                            BuildEvidenceVerificationQuery(query, requiredSubject), asset, cancellationToken);
+                        if (!subjectDecision.Accepted || !subjectDecision.RequestedSubjectVisible)
+                        {
+                            var reason = $"independent subject-only verification did not confirm '{requiredSubject}'";
+                            failures.Add($"{asset.Candidate.Provider}/{asset.Candidate.Id}: {reason}");
+                            Report("verify", index + 1, scanLimit, $"Visual relevance rejected ({reason}); trying another asset");
+                            Discard(asset);
+                            continue;
+                        }
+                        Report("verify", index + 1, scanLimit,
+                            $"Independent subject-only verification confirmed '{requiredSubject}'");
+                    }
+                    catch (Exception error)
+                    {
+                        var reason = $"subject-only verification failed for '{requiredSubject}': {error.Message}";
+                        failures.Add($"{asset.Candidate.Provider}/{asset.Candidate.Id}: {reason}");
+                        Report("verify", index + 1, scanLimit, $"Visual relevance rejected ({reason}); trying another asset");
+                        Discard(asset);
+                        continue;
+                    }
+                }
+
                 if (evidenceSubject.Length > 0 && decision.RequestedSceneEvidenceVisible)
                 {
                     try
@@ -403,6 +433,17 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
 
     private static string CandidateKey(NativeAssetCandidate candidate) =>
         $"{candidate.Provider}:{(string.IsNullOrWhiteSpace(candidate.Id) ? candidate.Url : candidate.Id)}";
+
+    private static bool CandidateTitleMentionsSubject(string candidateTitle, string requiredSubject)
+    {
+        var subjectMatch = Regex.Match(requiredSubject ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*");
+        if (!subjectMatch.Success)
+            return true;
+        return Regex.IsMatch(
+            candidateTitle ?? "",
+            $@"\b{Regex.Escape(subjectMatch.Value)}\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
 
     private static bool IsUniquenessExhaustion(NativeAssetAcquisitionException error) =>
         error.Message.Contains("no unexcluded", StringComparison.OrdinalIgnoreCase) ||
