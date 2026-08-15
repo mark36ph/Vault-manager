@@ -287,12 +287,25 @@ public partial class MainShellWindow
         logHeader.ColumnDefinitions.Add(new ColumnDefinition());
         logHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         logHeader.Children.Add(ProductionHeading("Production log", 13));
+        var logActions = new StackPanel { Orientation = Orientation.Horizontal };
+        var copy = ProductionButton("Copy Log", false, (_, _) =>
+        {
+            if (!string.IsNullOrEmpty(_productionLogTextBox.Text))
+            {
+                Clipboard.SetText(_productionLogTextBox.Text);
+            }
+        });
+        copy.Width = 90;
+        copy.IsEnabled = true;
+        copy.Margin = new Thickness(0, 0, 6, 0);
         var clear = ProductionButton("Clear", false, (_, _) => _productionLogTextBox.Clear());
         clear.Width = 70;
         clear.IsEnabled = true;
         clear.Margin = new Thickness(0);
-        Grid.SetColumn(clear, 1);
-        logHeader.Children.Add(clear);
+        logActions.Children.Add(copy);
+        logActions.Children.Add(clear);
+        Grid.SetColumn(logActions, 1);
+        logHeader.Children.Add(logActions);
         logGrid.Children.Add(logHeader);
 
         _productionLogTextBox = new TextBox
