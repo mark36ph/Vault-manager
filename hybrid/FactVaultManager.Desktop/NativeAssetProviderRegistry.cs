@@ -27,6 +27,7 @@ public sealed class NativeAssetProviderRegistry : IDisposable
         }
 
         registry.Add(new NativeOpenverseAssetProvider());
+        registry.Add(new NativeWikimediaCommonsAssetProvider());
 
         return registry;
     }
