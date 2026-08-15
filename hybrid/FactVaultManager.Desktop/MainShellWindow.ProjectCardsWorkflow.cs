@@ -233,6 +233,7 @@ public partial class MainShellWindow
 
         if (_productionProjectComboBox is not null)
         {
+            RefreshNativeProductionProjects(project.Id);
             var match = _productionProjects.FirstOrDefault(item => item.Id == project.Id);
             if (match is not null)
                 _productionProjectComboBox.SelectedItem = match;
