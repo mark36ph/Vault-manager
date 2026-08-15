@@ -458,7 +458,7 @@ public sealed class NativeNamedSubjectVerifier : INativeAssetVerifier
 
     private static readonly HashSet<string> BroadAnchors = new(StringComparer.OrdinalIgnoreCase)
     {
-        "space", "science", "nature", "history", "technology", "engineering", "health", "medicine",
+        "subject", "space", "science", "nature", "history", "technology", "engineering", "health", "medicine",
         "animals", "animal", "ocean", "geography", "physics", "chemistry", "biology", "astronomy",
         "earth", "environment", "transport", "architecture", "geology",
     };
@@ -492,7 +492,7 @@ public sealed class NativeNamedSubjectVerifier : INativeAssetVerifier
 
     private static readonly HashSet<string> ContextualPlaceAnchors = new(StringComparer.OrdinalIgnoreCase)
     {
-        "nature", "geography", "geology", "earth", "environment",
+        "subject", "nature", "geography", "geology", "earth", "environment",
     };
 
     private static readonly HashSet<string> ContextualPlaceCues = new(StringComparer.OrdinalIgnoreCase)
