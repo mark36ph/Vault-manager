@@ -23,6 +23,11 @@ public sealed class PythonWorkerClient : IAsyncDisposable
 
     public Task StartAsync()
     {
+        if (!PythonProductionFallbackEnabled())
+        {
+            return Task.CompletedTask;
+        }
+
         if (IsRunning)
         {
             return Task.CompletedTask;
@@ -91,6 +96,12 @@ public sealed class PythonWorkerClient : IAsyncDisposable
         }));
         return Task.CompletedTask;
     }
+
+    private static bool PythonProductionFallbackEnabled() =>
+        string.Equals(
+            Environment.GetEnvironmentVariable("FACTVAULT_USE_PYTHON_PRODUCTION"),
+            "1",
+            StringComparison.OrdinalIgnoreCase);
 
     private static void MigrateDevelopmentDataIfNeeded(string appDataRoot)
     {
