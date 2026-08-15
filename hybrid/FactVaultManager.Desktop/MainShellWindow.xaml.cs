@@ -46,7 +46,7 @@ public partial class MainShellWindow : Window
                 ApplyProjectsFilter();
 
             LoadSettings();
-            HeaderStatusText.Text = $"C# desktop shell • {_projects.Count} projects • Python production engine";
+            HeaderStatusText.Text = "";
         }
         catch (Exception error)
         {
