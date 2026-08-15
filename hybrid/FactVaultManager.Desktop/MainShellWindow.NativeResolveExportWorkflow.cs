@@ -12,8 +12,6 @@ public partial class MainShellWindow
         if (_nativeResolveExportWired || _productionExportButton is null)
             return;
 
-        _productionExportButton.Click -= EmbeddedExportResolve_Click;
-        _productionExportButton.Click += EmbeddedNativeResolveExport_Click;
         _nativeResolveExportWired = true;
         WireNativeProductionOrchestration();
     }
