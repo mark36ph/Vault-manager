@@ -6,7 +6,7 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class NativeOpenverseAssetProviderTests
 {
     [Fact]
-    public async Task Search_UsesPublicDomainFilterAndRejectsOtherLicenses()
+    public async Task Search_ExpandsFecesVocabularyAndUsesPublicDomainFilter()
     {
         const string response = """
         {
@@ -49,7 +49,7 @@ public sealed class NativeOpenverseAssetProviderTests
         using var client = new HttpClient(handler);
         using var provider = new NativeOpenverseAssetProvider(client);
 
-        var results = await provider.SearchAsync("wombat faeces", "image", 20);
+        var results = await provider.SearchAsync("wombat droppings", "image", 20);
 
         var result = Assert.Single(results);
         Assert.Equal("openverse", result.Provider);
@@ -60,6 +60,8 @@ public sealed class NativeOpenverseAssetProviderTests
         Assert.NotNull(handler.LastRequestUri);
         Assert.Contains("license=cc0%2Cpdm", handler.LastRequestUri!.Query, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("mature=false", handler.LastRequestUri.Query, StringComparison.OrdinalIgnoreCase);
+        var decodedQuery = Uri.UnescapeDataString(handler.LastRequestUri.Query);
+        Assert.Contains("(droppings | feces | faeces | poop | scat)", decodedQuery, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
