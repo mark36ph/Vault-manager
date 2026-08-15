@@ -11,26 +11,8 @@ internal static class NativeAssetDownloadSecurity
 
     public static async Task<Uri> ValidateRemoteUriAsync(string value, CancellationToken cancellationToken)
     {
-        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
-            throw new NativeAssetAcquisitionException("asset URL is invalid");
-        if (!uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
-            throw new NativeAssetAcquisitionException("asset URL must use HTTPS");
-        if (!string.IsNullOrEmpty(uri.UserInfo))
-            throw new NativeAssetAcquisitionException("asset URL cannot contain embedded credentials");
-        if (string.IsNullOrWhiteSpace(uri.Host) || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
-            throw new NativeAssetAcquisitionException("asset URL cannot target localhost");
-
-        if (IPAddress.TryParse(uri.Host, out var literal))
-        {
-            if (!IsPublicAddress(literal))
-                throw new NativeAssetAcquisitionException("asset URL cannot target a private or special-purpose network address");
-            return uri;
-        }
-
-        // RFC-reserved test names never represent production media hosts. Allowing them to
-        // reach an injected test transport keeps unit tests isolated from real DNS lookups.
-        if (uri.DnsSafeHost.EndsWith(".invalid", StringComparison.OrdinalIgnoreCase) ||
-            uri.DnsSafeHost.EndsWith(".test", StringComparison.OrdinalIgnoreCase))
+        var uri = ValidateRemoteUriWithoutDns(value);
+        if (IPAddress.TryParse(uri.Host, out _))
             return uri;
 
         IPAddress[] addresses;
@@ -45,6 +27,22 @@ internal static class NativeAssetDownloadSecurity
 
         if (addresses.Length == 0 || addresses.Any(address => !IsPublicAddress(address)))
             throw new NativeAssetAcquisitionException("asset host resolves to a private or special-purpose network address");
+        return uri;
+    }
+
+    internal static Uri ValidateRemoteUriWithoutDns(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
+            throw new NativeAssetAcquisitionException("asset URL is invalid");
+        if (!uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            throw new NativeAssetAcquisitionException("asset URL must use HTTPS");
+        if (!string.IsNullOrEmpty(uri.UserInfo))
+            throw new NativeAssetAcquisitionException("asset URL cannot contain embedded credentials");
+        if (string.IsNullOrWhiteSpace(uri.Host) || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+            throw new NativeAssetAcquisitionException("asset URL cannot target localhost");
+
+        if (IPAddress.TryParse(uri.Host, out var literal) && !IsPublicAddress(literal))
+            throw new NativeAssetAcquisitionException("asset URL cannot target a private or special-purpose network address");
         return uri;
     }
 
