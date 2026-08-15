@@ -1,5 +1,4 @@
 using System.Net.Http;
-using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -35,17 +34,32 @@ public sealed class NativeAssetAcquisitionEngine : IDisposable
     private readonly IReadOnlyList<INativeAssetProvider> _providers;
     private readonly HttpClient _client;
     private readonly bool _ownsClient;
+    private readonly bool _validateRemoteDns;
 
     public Action<string, int, int, string>? Progress { get; set; }
 
-    public NativeAssetAcquisitionEngine(
+    public NativeAssetAcquisitionEngine(IEnumerable<INativeAssetProvider> providers)
+        : this(providers, client: null, validateRemoteDns: true)
+    {
+    }
+
+    internal NativeAssetAcquisitionEngine(
         IEnumerable<INativeAssetProvider> providers,
-        HttpClient? client = null)
+        HttpClient client)
+        : this(providers, client, validateRemoteDns: false)
+    {
+    }
+
+    private NativeAssetAcquisitionEngine(
+        IEnumerable<INativeAssetProvider> providers,
+        HttpClient? client,
+        bool validateRemoteDns)
     {
         _providers = providers?.ToArray() ?? throw new ArgumentNullException(nameof(providers));
         if (_providers.Count == 0)
             throw new ArgumentException("at least one asset provider is required", nameof(providers));
 
+        _validateRemoteDns = validateRemoteDns;
         if (client is null)
         {
             _client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
@@ -245,7 +259,7 @@ public sealed class NativeAssetAcquisitionEngine : IDisposable
 
         try
         {
-            var current = await NativeAssetDownloadSecurity.ValidateRemoteUriAsync(candidate.Url, cancellationToken);
+            var current = await ValidateDownloadUriAsync(candidate.Url, cancellationToken);
             HttpResponseMessage? response = null;
             try
             {
@@ -269,7 +283,7 @@ public sealed class NativeAssetAcquisitionEngine : IDisposable
                         var redirected = location.IsAbsoluteUri ? location : new Uri(current, location);
                         response.Dispose();
                         response = null;
-                        current = await NativeAssetDownloadSecurity.ValidateRemoteUriAsync(redirected.AbsoluteUri, cancellationToken);
+                        current = await ValidateDownloadUriAsync(redirected.AbsoluteUri, cancellationToken);
                         continue;
                     }
                     break;
@@ -306,6 +320,13 @@ public sealed class NativeAssetAcquisitionEngine : IDisposable
             if (File.Exists(temporary)) File.Delete(temporary);
             throw;
         }
+    }
+
+    private Task<Uri> ValidateDownloadUriAsync(string value, CancellationToken cancellationToken)
+    {
+        if (_validateRemoteDns)
+            return NativeAssetDownloadSecurity.ValidateRemoteUriAsync(value, cancellationToken);
+        return Task.FromResult(NativeAssetDownloadSecurity.ValidateRemoteUriWithoutDns(value));
     }
 
     private static string Destination(NativeAssetCandidate candidate, string folder)
