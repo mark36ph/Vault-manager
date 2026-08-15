@@ -21,6 +21,11 @@ public static class NativeVisualSelectionPolicy
         "3d print", "3d printed", "3d printing", "printed model", "plastic model", "thingiverse",
     };
 
+    private static readonly string[] BlockedSourceHosts =
+    {
+        "thingiverse.com",
+    };
+
     public static string SourceFamilyKey(NativeAssetCandidate candidate)
     {
         ArgumentNullException.ThrowIfNull(candidate);
@@ -39,9 +44,36 @@ public static class NativeVisualSelectionPolicy
         return $"family:{candidate.Provider}:{Regex.Replace(source.ToLowerInvariant(), @"\s+", " ")}";
     }
 
+    public static string BlockedSourceReason(NativeAssetCandidate candidate)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+
+        foreach (var value in new[] { candidate.SourcePage, candidate.Url })
+        {
+            if (!Uri.TryCreate(value, UriKind.Absolute, out var uri))
+                continue;
+
+            foreach (var blockedHost in BlockedSourceHosts)
+            {
+                if (uri.Host.Equals(blockedHost, StringComparison.OrdinalIgnoreCase) ||
+                    uri.Host.EndsWith("." + blockedHost, StringComparison.OrdinalIgnoreCase))
+                    return blockedHost;
+            }
+        }
+
+        return Words(CandidateText(candidate)).Contains("thingiverse")
+            ? "thingiverse.com"
+            : "";
+    }
+
     public static string SceneContradiction(string query, NativeAssetCandidate candidate)
     {
         ArgumentNullException.ThrowIfNull(candidate);
+
+        var blockedSource = BlockedSourceReason(candidate);
+        if (blockedSource.Length > 0)
+            return $"blocked source '{blockedSource}'";
+
         var queryWords = Words(query);
         if (!ScientificIntentWords.Any(queryWords.Contains))
             return "";
@@ -68,7 +100,7 @@ public static class NativeVisualSelectionPolicy
     }
 
     private static string CandidateText(NativeAssetCandidate candidate) =>
-        string.Join(" ", new[] { candidate.Title, candidate.Credit, candidate.SourcePage }
+        string.Join(" ", new[] { candidate.Title, candidate.Credit, candidate.SourcePage, candidate.Url }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
 
     private static HashSet<string> Words(string value) =>
