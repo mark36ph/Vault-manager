@@ -81,7 +81,7 @@ public sealed class NativeOpenverseAssetProviderTests
     }
 
     [Fact]
-    public void LegacyDefaultSettings_GainOpenverseAutomatically()
+    public void LegacyDefaultSettings_GainFreeArchiveProvidersAutomatically()
     {
         var folder = Path.Combine(Path.GetTempPath(), "FactVaultManager-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
@@ -98,7 +98,7 @@ public sealed class NativeOpenverseAssetProviderTests
 
             var settings = new NativeProviderSettingsStore(folder).Load();
 
-            Assert.Equal(new[] { "pexels", "pixabay", "openverse" }, settings.AssetProviders);
+            Assert.Equal(new[] { "pexels", "pixabay", "openverse", "wikimedia" }, settings.AssetProviders);
         }
         finally
         {
