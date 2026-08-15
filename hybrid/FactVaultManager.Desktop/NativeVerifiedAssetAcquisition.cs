@@ -18,6 +18,13 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         ["literal"] = 2,
     };
 
+    private static readonly HashSet<string> GenericSceneLeadWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "close", "up", "wide", "macro", "dramatic", "documentary", "portrait", "vertical", "realistic",
+        "walking", "walk", "standing", "stand", "sitting", "sit", "running", "run", "flying", "fly",
+        "swimming", "swim", "eating", "eat", "foraging", "forage", "resting", "rest", "moving", "move",
+    };
+
     private const int SubjectUncertainPenalty = 4;
     private const int SceneEvidenceBonus = 6;
     private const int MinQualityScan = 5;
@@ -73,6 +80,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         var fallbackQueries = new List<string> { query };
         fallbackQueries.AddRange(FallbackSearchQueries(query));
         var verificationQuery = BuildVerificationQuery(query, requiredSubject);
+        var evidenceSubject = SceneEvidenceSubject(query, requiredSubject);
 
         foreach (var searchQuery in fallbackQueries)
         {
@@ -133,7 +141,38 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                     continue;
                 }
 
-                var score = VisualScore(decision);
+                if (evidenceSubject.Length > 0 && decision.RequestedSceneEvidenceVisible)
+                {
+                    try
+                    {
+                        var evidenceDecision = await _verifier.VerifyAsync(
+                            BuildEvidenceVerificationQuery(query, evidenceSubject), asset, cancellationToken);
+                        if (!evidenceDecision.Accepted ||
+                            (!evidenceDecision.RequestedSubjectVisible && !evidenceDecision.RequestedSceneEvidenceVisible))
+                        {
+                            decision = decision with
+                            {
+                                RequestedSceneEvidenceVisible = false,
+                                Decision = decision.Decision + $"; scene evidence '{evidenceSubject}' was not independently confirmed",
+                            };
+                            Report("verify", index + 1, scanLimit,
+                                $"Scene-specific evidence '{evidenceSubject}' was not confirmed; treating asset as subject-only fallback");
+                        }
+                    }
+                    catch (Exception error)
+                    {
+                        failures.Add($"{asset.Candidate.Provider}/{asset.Candidate.Id}: scene-evidence verification failed: {error.Message}");
+                        decision = decision with
+                        {
+                            RequestedSceneEvidenceVisible = false,
+                            Decision = decision.Decision + $"; scene evidence '{evidenceSubject}' could not be confirmed",
+                        };
+                        Report("verify", index + 1, scanLimit,
+                            $"Scene-specific evidence '{evidenceSubject}' could not be confirmed; treating asset as subject-only fallback");
+                    }
+                }
+
+                var score = VisualScore(decision, evidenceSubject.Length > 0);
                 if (best is null || score > bestScore)
                 {
                     if (best is not null) Discard(best);
@@ -141,7 +180,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                     bestDecision = decision;
                     bestScore = score;
                     Report("verify", index + 1, scanLimit,
-                        $"Best visual so far: {decision.Quality}/{decision.Style} ({score}{(decision.SubjectUncertain ? ", subject uncertain" : "")}{(decision.RequestedSceneEvidenceVisible ? ", scene evidence" : "")})");
+                        $"Best visual so far: {decision.Quality}/{decision.Style} ({score}{(decision.SubjectUncertain ? ", subject uncertain" : "")}{(evidenceSubject.Length > 0 && decision.RequestedSceneEvidenceVisible ? ", scene evidence confirmed" : "")})");
                 }
                 else
                 {
@@ -174,7 +213,8 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                 continue;
             }
 
-            if (requiredSubject.Length > 0 &&
+            if (evidenceSubject.Length > 0 &&
+                requiredSubject.Length > 0 &&
                 bestDecision.RequestedSubjectVisible &&
                 !bestDecision.RequestedSceneEvidenceVisible)
             {
@@ -184,7 +224,8 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                     sceneFallback = best;
                     sceneFallbackDecision = bestDecision;
                     sceneFallbackScore = bestScore;
-                    Report("verify", 1, 1, "Subject-only visual retained as fallback; searching for scene-specific evidence");
+                    Report("verify", 1, 1,
+                        $"Subject-only visual retained as fallback; searching for visible '{evidenceSubject}' evidence");
                 }
                 else Discard(best);
                 continue;
@@ -202,7 +243,8 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
             if (uncertainFallback is not null) Discard(uncertainFallback);
             if (decorativeFallback is not null) Discard(decorativeFallback);
             Remember(sceneFallbackDecision);
-            Report("verify", 1, 1, "No scene-specific evidence found; using the best subject-only factual fallback");
+            Report("verify", 1, 1,
+                $"No confirmed '{evidenceSubject}' evidence found; using the best subject-only factual fallback");
             return sceneFallback;
         }
 
@@ -249,9 +291,41 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         for (var index = 0; index < items.Length; index++)
         {
             Report("acquire", index + 1, items.Length, items[index]);
-            var result = await AcquireAsync(
-                items[index], destinationFolder, kind, limit, targetRatio, attempts,
-                unique ? used : null, cancellationToken, requiredSubject);
+            NativeAcquiredAsset result;
+            try
+            {
+                result = await AcquireAsync(
+                    items[index], destinationFolder, kind, limit, targetRatio, attempts,
+                    unique ? used : null, cancellationToken, requiredSubject);
+            }
+            catch (NativeAssetAcquisitionException error) when (
+                unique && used.Count > 0 && IsUniquenessExhaustion(error))
+            {
+                var recent = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (results.Count > 0)
+                {
+                    recent.Add(CandidateKey(results[^1].Candidate));
+                    recent.Add(results[^1].Candidate.Url);
+                }
+
+                Report("acquire", index + 1, items.Length,
+                    "No fresh unique visual passed; allowing non-adjacent reuse as a fallback");
+                try
+                {
+                    result = await AcquireAsync(
+                        items[index], destinationFolder, kind, limit, targetRatio, attempts,
+                        recent.Count > 0 ? recent : null, cancellationToken, requiredSubject);
+                }
+                catch (NativeAssetAcquisitionException)
+                {
+                    Report("acquire", index + 1, items.Length,
+                        "Only previously used visuals remain; allowing last-resort reuse to keep production running");
+                    result = await AcquireAsync(
+                        items[index], destinationFolder, kind, limit, targetRatio, attempts,
+                        null, cancellationToken, requiredSubject);
+                }
+            }
+
             results.Add(result);
             if (unique)
             {
@@ -262,11 +336,11 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         return results;
     }
 
-    private static int VisualScore(NativeAssetVerificationResult decision)
+    private static int VisualScore(NativeAssetVerificationResult decision, bool sceneEvidenceRequested)
     {
         var quality = QualityScore.GetValueOrDefault(decision.Quality, 6);
         var style = StyleScore.GetValueOrDefault(decision.Style, 2);
-        var sceneEvidence = decision.RequestedSceneEvidenceVisible ? SceneEvidenceBonus : 0;
+        var sceneEvidence = sceneEvidenceRequested && decision.RequestedSceneEvidenceVisible ? SceneEvidenceBonus : 0;
         return quality + style + sceneEvidence - (decision.SubjectUncertain ? SubjectUncertainPenalty : 0);
     }
 
@@ -288,10 +362,69 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
     private static string CandidateKey(NativeAssetCandidate candidate) =>
         $"{candidate.Provider}:{(string.IsNullOrWhiteSpace(candidate.Id) ? candidate.Url : candidate.Id)}";
 
+    private static bool IsUniquenessExhaustion(NativeAssetAcquisitionException error) =>
+        error.Message.Contains("no unexcluded", StringComparison.OrdinalIgnoreCase);
+
     public static string BuildVerificationQuery(string query, string requiredSubject)
     {
         var cleanQuery = Regex.Replace((query ?? "").Trim(), @"\s+", " ");
         var subjectMatch = Regex.Match(requiredSubject ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*");
+        if (!subjectMatch.Success)
+            return cleanQuery;
+
+        var subject = subjectMatch.Value.ToLowerInvariant();
+        var subjectPattern = new Regex(
+            $@"\b{Regex.Escape(subject)}\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var remainder = subjectPattern.Replace(cleanQuery, "", 1);
+        remainder = Regex.Replace(remainder, @"\s+", " ").Trim();
+        return string.Join(" ", new[] { "subject", subject, remainder }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+    }
+
+    public static string SceneEvidenceSubject(string query, string requiredSubject)
+    {
+        var queryWords = Regex.Matches(query ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*")
+            .Select(match => match.Value)
+            .ToList();
+        var subjectWords = Regex.Matches(requiredSubject ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*")
+            .Select(match => match.Value)
+            .ToList();
+        if (queryWords.Count == 0 || subjectWords.Count == 0)
+            return "";
+
+        var start = -1;
+        for (var index = 0; index <= queryWords.Count - subjectWords.Count; index++)
+        {
+            var match = true;
+            for (var subjectIndex = 0; subjectIndex < subjectWords.Count; subjectIndex++)
+            {
+                if (!queryWords[index + subjectIndex].Equals(subjectWords[subjectIndex], StringComparison.OrdinalIgnoreCase))
+                {
+                    match = false;
+                    break;
+                }
+            }
+            if (match)
+            {
+                start = index + subjectWords.Count;
+                break;
+            }
+        }
+
+        if (start < 0 || start >= queryWords.Count)
+            return "";
+
+        var lead = queryWords[start];
+        if (lead.Length < 3 || GenericSceneLeadWords.Contains(lead))
+            return "";
+        return lead.ToLowerInvariant();
+    }
+
+    public static string BuildEvidenceVerificationQuery(string query, string evidenceSubject)
+    {
+        var cleanQuery = Regex.Replace((query ?? "").Trim(), @"\s+", " ");
+        var subjectMatch = Regex.Match(evidenceSubject ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*");
         if (!subjectMatch.Success)
             return cleanQuery;
 
