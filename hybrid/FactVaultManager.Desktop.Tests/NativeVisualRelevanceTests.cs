@@ -137,6 +137,39 @@ public sealed class NativeVisualRelevanceTests
     }
 
     [Fact]
+    public async Task GenericSceneEvidence_CannotReplaceMissingExplicitSubject()
+    {
+        var candidates = new[]
+        {
+            TestCandidate("marmot", 100, "A marmot stands upright in a sunlit meadow"),
+            TestCandidate("wombat", 1, "A wombat stands in its natural habitat"),
+        };
+        using var client = new HttpClient(new StubDownloadHandler());
+        using var engine = new NativeAssetAcquisitionEngine(new[] { new StubProvider(candidates) }, client);
+        var verifier = new StubVerifier(asset =>
+            asset.Candidate.Id == "marmot"
+                ? VerificationResult(subjectVisible: false, sceneEvidenceVisible: true)
+                : VerificationResult(subjectVisible: true, sceneEvidenceVisible: true));
+        var verified = new NativeVerifiedAssetAcquisitionEngine(engine, verifier);
+        var folder = TestFolder();
+
+        try
+        {
+            var result = await verified.AcquireAsync(
+                "wombat standing territory Australia",
+                folder,
+                attempts: 2,
+                requiredSubject: "wombat");
+
+            Assert.Equal("wombat", result.Candidate.Id);
+        }
+        finally
+        {
+            DeleteFolder(folder);
+        }
+    }
+
+    [Fact]
     public async Task ClaimedSceneEvidence_IsIndependentlyRecheckedAsExplicitVisualSubject()
     {
         var candidate = TestCandidate("1", 100);
