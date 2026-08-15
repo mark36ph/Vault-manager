@@ -66,15 +66,15 @@ public sealed partial class DesktopDataService
 
     public DesktopProject CreateProject(string title, string category, string status)
     {
-        title = title.Trim();
+        title = ProjectPathSecurity.ValidateSegment(title, "Project title");
         category = category.Trim();
-        status = status.Trim();
-        if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("Project title is required.");
+        status = string.IsNullOrWhiteSpace(status)
+            ? "In Progress"
+            : ProjectPathSecurity.ValidateSegment(status, "Project status");
         if (string.IsNullOrWhiteSpace(category)) throw new ArgumentException("Category is required.");
-        if (string.IsNullOrWhiteSpace(status)) status = "In Progress";
 
         var root = GetProjectsRoot();
-        var folder = Path.Combine(root, status, title);
+        var folder = ProjectPathSecurity.CombineContained(root, status, title);
         if (Directory.Exists(folder)) throw new IOException($"Project folder already exists: {folder}");
 
         var createdFolders = new[]
@@ -142,11 +142,12 @@ public sealed partial class DesktopDataService
 
     public DesktopProject ChangeStatus(DesktopProject project, string newStatus)
     {
-        newStatus = newStatus.Trim();
+        newStatus = ProjectPathSecurity.ValidateSegment(newStatus, "Project status");
         if (newStatus == project.Status) return project;
         var root = GetProjectsRoot();
         var oldFolder = ResolveProjectFolder(project);
-        var newFolder = Path.Combine(root, newStatus, project.Title);
+        var safeTitle = ProjectPathSecurity.ValidateSegment(project.Title, "Project title");
+        var newFolder = ProjectPathSecurity.CombineContained(root, newStatus, safeTitle);
         if (!Directory.Exists(oldFolder)) throw new DirectoryNotFoundException(oldFolder);
         if (Directory.Exists(newFolder)) throw new IOException($"Destination already exists: {newFolder}");
 
@@ -177,7 +178,9 @@ public sealed partial class DesktopDataService
         string? staged = null;
         if (deleteFolder && Directory.Exists(folder))
         {
-            staged = folder + ".delete-" + Guid.NewGuid().ToString("N")[..8];
+            staged = ProjectPathSecurity.EnsureContained(
+                GetProjectsRoot(),
+                folder + ".delete-" + Guid.NewGuid().ToString("N")[..8]);
             Directory.Move(folder, staged);
         }
         try
@@ -198,8 +201,8 @@ public sealed partial class DesktopDataService
 
     public string ResolveProjectFolder(DesktopProject project)
     {
-        if (Path.IsPathRooted(project.Folder)) return project.Folder;
-        return Path.Combine(GetProjectsRoot(), project.Folder);
+        var root = GetProjectsRoot();
+        return ProjectPathSecurity.ResolveContained(root, project.Folder);
     }
 
     public IReadOnlyList<MediaItem> GetMedia(DesktopProject? project)
