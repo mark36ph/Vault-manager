@@ -516,10 +516,11 @@ public sealed class NativeNamedSubjectVerifier : INativeAssetVerifier
         NativeAcquiredAsset asset,
         CancellationToken cancellationToken = default)
     {
+        query = (query ?? "").Trim();
         var entity = NamedSubjectPhrase(query);
         var subject = ExplicitSubjectPhrase(query);
         var lowercaseEntity = LowercaseNamedPhrase(query);
-        var checkQuery = (query ?? "").Trim();
+        var checkQuery = query;
         var anchoredEntity = "";
 
         if (entity.Length > 0 && subject.Length > 0 &&
