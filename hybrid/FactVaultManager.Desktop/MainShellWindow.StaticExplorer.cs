@@ -77,6 +77,7 @@ public partial class MainShellWindow
 
         _embeddedProductionInitialized = true;
         _ = InitializeEmbeddedProductionAsync();
+        WireNativeResolveExportButton();
         Closed += async (_, _) => await DisposeEmbeddedProductionAsync();
 
         if (Content is not DependencyObject root)
