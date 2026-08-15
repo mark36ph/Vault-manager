@@ -22,11 +22,18 @@ public sealed class ProductionProjectCatalog
             string folder;
             try
             {
-                folder = _data.ResolveProjectFolder(project);
+                folder = _data.EnsureProjectFolder(project);
             }
             catch
             {
-                folder = project.Folder;
+                try
+                {
+                    folder = _data.ResolveProjectFolder(project);
+                }
+                catch
+                {
+                    folder = project.Folder;
+                }
             }
 
             var folderExists = Directory.Exists(folder);
