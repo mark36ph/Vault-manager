@@ -46,33 +46,10 @@ jobs:
           }
           "version=$version" >> $env:GITHUB_OUTPUT
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
-
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
-
-      - name: Install Python build dependencies
-        run: python -m pip install -r requirements-build.txt
-
-      - name: Run Python tests
-        run: python -m pytest
-
-      - name: Build frozen Python worker
-        run: >-
-          python -m PyInstaller
-          --noconfirm
-          --clean
-          --onefile
-          --name FactVaultWorker
-          --distpath hybrid-build\worker
-          --workpath hybrid-build\pyinstaller-work
-          --specpath hybrid-build\pyinstaller-spec
-          hybrid\python_worker.py
 
       - name: Publish self-contained .NET app
         run: >-
@@ -87,9 +64,6 @@ jobs:
       - name: Assemble installed runtime
         shell: pwsh
         run: |
-          Copy-Item hybrid-build\worker\FactVaultWorker.exe hybrid-build\publish\FactVaultWorker.exe
-          Copy-Item main.py hybrid-build\publish\main.py
-          Copy-Item common hybrid-build\publish\common -Recurse
           Copy-Item assets hybrid-build\publish\assets -Recurse
 
       - name: Restore pinned Velopack CLI
