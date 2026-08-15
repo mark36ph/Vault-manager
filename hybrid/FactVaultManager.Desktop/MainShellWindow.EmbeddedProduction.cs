@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -25,7 +24,6 @@ public partial class MainShellWindow
         ["resolve"] = "Create Resolve Export",
     };
 
-    private PythonWorkerClient? _productionWorker;
     private readonly List<HybridProject> _productionProjects = new();
     private readonly Dictionary<string, (TextBlock Icon, TextBlock Detail)> _productionStageRows = new();
     private bool _embeddedProductionRunning;
@@ -54,37 +52,6 @@ public partial class MainShellWindow
     private TextBlock _productionElapsedText = null!;
     private ProgressBar _productionProgressBar = null!;
     private TextBox _productionLogTextBox = null!;
-
-    private async Task InitializeEmbeddedProductionAsync()
-    {
-        BuildEmbeddedProductionPage();
-        _productionElapsedTimer.Tick += (_, _) => UpdateEmbeddedElapsed();
-
-        try
-        {
-            var repositoryRoot = LocateProductionRepositoryRoot();
-            _productionWorker = new PythonWorkerClient(repositoryRoot);
-            _productionWorker.MessageReceived += line => Dispatcher.BeginInvoke(() => HandleEmbeddedWorkerLine(line));
-            _productionWorker.ErrorReceived += line => Dispatcher.BeginInvoke(() => AppendEmbeddedProductionLog($"worker stderr: {line}"));
-            await _productionWorker.StartAsync();
-            AppendEmbeddedProductionLog("Python production worker started.");
-        }
-        catch (Exception error)
-        {
-            _productionWorkerStatusText.Text = "Connection failed";
-            AppendEmbeddedProductionLog($"Worker connection failed: {error.Message}");
-        }
-    }
-
-    private async Task DisposeEmbeddedProductionAsync()
-    {
-        _productionElapsedTimer.Stop();
-        if (_productionWorker is not null)
-        {
-            await _productionWorker.DisposeAsync();
-            _productionWorker = null;
-        }
-    }
 
     private void BuildEmbeddedProductionPage()
     {
@@ -223,17 +190,17 @@ public partial class MainShellWindow
         credentialBorder.Child = _productionCredentialText;
         content.Children.Add(credentialBorder);
 
-        content.Children.Add(ProductionSectionLabel("WORKER"));
-        _productionWorkerStatusText = new TextBlock { Text = "Connecting...", FontWeight = FontWeights.SemiBold };
+        content.Children.Add(ProductionSectionLabel("ENGINE"));
+        _productionWorkerStatusText = new TextBlock { Text = "Native C# engine ready", FontWeight = FontWeights.SemiBold };
         content.Children.Add(_productionWorkerStatusText);
 
         content.Children.Add(ProductionSectionLabel("ACTIONS"));
-        _productionActionButton = ProductionButton("▶  Produce Video", true, EmbeddedProductionAction_Click);
-        _productionResumeButton = ProductionButton("↻  Resume Production", false, EmbeddedResumeProduction_Click);
-        _productionExportButton = ProductionButton("⬆  Create Resolve Export", false, EmbeddedExportResolve_Click);
-        _productionCancelButton = ProductionButton("■  Cancel", false, EmbeddedCancelProduction_Click);
+        _productionActionButton = ProductionButton("▶  Produce Video", true, EmbeddedNativeProductionAction_Click);
+        _productionResumeButton = ProductionButton("↻  Resume Production", false, EmbeddedNativeResumeProduction_Click);
+        _productionExportButton = ProductionButton("⬆  Create Resolve Export", false, EmbeddedNativeResolveExport_Click);
+        _productionCancelButton = ProductionButton("■  Cancel", false, EmbeddedNativeCancelProduction_Click);
         _productionOpenFolderButton = ProductionButton("📂  Open Project Folder", false, EmbeddedOpenProjectFolder_Click);
-        _productionRefreshButton = ProductionButton("Refresh projects", false, EmbeddedRefreshProjects_Click);
+        _productionRefreshButton = ProductionButton("Refresh projects", false, EmbeddedNativeRefreshProjects_Click);
         _productionCancelButton.Foreground = new SolidColorBrush(Color.FromRgb(180, 35, 24));
 
         content.Children.Add(_productionActionButton);
@@ -380,32 +347,7 @@ public partial class MainShellWindow
         return button;
     }
 
-    private static string LocateProductionRepositoryRoot()
-    {
-        foreach (var candidate in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
-        {
-            var directory = new DirectoryInfo(candidate);
-            while (directory is not null)
-            {
-                if (File.Exists(Path.Combine(directory.FullName, "main.py")) && Directory.Exists(Path.Combine(directory.FullName, "common")))
-                {
-                    return directory.FullName;
-                }
-                directory = directory.Parent;
-            }
-        }
-        throw new DirectoryNotFoundException("Could not locate the FactVaultManager repository root.");
-    }
-
     private HybridProject? EmbeddedSelectedProject => _productionProjectComboBox.SelectedItem as HybridProject;
-
-    private async Task RefreshEmbeddedProductionProjectsAsync()
-    {
-        if (_productionWorker is not { IsRunning: true }) return;
-        await _productionWorker.SendAsync(new { command = "list_projects", request_id = Guid.NewGuid().ToString("N") });
-    }
-
-    private async void EmbeddedRefreshProjects_Click(object sender, RoutedEventArgs e) => await RefreshEmbeddedProductionProjectsAsync();
 
     private void ApplyEmbeddedSelectedProject()
     {
@@ -434,7 +376,7 @@ public partial class MainShellWindow
         _productionExportButton.IsEnabled = !_embeddedProductionRunning && project.FolderExists && project.TimelineExists;
         _productionOpenFolderButton.IsEnabled = !_embeddedProductionRunning && project.FolderExists;
         _productionProjectComboBox.IsEnabled = !_embeddedProductionRunning;
-        _productionRefreshButton.IsEnabled = !_embeddedProductionRunning && _productionWorker is { IsRunning: true };
+        _productionRefreshButton.IsEnabled = !_embeddedProductionRunning;
         _productionCancelButton.IsEnabled = _embeddedProductionRunning;
         SetEmbeddedSetupEnabled(!_embeddedProductionRunning);
         RefreshEmbeddedProviderReadiness();
@@ -505,212 +447,11 @@ public partial class MainShellWindow
         _productionVoiceCheckBox.IsEnabled = enabled;
     }
 
-    private async void EmbeddedProductionAction_Click(object sender, RoutedEventArgs e)
-    {
-        var project = EmbeddedSelectedProject;
-        if (project is null) return;
-        await StartEmbeddedProductionAsync(project, project.Status == "Completed" ? "reproduce" : "produce");
-    }
-
-    private async void EmbeddedResumeProduction_Click(object sender, RoutedEventArgs e)
-    {
-        if (EmbeddedSelectedProject is { } project) await StartEmbeddedProductionAsync(project, "resume");
-    }
-
-    private async Task StartEmbeddedProductionAsync(HybridProject project, string mode)
-    {
-        if (_productionWorker is not { IsRunning: true } || _embeddedProductionRunning) return;
-        var topic = _productionTopicTextBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(topic))
-        {
-            _productionTopicTextBox.Focus();
-            AppendEmbeddedProductionLog("Enter a topic before starting production.");
-            return;
-        }
-
-        try
-        {
-            SaveEmbeddedProviderSettings(project);
-            NativeProductionProviderWorkflow.ValidateProject(project.Folder, _data.LoadSettings());
-        }
-        catch (Exception error)
-        {
-            AppendEmbeddedProductionLog($"Production setup failed: {error.Message}");
-            return;
-        }
-
-        _embeddedProductionRunning = true;
-        _embeddedLastStageMessage = "";
-        _productionRunStartedAt = DateTime.Now;
-        _productionElapsedText.Text = "Elapsed 00:00";
-        _productionElapsedTimer.Start();
-        ResetEmbeddedStageRows();
-        _productionCurrentStageText.Text = $"Starting {mode}...";
-        _productionProgressBar.Value = 0;
-        _productionPercentText.Text = "0%";
-        SetEmbeddedSetupEnabled(false);
-        ApplyEmbeddedSelectedProject();
-        AppendEmbeddedProductionLog($"{(mode == "reproduce" ? "Reproducing" : mode == "resume" ? "Resuming" : "Producing")}: {topic}");
-        try
-        {
-            await _productionWorker.SendAsync(new { command = "start_production", request_id = Guid.NewGuid().ToString("N"), project_id = project.Id, mode, topic });
-        }
-        catch (Exception error)
-        {
-            FinishEmbeddedElapsed("Stopped after");
-            _embeddedProductionRunning = false;
-            ApplyEmbeddedSelectedProject();
-            AppendEmbeddedProductionLog($"Could not start production: {error.Message}");
-        }
-    }
-
-    private async void EmbeddedExportResolve_Click(object sender, RoutedEventArgs e)
-    {
-        if (_productionWorker is not { IsRunning: true } || EmbeddedSelectedProject is not { } project) return;
-        _productionExportButton.IsEnabled = false;
-        _productionCurrentStageText.Text = "Creating Resolve export...";
-        AppendEmbeddedProductionLog("Creating Resolve export...");
-        await _productionWorker.SendAsync(new { command = "export_resolve", request_id = Guid.NewGuid().ToString("N"), project_id = project.Id });
-    }
-
     private void EmbeddedOpenProjectFolder_Click(object sender, RoutedEventArgs e)
     {
         var folder = EmbeddedSelectedProject?.Folder;
         if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder)) return;
         Process.Start(new ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true });
-    }
-
-    private async void EmbeddedCancelProduction_Click(object sender, RoutedEventArgs e)
-    {
-        if (_productionWorker is not { IsRunning: true } || !_embeddedProductionRunning) return;
-        _productionCancelButton.IsEnabled = false;
-        AppendEmbeddedProductionLog("Cancellation requested...");
-        await _productionWorker.SendAsync(new { command = "cancel_production", request_id = Guid.NewGuid().ToString("N") });
-    }
-
-    private void HandleEmbeddedWorkerLine(string line)
-    {
-        try
-        {
-            using var document = JsonDocument.Parse(line);
-            var root = document.RootElement;
-            var type = ReadEmbeddedString(root, "type");
-            switch (type)
-            {
-                case "ready":
-                    _productionWorkerStatusText.Text = "Connected";
-                    _productionRefreshButton.IsEnabled = true;
-                    AppendEmbeddedProductionLog($"Worker connected (protocol {ReadEmbeddedInt(root, "protocol")}).");
-                    _ = RefreshEmbeddedProductionProjectsAsync();
-                    break;
-                case "projects": LoadEmbeddedProjects(root); break;
-                case "production_started": AppendEmbeddedProductionLog($"Production started: {ReadEmbeddedString(root, "title")} [{ReadEmbeddedString(root, "mode")}]"); break;
-                case "production_state": ApplyEmbeddedProductionState(root); break;
-                case "project_updated": AppendEmbeddedProductionLog("Project status changed to Completed."); _ = RefreshEmbeddedProductionProjectsAsync(); RefreshAll(); break;
-                case "resolve_export_ready":
-                    var exportPath = ReadEmbeddedString(root, "path");
-                    _productionCurrentStageText.Text = "Resolve export ready";
-                    AppendEmbeddedProductionLog($"Resolve FCPXML created: {exportPath}");
-                    _productionExportButton.IsEnabled = EmbeddedSelectedProject?.TimelineExists == true;
-                    var exportFolder = Path.GetDirectoryName(exportPath);
-                    if (!string.IsNullOrWhiteSpace(exportFolder) && Directory.Exists(exportFolder))
-                        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{exportFolder}\"") { UseShellExecute = true });
-                    break;
-                case "warning": AppendEmbeddedProductionLog($"Warning: {ReadEmbeddedString(root, "message")}"); break;
-                case "error":
-                    FinishEmbeddedElapsed("Stopped after");
-                    _embeddedProductionRunning = false;
-                    ApplyEmbeddedSelectedProject();
-                    _productionCurrentStageText.Text = "Production error";
-                    AppendEmbeddedProductionLog($"Worker error: {ReadEmbeddedString(root, "message")}");
-                    break;
-                case "shutdown": _productionWorkerStatusText.Text = "Disconnected"; break;
-            }
-        }
-        catch (JsonException)
-        {
-            AppendEmbeddedProductionLog($"worker: {line}");
-        }
-    }
-
-    private void LoadEmbeddedProjects(JsonElement root)
-    {
-        var selectedId = EmbeddedSelectedProject?.Id;
-        _productionProjects.Clear();
-        if (root.TryGetProperty("projects", out var projectsElement) && projectsElement.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var item in projectsElement.EnumerateArray())
-            {
-                _productionProjects.Add(new HybridProject(
-                    ReadEmbeddedInt(item, "id"), ReadEmbeddedString(item, "title"), ReadEmbeddedString(item, "status"),
-                    ReadEmbeddedString(item, "category"), ReadEmbeddedString(item, "folder"), ReadEmbeddedBool(item, "folder_exists"),
-                    ReadEmbeddedBool(item, "checkpoint_exists"), ReadEmbeddedBool(item, "timeline_exists")));
-            }
-        }
-        _productionProjectComboBox.ItemsSource = null;
-        _productionProjectComboBox.ItemsSource = _productionProjects;
-        if (_productionProjects.Count == 0)
-        {
-            _productionProjectStatusText.Text = "No In Progress or Completed projects found.";
-            return;
-        }
-        _productionProjectComboBox.SelectedItem = selectedId is int id ? _productionProjects.FirstOrDefault(p => p.Id == id) ?? _productionProjects[0] : _productionProjects[0];
-        ApplyEmbeddedSelectedProject();
-        AppendEmbeddedProductionLog($"Loaded {_productionProjects.Count} production project(s).");
-    }
-
-    private void ApplyEmbeddedProductionState(JsonElement root)
-    {
-        var wasRunning = _embeddedProductionRunning;
-        _embeddedProductionRunning = ReadEmbeddedBool(root, "running");
-        var progress = root.TryGetProperty("progress", out var progressElement) && progressElement.TryGetDouble(out var value) ? Math.Clamp(value, 0.0, 1.0) : 0.0;
-        var message = ReadEmbeddedString(root, "message");
-        var stage = ReadEmbeddedString(root, "current_stage");
-        var error = ReadEmbeddedString(root, "error");
-        _productionProgressBar.Value = progress * 100;
-        _productionPercentText.Text = $"{Math.Round(progress * 100):0}%";
-        _productionCurrentStageText.Text = string.IsNullOrWhiteSpace(stage) ? message : $"{ProductionStageLabels.GetValueOrDefault(stage, stage)}: {message}";
-        ApplyEmbeddedStageRows(root);
-        var logMessage = string.IsNullOrWhiteSpace(error) ? message : $"{message}: {error}";
-        if (!string.IsNullOrWhiteSpace(logMessage) && logMessage != _embeddedLastStageMessage)
-        {
-            AppendEmbeddedProductionLog(logMessage);
-            _embeddedLastStageMessage = logMessage;
-        }
-        if (wasRunning && !_embeddedProductionRunning)
-        {
-            FinishEmbeddedElapsed(string.IsNullOrWhiteSpace(error) ? "Completed in" : "Stopped after");
-        }
-        ApplyEmbeddedSelectedProject();
-        if (!_embeddedProductionRunning) _ = RefreshEmbeddedProductionProjectsAsync();
-    }
-
-    private void ApplyEmbeddedStageRows(JsonElement root)
-    {
-        if (!root.TryGetProperty("stages", out var stages) || stages.ValueKind != JsonValueKind.Array) return;
-        foreach (var stage in stages.EnumerateArray())
-        {
-            var name = ReadEmbeddedString(stage, "name");
-            if (!_productionStageRows.TryGetValue(name, out var row)) continue;
-            var status = ReadEmbeddedString(stage, "status");
-            row.Icon.Text = status switch
-            {
-                "running" => "▶",
-                "complete" => "✓",
-                "failed" => "✗",
-                "cancelled" => "■",
-                _ => "○",
-            };
-            row.Icon.Foreground = status switch
-            {
-                "complete" => ProductionReadyBrush(),
-                "failed" => new SolidColorBrush(Color.FromRgb(180, 35, 24)),
-                "running" => new SolidColorBrush(Color.FromRgb(23, 92, 211)),
-                _ => ProductionMutedBrush(),
-            };
-            var detail = ReadEmbeddedString(stage, "message");
-            row.Detail.Text = string.IsNullOrWhiteSpace(detail) ? (string.IsNullOrWhiteSpace(status) ? "Waiting" : char.ToUpperInvariant(status[0]) + status[1..]) : detail;
-        }
     }
 
     private void ResetEmbeddedStageRows()
@@ -746,11 +487,4 @@ public partial class MainShellWindow
         _productionLogTextBox.AppendText($"{DateTime.Now:HH:mm:ss}  {message}{Environment.NewLine}");
         _productionLogTextBox.ScrollToEnd();
     }
-
-    private static string ReadEmbeddedString(JsonElement root, string name) =>
-        root.TryGetProperty(name, out var element) && element.ValueKind != JsonValueKind.Null ? element.ToString() : "";
-    private static int ReadEmbeddedInt(JsonElement root, string name) =>
-        root.TryGetProperty(name, out var element) && element.TryGetInt32(out var value) ? value : 0;
-    private static bool ReadEmbeddedBool(JsonElement root, string name) =>
-        root.TryGetProperty(name, out var element) && element.ValueKind is JsonValueKind.True or JsonValueKind.False && element.GetBoolean();
 }
