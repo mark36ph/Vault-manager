@@ -123,6 +123,17 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                 }
 
                 var key = CandidateKey(asset.Candidate);
+                var sourceFamily = NativeVisualSelectionPolicy.SourceFamilyKey(asset.Candidate);
+                if (sourceFamily.Length > 0 && blocked.Contains(sourceFamily))
+                {
+                    blocked.Add(key);
+                    blocked.Add(asset.Candidate.Url);
+                    Report("verify", index + 1, scanLimit,
+                        "Skipping another visual from an already used source/project family");
+                    Discard(asset);
+                    continue;
+                }
+
                 if (!checkedItems.Add(key) || !checkedItems.Add(asset.Candidate.Url))
                 {
                     Discard(asset);
@@ -248,7 +259,19 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                     }
                 }
 
+                var contradiction = NativeVisualSelectionPolicy.SceneContradiction(query, asset.Candidate);
+                if (contradiction.Length > 0)
+                {
+                    failures.Add($"{asset.Candidate.Provider}/{asset.Candidate.Id}: {contradiction}");
+                    Report("verify", index + 1, scanLimit,
+                        $"Visual relevance rejected ({contradiction}); trying another asset");
+                    Discard(asset);
+                    continue;
+                }
+
                 var syntheticCue = UnrequestedSyntheticRepresentation(query, asset.Candidate.Title);
+                if (syntheticCue.Length == 0)
+                    syntheticCue = NativeVisualSelectionPolicy.UnrequestedSyntheticRepresentation(query, asset.Candidate);
                 if (syntheticCue.Length > 0 && !decision.Style.Equals("decorative", StringComparison.OrdinalIgnoreCase))
                 {
                     decision = decision with
@@ -401,6 +424,9 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                 {
                     recent.Add(CandidateKey(results[^1].Candidate));
                     recent.Add(results[^1].Candidate.Url);
+                    var recentFamily = NativeVisualSelectionPolicy.SourceFamilyKey(results[^1].Candidate);
+                    if (recentFamily.Length > 0)
+                        recent.Add(recentFamily);
                 }
 
                 Report("acquire", index + 1, items.Length,
@@ -426,6 +452,9 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
             {
                 used.Add(CandidateKey(result.Candidate));
                 used.Add(result.Candidate.Url);
+                var family = NativeVisualSelectionPolicy.SourceFamilyKey(result.Candidate);
+                if (family.Length > 0)
+                    used.Add(family);
             }
         }
         return results;
