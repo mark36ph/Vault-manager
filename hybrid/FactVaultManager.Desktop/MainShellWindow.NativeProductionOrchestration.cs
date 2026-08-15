@@ -7,6 +7,7 @@ public partial class MainShellWindow
 {
     private bool _nativeProductionWired;
     private CancellationTokenSource? _nativeProductionCancellation;
+    private double _productionOverallPercent;
 
     private void WireNativeProductionOrchestration()
     {
@@ -107,11 +108,13 @@ public partial class MainShellWindow
 
         _embeddedProductionRunning = true;
         _embeddedLastStageMessage = "";
+        _productionOverallPercent = 0;
         _productionRunStartedAt = DateTime.Now;
         _productionElapsedText.Text = "Elapsed 00:00";
         _productionElapsedTimer.Start();
         ResetEmbeddedStageRows();
         _productionCurrentStageText.Text = $"Starting {mode}...";
+        _productionCurrentStageText.ToolTip = null;
         _productionProgressBar.Value = 0;
         _productionPercentText.Text = "0%";
         SetEmbeddedSetupEnabled(false);
@@ -143,9 +146,11 @@ public partial class MainShellWindow
             if (!completedSuccessfully)
                 throw new NativeProductionException("Production stopped before all stages completed.");
 
+            _productionOverallPercent = 100;
             _productionProgressBar.Value = 100;
             _productionPercentText.Text = "100%";
             _productionCurrentStageText.Text = "Production complete";
+            _productionCurrentStageText.ToolTip = null;
             AppendEmbeddedProductionLog("Native C# production complete.");
 
             if (string.Equals(desktopProject.Status, "In Progress", StringComparison.Ordinal))
@@ -168,12 +173,14 @@ public partial class MainShellWindow
         catch (OperationCanceledException)
         {
             _productionCurrentStageText.Text = "Production cancelled";
+            _productionCurrentStageText.ToolTip = null;
             MarkRunningNativeStage("cancelled", "Cancelled");
             AppendEmbeddedProductionLog("Production cancelled.");
         }
         catch (Exception error)
         {
             _productionCurrentStageText.Text = "Production error";
+            _productionCurrentStageText.ToolTip = error.Message;
             MarkRunningNativeStage("failed", "Failed");
             AppendEmbeddedProductionLog($"Production failed: {error.Message}");
         }
@@ -217,9 +224,18 @@ public partial class MainShellWindow
         if (!_embeddedProductionRunning)
             return;
 
-        _productionProgressBar.Value = Math.Clamp(progress.Progress * 100, 0, 100);
-        _productionPercentText.Text = $"{Math.Round(_productionProgressBar.Value):0}%";
-        _productionCurrentStageText.Text = $"{ProductionStageLabels.GetValueOrDefault(progress.Stage, progress.Stage)}: {progress.Message}";
+        _productionOverallPercent = ProductionProgressEstimator.Calculate(
+            progress.Stage,
+            progress.Progress,
+            _productionOverallPercent);
+        _productionProgressBar.Value = _productionOverallPercent;
+        _productionPercentText.Text = $"{Math.Round(_productionOverallPercent):0}%";
+
+        var stageLabel = ProductionStageLabels.GetValueOrDefault(progress.Stage, progress.Stage);
+        _productionCurrentStageText.Text = stageLabel;
+        _productionCurrentStageText.ToolTip = string.IsNullOrWhiteSpace(progress.Message)
+            ? stageLabel
+            : $"{stageLabel}: {progress.Message}";
 
         var currentIndex = Array.IndexOf(ProductionStageOrder, progress.Stage);
         if (currentIndex >= 0)
