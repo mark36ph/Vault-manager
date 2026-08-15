@@ -241,7 +241,7 @@ public sealed class NativeVisualRelevanceTests
     {
         var candidates = new[]
         {
-            TestCandidate("puppet", 100, "wombat walking rocky ground puppet creature"),
+            TestCandidate("puppet", 100, "wombat walking rocky ground Australia puppet creature"),
             TestCandidate("real", 1, "wombat walking rocky ground Australia wildlife"),
         };
         using var client = new HttpClient(new StubDownloadHandler());
