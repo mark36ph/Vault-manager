@@ -136,7 +136,9 @@ public sealed class NativeAssetAcquisitionEngine : IDisposable
         var distinct = candidates
             .Where(item => !blocked.Contains(CandidateKey(item)) && !blocked.Contains(item.Url))
             .ToList();
-        var pool = distinct.Count > 0 ? distinct : candidates;
+        if (excluded is not null && distinct.Count == 0)
+            throw new NativeAssetAcquisitionException($"no unexcluded {kind} assets found for: {query}");
+        var pool = excluded is null ? candidates : distinct;
         var failures = new List<string>();
         var count = Math.Min(attempts, pool.Count);
 
