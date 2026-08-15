@@ -4,11 +4,6 @@ public static class InstalledDataMigration
 {
     public static void Run()
     {
-        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "FactVaultWorker.exe")))
-        {
-            return;
-        }
-
         var appDataRoot = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "FactVaultManager");
@@ -44,6 +39,7 @@ public static class InstalledDataMigration
         var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
         yield return Path.Combine(documents, "FactVaultManager");
         yield return Path.Combine(documents, "Fact Vault Manager");
+        yield return Path.Combine(documents, "Vault-manager");
     }
 
     private static void CopyDirectory(string source, string destination)
