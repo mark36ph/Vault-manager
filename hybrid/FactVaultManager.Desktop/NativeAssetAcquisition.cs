@@ -46,8 +46,19 @@ public sealed class NativeAssetAcquisitionEngine : IDisposable
         if (_providers.Count == 0)
             throw new ArgumentException("at least one asset provider is required", nameof(providers));
 
-        _client = client ?? new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        _ownsClient = client is null;
+        if (client is null)
+        {
+            _client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
+            {
+                Timeout = TimeSpan.FromSeconds(30),
+            };
+            _ownsClient = true;
+        }
+        else
+        {
+            _client = client;
+            _ownsClient = false;
+        }
         if (_client.DefaultRequestHeaders.UserAgent.Count == 0)
             _client.DefaultRequestHeaders.UserAgent.ParseAdd("FactVaultManager/1.0 (+desktop media downloader)");
     }
@@ -234,26 +245,58 @@ public sealed class NativeAssetAcquisitionEngine : IDisposable
 
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, candidate.Url);
-            request.Headers.Accept.ParseAdd("image/jpeg,image/png,image/webp,image/gif,video/*;q=0.9,*/*;q=0.8");
-            if (Uri.TryCreate(candidate.Url, UriKind.Absolute, out var uri))
+            var current = await NativeAssetDownloadSecurity.ValidateRemoteUriAsync(candidate.Url, cancellationToken);
+            HttpResponseMessage? response = null;
+            try
             {
-                if (uri.Host.Equals("pixabay.com", StringComparison.OrdinalIgnoreCase) || uri.Host.EndsWith(".pixabay.com", StringComparison.OrdinalIgnoreCase))
-                    request.Headers.Referrer = new Uri("https://pixabay.com/");
-                else if (uri.Host.Equals("pexels.com", StringComparison.OrdinalIgnoreCase) || uri.Host.EndsWith(".pexels.com", StringComparison.OrdinalIgnoreCase))
-                    request.Headers.Referrer = new Uri("https://www.pexels.com/");
+                for (var redirect = 0; redirect <= NativeAssetDownloadSecurity.MaxRedirects; redirect++)
+                {
+                    using var request = new HttpRequestMessage(HttpMethod.Get, current);
+                    request.Headers.Accept.ParseAdd("image/jpeg,image/png,image/webp,image/gif,video/*;q=0.9,*/*;q=0.8");
+                    if (current.Host.Equals("pixabay.com", StringComparison.OrdinalIgnoreCase) || current.Host.EndsWith(".pixabay.com", StringComparison.OrdinalIgnoreCase))
+                        request.Headers.Referrer = new Uri("https://pixabay.com/");
+                    else if (current.Host.Equals("pexels.com", StringComparison.OrdinalIgnoreCase) || current.Host.EndsWith(".pexels.com", StringComparison.OrdinalIgnoreCase))
+                        request.Headers.Referrer = new Uri("https://www.pexels.com/");
+
+                    response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                    var status = (int)response.StatusCode;
+                    if (status is 301 or 302 or 303 or 307 or 308)
+                    {
+                        var location = response.Headers.Location
+                            ?? throw new NativeAssetAcquisitionException("asset redirect did not provide a destination");
+                        if (redirect >= NativeAssetDownloadSecurity.MaxRedirects)
+                            throw new NativeAssetAcquisitionException("asset download exceeded the redirect limit");
+                        var redirected = location.IsAbsoluteUri ? location : new Uri(current, location);
+                        response.Dispose();
+                        response = null;
+                        current = await NativeAssetDownloadSecurity.ValidateRemoteUriAsync(redirected.AbsoluteUri, cancellationToken);
+                        continue;
+                    }
+                    break;
+                }
+
+                if (response is null)
+                    throw new NativeAssetAcquisitionException("asset server did not return a response");
+                response.EnsureSuccessStatusCode();
+                NativeAssetDownloadSecurity.ValidateContentLength(candidate.Kind, response.Content.Headers.ContentLength);
+
+                await using (var source = await response.Content.ReadAsStreamAsync(cancellationToken))
+                await using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true))
+                {
+                    await NativeAssetDownloadSecurity.CopyWithLimitAsync(
+                        source,
+                        output,
+                        NativeAssetDownloadSecurity.MaxBytesFor(candidate.Kind),
+                        cancellationToken);
+                }
+            }
+            finally
+            {
+                response?.Dispose();
             }
 
-            using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-            response.EnsureSuccessStatusCode();
-            await using (var source = await response.Content.ReadAsStreamAsync(cancellationToken))
-            await using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true))
-                await source.CopyToAsync(output, cancellationToken);
-
-            if (!File.Exists(temporary) || new FileInfo(temporary).Length == 0)
-                throw new IOException("downloaded file is empty");
-            if (!CachedAssetIsUsable(candidate, temporary))
-                throw new IOException("downloaded image used an unsupported AVIF/HEIC container");
+            if (!NativeAssetDownloadSecurity.IsSupportedDownloadedFile(candidate.Kind, temporary))
+                throw new NativeAssetAcquisitionException("downloaded asset content is not a supported media format or exceeded the size limit");
 
             File.Move(temporary, destination, true);
             return new NativeAcquiredAsset(candidate, destination, false);
@@ -267,11 +310,14 @@ public sealed class NativeAssetAcquisitionEngine : IDisposable
 
     private static string Destination(NativeAssetCandidate candidate, string folder)
     {
-        var suffix = "." + (candidate.Kind == "video" ? "mp4" : "jpg");
+        var suffix = candidate.Kind.Equals("video", StringComparison.OrdinalIgnoreCase) ? ".mp4" : ".jpg";
         if (Uri.TryCreate(candidate.Url, UriKind.Absolute, out var uri))
         {
-            var extension = Path.GetExtension(uri.AbsolutePath);
-            if (!string.IsNullOrWhiteSpace(extension) && extension.Length <= 8)
+            var extension = Path.GetExtension(uri.AbsolutePath).ToLowerInvariant();
+            var allowed = candidate.Kind.Equals("video", StringComparison.OrdinalIgnoreCase)
+                ? extension is ".mp4" or ".webm"
+                : extension is ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp";
+            if (allowed)
                 suffix = extension;
         }
 
@@ -283,26 +329,15 @@ public sealed class NativeAssetAcquisitionEngine : IDisposable
 
     private static bool CachedAssetIsUsable(NativeAssetCandidate candidate, string path)
     {
-        var file = new FileInfo(path);
-        if (!file.Exists || file.Length <= 0)
-            return false;
-        if (!candidate.Kind.Equals("image", StringComparison.OrdinalIgnoreCase))
-            return true;
-
         try
         {
-            Span<byte> header = stackalloc byte[16];
-            using var stream = File.OpenRead(path);
-            var read = stream.Read(header);
-            if (read >= 12 && Encoding.ASCII.GetString(header[4..8]) == "ftyp")
-            {
-                var brand = Encoding.ASCII.GetString(header[8..12]).ToLowerInvariant();
-                if (brand is "avif" or "avis" or "heic" or "heix" or "hevc" or "hevx" or "mif1" or "msf1")
-                    return false;
-            }
-            return true;
+            return NativeAssetDownloadSecurity.IsSupportedDownloadedFile(candidate.Kind, path);
         }
         catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
         {
             return false;
         }
