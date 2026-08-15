@@ -508,6 +508,7 @@ public sealed class NativeProductionOrchestrator
         var ratio = context.AppSettings.TimelineHeight > 0
             ? context.AppSettings.TimelineWidth / (double)context.AppSettings.TimelineHeight
             : (double?)null;
+        var requiredSubject = TopicSubject(context.Topic);
 
         var acquired = await providers.VerifiedAssetAcquisition.AcquireManyAsync(
             queries,
@@ -517,7 +518,8 @@ public sealed class NativeProductionOrchestrator
             ratio,
             providers.Settings.AssetAttempts,
             unique: true,
-            cancellationToken);
+            cancellationToken,
+            requiredSubject: requiredSubject);
 
         if (acquired.Count < scenes.Count)
             throw new NativeProductionException(
@@ -805,47 +807,50 @@ public sealed class NativeProductionOrchestrator
         "Good: heated iron metal expansion close up engineering\n\n" +
         $"Script:\n{context.Script}";
 
-    private static string AnchorGeneratedQuery(string query, NativeProductionContext context)
-    {
-        var anchor = string.IsNullOrWhiteSpace(context.Project.Category) ? context.Topic : context.Project.Category;
-        if (string.IsNullOrWhiteSpace(anchor) || query.StartsWith(anchor, StringComparison.OrdinalIgnoreCase))
-            return query;
-        return $"{anchor} {query}".Trim();
-    }
+    private static string AnchorGeneratedQuery(string query, NativeProductionContext context) =>
+        AnchorVisualQuery(query, context);
 
-    private static string AnchorImportedQuery(string query, NativeProductionContext context)
-    {
-        var category = (context.Project.Category ?? "").Trim();
-        var subject = TopicSubject(context.Topic, category);
-        var words = RelevanceWords(query).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var pieces = new List<string>();
-        if (category.Length > 0 && !query.StartsWith(category, StringComparison.OrdinalIgnoreCase))
-            pieces.Add(category);
-        if (subject.Length > 0 && !words.Contains(subject))
-            pieces.Add(subject);
-        pieces.Add(query);
-        return string.Join(" ", pieces).Trim();
-    }
+    private static string AnchorImportedQuery(string query, NativeProductionContext context) =>
+        AnchorVisualQuery(query, context);
 
     private static string FallbackVisualQuery(string scene, NativeProductionContext context)
     {
-        var subject = TopicSubject(context.Topic, context.Project.Category);
-        var category = (context.Project.Category ?? "").Trim();
         var words = RelevanceWords(scene).Take(8).ToArray();
-        return string.Join(" ", new[] { category, subject, string.Join(" ", words) }
-            .Where(value => !string.IsNullOrWhiteSpace(value)))
-            .Trim();
+        return AnchorVisualQuery(string.Join(" ", words), context);
     }
 
-    private static string TopicSubject(string topic, string category)
+    private static string AnchorVisualQuery(string query, NativeProductionContext context)
     {
-        var categoryWords = RelevanceWords(category).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var cleanQuery = Regex.Replace((query ?? "").Trim(), @"\s+", " ");
+        var category = (context.Project.Category ?? "").Trim();
+        if (category.Length > 0 &&
+            (cleanQuery.Equals(category, StringComparison.OrdinalIgnoreCase) ||
+             cleanQuery.StartsWith(category + " ", StringComparison.OrdinalIgnoreCase)))
+        {
+            cleanQuery = cleanQuery[category.Length..].Trim();
+        }
+
+        var subject = TopicSubject(context.Topic);
+        if (subject.Length == 0)
+            return cleanQuery;
+
+        var subjectPattern = new Regex(
+            $@"\b{Regex.Escape(subject)}\b",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var remainder = subjectPattern.Replace(cleanQuery, "", 1);
+        remainder = Regex.Replace(remainder, @"\s+", " ").Trim();
+        return string.Join(" ", new[] { subject, remainder }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+    }
+
+    private static string TopicSubject(string topic)
+    {
         foreach (Match match in SearchWord.Matches(topic ?? ""))
         {
             var word = match.Value;
-            if (word.Length < 3 || TopicStopWords.Contains(word) || categoryWords.Contains(word))
+            if (word.Length < 3 || TopicStopWords.Contains(word))
                 continue;
-            return word;
+            return word.ToLowerInvariant();
         }
         return "";
     }
