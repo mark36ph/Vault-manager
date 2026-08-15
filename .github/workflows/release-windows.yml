@@ -1,4 +1,4 @@
-name: Release Hybrid App
+name: Release Windows App
 
 on:
   workflow_dispatch:
@@ -59,12 +59,12 @@ jobs:
           -r win-x64
           --self-contained true
           -p:Version=${{ steps.version.outputs.version }}
-          -o hybrid-build\publish
+          -o desktop-build\publish
 
       - name: Assemble installed runtime
         shell: pwsh
         run: |
-          Copy-Item assets hybrid-build\publish\assets -Recurse
+          Copy-Item assets desktop-build\publish\assets -Recurse
 
       - name: Restore pinned Velopack CLI
         run: dotnet tool restore
@@ -84,7 +84,7 @@ jobs:
           dotnet tool run vpk -- pack `
             --packId FactVaultManager `
             --packVersion "${{ steps.version.outputs.version }}" `
-            --packDir hybrid-build\publish `
+            --packDir desktop-build\publish `
             --mainExe FactVaultManager.Desktop.exe `
             --packTitle "FactVaultManager" `
             --packAuthors "FactVaultManager" `
