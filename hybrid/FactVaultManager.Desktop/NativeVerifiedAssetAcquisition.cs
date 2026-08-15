@@ -25,6 +25,17 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         "swimming", "swim", "eating", "eat", "foraging", "forage", "resting", "rest", "moving", "move",
     };
 
+    private static readonly HashSet<string> SyntheticRepresentationWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "puppet", "toy", "plush", "plushie", "figurine", "statue", "sculpture",
+        "painting", "painted", "illustration", "illustrated", "drawing", "cartoon", "cgi",
+    };
+
+    private static readonly string[] SyntheticRepresentationPhrases =
+    {
+        "ai generated", "ai-generated", "3d render", "3d rendered", "computer generated", "computer-generated",
+    };
+
     private const int SubjectUncertainPenalty = 4;
     private const int SceneEvidenceBonus = 6;
     private const int MinQualityScan = 5;
@@ -170,6 +181,18 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                         Report("verify", index + 1, scanLimit,
                             $"Scene-specific evidence '{evidenceSubject}' could not be confirmed; treating asset as subject-only fallback");
                     }
+                }
+
+                var syntheticCue = UnrequestedSyntheticRepresentation(query, asset.Candidate.Title);
+                if (syntheticCue.Length > 0 && !decision.Style.Equals("decorative", StringComparison.OrdinalIgnoreCase))
+                {
+                    decision = decision with
+                    {
+                        Style = "decorative",
+                        Decision = decision.Decision + $"; unrequested synthetic representation '{syntheticCue}'",
+                    };
+                    Report("verify", index + 1, scanLimit,
+                        $"Unrequested synthetic/prop visual '{syntheticCue}' downgraded to decorative fallback");
                 }
 
                 var score = VisualScore(decision, evidenceSubject.Length > 0);
@@ -435,6 +458,31 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         return subjectMatch.Success
             ? $"subject {subjectMatch.Value.ToLowerInvariant()}"
             : Regex.Replace((query ?? "").Trim(), @"\s+", " ");
+    }
+
+    public static string UnrequestedSyntheticRepresentation(string query, string candidateTitle)
+    {
+        var queryWords = Regex.Matches(query ?? "", "[A-Za-z0-9]+")
+            .Select(match => match.Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var titleWords = Regex.Matches(candidateTitle ?? "", "[A-Za-z0-9]+")
+            .Select(match => match.Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var word in SyntheticRepresentationWords)
+            if (titleWords.Contains(word) && !queryWords.Contains(word))
+                return word;
+
+        var normalizedQuery = Regex.Replace((query ?? "").ToLowerInvariant(), @"[^a-z0-9]+", " ").Trim();
+        var normalizedTitle = Regex.Replace((candidateTitle ?? "").ToLowerInvariant(), @"[^a-z0-9]+", " ").Trim();
+        foreach (var phrase in SyntheticRepresentationPhrases)
+        {
+            var normalizedPhrase = Regex.Replace(phrase.ToLowerInvariant(), @"[^a-z0-9]+", " ").Trim();
+            if (normalizedTitle.Contains(normalizedPhrase, StringComparison.Ordinal) &&
+                !normalizedQuery.Contains(normalizedPhrase, StringComparison.Ordinal))
+                return normalizedPhrase;
+        }
+        return "";
     }
 
     private static IReadOnlyList<string> FallbackSearchQueries(string query)
