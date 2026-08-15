@@ -22,7 +22,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
     {
         "close", "up", "wide", "macro", "dramatic", "documentary", "portrait", "vertical", "realistic",
         "walking", "walk", "standing", "stand", "sitting", "sit", "running", "run", "flying", "fly",
-        "swimming", "swim", "eating", "eat", "foraging", "forage", "resting", "rest", "moving", "move",
+        "swimming", "swim", "eating", "eat", "foraging", "forage", "resting", "rest", "moving", "move", "body",
     };
 
     private static readonly HashSet<string> SyntheticRepresentationWords = new(StringComparer.OrdinalIgnoreCase)
