@@ -30,7 +30,7 @@ public sealed class NativeOpenverseAssetProvider : NativeAssetProviderBase, INat
         if (!kind.Equals("image", StringComparison.OrdinalIgnoreCase))
             return Array.Empty<NativeAssetCandidate>();
 
-        var searchQuery = ExpandSearchVocabulary(query);
+        var searchQuery = BuildSearchQuery(query);
         if (searchQuery.Length > 200)
             searchQuery = query[..Math.Min(query.Length, 200)];
 
@@ -110,12 +110,24 @@ public sealed class NativeOpenverseAssetProvider : NativeAssetProviderBase, INat
         return results;
     }
 
-    private static string ExpandSearchVocabulary(string query) =>
-        Regex.Replace(
-            query,
+    internal static string BuildSearchQuery(string query)
+    {
+        var evidence = Regex.Match(
+            query ?? "",
             @"\b(?:droppings|feces|faeces|poop|scat)\b",
-            FecesSearchGroup,
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (!evidence.Success)
+            return query ?? "";
+
+        var prefix = (query ?? "")[..evidence.Index];
+        var subject = Regex.Matches(prefix, "[A-Za-z0-9][A-Za-z0-9'’-]*")
+            .Select(match => match.Value)
+            .LastOrDefault() ?? "";
+
+        return subject.Length == 0
+            ? FecesSearchGroup
+            : $"{subject} + {FecesSearchGroup}";
+    }
 
     private static string ReadTags(JsonElement item)
     {
