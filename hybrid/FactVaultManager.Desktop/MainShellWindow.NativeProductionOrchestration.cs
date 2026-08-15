@@ -16,15 +16,31 @@ public partial class MainShellWindow
         _nativeProductionWired = true;
         _productionWorkerStatusText.Text = "Native C# engine ready";
         _productionRefreshButton.IsEnabled = true;
+
+        _productionProjectComboBox.SelectionChanged += (_, _) => UpdateNativeProductionActionAvailability();
+        _productionPexelsCheckBox.Click += (_, _) => UpdateNativeProductionActionAvailability();
+        _productionPixabayCheckBox.Click += (_, _) => UpdateNativeProductionActionAvailability();
+        _productionVoiceCheckBox.Click += (_, _) => UpdateNativeProductionActionAvailability();
+
         AppendEmbeddedProductionLog("Native C# production orchestration enabled.");
         RefreshNativeProductionProjects();
+        UpdateNativeProductionActionAvailability();
     }
 
     private void EmbeddedNativeProductionAction_Click(object sender, RoutedEventArgs e)
     {
+        AppendEmbeddedProductionLog("Produce Video clicked.");
+
         var project = EmbeddedSelectedProject;
         if (project is null)
+        {
+            AppendEmbeddedProductionLog("Produce Video could not start: no Production project is selected.");
+            RefreshNativeProductionProjects();
+            UpdateNativeProductionActionAvailability();
             return;
+        }
+
+        AppendEmbeddedProductionLog($"Production request: {project.Title} • {project.Status}");
         _ = StartNativeProductionAsync(project, project.Status == "Completed" ? "reproduce" : "produce");
     }
 
@@ -49,7 +65,10 @@ public partial class MainShellWindow
     private async Task StartNativeProductionAsync(HybridProject project, string mode)
     {
         if (_embeddedProductionRunning)
+        {
+            AppendEmbeddedProductionLog("Production request ignored because another production run is already active.");
             return;
+        }
 
         var topic = _productionTopicTextBox.Text.Trim();
         if (string.IsNullOrWhiteSpace(topic))
@@ -62,8 +81,9 @@ public partial class MainShellWindow
         var desktopProject = _data.GetProjects().FirstOrDefault(item => item.Id == project.Id);
         if (desktopProject is null)
         {
-            AppendEmbeddedProductionLog($"Project {project.Id} was not found.");
+            AppendEmbeddedProductionLog($"Project {project.Id} was not found in the database.");
             RefreshNativeProductionProjects();
+            UpdateNativeProductionActionAvailability();
             return;
         }
 
@@ -71,12 +91,17 @@ public partial class MainShellWindow
         try
         {
             folder = _data.ResolveProjectFolder(desktopProject);
+            if (!Directory.Exists(folder))
+                throw new DirectoryNotFoundException($"Project folder was not found: {folder}");
+
+            AppendEmbeddedProductionLog($"Preparing production in: {folder}");
             SaveEmbeddedProviderSettings(project);
             NativeProductionProviderWorkflow.ValidateProject(folder, _data.LoadSettings());
         }
         catch (Exception error)
         {
             AppendEmbeddedProductionLog($"Production setup failed: {error.Message}");
+            UpdateNativeProductionActionAvailability();
             return;
         }
 
@@ -163,7 +188,28 @@ public partial class MainShellWindow
             ApplyEmbeddedSelectedProject();
             _productionRefreshButton.IsEnabled = true;
             _productionCancelButton.IsEnabled = false;
+            UpdateNativeProductionActionAvailability();
         }
+    }
+
+    private void UpdateNativeProductionActionAvailability()
+    {
+        var project = EmbeddedSelectedProject;
+        var validStatus = project is not null &&
+            (string.Equals(project.Status, "In Progress", StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(project.Status, "Completed", StringComparison.OrdinalIgnoreCase));
+        var canStart = !_embeddedProductionRunning && project is { FolderExists: true } && validStatus;
+
+        _productionActionButton.IsEnabled = canStart;
+        _productionActionButton.ToolTip = canStart
+            ? "Start production for the selected project"
+            : project is null
+                ? "Select an In Progress or Completed project"
+                : !project.FolderExists
+                    ? "The selected project folder is missing"
+                    : _embeddedProductionRunning
+                        ? "Production is already running"
+                        : $"Project status '{project.Status}' cannot be produced";
     }
 
     private void ApplyNativeProductionProgress(NativeProductionProgress progress)
@@ -238,6 +284,7 @@ public partial class MainShellWindow
         catch (Exception error)
         {
             AppendEmbeddedProductionLog($"Could not refresh projects: {error.Message}");
+            UpdateNativeProductionActionAvailability();
             return;
         }
 
@@ -271,6 +318,7 @@ public partial class MainShellWindow
         }
 
         _productionRefreshButton.IsEnabled = !_embeddedProductionRunning;
+        UpdateNativeProductionActionAvailability();
         AppendEmbeddedProductionLog($"Loaded {_productionProjects.Count} production project(s) from C# catalog.");
     }
 }
