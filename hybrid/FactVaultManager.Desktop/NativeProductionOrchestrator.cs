@@ -646,7 +646,7 @@ public sealed class NativeProductionOrchestrator
         if (narration?.Source is { Length: > 0 })
             narrationDuration = await ffmpeg.MediaDurationAsync(narration.Source, cancellationToken);
 
-        var captionEndLimit = narrationDuration is null ? null : Math.Max(0, narrationDuration.Value - 1.25);
+        double? captionEndLimit = narrationDuration is null ? null : Math.Max(0, narrationDuration.Value - 1.25);
         await ffmpeg.ConvertStillsToVideoAsync(
             exportTimeline,
             context.ProjectFolder,
