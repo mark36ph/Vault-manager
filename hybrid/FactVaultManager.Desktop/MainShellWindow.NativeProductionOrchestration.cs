@@ -13,21 +13,6 @@ public partial class MainShellWindow
         if (_nativeProductionWired || _productionActionButton is null)
             return;
 
-        _productionActionButton.Click -= EmbeddedProductionAction_Click;
-        _productionResumeButton.Click -= EmbeddedResumeProduction_Click;
-        _productionCancelButton.Click -= EmbeddedCancelProduction_Click;
-        _productionRefreshButton.Click -= EmbeddedRefreshProjects_Click;
-
-        _productionActionButton.Click += EmbeddedNativeProductionAction_Click;
-        _productionResumeButton.Click += EmbeddedNativeResumeProduction_Click;
-        _productionCancelButton.Click += EmbeddedNativeCancelProduction_Click;
-        _productionRefreshButton.Click += EmbeddedNativeRefreshProjects_Click;
-        _productionProjectComboBox.SelectionChanged += (_, _) =>
-        {
-            if (!_embeddedProductionRunning)
-                _productionRefreshButton.IsEnabled = true;
-        };
-
         _nativeProductionWired = true;
         _productionWorkerStatusText.Text = "Native C# engine ready";
         _productionRefreshButton.IsEnabled = true;
