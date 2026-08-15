@@ -201,6 +201,42 @@ public sealed class NativeVisualRelevanceTests
     }
 
     [Fact]
+    public async Task AcquireMany_PrefersFactualReuseOverFreshDecorativeFallback()
+    {
+        var candidates = new[]
+        {
+            TestCandidate("literal", 100),
+            TestCandidate("decorative", 1),
+        };
+        using var client = new HttpClient(new StubDownloadHandler());
+        using var engine = new NativeAssetAcquisitionEngine(new[] { new StubProvider(candidates) }, client);
+        var verifier = new StubVerifier(asset =>
+            asset.Candidate.Id == "decorative"
+                ? VerificationResult(subjectVisible: true, sceneEvidenceVisible: false, style: "decorative")
+                : VerificationResult(subjectVisible: true, sceneEvidenceVisible: false, style: "literal"));
+        var verified = new NativeVerifiedAssetAcquisitionEngine(engine, verifier);
+        var folder = TestFolder();
+
+        try
+        {
+            var results = await verified.AcquireManyAsync(
+                new[] { "wombat close up wildlife", "wombat close up wildlife" },
+                folder,
+                attempts: 2,
+                unique: true,
+                requiredSubject: "wombat");
+
+            Assert.Equal(2, results.Count);
+            Assert.Equal("literal", results[0].Candidate.Id);
+            Assert.Equal("literal", results[1].Candidate.Id);
+        }
+        finally
+        {
+            DeleteFolder(folder);
+        }
+    }
+
+    [Fact]
     public async Task ExcludedAsset_IsNotReintroducedWhenNoFreshCandidateExists()
     {
         var candidate = TestCandidate("1", 100);
