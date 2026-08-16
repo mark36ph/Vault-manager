@@ -7,16 +7,18 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
+    private static readonly bool QuizQuestionBankPageHookRegistered = RegisterQuizQuestionBankPageHook();
     private bool _quizQuestionBankPageInitialized;
     private int _quizQuestionBankPageAttempts;
     private int _quizQuestionBankTabIndex = -1;
 
-    static MainShellWindow()
+    private static bool RegisterQuizQuestionBankPageHook()
     {
         EventManager.RegisterClassHandler(
             typeof(MainShellWindow),
             FrameworkElement.LoadedEvent,
             new RoutedEventHandler(QuizQuestionBankWindow_Loaded));
+        return true;
     }
 
     private static void QuizQuestionBankWindow_Loaded(object sender, RoutedEventArgs e)
