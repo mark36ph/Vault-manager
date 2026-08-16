@@ -32,7 +32,9 @@ public partial class MainShellWindow
         InitializeMediaLibraryWorkflow();
         InitializeQuizWorkflow();
         InitializeQuizQuestionBankPage();
+        InitializeQuizHistoryPage();
         InitializeQuizDraftEditor();
+        InitializeQuizRotationWorkflow();
         InitializeQuizExportWorkflow();
         Dispatcher.BeginInvoke(new Action(InitializeAssetReviewWorkflow));
         Dispatcher.BeginInvoke(new Action(InitializeSettingsWorkflow));
