@@ -67,6 +67,8 @@ public partial class MainShellWindow
         UpdateQuizBuilderCopy();
         RenameQuestionBankCardHeading(bankCard);
         ConfigureStandaloneQuestionBank(bankCard);
+        if (_quizBankTabs is not null)
+            EnsureQuizCategoriesTab(_quizBankTabs);
 
         var questionBankTab = new TabItem { Content = BuildStandaloneQuestionBankPage(bankCard) };
         if (FindResource("HiddenPageTabStyle") is Style hiddenStyle)
