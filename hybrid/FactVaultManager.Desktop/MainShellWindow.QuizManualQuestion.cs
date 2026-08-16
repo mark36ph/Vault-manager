@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 
 namespace FactVaultManager.Desktop;
@@ -11,8 +12,10 @@ public partial class MainShellWindow
     private readonly TextBox[] _manualQuizAnswerTextBoxes = new TextBox[4];
     private ComboBox? _manualQuizCorrectAnswerComboBox;
     private TextBox? _manualQuizExplanationTextBox;
-    private TextBox? _manualQuizCategoryTextBox;
+    private ComboBox? _manualQuizCategoryComboBox;
     private ComboBox? _manualQuizDifficultyComboBox;
+    private bool _quizCategoryImportHooked;
+    private bool _quizCategoryImportHadText;
 
     private void ConfigureStandaloneQuestionBank(Border bankCard)
     {
@@ -27,10 +30,48 @@ public partial class MainShellWindow
             _quizBankGrid.AlternationCount = 2;
             _quizBankGrid.GridLinesVisibility = DataGridGridLinesVisibility.Horizontal;
             _quizBankGrid.HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(230, 234, 240));
+
+            if (!_quizBankGrid.Columns.Any(column =>
+                    string.Equals(column.SortMemberPath, nameof(QuizQuestion.Id), StringComparison.Ordinal)))
+            {
+                _quizBankGrid.Columns.Insert(0, new DataGridTextColumn
+                {
+                    Header = "No.",
+                    Binding = new Binding(nameof(QuizQuestion.Id)),
+                    SortMemberPath = nameof(QuizQuestion.Id),
+                    Width = new DataGridLength(58),
+                });
+            }
+        }
+
+        if (_quizImportTextBox is not null && !_quizCategoryImportHooked)
+        {
+            _quizCategoryImportHooked = true;
+            _quizCategoryImportHadText = !string.IsNullOrWhiteSpace(_quizImportTextBox.Text);
+            _quizImportTextBox.TextChanged += QuizImportTextBox_AutoCategorizeTextChanged;
         }
 
         if (bankCard.Child is not Grid bank)
             return;
+
+        var bankHeader = bank.Children
+            .OfType<Grid>()
+            .FirstOrDefault(child => Grid.GetRow(child) == 0);
+        var bankActions = bankHeader?.Children
+            .OfType<StackPanel>()
+            .FirstOrDefault(child => Grid.GetColumn(child) == 1);
+        if (bankActions is not null && !bankActions.Children.OfType<Button>().Any(button =>
+                string.Equals(button.Content?.ToString(), "Auto-categorize", StringComparison.Ordinal)))
+        {
+            var categorize = new Button
+            {
+                Content = "Auto-categorize",
+                ToolTip = "Move questions currently filed as General Knowledge into topic categories.",
+                Margin = new Thickness(0, 0, 8, 0),
+            };
+            categorize.Click += AutoCategorizeQuizQuestions_Click;
+            bankActions.Children.Insert(0, categorize);
+        }
 
         var tabs = bank.Children.OfType<TabControl>().FirstOrDefault();
         if (tabs is null)
@@ -91,16 +132,23 @@ public partial class MainShellWindow
         _manualQuizDifficultyComboBox.SelectedIndex = 1;
         AddManualQuizField(form, 3, 2, 1, "DIFFICULTY", _manualQuizDifficultyComboBox);
 
-        _manualQuizCategoryTextBox = ManualQuizTextBox();
-        _manualQuizCategoryTextBox.Text = "General Knowledge";
-        AddManualQuizField(form, 4, 0, 3, "CATEGORY", _manualQuizCategoryTextBox);
+        _manualQuizCategoryComboBox = new ComboBox
+        {
+            MinHeight = 34,
+            IsEditable = true,
+            IsTextSearchEnabled = true,
+        };
+        foreach (var category in QuizQuestionTopicCategorizer.Categories)
+            _manualQuizCategoryComboBox.Items.Add(category);
+        _manualQuizCategoryComboBox.SelectedItem = "Miscellaneous";
+        AddManualQuizField(form, 4, 0, 3, "CATEGORY", _manualQuizCategoryComboBox);
 
         _manualQuizExplanationTextBox = ManualQuizTextBox(multiline: true);
         AddManualQuizField(form, 5, 0, 3, "EXPLANATION", _manualQuizExplanationTextBox);
 
         var help = new TextBlock
         {
-            Text = "All four answers must be different. Manually added questions start enabled and with Times used = 0.",
+            Text = "Choose a topic category or leave it blank to categorize automatically. All four answers must be different. New questions start enabled with Times used = 0.",
             Foreground = QuizMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 12),
@@ -141,24 +189,30 @@ public partial class MainShellWindow
         if (_manualQuizQuestionTextBox is null ||
             _manualQuizCorrectAnswerComboBox is null ||
             _manualQuizExplanationTextBox is null ||
-            _manualQuizCategoryTextBox is null ||
+            _manualQuizCategoryComboBox is null ||
             _manualQuizDifficultyComboBox is null)
             return;
 
         try
         {
+            var questionText = _manualQuizQuestionTextBox.Text.Trim();
             var answers = _manualQuizAnswerTextBoxes.Select(box => box.Text.Trim()).ToArray();
+            var explanation = _manualQuizExplanationTextBox.Text.Trim();
+            var category = _manualQuizCategoryComboBox.Text.Trim();
+            if (category.Length == 0 || string.Equals(category, "General Knowledge", StringComparison.OrdinalIgnoreCase))
+                category = QuizQuestionTopicCategorizer.Categorize(questionText, answers, explanation);
+
             var payload = JsonSerializer.Serialize(new
             {
                 questions = new[]
                 {
                     new
                     {
-                        question = _manualQuizQuestionTextBox.Text.Trim(),
+                        question = questionText,
                         answers,
                         correct_answer = _manualQuizCorrectAnswerComboBox.SelectedItem?.ToString() ?? "A",
-                        explanation = _manualQuizExplanationTextBox.Text.Trim(),
-                        category = _manualQuizCategoryTextBox.Text.Trim(),
+                        explanation,
+                        category,
                         difficulty = _manualQuizDifficultyComboBox.SelectedItem?.ToString() ?? "medium",
                     },
                 },
@@ -178,7 +232,7 @@ public partial class MainShellWindow
                 return;
             }
 
-            var addedQuestion = _manualQuizQuestionTextBox.Text.Trim();
+            var addedQuestion = questionText;
             ClearManualQuizQuestionForm();
             if (_quizBankTabs is not null)
                 _quizBankTabs.SelectedIndex = 0;
@@ -194,12 +248,63 @@ public partial class MainShellWindow
                 }
             }
             if (_quizPageStatusText is not null)
-                _quizPageStatusText.Text = "Manual quiz question added";
+                _quizPageStatusText.Text = $"Manual quiz question added to {category}";
         }
         catch (Exception error)
         {
             MessageBox.Show(this, error.Message, "Add Quiz Question", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private void AutoCategorizeQuizQuestions_Click(object sender, RoutedEventArgs e)
+    {
+        var answer = MessageBox.Show(
+            this,
+            "Move every question currently categorized as General Knowledge into a more specific topic category?\n\nExisting specific categories will not be changed.",
+            "Auto-categorize Questions",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            var result = _data.AutoCategorizeGeneralKnowledgeQuestions();
+            RefreshQuizBank();
+            if (_quizPageStatusText is not null)
+                _quizPageStatusText.Text = result.Updated == 0
+                    ? "No General Knowledge questions needed categorizing"
+                    : $"Categorized {result.Updated:N0} questions";
+            MessageBox.Show(
+                this,
+                result.Updated == 0
+                    ? "There are no questions currently filed as General Knowledge."
+                    : $"Categorized {result.Updated:N0} of {result.Found:N0} General Knowledge questions.",
+                "Auto-categorize Questions",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Auto-categorize Questions", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void QuizImportTextBox_AutoCategorizeTextChanged(object sender, TextChangedEventArgs e)
+    {
+        var hasText = !string.IsNullOrWhiteSpace(_quizImportTextBox?.Text);
+        if (_quizCategoryImportHadText && !hasText)
+        {
+            try
+            {
+                _data.AutoCategorizeGeneralKnowledgeQuestions();
+            }
+            catch (Exception error)
+            {
+                System.Diagnostics.Debug.WriteLine($"Could not auto-categorize imported quiz questions: {error.Message}");
+            }
+        }
+        _quizCategoryImportHadText = hasText;
     }
 
     private void ClearManualQuizQuestionForm()
@@ -212,8 +317,8 @@ public partial class MainShellWindow
             _manualQuizCorrectAnswerComboBox.SelectedIndex = 0;
         if (_manualQuizExplanationTextBox is not null)
             _manualQuizExplanationTextBox.Clear();
-        if (_manualQuizCategoryTextBox is not null)
-            _manualQuizCategoryTextBox.Text = "General Knowledge";
+        if (_manualQuizCategoryComboBox is not null)
+            _manualQuizCategoryComboBox.SelectedItem = "Miscellaneous";
         if (_manualQuizDifficultyComboBox is not null)
             _manualQuizDifficultyComboBox.SelectedIndex = 1;
         _manualQuizQuestionTextBox?.Focus();
