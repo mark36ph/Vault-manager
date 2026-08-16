@@ -59,6 +59,27 @@ public sealed class GenericVisualSelectionPolicyTests
         Assert.Empty(requestedCue);
     }
 
+    [Fact]
+    public void MutantHybridAndMonster_AreDecorativeCuesUnlessRequested()
+    {
+        Assert.Equal(
+            "hybrid",
+            NativeVerifiedAssetAcquisitionEngine.UnrequestedSyntheticRepresentation(
+                "elephant wildlife habitat",
+                "elephant octopus mutant hybrid animal"));
+
+        Assert.Equal(
+            "monster",
+            NativeVerifiedAssetAcquisitionEngine.UnrequestedSyntheticRepresentation(
+                "deep sea animal underwater",
+                "deep sea monster creature"));
+
+        Assert.Empty(
+            NativeVerifiedAssetAcquisitionEngine.UnrequestedSyntheticRepresentation(
+                "hybrid animal biology",
+                "hybrid animal biology"));
+    }
+
     private static NativeAssetCandidate Candidate(string title) =>
         new(
             "pexels",
