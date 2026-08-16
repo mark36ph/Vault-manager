@@ -30,6 +30,14 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         "eating", "eat", "foraging", "forage", "resting", "rest", "underwater",
     };
 
+    private static readonly HashSet<string> MultiWordEvidenceCueWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "anatomy", "anatomical", "blood", "circulation", "circulatory", "organ", "organs",
+        "protein", "pigment", "molecule", "molecular", "chemical", "chemistry", "compound", "cell", "cells",
+        "tissue", "tissues", "bone", "bones", "muscle", "muscles", "vein", "veins", "artery", "arteries",
+        "internal", "structure", "structural",
+    };
+
     private static readonly Dictionary<string, string> SubjectTokenAliases = new(StringComparer.OrdinalIgnoreCase)
     {
         ["octopi"] = "octopus",
@@ -39,11 +47,13 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
     {
         "puppet", "toy", "plush", "plushie", "figurine", "statue", "sculpture",
         "painting", "painted", "illustration", "illustrated", "drawing", "cartoon", "cgi", "render", "rendered",
+        "fantasy", "fantastical",
     };
 
     private static readonly string[] SyntheticRepresentationPhrases =
     {
         "ai generated", "ai-generated", "3d render", "3d rendered", "computer generated", "computer-generated",
+        "digital art", "concept art", "fantasy art",
     };
 
     private const int SubjectUncertainPenalty = 4;
@@ -102,6 +112,8 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         fallbackQueries.AddRange(FallbackSearchQueries(query));
         var verificationQuery = BuildVerificationQuery(query, requiredSubject);
         var evidenceSubject = SceneEvidenceSubject(query, requiredSubject);
+        var evidencePhrase = SceneEvidencePhrase(query, requiredSubject);
+        var evidenceLabel = evidencePhrase.Length > 0 ? evidencePhrase : evidenceSubject;
         var evidenceCanReplaceSubject = evidenceSubject.Length > 0 && !BehaviorSceneEvidenceWords.Contains(evidenceSubject);
 
         foreach (var searchQuery in fallbackQueries)
@@ -233,26 +245,26 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                         decision = decision with
                         {
                             RequestedSceneEvidenceVisible = false,
-                            Decision = decision.Decision + $"; specific stock metadata does not mention scene evidence '{evidenceSubject}'",
+                            Decision = decision.Decision + $"; specific stock metadata does not mention scene evidence '{evidenceLabel}'",
                         };
                         Report("verify", index + 1, scanLimit,
-                            $"Specific stock metadata does not mention scene evidence '{evidenceSubject}'; treating asset as subject-only fallback");
+                            $"Specific stock metadata does not mention scene evidence '{evidenceLabel}'; treating asset as subject-only fallback");
                     }
                     else
                     {
                         try
                         {
                             var evidenceDecision = await _verifier.VerifyAsync(
-                                BuildEvidenceVerificationQuery(query, requiredSubject, evidenceSubject), asset, cancellationToken);
+                                BuildEvidenceVerificationQuery(query, requiredSubject, evidenceLabel), asset, cancellationToken);
                             if (!evidenceDecision.Accepted || !evidenceDecision.RequestedSceneEvidenceVisible)
                             {
                                 decision = decision with
                                 {
                                     RequestedSceneEvidenceVisible = false,
-                                    Decision = decision.Decision + $"; scene evidence '{evidenceSubject}' was not independently confirmed",
+                                    Decision = decision.Decision + $"; scene evidence '{evidenceLabel}' was not independently confirmed",
                                 };
                                 Report("verify", index + 1, scanLimit,
-                                    $"Scene-specific evidence '{evidenceSubject}' was not confirmed; treating asset as subject-only fallback");
+                                    $"Scene-specific evidence '{evidenceLabel}' was not confirmed; treating asset as subject-only fallback");
                             }
                         }
                         catch (Exception error)
@@ -261,10 +273,10 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                             decision = decision with
                             {
                                 RequestedSceneEvidenceVisible = false,
-                                Decision = decision.Decision + $"; scene evidence '{evidenceSubject}' could not be confirmed",
+                                Decision = decision.Decision + $"; scene evidence '{evidenceLabel}' could not be confirmed",
                             };
                             Report("verify", index + 1, scanLimit,
-                                $"Scene-specific evidence '{evidenceSubject}' could not be confirmed; treating asset as subject-only fallback");
+                                $"Scene-specific evidence '{evidenceLabel}' could not be confirmed; treating asset as subject-only fallback");
                         }
                     }
                 }
@@ -346,7 +358,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                     sceneFallbackDecision = bestDecision;
                     sceneFallbackScore = bestScore;
                     Report("verify", 1, 1,
-                        $"Subject-only visual retained as fallback; searching for visible '{evidenceSubject}' evidence");
+                        $"Subject-only visual retained as fallback; searching for visible '{evidenceLabel}' evidence");
                 }
                 else Discard(best);
                 continue;
@@ -365,7 +377,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
             if (decorativeFallback is not null) Discard(decorativeFallback);
             Remember(sceneFallbackDecision);
             Report("verify", 1, 1,
-                $"No confirmed '{evidenceSubject}' evidence found; using the best subject-only factual fallback");
+                $"No confirmed '{evidenceLabel}' evidence found; using the best subject-only factual fallback");
             return sceneFallback;
         }
 
@@ -576,6 +588,27 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
 
     public static string SceneEvidenceSubject(string query, string requiredSubject)
     {
+        var evidenceWords = SceneEvidenceWords(query, requiredSubject);
+        return evidenceWords.Count == 0 ? "" : evidenceWords[0].ToLowerInvariant();
+    }
+
+    public static string SceneEvidencePhrase(string query, string requiredSubject)
+    {
+        var evidenceWords = SceneEvidenceWords(query, requiredSubject);
+        if (evidenceWords.Count == 0)
+            return "";
+
+        var lead = evidenceWords[0].ToLowerInvariant();
+        var multiWord = BehaviorSceneEvidenceWords.Contains(lead) ||
+            evidenceWords.Any(word => MultiWordEvidenceCueWords.Contains(word));
+        if (!multiWord)
+            return lead;
+
+        return string.Join(" ", evidenceWords.Take(4).Select(word => word.ToLowerInvariant()));
+    }
+
+    private static IReadOnlyList<string> SceneEvidenceWords(string query, string requiredSubject)
+    {
         var queryWords = Regex.Matches(query ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*")
             .Select(match => match.Value)
             .ToList();
@@ -583,41 +616,46 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
             .Select(match => match.Value)
             .ToList();
         if (queryWords.Count == 0 || subjectWords.Count == 0)
-            return "";
+            return Array.Empty<string>();
 
         var start = -1;
         for (var index = 0; index <= queryWords.Count - subjectWords.Count; index++)
         {
-            var match = true;
-            for (var subjectIndex = 0; subjectIndex < subjectWords.Count; subjectIndex++)
-            {
-                if (!SubjectTokensEquivalent(queryWords[index + subjectIndex], subjectWords[subjectIndex]))
-                {
-                    match = false;
-                    break;
-                }
-            }
-            if (match)
-            {
-                start = index + subjectWords.Count;
-                break;
-            }
+            if (!SubjectSequenceMatchesAt(queryWords, subjectWords, index))
+                continue;
+            start = index + subjectWords.Count;
+            break;
         }
 
         if (start < 0)
-            return "";
+            return Array.Empty<string>();
 
-        while (start < queryWords.Count &&
-               subjectWords.Any(subjectWord => SubjectTokensEquivalent(queryWords[start], subjectWord)))
-            start++;
+        while (start <= queryWords.Count - subjectWords.Count &&
+               SubjectSequenceMatchesAt(queryWords, subjectWords, start))
+            start += subjectWords.Count;
 
         if (start >= queryWords.Count)
-            return "";
+            return Array.Empty<string>();
 
         var lead = queryWords[start];
         if (lead.Length < 3 || GenericSceneLeadWords.Contains(lead))
-            return "";
-        return lead.ToLowerInvariant();
+            return Array.Empty<string>();
+
+        return queryWords.Skip(start).ToArray();
+    }
+
+    private static bool SubjectSequenceMatchesAt(
+        IReadOnlyList<string> queryWords,
+        IReadOnlyList<string> subjectWords,
+        int start)
+    {
+        if (start < 0 || start + subjectWords.Count > queryWords.Count)
+            return false;
+
+        for (var subjectIndex = 0; subjectIndex < subjectWords.Count; subjectIndex++)
+            if (!SubjectTokensEquivalent(queryWords[start + subjectIndex], subjectWords[subjectIndex]))
+                return false;
+        return true;
     }
 
     public static string BuildEvidenceVerificationQuery(string query, string evidenceSubject)
@@ -631,12 +669,14 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
     public static string BuildEvidenceVerificationQuery(string query, string requiredSubject, string evidenceSubject)
     {
         var safeEvidenceSubject = evidenceSubject ?? "";
-        var evidenceMatch = Regex.Match(safeEvidenceSubject, "[A-Za-z0-9][A-Za-z0-9'’-]*");
-        if (!evidenceMatch.Success)
+        var evidenceWords = Regex.Matches(safeEvidenceSubject, "[A-Za-z0-9][A-Za-z0-9'’-]*")
+            .Select(match => match.Value.ToLowerInvariant())
+            .ToList();
+        if (evidenceWords.Count == 0)
             return BuildEvidenceVerificationQuery(query, safeEvidenceSubject);
 
-        var evidence = evidenceMatch.Value.ToLowerInvariant();
-        if (!BehaviorSceneEvidenceWords.Contains(evidence))
+        var behaviorEvidence = BehaviorSceneEvidenceWords.Contains(evidenceWords[0]);
+        if (evidenceWords.Count == 1 && !behaviorEvidence)
             return BuildEvidenceVerificationQuery(query, safeEvidenceSubject);
 
         var subjectWords = Regex.Matches(requiredSubject ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*")
@@ -646,7 +686,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         if (subjectWords.Count == 0)
             return BuildEvidenceVerificationQuery(query, safeEvidenceSubject);
 
-        return $"subject {string.Join(" ", subjectWords)} {evidence}";
+        return $"subject {string.Join(" ", subjectWords)} {string.Join(" ", evidenceWords)}";
     }
 
     public static string UnrequestedSyntheticRepresentation(string query, string candidateTitle)
