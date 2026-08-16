@@ -197,7 +197,7 @@ public partial class MainShellWindow
     private void QuizBankGrid_QuestionViewerMouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (_quizBankGrid?.SelectedItem is QuizQuestion question)
-            ShowQuizQuestionDialog(question);
+            ShowEditQuizQuestionDialog(question);
     }
 
     private void QuizImportTextBox_QuestionViewerTextChanged(object sender, TextChangedEventArgs e)
