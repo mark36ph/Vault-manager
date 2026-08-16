@@ -55,7 +55,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
     {
         "puppet", "toy", "plush", "plushie", "figurine", "statue", "sculpture",
         "painting", "painted", "illustration", "illustrated", "drawing", "cartoon", "cgi", "render", "rendered",
-        "fantasy", "fantastical", "mutant", "hybrid", "monster", "mythical", "mythological", "kraken",
+        "fantasy", "fantastical", "mutant", "hybrid", "monster", "mythical", "mythological",
         "surreal", "surrealist",
     };
 
@@ -65,12 +65,44 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         "digital art", "concept art", "fantasy art",
     };
 
+    private static readonly HashSet<string> ScientificIllustrationCues = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "illustration", "illustrated", "drawing", "painting", "painted",
+    };
+
+    private static readonly HashSet<string> ScientificReferenceWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "fig", "figure", "plate", "journal", "bulletin", "biodiversity", "smithsonian", "museum",
+        "university", "library", "archive", "monograph", "textbook", "encyclopedia", "scientific",
+        "zoology", "taxonomy",
+    };
+
+    private static readonly HashSet<string> ScientificContentWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "anatomy", "anatomical", "biology", "biological", "zoology", "taxonomy", "species", "specimen",
+        "organ", "organs", "gill", "gills", "heart", "hearts", "blood", "circulation", "circulatory",
+        "cell", "cells", "tissue", "tissues", "mollusk", "mollusks", "mollusc", "molluscs",
+        "malacology", "malacological", "locomotion", "behavior", "behaviour",
+    };
+
+    private static readonly string[] ScientificReferenceDisqualifiers =
+    {
+        "ai generated", "3d render", "digital art", "concept art", "fantasy", "cartoon", "clipart",
+        "comic", "logo", "t shirt", "tshirt", "mockup",
+    };
+
+    private static readonly HashSet<string> StableRepresentationHardNegatives = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "unrequested_statue_or_sculpture", "unrequested_logo_or_symbol", "unrequested_generic_diagram",
+    };
+
     private const int SubjectUncertainPenalty = 4;
     private const int SceneEvidenceBonus = 6;
     private const int MinQualityScan = 5;
 
     private readonly NativeAssetAcquisitionEngine _engine;
     private readonly INativeAssetVerifier _verifier;
+    private readonly Dictionary<string, string> _stableRepresentationFindings = new(StringComparer.OrdinalIgnoreCase);
 
     public Action<string, int, int, string>? Progress { get; set; }
     public string LastSelectedQuality { get; private set; } = "preferred";
@@ -174,6 +206,17 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                 blocked.Add(key);
                 blocked.Add(asset.Candidate.Url);
 
+                if (TryGetStableRepresentationFinding(asset.Candidate, out var stableFinding) &&
+                    !QueryExplicitlyRequestsStableRepresentation(query, stableFinding))
+                {
+                    var reason = $"cached stable representation finding '{stableFinding}'";
+                    failures.Add($"{asset.Candidate.Provider}/{asset.Candidate.Id}: {reason}");
+                    Report("verify", index + 1, scanLimit,
+                        $"Visual relevance rejected ({reason}); trying another asset");
+                    Discard(asset);
+                    continue;
+                }
+
                 Report("verify", index + 1, scanLimit, $"Checking visual relevance: {asset.Candidate.Title}");
                 NativeAssetVerificationResult decision;
                 try
@@ -187,6 +230,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                     continue;
                 }
 
+                RememberStableRepresentationFinding(asset.Candidate, decision);
                 if (!decision.Accepted)
                 {
                     failures.Add($"{asset.Candidate.Provider}/{asset.Candidate.Id}: {decision.Decision}");
@@ -303,7 +347,23 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                 var syntheticCue = UnrequestedSyntheticRepresentation(query, asset.Candidate.Title);
                 if (syntheticCue.Length == 0)
                     syntheticCue = NativeVisualSelectionPolicy.UnrequestedSyntheticRepresentation(query, asset.Candidate);
-                if (syntheticCue.Length > 0 && !decision.Style.Equals("decorative", StringComparison.OrdinalIgnoreCase))
+
+                var verifiedScientificReference =
+                    syntheticCue.Length > 0 &&
+                    evidenceSubject.Length > 0 &&
+                    decision.RequestedSceneEvidenceVisible &&
+                    IsScientificReferenceIllustration(query, asset.Candidate, syntheticCue);
+                if (verifiedScientificReference)
+                {
+                    decision = decision with
+                    {
+                        Style = "representational",
+                        Decision = decision.Decision + "; verified scientific/reference illustration",
+                    };
+                    Report("verify", index + 1, scanLimit,
+                        "Verified scientific/reference illustration retained as representational evidence");
+                }
+                else if (syntheticCue.Length > 0 && !decision.Style.Equals("decorative", StringComparison.OrdinalIgnoreCase))
                 {
                     decision = decision with
                     {
@@ -504,6 +564,79 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         LastSelectedQuality = QualityScore.ContainsKey(decision.Quality) ? decision.Quality : "preferred";
         LastSelectedStyle = StyleScore.ContainsKey(decision.Style) ? decision.Style : "literal";
         LastSelectedSubjectUncertain = decision.SubjectUncertain;
+    }
+
+    private void RememberStableRepresentationFinding(
+        NativeAssetCandidate candidate,
+        NativeAssetVerificationResult decision)
+    {
+        if (decision.Accepted || !StableRepresentationHardNegatives.Contains(decision.HardNegative))
+            return;
+
+        var key = CandidateKey(candidate);
+        _stableRepresentationFindings[key] = decision.HardNegative;
+        if (!string.IsNullOrWhiteSpace(candidate.Url))
+            _stableRepresentationFindings[candidate.Url] = decision.HardNegative;
+    }
+
+    private bool TryGetStableRepresentationFinding(NativeAssetCandidate candidate, out string finding)
+    {
+        if (_stableRepresentationFindings.TryGetValue(CandidateKey(candidate), out finding!))
+            return true;
+        if (!string.IsNullOrWhiteSpace(candidate.Url) &&
+            _stableRepresentationFindings.TryGetValue(candidate.Url, out finding!))
+            return true;
+        finding = "";
+        return false;
+    }
+
+    private static bool QueryExplicitlyRequestsStableRepresentation(string query, string finding)
+    {
+        var words = Regex.Matches(query ?? "", "[A-Za-z0-9]+")
+            .Select(match => match.Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return finding switch
+        {
+            "unrequested_statue_or_sculpture" =>
+                words.Contains("statue") || words.Contains("sculpture") || words.Contains("figurine") || words.Contains("monument"),
+            "unrequested_logo_or_symbol" =>
+                words.Contains("logo") || words.Contains("symbol") || words.Contains("emblem") || words.Contains("icon"),
+            "unrequested_generic_diagram" =>
+                words.Contains("diagram") || words.Contains("schematic") || words.Contains("chart") || words.Contains("infographic"),
+            _ => false,
+        };
+    }
+
+    private static bool IsScientificReferenceIllustration(
+        string query,
+        NativeAssetCandidate candidate,
+        string representationCue)
+    {
+        if (!ScientificIllustrationCues.Contains(representationCue))
+            return false;
+
+        var candidateText = string.Join(" ", new[]
+        {
+            candidate.Title, candidate.Credit, candidate.SourcePage, candidate.Url,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+        var normalizedCandidate = Regex.Replace(candidateText.ToLowerInvariant(), @"[^a-z0-9]+", " ").Trim();
+        if (ScientificReferenceDisqualifiers.Any(phrase =>
+                normalizedCandidate.Contains(phrase, StringComparison.Ordinal)))
+            return false;
+
+        var candidateWords = Regex.Matches(candidateText, "[A-Za-z0-9]+")
+            .Select(match => match.Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (ScientificReferenceWords.Any(candidateWords.Contains))
+            return true;
+
+        var queryWords = Regex.Matches(query ?? "", "[A-Za-z0-9]+")
+            .Select(match => match.Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var scientificQuery = MultiWordEvidenceCueWords.Any(queryWords.Contains) ||
+            ScientificContentWords.Any(queryWords.Contains);
+        return scientificQuery && ScientificContentWords.Any(candidateWords.Contains);
     }
 
     private static void Discard(NativeAcquiredAsset asset)
