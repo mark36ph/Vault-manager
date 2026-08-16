@@ -159,10 +159,24 @@ public partial class MainShellWindow
         _quizBankStatusText = new TextBlock { Text = "0 questions", Foreground = QuizMutedBrush(), FontSize = 11, Margin = new Thickness(0, 3, 0, 0) };
         bankHeading.Children.Add(_quizBankStatusText);
         bankHeader.Children.Add(bankHeading);
-        var deleteSelected = new Button { Content = "Delete selected", VerticalAlignment = VerticalAlignment.Center };
+
+        var bankActions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var toggleSelected = new Button
+        {
+            Content = "Enable / disable selected",
+            ToolTip = "Disabled questions stay in the bank but are excluded from random quiz selection.",
+        };
+        toggleSelected.Click += ToggleSelectedQuizQuestion_Click;
+        bankActions.Children.Add(toggleSelected);
+        var deleteSelected = new Button { Content = "Delete selected", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0) };
         deleteSelected.Click += DeleteSelectedQuizQuestion_Click;
-        Grid.SetColumn(deleteSelected, 1);
-        bankHeader.Children.Add(deleteSelected);
+        bankActions.Children.Add(deleteSelected);
+        Grid.SetColumn(bankActions, 1);
+        bankHeader.Children.Add(bankActions);
         bank.Children.Add(bankHeader);
 
         var bankTabs = new TabControl { Background = Brushes.White, BorderThickness = new Thickness(0) };
@@ -259,37 +273,50 @@ public partial class MainShellWindow
         {
             AutoGenerateColumns = false,
             IsReadOnly = true,
+            CanUserSortColumns = true,
             HeadersVisibility = DataGridHeadersVisibility.Column,
         };
         _quizBankGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Category",
             Binding = new Binding(nameof(QuizQuestion.Category)),
-            Width = new DataGridLength(130),
-        });
-        _quizBankGrid.Columns.Add(new DataGridTextColumn
-        {
-            Header = "Level",
-            Binding = new Binding(nameof(QuizQuestion.Difficulty)),
-            Width = new DataGridLength(80),
+            SortMemberPath = nameof(QuizQuestion.Category),
+            Width = new DataGridLength(125),
         });
         _quizBankGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Question",
             Binding = new Binding(nameof(QuizQuestion.Question)),
+            SortMemberPath = nameof(QuizQuestion.Question),
             Width = new DataGridLength(1, DataGridLengthUnitType.Star),
+        });
+        _quizBankGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Level",
+            Binding = new Binding(nameof(QuizQuestion.Difficulty)),
+            SortMemberPath = nameof(QuizQuestion.Difficulty),
+            Width = new DataGridLength(75),
         });
         _quizBankGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Correct",
             Binding = new Binding(nameof(QuizQuestion.CorrectAnswer)),
-            Width = new DataGridLength(150),
+            SortMemberPath = nameof(QuizQuestion.CorrectAnswer),
+            Width = new DataGridLength(130),
         });
         _quizBankGrid.Columns.Add(new DataGridTextColumn
         {
-            Header = "Used",
+            Header = "Times used",
             Binding = new Binding(nameof(QuizQuestion.TimesUsed)),
-            Width = new DataGridLength(55),
+            SortMemberPath = nameof(QuizQuestion.TimesUsed),
+            Width = new DataGridLength(82),
+        });
+        _quizBankGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Status",
+            Binding = new Binding(nameof(QuizQuestion.Availability)),
+            SortMemberPath = nameof(QuizQuestion.IsEnabled),
+            Width = new DataGridLength(82),
         });
         Grid.SetRow(_quizBankGrid, 1);
         root.Children.Add(_quizBankGrid);
@@ -390,14 +417,16 @@ public partial class MainShellWindow
             var categoryFilter = SelectedQuizCategory();
             var difficulty = SelectedQuizDifficulty();
             var search = _quizSearchTextBox?.Text ?? "";
-            var questions = _data.GetQuizQuestions(search, categoryFilter, difficulty);
+            var questions = _data.GetQuizQuestions(search, categoryFilter, difficulty, limit: 10_000);
             _quizBankGrid.ItemsSource = questions;
             var total = _data.GetQuizQuestionCount(categoryFilter, difficulty);
+            var enabled = _data.GetQuizQuestionCount(categoryFilter, difficulty, enabledOnly: true);
+            var disabled = total - enabled;
             if (_quizBankStatusText is not null)
             {
                 _quizBankStatusText.Text = search.Trim().Length == 0
-                    ? $"{total:N0} matching questions in the database"
-                    : $"Showing {questions.Count:N0} search results • {total:N0} in this category/level";
+                    ? $"{total:N0} matching • {enabled:N0} enabled • {disabled:N0} disabled • click column headers to sort"
+                    : $"Showing {questions.Count:N0} search results • {enabled:N0} enabled • {disabled:N0} disabled";
             }
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = $"Question bank: {_data.GetQuizQuestionCount():N0}";
@@ -495,17 +524,12 @@ public partial class MainShellWindow
 
             _quizDraftQuestions = _data.GetRandomQuizQuestions(count, SelectedQuizCategory(), SelectedQuizDifficulty()).ToList();
             _quizSecondsPerQuestion = seconds;
-            _quizDraftGrid.ItemsSource = _quizDraftQuestions
-                .Select((question, index) => new QuizDraftDisplayRow(
-                    index + 1,
-                    question.Question,
-                    $"{question.CorrectLetter}. {question.CorrectAnswer}"))
-                .ToList();
+            _quizDraftGrid.ItemsSource = QuizDraftRows(_quizDraftQuestions);
 
             if (_quizDraftStatusText is not null)
             {
                 var thinkingSeconds = count * seconds;
-                _quizDraftStatusText.Text = $"{count} random questions • {seconds} seconds per question • {thinkingSeconds / 60}:{thinkingSeconds % 60:00} total answer time. Pick again for a different random set.";
+                _quizDraftStatusText.Text = $"{count} random enabled questions • {seconds} seconds per question • {thinkingSeconds / 60}:{thinkingSeconds % 60:00} total answer time. Pick again for a different random set.";
             }
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Random quiz draft created";
@@ -513,6 +537,34 @@ public partial class MainShellWindow
         catch (Exception error)
         {
             MessageBox.Show(this, error.Message, "Create Quiz Draft", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void ToggleSelectedQuizQuestion_Click(object sender, RoutedEventArgs e)
+    {
+        if (_quizBankGrid?.SelectedItem is not QuizQuestion question)
+            return;
+        try
+        {
+            var enabled = !question.IsEnabled;
+            _data.SetQuizQuestionEnabled(question.Id, enabled);
+
+            if (!enabled && _quizDraftQuestions.Any(item => item.Id == question.Id))
+            {
+                _quizDraftQuestions = _quizDraftQuestions.Where(item => item.Id != question.Id).ToList();
+                if (_quizDraftGrid is not null)
+                    _quizDraftGrid.ItemsSource = QuizDraftRows(_quizDraftQuestions);
+                if (_quizDraftStatusText is not null)
+                    _quizDraftStatusText.Text = "A disabled question was removed from the current draft. Pick random questions again to refill the draft.";
+            }
+
+            RefreshQuizBank();
+            if (_quizPageStatusText is not null)
+                _quizPageStatusText.Text = enabled ? "Question enabled for future quizzes" : "Question disabled from future quiz selection";
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Quiz Question Availability", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -531,6 +583,9 @@ public partial class MainShellWindow
         try
         {
             _data.DeleteQuizQuestion(question.Id);
+            _quizDraftQuestions = _quizDraftQuestions.Where(item => item.Id != question.Id).ToList();
+            if (_quizDraftGrid is not null)
+                _quizDraftGrid.ItemsSource = QuizDraftRows(_quizDraftQuestions);
             RefreshQuizBank();
         }
         catch (Exception error)
@@ -538,6 +593,14 @@ public partial class MainShellWindow
             MessageBox.Show(this, error.Message, "Delete Quiz Question", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
+
+    private static IReadOnlyList<QuizDraftDisplayRow> QuizDraftRows(IEnumerable<QuizQuestion> questions) =>
+        questions
+            .Select((question, index) => new QuizDraftDisplayRow(
+                index + 1,
+                question.Question,
+                $"{question.CorrectLetter}. {question.CorrectAnswer}"))
+            .ToList();
 
     private string SelectedQuizCategory()
     {
