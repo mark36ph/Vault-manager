@@ -630,15 +630,23 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
 
     public static string BuildEvidenceVerificationQuery(string query, string requiredSubject, string evidenceSubject)
     {
+        var safeEvidenceSubject = evidenceSubject ?? "";
+        var evidenceMatch = Regex.Match(safeEvidenceSubject, "[A-Za-z0-9][A-Za-z0-9'’-]*");
+        if (!evidenceMatch.Success)
+            return BuildEvidenceVerificationQuery(query, safeEvidenceSubject);
+
+        var evidence = evidenceMatch.Value.ToLowerInvariant();
+        if (!BehaviorSceneEvidenceWords.Contains(evidence))
+            return BuildEvidenceVerificationQuery(query, safeEvidenceSubject);
+
         var subjectWords = Regex.Matches(requiredSubject ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*")
             .Select(match => CanonicalSubjectToken(match.Value))
             .Where(value => value.Length > 0)
             .ToList();
-        var evidenceMatch = Regex.Match(evidenceSubject ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*");
-        if (subjectWords.Count == 0 || !evidenceMatch.Success)
-            return BuildEvidenceVerificationQuery(query, evidenceSubject);
+        if (subjectWords.Count == 0)
+            return BuildEvidenceVerificationQuery(query, safeEvidenceSubject);
 
-        return $"subject {string.Join(" ", subjectWords)} {evidenceMatch.Value.ToLowerInvariant()}";
+        return $"subject {string.Join(" ", subjectWords)} {evidence}";
     }
 
     public static string UnrequestedSyntheticRepresentation(string query, string candidateTitle)
