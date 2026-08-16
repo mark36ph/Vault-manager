@@ -10,10 +10,22 @@ public static class NativeVisualSelectionPolicy
         "blood", "hemocyanin", "circulatory", "circulation", "internal", "biological", "biology",
     };
 
+    private static readonly HashSet<string> LivingSceneWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "swimming", "swim", "crawling", "crawl", "moving", "move", "feeding", "feed",
+        "eating", "eat", "foraging", "forage", "resting", "rest", "underwater", "seafloor",
+        "wildlife", "habitat",
+    };
+
     private static readonly HashSet<string> PreparedFoodWords = new(StringComparer.OrdinalIgnoreCase)
     {
         "fried", "cooked", "grilled", "roasted", "meal", "dish", "restaurant", "food",
         "seafood", "platter", "market", "stall",
+    };
+
+    private static readonly HashSet<string> DeadDisplayWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "dead", "dried", "drying", "carcass", "preserved", "taxidermy",
     };
 
     private static readonly string[] SyntheticPhrases =
@@ -75,12 +87,30 @@ public static class NativeVisualSelectionPolicy
             return $"blocked source '{blockedSource}'";
 
         var queryWords = Words(query);
-        if (!ScientificIntentWords.Any(queryWords.Contains))
+        if (PreparedFoodWords.Any(queryWords.Contains) || DeadDisplayWords.Any(queryWords.Contains))
+            return "";
+
+        var scientificIntent = ScientificIntentWords.Any(queryWords.Contains);
+        var livingIntent = LivingSceneWords.Any(queryWords.Contains);
+        if (!scientificIntent && !livingIntent)
             return "";
 
         var candidateWords = Words(CandidateText(candidate));
-        var conflict = PreparedFoodWords.FirstOrDefault(candidateWords.Contains);
-        return conflict is null ? "" : $"prepared-food imagery conflicts with scientific scene intent ('{conflict}')";
+        var preparedConflict = PreparedFoodWords.FirstOrDefault(candidateWords.Contains);
+        if (preparedConflict is not null)
+        {
+            var intent = scientificIntent ? "scientific scene intent" : "living-subject scene intent";
+            return $"prepared-food imagery conflicts with {intent} ('{preparedConflict}')";
+        }
+
+        var deadConflict = DeadDisplayWords.FirstOrDefault(candidateWords.Contains);
+        if (deadConflict is not null)
+        {
+            var intent = scientificIntent ? "scientific scene intent" : "living-subject scene intent";
+            return $"dead/preserved imagery conflicts with {intent} ('{deadConflict}')";
+        }
+
+        return "";
     }
 
     public static string UnrequestedSyntheticRepresentation(string query, NativeAssetCandidate candidate)
