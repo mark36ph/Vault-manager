@@ -31,7 +31,7 @@ public partial class MainShellWindow
         _quizBankGrid.SelectionChanged += QuizBankGrid_QuestionViewerSelectionChanged;
         _quizBankGrid.MouseDoubleClick += QuizBankGrid_QuestionViewerMouseDoubleClick;
 
-        _quizBankTabs = FindQuizVisualAncestor<TabControl>(_quizBankGrid);
+        _quizBankTabs ??= FindQuizVisualAncestor<TabControl>(_quizBankGrid);
         if (_quizBankTabs?.Items.Count > 0 && _quizBankTabs.Items[0] is TabItem questionsTab)
             questionsTab.Header = "Questions";
 
@@ -56,7 +56,7 @@ public partial class MainShellWindow
             return;
 
         browseRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(6) });
-        browseRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(235) });
+        browseRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(155) });
 
         var splitter = new GridSplitter
         {
@@ -76,8 +76,8 @@ public partial class MainShellWindow
             BorderBrush = new SolidColorBrush(Color.FromRgb(228, 231, 236)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(12),
-            Margin = new Thickness(0, 8, 0, 0),
+            Padding = new Thickness(10),
+            Margin = new Thickness(0, 5, 0, 0),
         };
         Grid.SetRow(detailsBorder, 3);
         browseRoot.Children.Add(detailsBorder);
@@ -120,7 +120,7 @@ public partial class MainShellWindow
             Text = "Select a question above to see all answers and its explanation.",
             Foreground = QuizMutedBrush(),
             FontSize = 11,
-            Margin = new Thickness(0, 3, 0, 8),
+            Margin = new Thickness(0, 3, 0, 6),
             TextWrapping = TextWrapping.Wrap,
         };
         Grid.SetRow(_quizQuestionDetailMeta, 1);
@@ -141,7 +141,7 @@ public partial class MainShellWindow
             TextWrapping = TextWrapping.Wrap,
             FontSize = 13,
             FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 0, 0, 8),
+            Margin = new Thickness(0, 0, 0, 6),
         };
         body.Children.Add(_quizQuestionDetailText);
 
@@ -149,7 +149,7 @@ public partial class MainShellWindow
             .Select(_ => new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 2, 0, 2),
+                Margin = new Thickness(0, 1, 0, 1),
             })
             .ToArray();
         foreach (var answerText in _quizQuestionAnswerTexts)
@@ -161,7 +161,7 @@ public partial class MainShellWindow
             Foreground = QuizMutedBrush(),
             FontSize = 10,
             FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 10, 0, 2),
+            Margin = new Thickness(0, 7, 0, 2),
         });
         _quizQuestionExplanationText = new TextBlock
         {
@@ -301,7 +301,7 @@ public partial class MainShellWindow
         {
             if (current is T match)
                 return match;
-            current = VisualTreeHelper.GetParent(current);
+            current = LogicalTreeHelper.GetParent(current) ?? VisualTreeHelper.GetParent(current);
         }
         return null;
     }
