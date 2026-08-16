@@ -16,6 +16,12 @@ public partial class MainShellWindow
     private TextBlock[]? _quizQuestionAnswerTexts;
     private TextBlock? _quizQuestionExplanationText;
 
+    protected override void OnContentRendered(EventArgs e)
+    {
+        base.OnContentRendered(e);
+        Dispatcher.BeginInvoke(new Action(InitializeQuizQuestionViewer));
+    }
+
     private void InitializeQuizQuestionViewer()
     {
         if (_quizQuestionViewerInitialized)
