@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -23,6 +24,31 @@ public partial class MainShellWindow
         _quizDraftGrid.AlternationCount = 2;
         _quizDraftGrid.AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(248, 250, 252));
         _quizDraftGrid.SelectionChanged += (_, _) => UpdateQuizDraftSelectionDetails();
+
+        _quizDraftGrid.Columns.Insert(1, new DataGridTextColumn
+        {
+            Header = "Bank No.",
+            Binding = DraftMetadataBinding(question => question.Id),
+            Width = new DataGridLength(68),
+        });
+        _quizDraftGrid.Columns.Insert(2, new DataGridTextColumn
+        {
+            Header = "Category",
+            Binding = DraftMetadataBinding(question => question.Category),
+            Width = new DataGridLength(125),
+        });
+        _quizDraftGrid.Columns.Insert(4, new DataGridTextColumn
+        {
+            Header = "Level",
+            Binding = DraftMetadataBinding(question => question.Difficulty),
+            Width = new DataGridLength(82),
+        });
+        _quizDraftGrid.Columns.Insert(5, new DataGridTextColumn
+        {
+            Header = "Used",
+            Binding = DraftMetadataBinding(question => question.TimesUsed),
+            Width = new DataGridLength(62),
+        });
 
         var actionRow = draft.RowDefinitions.Count;
         draft.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -80,6 +106,11 @@ public partial class MainShellWindow
 
         UpdateQuizDraftSelectionDetails();
     }
+
+    private Binding DraftMetadataBinding(Func<QuizQuestion, object?> selector) => new(nameof(QuizDraftDisplayRow.Number))
+    {
+        Converter = new QuizDraftMetadataConverter(this, selector),
+    };
 
     private static Button DraftButton(string text, RoutedEventHandler handler, bool last = false)
     {
@@ -418,4 +449,30 @@ public partial class MainShellWindow
             "Quiz Draft",
             MessageBoxButton.OK,
             MessageBoxImage.Information);
+
+    private sealed class QuizDraftMetadataConverter : IValueConverter
+    {
+        private readonly MainShellWindow _owner;
+        private readonly Func<QuizQuestion, object?> _selector;
+
+        public QuizDraftMetadataConverter(MainShellWindow owner, Func<QuizQuestion, object?> selector)
+        {
+            _owner = owner;
+            _selector = selector;
+        }
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is int number)
+            {
+                var index = number - 1;
+                if (index >= 0 && index < _owner._quizDraftQuestions.Count)
+                    return _selector(_owner._quizDraftQuestions[index]) ?? "";
+            }
+            return "";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+            Binding.DoNothing;
+    }
 }
