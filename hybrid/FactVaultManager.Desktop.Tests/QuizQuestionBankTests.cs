@@ -90,13 +90,41 @@ public sealed class QuizQuestionBankTests
     }
 
     [Fact]
-    public void SelectRandom_RejectsRequestLargerThanPool()
+    public void SelectRandom_ExcludesDisabledQuestions()
     {
-        var questions = Enumerable.Range(1, 3).Select(Question).ToList();
+        var questions = new[]
+        {
+            Question(1) with { IsEnabled = false },
+            Question(2),
+            Question(3),
+        };
 
-        var error = Assert.Throws<InvalidOperationException>(() => QuizQuestionSelector.SelectRandom(questions, 4));
+        var selected = QuizQuestionSelector.SelectRandom(questions, 2, new Random(12345));
 
-        Assert.Contains("Only 3", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(new[] { 2, 3 }, selected.Select(question => question.Id).OrderBy(id => id));
+        Assert.DoesNotContain(selected, question => question.Id == 1);
+    }
+
+    [Fact]
+    public void SelectRandom_RejectsRequestLargerThanEnabledPool()
+    {
+        var questions = new[]
+        {
+            Question(1),
+            Question(2) with { IsEnabled = false },
+            Question(3),
+        };
+
+        var error = Assert.Throws<InvalidOperationException>(() => QuizQuestionSelector.SelectRandom(questions, 3));
+
+        Assert.Contains("Only 2 enabled", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Availability_ReflectsEnabledState()
+    {
+        Assert.Equal("Enabled", Question(1).Availability);
+        Assert.Equal("Disabled", (Question(1) with { IsEnabled = false }).Availability);
     }
 
     [Fact]
