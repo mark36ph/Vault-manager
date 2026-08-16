@@ -10,6 +10,7 @@ public sealed class QuizQuestionTopicCategorizerTests
     [InlineData("How many hearts does an octopus have?", "Nature")]
     [InlineData("What does HTML stand for?", "Technology")]
     [InlineData("On which surface is Wimbledon played?", "Sport")]
+    [InlineData("How many squares are on a standard chessboard?", "Games & Puzzles")]
     [InlineData("What is the square root of 144?", "Mathematics")]
     [InlineData("Which gas is released during photosynthesis?", "Science")]
     [InlineData("Which composer wrote Symphony No. 5?", "Music")]
@@ -23,6 +24,7 @@ public sealed class QuizQuestionTopicCategorizerTests
     public void Categories_DoNotUseGeneralKnowledgeAsTopicBucket()
     {
         Assert.DoesNotContain("General Knowledge", QuizQuestionTopicCategorizer.Categories);
+        Assert.Contains("Games & Puzzles", QuizQuestionTopicCategorizer.Categories);
         Assert.Contains("Miscellaneous", QuizQuestionTopicCategorizer.Categories);
     }
 
