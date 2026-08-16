@@ -11,6 +11,9 @@ public partial class MainShellWindow
             .OfType<QuizQuestion>()
             .Select(item => item.Id)
             .ToArray() ?? [];
+        var previousId = QuizQuestionEditorNavigation.FindNeighborId(previousDisplayOrder, question.Id, -1);
+        var nextId = QuizQuestionEditorNavigation.FindNeighborId(previousDisplayOrder, question.Id, 1);
+        int? navigateToId = null;
 
         var questionBox = EditQuizTextBox(question.Question, multiline: true);
         var answerBoxes = new[]
@@ -92,6 +95,24 @@ public partial class MainShellWindow
             HorizontalAlignment = HorizontalAlignment.Right,
             Margin = new Thickness(0, 18, 0, 0),
         };
+        var previous = new Button
+        {
+            Content = "Previous",
+            Height = 36,
+            MinWidth = 90,
+            IsEnabled = previousId.HasValue,
+            ToolTip = "Open the previous visible question without saving changes to this one.",
+            Margin = new Thickness(0, 0, 8, 0),
+        };
+        var next = new Button
+        {
+            Content = "Next",
+            Height = 36,
+            MinWidth = 90,
+            IsEnabled = nextId.HasValue,
+            ToolTip = "Open the next visible question without saving changes to this one.",
+            Margin = new Thickness(0, 0, 16, 0),
+        };
         var cancel = new Button
         {
             Content = "Cancel",
@@ -105,9 +126,21 @@ public partial class MainShellWindow
             Height = 36,
             MinWidth = 120,
             FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 8, 0),
         };
+        var saveAndNext = new Button
+        {
+            Content = "Save & Next",
+            Height = 36,
+            MinWidth = 120,
+            FontWeight = FontWeights.SemiBold,
+            IsEnabled = nextId.HasValue,
+        };
+        buttons.Children.Add(previous);
+        buttons.Children.Add(next);
         buttons.Children.Add(cancel);
         buttons.Children.Add(save);
+        buttons.Children.Add(saveAndNext);
         Grid.SetRow(buttons, 8);
         Grid.SetColumnSpan(buttons, 3);
         form.Children.Add(buttons);
@@ -116,9 +149,9 @@ public partial class MainShellWindow
         {
             Owner = this,
             Title = $"Edit Question #{question.Id}",
-            Width = 820,
+            Width = 900,
             Height = 720,
-            MinWidth = 650,
+            MinWidth = 720,
             MinHeight = 560,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Content = new ScrollViewer
@@ -129,8 +162,19 @@ public partial class MainShellWindow
             },
         };
 
+        previous.Click += (_, _) =>
+        {
+            navigateToId = previousId;
+            dialog.Close();
+        };
+        next.Click += (_, _) =>
+        {
+            navigateToId = nextId;
+            dialog.Close();
+        };
         cancel.Click += (_, _) => dialog.Close();
-        save.Click += (_, _) =>
+
+        void SaveQuestion(bool continueToNext)
         {
             try
             {
@@ -147,6 +191,7 @@ public partial class MainShellWindow
                     enabled.IsChecked == true);
 
                 var updated = _data.UpdateQuizQuestion(question.Id, request);
+                navigateToId = continueToNext ? nextId : null;
                 dialog.DialogResult = true;
                 RefreshQuizBank();
                 RestoreEditedQuizQuestionDisplayOrder(previousDisplayOrder);
@@ -154,17 +199,53 @@ public partial class MainShellWindow
                 SyncEditedQuizQuestionWithDraft(updated);
                 SelectEditedQuizQuestion(updated);
                 if (_quizPageStatusText is not null)
-                    _quizPageStatusText.Text = $"Question #{updated.Id} updated";
+                    _quizPageStatusText.Text = continueToNext
+                        ? $"Question #{updated.Id} updated — opening next question"
+                        : $"Question #{updated.Id} updated";
             }
             catch (Exception error)
             {
                 MessageBox.Show(dialog, error.Message, "Edit Quiz Question", MessageBoxButton.OK, MessageBoxImage.Error);
             }
-        };
+        }
+
+        save.Click += (_, _) => SaveQuestion(false);
+        saveAndNext.Click += (_, _) => SaveQuestion(true);
 
         questionBox.Focus();
         questionBox.SelectAll();
         dialog.ShowDialog();
+
+        if (navigateToId is int targetId)
+            QueueQuizQuestionEditorNavigation(targetId);
+    }
+
+    private void QueueQuizQuestionEditorNavigation(int questionId)
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            var target = _quizBankGrid?.Items
+                .OfType<QuizQuestion>()
+                .FirstOrDefault(item => item.Id == questionId)
+                ?? _data.GetQuizQuestions(limit: 10_000).FirstOrDefault(item => item.Id == questionId);
+            if (target is null)
+                return;
+
+            if (_quizBankGrid is not null)
+            {
+                var visible = _quizBankGrid.Items
+                    .OfType<QuizQuestion>()
+                    .FirstOrDefault(item => item.Id == questionId);
+                if (visible is not null)
+                {
+                    _quizBankGrid.SelectedItem = visible;
+                    _quizBankGrid.ScrollIntoView(visible);
+                    target = visible;
+                }
+            }
+
+            ShowEditQuizQuestionDialog(target);
+        }));
     }
 
     private void RestoreEditedQuizQuestionDisplayOrder(IReadOnlyList<int> previousDisplayOrder)
