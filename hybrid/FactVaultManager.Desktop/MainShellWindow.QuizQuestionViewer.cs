@@ -100,6 +100,24 @@ public partial class MainShellWindow
         };
         header.Children.Add(_quizQuestionDetailHeading);
 
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var editQuestion = new Button
+        {
+            Content = "Edit question",
+            Padding = new Thickness(10, 4, 10, 4),
+            FontWeight = FontWeights.SemiBold,
+        };
+        editQuestion.Click += (_, _) =>
+        {
+            if (_quizBankGrid?.SelectedItem is QuizQuestion question)
+                ShowEditQuizQuestionDialog(question);
+        };
+        actions.Children.Add(editQuestion);
+
         var openFullView = new Button
         {
             Content = "Open full view",
@@ -111,8 +129,9 @@ public partial class MainShellWindow
             if (_quizBankGrid?.SelectedItem is QuizQuestion question)
                 ShowQuizQuestionDialog(question);
         };
-        Grid.SetColumn(openFullView, 1);
-        header.Children.Add(openFullView);
+        actions.Children.Add(openFullView);
+        Grid.SetColumn(actions, 1);
+        header.Children.Add(actions);
         details.Children.Add(header);
 
         _quizQuestionDetailMeta = new TextBlock
