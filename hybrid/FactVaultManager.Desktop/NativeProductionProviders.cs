@@ -92,7 +92,8 @@ public sealed class NativeProductionProviders : IDisposable
         var configuredAssets = assets.Resolve(settings.AssetProviders);
         var assetAcquisition = new NativeAssetAcquisitionEngine(configuredAssets);
         var openAiVerifier = new NativeOpenAIImageRelevanceVerifier(openAiKey, settings.OpenAiModel);
-        INativeAssetVerifier assetVerifier = new NativeNamedSubjectVerifier(openAiVerifier);
+        var namedSubjectVerifier = new NativeNamedSubjectVerifier(openAiVerifier);
+        INativeAssetVerifier assetVerifier = new NativeScientificEvidenceMetadataVerifier(namedSubjectVerifier);
         var verifiedAssetAcquisition = new NativeVerifiedAssetAcquisitionEngine(assetAcquisition, assetVerifier);
 
         return new NativeProductionProviders(
