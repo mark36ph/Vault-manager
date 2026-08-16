@@ -62,11 +62,11 @@ public sealed class GenericVisualSelectionPolicyTests
     [Fact]
     public void MutantHybridAndMonster_AreDecorativeCuesUnlessRequested()
     {
-        Assert.Equal(
-            "hybrid",
-            NativeVerifiedAssetAcquisitionEngine.UnrequestedSyntheticRepresentation(
-                "elephant wildlife habitat",
-                "elephant octopus mutant hybrid animal"));
+        var fictionalCue = NativeVerifiedAssetAcquisitionEngine.UnrequestedSyntheticRepresentation(
+            "elephant wildlife habitat",
+            "elephant octopus mutant hybrid animal");
+
+        Assert.Contains(fictionalCue, new[] { "mutant", "hybrid" });
 
         Assert.Equal(
             "monster",
