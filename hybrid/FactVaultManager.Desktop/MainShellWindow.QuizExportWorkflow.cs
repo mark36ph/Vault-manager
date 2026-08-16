@@ -1,3 +1,4 @@
+using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -9,6 +10,7 @@ public partial class MainShellWindow
     private bool _quizExportWorkflowInitialized;
     private TextBox? _quizTitleTextBox;
     private ComboBox? _quizFormatComboBox;
+    private TextBox? _quizLogoPathTextBox;
 
     private void InitializeQuizExportWorkflow()
     {
@@ -31,6 +33,7 @@ public partial class MainShellWindow
         draft.Children.Add(exportPanel);
 
         var layout = new Grid();
+        layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         exportPanel.Child = layout;
@@ -79,6 +82,77 @@ public partial class MainShellWindow
         exportButton.Click += ExportQuizToResolve_Click;
         Grid.SetColumn(exportButton, 4);
         controls.Children.Add(exportButton);
+
+        var branding = new Grid { Margin = new Thickness(0, 9, 0, 0) };
+        branding.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        branding.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
+        branding.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        branding.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
+        branding.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        branding.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
+        branding.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetRow(branding, 2);
+        layout.Children.Add(branding);
+
+        branding.Children.Add(new TextBlock
+        {
+            Text = "Quiz logo",
+            FontWeight = FontWeights.SemiBold,
+            Foreground = QuizMutedBrush(),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+
+        _quizLogoPathTextBox = new TextBox
+        {
+            Text = _data.LoadQuizLogoPath(),
+            IsReadOnly = true,
+            ToolTip = "Dedicated logo used on quiz cards. Quiz exports never fall back to the Facts logo.",
+        };
+        Grid.SetColumn(_quizLogoPathTextBox, 2);
+        branding.Children.Add(_quizLogoPathTextBox);
+
+        var browseLogo = new Button { Content = "Browse", Margin = new Thickness(0) };
+        browseLogo.Click += BrowseQuizLogo_Click;
+        Grid.SetColumn(browseLogo, 4);
+        branding.Children.Add(browseLogo);
+
+        var clearLogo = new Button { Content = "Clear", Margin = new Thickness(0) };
+        clearLogo.Click += (_, _) =>
+        {
+            if (_quizLogoPathTextBox is null)
+                return;
+            _quizLogoPathTextBox.Clear();
+            _data.SaveQuizLogoPath("");
+        };
+        Grid.SetColumn(clearLogo, 6);
+        branding.Children.Add(clearLogo);
+    }
+
+    private void BrowseQuizLogo_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Select quiz logo",
+            Filter = "Image files (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp|All files (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false,
+        };
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            var path = QuizBranding.ValidateLogoPath(dialog.FileName);
+            _data.SaveQuizLogoPath(path);
+            if (_quizLogoPathTextBox is not null)
+                _quizLogoPathTextBox.Text = path;
+            if (_quizPageStatusText is not null)
+                _quizPageStatusText.Text = $"Quiz logo selected: {System.IO.Path.GetFileName(path)}";
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Quiz Logo", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void ExportQuizToResolve_Click(object sender, RoutedEventArgs e)
@@ -98,6 +172,13 @@ public partial class MainShellWindow
             if (string.IsNullOrWhiteSpace(settings.ProjectsFolder))
                 throw new InvalidOperationException("Set the Projects Folder in Settings before creating a quiz video.");
 
+            var logoPath = (_quizLogoPathTextBox?.Text ?? "").Trim();
+            if (logoPath.Length > 0)
+            {
+                logoPath = QuizBranding.ValidateLogoPath(logoPath);
+                _data.SaveQuizLogoPath(logoPath);
+            }
+
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Rendering quiz cards and creating Resolve export...";
 
@@ -106,7 +187,8 @@ public partial class MainShellWindow
                 QuestionSeconds: seconds,
                 AnswerSeconds: 3,
                 Vertical: vertical,
-                FrameRate: settings.FrameRate > 0 ? settings.FrameRate : 30);
+                FrameRate: settings.FrameRate > 0 ? settings.FrameRate : 30,
+                QuizLogoPath: logoPath);
             var result = new NativeQuizVideoBuilder().BuildAndExport(
                 _quizDraftQuestions,
                 options,
@@ -118,14 +200,15 @@ public partial class MainShellWindow
             if (_quizDraftStatusText is not null)
             {
                 var duration = options.EstimatedDuration(_quizDraftQuestions.Count);
-                _quizDraftStatusText.Text = $"Resolve quiz ready • {_quizDraftQuestions.Count} questions • {seconds} sec/question • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
+                var brandingStatus = logoPath.Length == 0 ? "no quiz logo" : $"logo: {System.IO.Path.GetFileName(logoPath)}";
+                _quizDraftStatusText.Text = $"Resolve quiz ready • {_quizDraftQuestions.Count} questions • {seconds} sec/question • {brandingStatus} • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
             }
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Resolve quiz export created";
 
             MessageBox.Show(
                 this,
-                $"Quiz export created.\n\nFCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
+                $"Quiz export created.\n\nFCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nQuiz logo: {(logoPath.Length == 0 ? "None" : System.IO.Path.GetFileName(logoPath))}\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
                 "Quiz Resolve Export",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
