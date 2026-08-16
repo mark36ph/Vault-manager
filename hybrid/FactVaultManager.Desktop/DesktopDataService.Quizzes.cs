@@ -51,7 +51,8 @@ public sealed partial class DesktopDataService
         string? search = null,
         string? category = null,
         string? difficulty = null,
-        int limit = 2_000)
+        int limit = 2_000,
+        bool enabledOnly = false)
     {
         EnsureQuizSchema();
         limit = Math.Clamp(limit, 1, 10_000);
@@ -63,11 +64,12 @@ public sealed partial class DesktopDataService
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT id, question, option_a, option_b, option_c, option_d,
-                   correct_index, explanation, category, difficulty, source, times_used
+                   correct_index, explanation, category, difficulty, source, times_used, enabled
             FROM quiz_questions
             WHERE ($search = '' OR question LIKE $searchLike OR category LIKE $searchLike)
               AND ($category = '' OR category = $category COLLATE NOCASE)
               AND ($difficulty = '' OR difficulty = $difficulty COLLATE NOCASE)
+              AND ($enabledOnly = 0 OR enabled <> 0)
             ORDER BY category COLLATE NOCASE, question COLLATE NOCASE
             LIMIT $limit
             """;
@@ -75,6 +77,7 @@ public sealed partial class DesktopDataService
         command.Parameters.AddWithValue("$searchLike", $"%{EscapeLike(search)}%");
         command.Parameters.AddWithValue("$category", category);
         command.Parameters.AddWithValue("$difficulty", difficulty);
+        command.Parameters.AddWithValue("$enabledOnly", enabledOnly ? 1 : 0);
         command.Parameters.AddWithValue("$limit", limit);
 
         using var reader = command.ExecuteReader();
@@ -95,7 +98,11 @@ public sealed partial class DesktopDataService
         if (count is < 1 or > 100)
             throw new ArgumentOutOfRangeException(nameof(count), "Choose between 1 and 100 questions per quiz.");
 
-        var matching = GetQuizQuestions(category: category, difficulty: difficulty, limit: 10_000);
+        var matching = GetQuizQuestions(
+            category: category,
+            difficulty: difficulty,
+            limit: 10_000,
+            enabledOnly: true);
         return QuizQuestionSelector.SelectRandom(matching, count, random);
     }
 
@@ -117,7 +124,10 @@ public sealed partial class DesktopDataService
         return categories;
     }
 
-    public int GetQuizQuestionCount(string? category = null, string? difficulty = null)
+    public int GetQuizQuestionCount(
+        string? category = null,
+        string? difficulty = null,
+        bool enabledOnly = false)
     {
         EnsureQuizSchema();
         category = NormalizeQuizFilter(category);
@@ -129,9 +139,11 @@ public sealed partial class DesktopDataService
             FROM quiz_questions
             WHERE ($category = '' OR category = $category COLLATE NOCASE)
               AND ($difficulty = '' OR difficulty = $difficulty COLLATE NOCASE)
+              AND ($enabledOnly = 0 OR enabled <> 0)
             """;
         command.Parameters.AddWithValue("$category", category);
         command.Parameters.AddWithValue("$difficulty", difficulty);
+        command.Parameters.AddWithValue("$enabledOnly", enabledOnly ? 1 : 0);
         return Convert.ToInt32((long)(command.ExecuteScalar() ?? 0L));
     }
 
@@ -160,6 +172,19 @@ public sealed partial class DesktopDataService
         transaction.Commit();
     }
 
+    public void SetQuizQuestionEnabled(int id, bool enabled)
+    {
+        if (id <= 0)
+            return;
+        EnsureQuizSchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE quiz_questions SET enabled=$enabled WHERE id=$id";
+        command.Parameters.AddWithValue("$enabled", enabled ? 1 : 0);
+        command.Parameters.AddWithValue("$id", id);
+        command.ExecuteNonQuery();
+    }
+
     public void DeleteQuizQuestion(int id)
     {
         if (id <= 0)
@@ -176,33 +201,62 @@ public sealed partial class DesktopDataService
     {
         EnsureDatabase();
         using var connection = OpenConnection();
-        using var command = connection.CreateCommand();
-        command.CommandText = """
-            CREATE TABLE IF NOT EXISTS quiz_questions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                question TEXT NOT NULL,
-                option_a TEXT NOT NULL,
-                option_b TEXT NOT NULL,
-                option_c TEXT NOT NULL,
-                option_d TEXT NOT NULL,
-                correct_index INTEGER NOT NULL CHECK(correct_index BETWEEN 0 AND 3),
-                explanation TEXT NOT NULL DEFAULT '',
-                category TEXT NOT NULL DEFAULT 'General Knowledge',
-                difficulty TEXT NOT NULL DEFAULT 'medium',
-                source TEXT NOT NULL DEFAULT 'Imported',
-                fingerprint TEXT NOT NULL UNIQUE,
-                created TEXT NOT NULL,
-                times_used INTEGER NOT NULL DEFAULT 0,
-                last_used TEXT NULL
-            );
-            CREATE INDEX IF NOT EXISTS ix_quiz_questions_category
-                ON quiz_questions(category COLLATE NOCASE);
-            CREATE INDEX IF NOT EXISTS ix_quiz_questions_difficulty
-                ON quiz_questions(difficulty COLLATE NOCASE);
-            CREATE INDEX IF NOT EXISTS ix_quiz_questions_usage
-                ON quiz_questions(times_used, last_used);
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                CREATE TABLE IF NOT EXISTS quiz_questions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    question TEXT NOT NULL,
+                    option_a TEXT NOT NULL,
+                    option_b TEXT NOT NULL,
+                    option_c TEXT NOT NULL,
+                    option_d TEXT NOT NULL,
+                    correct_index INTEGER NOT NULL CHECK(correct_index BETWEEN 0 AND 3),
+                    explanation TEXT NOT NULL DEFAULT '',
+                    category TEXT NOT NULL DEFAULT 'General Knowledge',
+                    difficulty TEXT NOT NULL DEFAULT 'medium',
+                    source TEXT NOT NULL DEFAULT 'Imported',
+                    fingerprint TEXT NOT NULL UNIQUE,
+                    created TEXT NOT NULL,
+                    times_used INTEGER NOT NULL DEFAULT 0,
+                    last_used TEXT NULL,
+                    enabled INTEGER NOT NULL DEFAULT 1
+                );
+                CREATE INDEX IF NOT EXISTS ix_quiz_questions_category
+                    ON quiz_questions(category COLLATE NOCASE);
+                CREATE INDEX IF NOT EXISTS ix_quiz_questions_difficulty
+                    ON quiz_questions(difficulty COLLATE NOCASE);
+                CREATE INDEX IF NOT EXISTS ix_quiz_questions_usage
+                    ON quiz_questions(times_used, last_used);
+                """;
+            command.ExecuteNonQuery();
+        }
+
+        EnsureQuizColumn(connection, "enabled", "INTEGER NOT NULL DEFAULT 1");
+        using var enabledIndex = connection.CreateCommand();
+        enabledIndex.CommandText = """
+            CREATE INDEX IF NOT EXISTS ix_quiz_questions_enabled
+                ON quiz_questions(enabled, times_used);
             """;
-        command.ExecuteNonQuery();
+        enabledIndex.ExecuteNonQuery();
+    }
+
+    private static void EnsureQuizColumn(SqliteConnection connection, string columnName, string definition)
+    {
+        using (var check = connection.CreateCommand())
+        {
+            check.CommandText = "PRAGMA table_info(quiz_questions)";
+            using var reader = check.ExecuteReader();
+            while (reader.Read())
+            {
+                if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
+                    return;
+            }
+        }
+
+        using var alter = connection.CreateCommand();
+        alter.CommandText = $"ALTER TABLE quiz_questions ADD COLUMN {columnName} {definition}";
+        alter.ExecuteNonQuery();
     }
 
     private static QuizQuestion ReadQuizQuestion(SqliteDataReader reader) => new(
@@ -217,7 +271,8 @@ public sealed partial class DesktopDataService
         reader.GetString(8),
         reader.GetString(9),
         reader.GetString(10),
-        reader.GetInt32(11));
+        reader.GetInt32(11),
+        reader.GetInt32(12) != 0);
 
     private static string NormalizeQuizFilter(string? value)
     {
