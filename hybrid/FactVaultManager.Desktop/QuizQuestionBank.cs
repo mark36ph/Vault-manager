@@ -16,7 +16,8 @@ public sealed record QuizQuestion(
     string Category,
     string Difficulty,
     string Source,
-    int TimesUsed)
+    int TimesUsed,
+    bool IsEnabled = true)
 {
     public IReadOnlyList<string> Answers => [OptionA, OptionB, OptionC, OptionD];
 
@@ -32,6 +33,8 @@ public sealed record QuizQuestion(
     public string CorrectLetter => CorrectIndex is >= 0 and <= 3
         ? ((char)('A' + CorrectIndex)).ToString()
         : "";
+
+    public string Availability => IsEnabled ? "Enabled" : "Disabled";
 }
 
 public sealed record QuizQuestionImportItem(
@@ -334,11 +337,12 @@ public static class QuizQuestionSelector
             throw new ArgumentOutOfRangeException(nameof(count), "Question count must be greater than zero.");
 
         var pool = questions
+            .Where(question => question.IsEnabled)
             .GroupBy(question => question.Id)
             .Select(group => group.First())
             .ToList();
         if (count > pool.Count)
-            throw new InvalidOperationException($"Only {pool.Count} matching quiz questions are available, but {count} were requested.");
+            throw new InvalidOperationException($"Only {pool.Count} enabled matching quiz questions are available, but {count} were requested.");
 
         random ??= Random.Shared;
         for (var index = pool.Count - 1; index > 0; index--)
