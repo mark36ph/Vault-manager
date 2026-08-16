@@ -57,4 +57,29 @@ public sealed class SceneEvidenceHeuristicTests
                 "wombat droppings ground wildlife Australia",
                 "wombat"));
     }
+
+    [Fact]
+    public void SceneEvidenceMetadataAnchor_SkipsWeakVisualModifiers()
+    {
+        Assert.Equal(
+            "blood",
+            NativeVerifiedAssetAcquisitionEngine.SceneEvidenceSubject(
+                "crab blue blood protein",
+                "crab"));
+
+        Assert.Equal(
+            "blood",
+            NativeVerifiedAssetAcquisitionEngine.SceneEvidenceMetadataAnchor(
+                "bright blue blood hemocyanin"));
+
+        Assert.Equal(
+            "gills",
+            NativeVerifiedAssetAcquisitionEngine.SceneEvidenceMetadataAnchor(
+                "gills anatomy illustration"));
+
+        Assert.Equal(
+            "swimming",
+            NativeVerifiedAssetAcquisitionEngine.SceneEvidenceMetadataAnchor(
+                "swimming underwater reef"));
+    }
 }
