@@ -73,6 +73,9 @@ public partial class MainShellWindow
             bankActions.Children.Insert(0, categorize);
         }
 
+        if (bankActions is not null)
+            ConfigureQuizBulkActions(bankActions);
+
         var tabs = bank.Children.OfType<TabControl>().FirstOrDefault();
         if (tabs is null)
             return;
