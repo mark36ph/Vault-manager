@@ -29,10 +29,12 @@ public partial class MainShellWindow
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _quizTabIndex.ToString(), StringComparison.Ordinal));
         var questions = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _quizQuestionBankTabIndex.ToString(), StringComparison.Ordinal));
+        var quizHistory = FindVisualChildren<Button>(root)
+            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _quizHistoryTabIndex.ToString(), StringComparison.Ordinal));
 
         if (dashboard?.Parent is not StackPanel navigation ||
             projects is null || production is null || media is null || assetReview is null ||
-            settings is null || quizzes is null || questions is null)
+            settings is null || quizzes is null || questions is null || quizHistory is null)
         {
             return;
         }
@@ -40,7 +42,7 @@ public partial class MainShellWindow
         _navigationSectionsApplied = true;
         var known = new HashSet<Button>
         {
-            dashboard, projects, production, media, assetReview, settings, quizzes, questions,
+            dashboard, projects, production, media, assetReview, settings, quizzes, questions, quizHistory,
         };
         var extraButtons = navigation.Children
             .OfType<Button>()
@@ -63,6 +65,7 @@ public partial class MainShellWindow
         AddNavigationSectionLabel(navigation, "QUIZZES");
         navigation.Children.Add(quizzes);
         navigation.Children.Add(questions);
+        navigation.Children.Add(quizHistory);
 
         if (extraButtons.Length > 0)
         {
