@@ -28,6 +28,7 @@ public partial class MainShellWindow
         InitializeProjectMetadataEditor();
         InitializeNewFactWorkflow();
         InitializeMediaLibraryWorkflow();
+        InitializeQuizWorkflow();
         Dispatcher.BeginInvoke(new Action(InitializeAssetReviewWorkflow));
         Dispatcher.BeginInvoke(new Action(InitializeSettingsWorkflow));
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, new Action(ApplyProductionPolish));
