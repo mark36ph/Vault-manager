@@ -146,7 +146,11 @@ public partial class MainShellWindow
             Padding = new Thickness(12, 0, 12, 0),
             FontWeight = FontWeights.SemiBold,
         };
-        autoCategorize.Click += AutoCategorizeQuizQuestions_Click;
+        autoCategorize.Click += (sender, eventArgs) =>
+        {
+            AutoCategorizeQuizQuestions_Click(sender, eventArgs);
+            RefreshQuizCategorySection();
+        };
         actions.Children.Add(autoCategorize);
 
         var view = new Button
