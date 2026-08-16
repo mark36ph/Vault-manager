@@ -52,6 +52,28 @@ public sealed class QuizQuestionBankTests
     }
 
     [Fact]
+    public void Parse_IgnoresTrailingChatGptTextAfterCompleteJson()
+    {
+        const string pasted = """
+        {
+          "questions": [
+            {
+              "question": "What is the capital of France?",
+              "answers": ["Berlin", "Madrid", "Paris", "Rome"],
+              "correct_answer": "C"
+            }
+          ]
+        }
+        [1] Sources and citations accidentally copied from ChatGPT
+        """;
+
+        var question = Assert.Single(QuizQuestionImportParser.Parse(pasted));
+
+        Assert.Equal("What is the capital of France?", question.Question);
+        Assert.Equal("Paris", question.CorrectAnswer);
+    }
+
+    [Fact]
     public void Parse_RejectsDuplicateAnswerChoices()
     {
         const string json = """
@@ -136,6 +158,8 @@ public sealed class QuizQuestionBankTests
         Assert.Contains("World History", prompt);
         Assert.Contains("correct_answer", prompt);
         Assert.Contains("JSON only", prompt);
+        Assert.Contains("Do not include citations", prompt);
+        Assert.Contains("after the final }", prompt);
     }
 
     private static QuizQuestion Question(int id) => new(
