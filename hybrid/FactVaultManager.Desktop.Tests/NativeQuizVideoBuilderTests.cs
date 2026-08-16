@@ -40,4 +40,36 @@ public sealed class NativeQuizVideoBuilderTests
 
         Assert.Throws<ArgumentOutOfRangeException>(() => options.Validate());
     }
+
+    [Fact]
+    public void Validate_AllowsQuizWithoutLogo()
+    {
+        var options = new QuizVideoBuildOptions("Quiz", QuizLogoPath: "");
+
+        options.Validate();
+    }
+
+    [Fact]
+    public void Validate_RejectsMissingQuizLogo()
+    {
+        var missing = Path.Combine(Path.GetTempPath(), $"missing-quiz-logo-{Guid.NewGuid():N}.png");
+        var options = new QuizVideoBuildOptions("Quiz", QuizLogoPath: missing);
+
+        Assert.Throws<FileNotFoundException>(() => options.Validate());
+    }
+
+    [Fact]
+    public void QuizBranding_RejectsUnsupportedLogoExtension()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"quiz-logo-{Guid.NewGuid():N}.txt");
+        File.WriteAllText(path, "not an image");
+        try
+        {
+            Assert.Throws<InvalidDataException>(() => QuizBranding.ValidateLogoPath(path));
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }
