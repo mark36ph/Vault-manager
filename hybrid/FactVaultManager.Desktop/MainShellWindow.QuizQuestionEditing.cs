@@ -7,6 +7,11 @@ public partial class MainShellWindow
 {
     private void ShowEditQuizQuestionDialog(QuizQuestion question)
     {
+        var previousDisplayOrder = _quizBankGrid?.Items
+            .OfType<QuizQuestion>()
+            .Select(item => item.Id)
+            .ToArray() ?? [];
+
         var questionBox = EditQuizTextBox(question.Question, multiline: true);
         var answerBoxes = new[]
         {
@@ -144,6 +149,7 @@ public partial class MainShellWindow
                 var updated = _data.UpdateQuizQuestion(question.Id, request);
                 dialog.DialogResult = true;
                 RefreshQuizBank();
+                RestoreEditedQuizQuestionDisplayOrder(previousDisplayOrder);
                 RefreshQuizCategorySection();
                 SyncEditedQuizQuestionWithDraft(updated);
                 SelectEditedQuizQuestion(updated);
@@ -159,6 +165,14 @@ public partial class MainShellWindow
         questionBox.Focus();
         questionBox.SelectAll();
         dialog.ShowDialog();
+    }
+
+    private void RestoreEditedQuizQuestionDisplayOrder(IReadOnlyList<int> previousDisplayOrder)
+    {
+        if (_quizBankGrid?.ItemsSource is not IEnumerable<QuizQuestion> currentQuestions)
+            return;
+
+        _quizBankGrid.ItemsSource = QuizQuestionDisplayOrder.Preserve(currentQuestions, previousDisplayOrder);
     }
 
     private void SyncEditedQuizQuestionWithDraft(QuizQuestion updated)
