@@ -200,23 +200,30 @@ public partial class MainShellWindow
                 options,
                 settings.ProjectsFolder);
 
-            _data.RecordQuizQuestionsUsed(_quizDraftQuestions.Select(question => question.Id));
+            _data.RecordQuizExport(
+                title,
+                _quizDraftQuestions,
+                vertical,
+                seconds,
+                shuffleAnswers,
+                result.ProjectFolder);
             RefreshQuizBank();
             RefreshQuizDraftUsageCounts();
+            RefreshQuizHistory();
 
             if (_quizDraftStatusText is not null)
             {
                 var duration = options.EstimatedDuration(_quizDraftQuestions.Count);
                 var brandingStatus = logoPath.Length == 0 ? "no quiz logo" : $"logo: {System.IO.Path.GetFileName(logoPath)}";
                 var answerStatus = shuffleAnswers ? "answers shuffled" : "answer order unchanged";
-                _quizDraftStatusText.Text = $"Resolve quiz ready • {_quizDraftQuestions.Count} questions • {seconds} sec/question • {answerStatus} • {brandingStatus} • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
+                _quizDraftStatusText.Text = $"Resolve quiz ready • {_quizDraftQuestions.Count} questions • {seconds} sec/question • {answerStatus} • {brandingStatus} • saved to Quiz History • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
             }
             if (_quizPageStatusText is not null)
-                _quizPageStatusText.Text = "Resolve quiz export created";
+                _quizPageStatusText.Text = "Resolve quiz export created and added to Quiz History";
 
             MessageBox.Show(
                 this,
-                $"Quiz export created.\n\nFCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nAnswer positions: {(shuffleAnswers ? "Shuffled for this export" : "Original bank order")}\nQuiz logo: {(logoPath.Length == 0 ? "None" : System.IO.Path.GetFileName(logoPath))}\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
+                $"Quiz export created.\n\nFCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nAnswer positions: {(shuffleAnswers ? "Shuffled for this export" : "Original bank order")}\nQuiz logo: {(logoPath.Length == 0 ? "None" : System.IO.Path.GetFileName(logoPath))}\nQuiz History: recorded\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
                 "Quiz Resolve Export",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
