@@ -1,44 +1,13 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace FactVaultManager.Desktop;
 
 public sealed partial class DesktopDataService
 {
-    public string LoadQuizLogoPath()
-    {
-        try
-        {
-            if (File.Exists(_settingsPath))
-            {
-                var node = JsonNode.Parse(File.ReadAllText(_settingsPath)) as JsonObject;
-                var stored = node?["quiz"]?["logo_path"]?.GetValue<string>()?.Trim() ?? "";
-                if (stored.Length > 0)
-                    return stored;
-            }
-        }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
-        {
-            System.Diagnostics.Debug.WriteLine($"Could not read quiz logo setting: {error.Message}");
-        }
+    public string LoadQuizLogoPath() => QuizBranding.LoadLogoPath(_settingsPath, _runtimeRoot);
 
-        var bundled = Path.Combine(_runtimeRoot, "assets", "quiz_logo.png");
-        return File.Exists(bundled) ? bundled : "";
-    }
-
-    public void SaveQuizLogoPath(string? path)
-    {
-        path = (path ?? "").Trim();
-        if (path.Length > 0)
-            path = QuizBranding.ValidateLogoPath(path);
-
-        var node = File.Exists(_settingsPath)
-            ? JsonNode.Parse(File.ReadAllText(_settingsPath)) as JsonObject ?? new JsonObject()
-            : new JsonObject();
-        var quiz = node["quiz"] as JsonObject ?? new JsonObject();
-        node["quiz"] = quiz;
-        quiz["logo_path"] = path;
-        WriteSettingsNode(node);
-    }
+    public void SaveQuizLogoPath(string? path) => QuizBranding.SaveLogoPath(_settingsPath, path);
 }
 
 public static class QuizBranding
@@ -47,6 +16,46 @@ public static class QuizBranding
     {
         ".png", ".jpg", ".jpeg", ".bmp",
     };
+
+    public static string LoadLogoPath(string settingsPath, string runtimeRoot)
+    {
+        try
+        {
+            if (File.Exists(settingsPath))
+            {
+                var node = JsonNode.Parse(File.ReadAllText(settingsPath)) as JsonObject;
+                var stored = node?["quiz"]?["logo_path"]?.GetValue<string>()?.Trim() ?? "";
+                if (stored.Length > 0)
+                    return stored;
+            }
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
+        {
+            System.Diagnostics.Debug.WriteLine($"Could not read quiz logo setting: {error.Message}");
+        }
+
+        var bundled = Path.Combine(runtimeRoot, "assets", "quiz_logo.png");
+        return File.Exists(bundled) ? bundled : "";
+    }
+
+    public static void SaveLogoPath(string settingsPath, string? path)
+    {
+        path = (path ?? "").Trim();
+        if (path.Length > 0)
+            path = ValidateLogoPath(path);
+
+        var node = File.Exists(settingsPath)
+            ? JsonNode.Parse(File.ReadAllText(settingsPath)) as JsonObject ?? new JsonObject()
+            : new JsonObject();
+        var quiz = node["quiz"] as JsonObject ?? new JsonObject();
+        node["quiz"] = quiz;
+        quiz["logo_path"] = path;
+
+        Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
+        var temporary = settingsPath + ".tmp";
+        File.WriteAllText(temporary, node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        File.Move(temporary, settingsPath, overwrite: true);
+    }
 
     public static string ValidateLogoPath(string path)
     {
