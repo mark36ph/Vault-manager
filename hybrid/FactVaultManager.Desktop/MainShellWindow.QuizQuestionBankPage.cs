@@ -66,6 +66,7 @@ public partial class MainShellWindow
 
         UpdateQuizBuilderCopy();
         RenameQuestionBankCardHeading(bankCard);
+        ConfigureStandaloneQuestionBank(bankCard);
 
         var questionBankTab = new TabItem { Content = BuildStandaloneQuestionBankPage(bankCard) };
         if (FindResource("HiddenPageTabStyle") is Style hiddenStyle)
@@ -104,7 +105,7 @@ public partial class MainShellWindow
 
     private FrameworkElement BuildStandaloneQuestionBankPage(Border bankCard)
     {
-        var root = new Grid { Margin = new Thickness(24, 20, 24, 24) };
+        var root = new Grid { Margin = new Thickness(16, 14, 16, 16) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
@@ -117,14 +118,14 @@ public partial class MainShellWindow
         {
             Text = "Question Bank",
             FontFamily = new FontFamily("Segoe UI Variable Display"),
-            FontSize = 28,
+            FontSize = 26,
             FontWeight = FontWeights.SemiBold,
         });
         heading.Children.Add(new TextBlock
         {
-            Text = "Browse, search, sort, import, enable, disable, and review every reusable quiz question.",
+            Text = "Browse, search, sort, import, manually add, enable, disable, and review every reusable quiz question.",
             Foreground = QuizMutedBrush(),
-            Margin = new Thickness(0, 3, 0, 0),
+            Margin = new Thickness(0, 2, 0, 0),
         });
         header.Children.Add(heading);
 
@@ -144,7 +145,7 @@ public partial class MainShellWindow
         header.Children.Add(backToQuizzes);
         root.Children.Add(header);
 
-        bankCard.Margin = new Thickness(0, 16, 0, 0);
+        bankCard.Margin = new Thickness(0, 10, 0, 0);
         Grid.SetColumn(bankCard, 0);
         Grid.SetRow(bankCard, 1);
         root.Children.Add(bankCard);
