@@ -70,7 +70,8 @@ public sealed class QuizQuestionBankTests
         var question = Assert.Single(QuizQuestionImportParser.Parse(pasted));
 
         Assert.Equal("What is the capital of France?", question.Question);
-        Assert.Equal("Paris", question.CorrectAnswer);
+        Assert.Equal(2, question.CorrectIndex);
+        Assert.Equal("Paris", question.OptionC);
     }
 
     [Fact]
