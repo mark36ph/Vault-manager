@@ -84,7 +84,8 @@ public static class QuizQuestionImportParser
         JsonDocument document;
         try
         {
-            document = JsonDocument.Parse(text);
+            var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(text));
+            document = JsonDocument.ParseValue(ref reader);
         }
         catch (JsonException error)
         {
@@ -167,6 +168,8 @@ Rules:
 - Avoid trick questions, ambiguous wording, duplicate questions, and opinion-based answers.
 - Keep questions suitable for a YouTube quiz.
 - Verify factual accuracy before including each question.
+- Do not include citations, source links, URLs, footnotes, references, Markdown, or source lists anywhere in the JSON.
+- Do not write anything before the opening { or after the final }.
 """;
     }
 
