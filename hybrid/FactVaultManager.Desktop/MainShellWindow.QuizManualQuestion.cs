@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace FactVaultManager.Desktop;
 
@@ -12,6 +13,43 @@ public partial class MainShellWindow
     private TextBox? _manualQuizExplanationTextBox;
     private TextBox? _manualQuizCategoryTextBox;
     private ComboBox? _manualQuizDifficultyComboBox;
+
+    private void ConfigureStandaloneQuestionBank(Border bankCard)
+    {
+        bankCard.Padding = new Thickness(10);
+
+        if (_quizBankGrid is not null)
+        {
+            _quizBankGrid.RowHeight = 30;
+            _quizBankGrid.ColumnHeaderHeight = 34;
+            _quizBankGrid.RowBackground = Brushes.White;
+            _quizBankGrid.AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(245, 248, 252));
+            _quizBankGrid.AlternationCount = 2;
+            _quizBankGrid.GridLinesVisibility = DataGridGridLinesVisibility.Horizontal;
+            _quizBankGrid.HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(230, 234, 240));
+        }
+
+        if (bankCard.Child is not Grid bank)
+            return;
+
+        var tabs = bank.Children.OfType<TabControl>().FirstOrDefault();
+        if (tabs is null)
+            return;
+        _quizBankTabs ??= tabs;
+
+        if (tabs.Items.OfType<TabItem>().Any(item =>
+                string.Equals(item.Header?.ToString(), "Add manually", StringComparison.OrdinalIgnoreCase)))
+            return;
+
+        var manualTab = new TabItem
+        {
+            Header = "Add manually",
+            Content = BuildQuizManualQuestionPanel(),
+        };
+        if (FindResource("SectionTabStyle") is Style sectionStyle)
+            manualTab.Style = sectionStyle;
+        tabs.Items.Add(manualTab);
+    }
 
     private FrameworkElement BuildQuizManualQuestionPanel()
     {
