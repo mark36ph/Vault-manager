@@ -96,7 +96,7 @@ public partial class MainShellWindow
                 return grid;
             }
 
-            current = VisualTreeHelper.GetParent(current);
+            current = LogicalTreeHelper.GetParent(current) ?? VisualTreeHelper.GetParent(current);
         }
 
         return null;
