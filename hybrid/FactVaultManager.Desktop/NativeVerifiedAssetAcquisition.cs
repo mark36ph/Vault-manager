@@ -38,6 +38,14 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         "internal", "structure", "structural",
     };
 
+    private static readonly HashSet<string> WeakEvidenceLeadWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "blue", "red", "green", "yellow", "orange", "purple", "pink", "black", "white", "brown",
+        "gray", "grey", "gold", "golden", "silver", "bright", "dark", "pale", "light", "vivid", "vibrant",
+        "large", "small", "tiny", "giant", "huge", "one", "two", "three", "four", "five", "six", "seven",
+        "eight", "nine", "ten",
+    };
+
     private static readonly Dictionary<string, string> SubjectTokenAliases = new(StringComparer.OrdinalIgnoreCase)
     {
         ["octopi"] = "octopus",
@@ -47,7 +55,8 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
     {
         "puppet", "toy", "plush", "plushie", "figurine", "statue", "sculpture",
         "painting", "painted", "illustration", "illustrated", "drawing", "cartoon", "cgi", "render", "rendered",
-        "fantasy", "fantastical",
+        "fantasy", "fantastical", "mutant", "hybrid", "monster", "mythical", "mythological", "kraken",
+        "surreal", "surrealist",
     };
 
     private static readonly string[] SyntheticRepresentationPhrases =
@@ -589,7 +598,35 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
     public static string SceneEvidenceSubject(string query, string requiredSubject)
     {
         var evidenceWords = SceneEvidenceWords(query, requiredSubject);
-        return evidenceWords.Count == 0 ? "" : evidenceWords[0].ToLowerInvariant();
+        return SceneEvidenceMetadataAnchor(evidenceWords);
+    }
+
+    internal static string SceneEvidenceMetadataAnchor(string evidenceLabel)
+    {
+        var evidenceWords = Regex.Matches(evidenceLabel ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*")
+            .Select(match => match.Value)
+            .ToList();
+        return SceneEvidenceMetadataAnchor(evidenceWords);
+    }
+
+    private static string SceneEvidenceMetadataAnchor(IReadOnlyList<string> evidenceWords)
+    {
+        if (evidenceWords.Count == 0)
+            return "";
+
+        var lead = evidenceWords[0].ToLowerInvariant();
+        if (BehaviorSceneEvidenceWords.Contains(lead))
+            return lead;
+
+        foreach (var word in evidenceWords)
+        {
+            var normalized = word.ToLowerInvariant();
+            if (normalized.All(char.IsDigit) || WeakEvidenceLeadWords.Contains(normalized))
+                continue;
+            return normalized;
+        }
+
+        return lead;
     }
 
     public static string SceneEvidencePhrase(string query, string requiredSubject)
