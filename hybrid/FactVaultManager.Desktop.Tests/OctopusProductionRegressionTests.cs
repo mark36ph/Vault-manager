@@ -24,7 +24,36 @@ public sealed class OctopusProductionRegressionTests
     }
 
     [Fact]
-    public void AnatomyScene_RejectsPreparedFoodButNormalWildlifeSceneDoesNot()
+    public void OctopusPluralAliases_AreTreatedAsTheSameRequiredSubject()
+    {
+        Assert.True(NativeVerifiedAssetAcquisitionEngine.CandidateTitleMentionsSubject(
+            "Close-up of an octopus showcasing its texture and colors underwater",
+            "octopuses"));
+        Assert.True(NativeVerifiedAssetAcquisitionEngine.CandidateTitleMentionsSubject(
+            "Several octopi moving across a reef",
+            "octopuses"));
+        Assert.True(NativeVerifiedAssetAcquisitionEngine.SubjectTokensEquivalent("octopuses", "octopus"));
+        Assert.True(NativeVerifiedAssetAcquisitionEngine.SubjectTokensEquivalent("octopi", "octopus"));
+    }
+
+    [Fact]
+    public void DuplicateSubjectAnchor_IsRemovedBeforeBehaviorEvidenceIsDerived()
+    {
+        const string query = "octopuses octopus swimming underwater";
+
+        Assert.Equal(
+            "subject octopus swimming underwater",
+            NativeVerifiedAssetAcquisitionEngine.BuildVerificationQuery(query, "octopuses"));
+        Assert.Equal(
+            "swimming",
+            NativeVerifiedAssetAcquisitionEngine.SceneEvidenceSubject(query, "octopuses"));
+        Assert.Equal(
+            "subject octopus swimming",
+            NativeVerifiedAssetAcquisitionEngine.BuildEvidenceVerificationQuery(query, "octopuses", "swimming"));
+    }
+
+    [Fact]
+    public void ScientificAndLivingBehaviorScenes_RejectPreparedFoodUnlessFoodIsRequested()
     {
         var candidate = Candidate(
             "Fried octopuses on display at a street food shop",
@@ -34,12 +63,30 @@ public sealed class OctopusProductionRegressionTests
         var anatomyConflict = NativeVisualSelectionPolicy.SceneContradiction(
             "octopuses octopus gills anatomy illustration",
             candidate);
-        var wildlifeConflict = NativeVisualSelectionPolicy.SceneContradiction(
+        var swimmingConflict = NativeVisualSelectionPolicy.SceneContradiction(
             "octopuses octopus swimming underwater",
+            candidate);
+        var foodRequestConflict = NativeVisualSelectionPolicy.SceneContradiction(
+            "octopus fried seafood dish",
             candidate);
 
         Assert.Contains("prepared-food", anatomyConflict, StringComparison.OrdinalIgnoreCase);
-        Assert.Empty(wildlifeConflict);
+        Assert.Contains("living-subject", swimmingConflict, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(foodRequestConflict);
+    }
+
+    [Fact]
+    public void PlainRender_IsSyntheticUnlessExplicitlyRequested()
+    {
+        var cue = NativeVerifiedAssetAcquisitionEngine.UnrequestedSyntheticRepresentation(
+            "octopus underwater close up",
+            "octopus squid underwater render ocean tentacle");
+        var requestedCue = NativeVerifiedAssetAcquisitionEngine.UnrequestedSyntheticRepresentation(
+            "octopus underwater render",
+            "octopus squid underwater render ocean tentacle");
+
+        Assert.Equal("render", cue);
+        Assert.Empty(requestedCue);
     }
 
     [Fact]
