@@ -18,6 +18,7 @@ public partial class MainShellWindow
             return;
 
         _quizExportWorkflowInitialized = true;
+        var exportRow = draft.RowDefinitions.Count;
         draft.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         var exportPanel = new Border
@@ -29,7 +30,7 @@ public partial class MainShellWindow
             Padding = new Thickness(10),
             Margin = new Thickness(0, 10, 0, 0),
         };
-        Grid.SetRow(exportPanel, 2);
+        Grid.SetRow(exportPanel, exportRow);
         draft.Children.Add(exportPanel);
 
         var layout = new Grid();
@@ -179,6 +180,11 @@ public partial class MainShellWindow
                 _data.SaveQuizLogoPath(logoPath);
             }
 
+            var shuffleAnswers = _quizShuffleAnswersCheckBox?.IsChecked == true;
+            var exportQuestions = shuffleAnswers
+                ? QuizAnswerShuffler.Shuffle(_quizDraftQuestions)
+                : _quizDraftQuestions.ToList();
+
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Rendering quiz cards and creating Resolve export...";
 
@@ -190,25 +196,27 @@ public partial class MainShellWindow
                 FrameRate: settings.FrameRate > 0 ? settings.FrameRate : 30,
                 QuizLogoPath: logoPath);
             var result = new NativeQuizVideoBuilder().BuildAndExport(
-                _quizDraftQuestions,
+                exportQuestions,
                 options,
                 settings.ProjectsFolder);
 
             _data.RecordQuizQuestionsUsed(_quizDraftQuestions.Select(question => question.Id));
             RefreshQuizBank();
+            RefreshQuizDraftUsageCounts();
 
             if (_quizDraftStatusText is not null)
             {
                 var duration = options.EstimatedDuration(_quizDraftQuestions.Count);
                 var brandingStatus = logoPath.Length == 0 ? "no quiz logo" : $"logo: {System.IO.Path.GetFileName(logoPath)}";
-                _quizDraftStatusText.Text = $"Resolve quiz ready • {_quizDraftQuestions.Count} questions • {seconds} sec/question • {brandingStatus} • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
+                var answerStatus = shuffleAnswers ? "answers shuffled" : "answer order unchanged";
+                _quizDraftStatusText.Text = $"Resolve quiz ready • {_quizDraftQuestions.Count} questions • {seconds} sec/question • {answerStatus} • {brandingStatus} • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
             }
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Resolve quiz export created";
 
             MessageBox.Show(
                 this,
-                $"Quiz export created.\n\nFCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nQuiz logo: {(logoPath.Length == 0 ? "None" : System.IO.Path.GetFileName(logoPath))}\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
+                $"Quiz export created.\n\nFCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nAnswer positions: {(shuffleAnswers ? "Shuffled for this export" : "Original bank order")}\nQuiz logo: {(logoPath.Length == 0 ? "None" : System.IO.Path.GetFileName(logoPath))}\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
                 "Quiz Resolve Export",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
