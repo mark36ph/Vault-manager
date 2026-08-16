@@ -76,6 +76,7 @@ public partial class MainShellWindow
         MainTabs.Items.Add(questionBankTab);
         _quizQuestionBankTabIndex = MainTabs.Items.Count - 1;
         AddQuestionBankNavigationButton(_quizQuestionBankTabIndex);
+        ApplyNavigationSections();
         ApplyNavigationSelection(MainTabs.SelectedIndex);
     }
 
