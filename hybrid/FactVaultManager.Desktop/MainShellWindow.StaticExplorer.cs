@@ -47,6 +47,7 @@ public partial class MainShellWindow
         InitializeProjectsWorkflow();
         InitializeNewFactWorkflow();
         InitializeMediaLibraryWorkflow();
+        InitializeQuizQuestionViewer();
 
         ProjectsGrid.RowHeight = 42;
         ProjectsGrid.ColumnHeaderHeight = 38;
