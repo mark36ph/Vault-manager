@@ -15,6 +15,7 @@ public static class QuizQuestionTopicCategorizer
         "Music",
         "Film & TV",
         "Sport",
+        "Games & Puzzles",
         "Food & Drink",
         "Language",
         "Mathematics",
@@ -63,8 +64,13 @@ public static class QuizQuestionTopicCategorizer
         ]),
         new("Sport",
         [
-            "football", "basketball", "tennis", "wimbledon", "olymic", "olympic", "marathon",
+            "football", "basketball", "tennis", "wimbledon", "olympic", "marathon",
             "free throw", "fifa", "cricket", "rugby", "golf", "players on the field",
+        ]),
+        new("Games & Puzzles",
+        [
+            "chess", "chessboard", "checkers", "draughts", "sudoku", "crossword", "puzzle",
+            "playing card", "deck of cards", "board game",
         ]),
         new("Food & Drink",
         [
