@@ -17,10 +17,15 @@ public static class NativeVisualSelectionPolicy
         "wildlife", "habitat",
     };
 
-    private static readonly HashSet<string> PreparedFoodWords = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> StrongPreparedFoodWords = new(StringComparer.OrdinalIgnoreCase)
     {
-        "fried", "cooked", "grilled", "roasted", "meal", "dish", "restaurant", "food",
-        "seafood", "platter", "market", "stall",
+        "fried", "cooked", "grilled", "roasted", "boiled", "baked", "meal", "dish", "restaurant",
+        "platter", "served", "serving", "cuisine", "recipe",
+    };
+
+    private static readonly HashSet<string> WeakPreparedFoodWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "food", "seafood", "market", "stall",
     };
 
     private static readonly HashSet<string> DeadDisplayWords = new(StringComparer.OrdinalIgnoreCase)
@@ -31,6 +36,7 @@ public static class NativeVisualSelectionPolicy
     private static readonly string[] SyntheticPhrases =
     {
         "3d print", "3d printed", "3d printing", "printed model", "plastic model", "thingiverse",
+        "digital art", "concept art", "fantasy art", "fantasy", "fantastical",
     };
 
     private static readonly string[] BlockedSourceHosts =
@@ -87,7 +93,9 @@ public static class NativeVisualSelectionPolicy
             return $"blocked source '{blockedSource}'";
 
         var queryWords = Words(query);
-        if (PreparedFoodWords.Any(queryWords.Contains) || DeadDisplayWords.Any(queryWords.Contains))
+        if (StrongPreparedFoodWords.Any(queryWords.Contains) ||
+            WeakPreparedFoodWords.Any(queryWords.Contains) ||
+            DeadDisplayWords.Any(queryWords.Contains))
             return "";
 
         var scientificIntent = ScientificIntentWords.Any(queryWords.Contains);
@@ -96,11 +104,21 @@ public static class NativeVisualSelectionPolicy
             return "";
 
         var candidateWords = Words(CandidateText(candidate));
-        var preparedConflict = PreparedFoodWords.FirstOrDefault(candidateWords.Contains);
-        if (preparedConflict is not null)
+        var strongPreparedConflict = StrongPreparedFoodWords.FirstOrDefault(candidateWords.Contains);
+        if (strongPreparedConflict is not null)
         {
             var intent = scientificIntent ? "scientific scene intent" : "living-subject scene intent";
-            return $"prepared-food imagery conflicts with {intent} ('{preparedConflict}')";
+            return $"prepared-food imagery conflicts with {intent} ('{strongPreparedConflict}')";
+        }
+
+        var weakPreparedConflicts = WeakPreparedFoodWords
+            .Where(candidateWords.Contains)
+            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (weakPreparedConflicts.Length >= 2)
+        {
+            var intent = scientificIntent ? "scientific scene intent" : "living-subject scene intent";
+            return $"prepared-food imagery conflicts with {intent} ('{string.Join("+", weakPreparedConflicts)}')";
         }
 
         var deadConflict = DeadDisplayWords.FirstOrDefault(candidateWords.Contains);
