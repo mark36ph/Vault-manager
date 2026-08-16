@@ -12,7 +12,8 @@ public sealed record QuizVideoBuildOptions(
     int QuestionSeconds = 8,
     int AnswerSeconds = 3,
     bool Vertical = false,
-    double FrameRate = 30)
+    double FrameRate = 30,
+    string QuizLogoPath = "")
 {
     public int Width => Vertical ? 1080 : 1920;
     public int Height => Vertical ? 1920 : 1080;
@@ -26,6 +27,8 @@ public sealed record QuizVideoBuildOptions(
             throw new ArgumentOutOfRangeException(nameof(AnswerSeconds), "Answer reveal must be between 1 and 15 seconds.");
         if (FrameRate <= 0 || FrameRate > 120)
             throw new ArgumentOutOfRangeException(nameof(FrameRate), "Frame rate must be greater than zero and no more than 120.");
+        if (!string.IsNullOrWhiteSpace(QuizLogoPath))
+            QuizBranding.ValidateLogoPath(QuizLogoPath);
     }
 
     public double EstimatedDuration(int questionCount) =>
@@ -83,6 +86,9 @@ public sealed class NativeQuizVideoBuilder
                 ["question_seconds"] = options.QuestionSeconds,
                 ["answer_seconds"] = options.AnswerSeconds,
                 ["orientation"] = options.Vertical ? "vertical" : "landscape",
+                ["quiz_logo"] = string.IsNullOrWhiteSpace(options.QuizLogoPath)
+                    ? ""
+                    : Path.GetFileName(options.QuizLogoPath),
             },
         };
         var videoTrack = timeline.AddTrack(new NativeTimelineTrack
@@ -220,7 +226,7 @@ public sealed class NativeQuizVideoBuilder
             TextWrapping = TextWrapping.Wrap,
             MaxWidth = options.Width * 0.82,
         });
-        root.Child = content;
+        root.Child = WithQuizLogo(content, options);
         return root;
     }
 
@@ -251,7 +257,7 @@ public sealed class NativeQuizVideoBuilder
             TextAlignment = TextAlignment.Center,
             Margin = new Thickness(0, 28, 0, 0),
         });
-        root.Child = content;
+        root.Child = WithQuizLogo(content, options);
         return root;
     }
 
@@ -336,7 +342,7 @@ public sealed class NativeQuizVideoBuilder
         Grid.SetRow(footer, 3);
         page.Children.Add(footer);
 
-        root.Child = page;
+        root.Child = WithQuizLogo(page, options);
         return root;
     }
 
@@ -390,6 +396,37 @@ public sealed class NativeQuizVideoBuilder
         Background = new SolidColorBrush(Color.FromRgb(11, 18, 32)),
     };
 
+    private static FrameworkElement WithQuizLogo(FrameworkElement content, QuizVideoBuildOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(options.QuizLogoPath))
+            return content;
+
+        var logoPath = QuizBranding.ValidateLogoPath(options.QuizLogoPath);
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.UriSource = new Uri(logoPath, UriKind.Absolute);
+        bitmap.EndInit();
+        bitmap.Freeze();
+
+        var layout = new Grid();
+        layout.Children.Add(content);
+        layout.Children.Add(new Image
+        {
+            Source = bitmap,
+            Stretch = Stretch.Uniform,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Height = options.Vertical ? 72 : 46,
+            MaxWidth = options.Vertical ? 240 : 180,
+            Margin = options.Vertical
+                ? new Thickness(0, 0, 56, 24)
+                : new Thickness(0, 0, 70, 14),
+            SnapsToDevicePixels = true,
+        });
+        return layout;
+    }
+
     private static Thickness CardMargin(QuizVideoBuildOptions options) => options.Vertical
         ? new Thickness(76, 110, 76, 110)
         : new Thickness(120, 66, 120, 66);
@@ -424,6 +461,7 @@ public sealed class NativeQuizVideoBuilder
             width = options.Width,
             height = options.Height,
             frame_rate = options.FrameRate,
+            quiz_logo = string.IsNullOrWhiteSpace(options.QuizLogoPath) ? "" : Path.GetFileName(options.QuizLogoPath),
             questions = questions.Select((question, index) => new
             {
                 number = index + 1,
