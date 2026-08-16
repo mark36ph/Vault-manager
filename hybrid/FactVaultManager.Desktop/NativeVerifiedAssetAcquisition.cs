@@ -21,14 +21,24 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
     private static readonly HashSet<string> GenericSceneLeadWords = new(StringComparer.OrdinalIgnoreCase)
     {
         "close", "up", "wide", "macro", "dramatic", "documentary", "portrait", "vertical", "realistic",
-        "walking", "walk", "standing", "stand", "sitting", "sit", "running", "run", "flying", "fly",
-        "swimming", "swim", "eating", "eat", "foraging", "forage", "resting", "rest", "moving", "move", "body",
+        "walking", "walk", "standing", "stand", "sitting", "sit", "running", "run", "flying", "fly", "body",
+    };
+
+    private static readonly HashSet<string> BehaviorSceneEvidenceWords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "swimming", "swim", "crawling", "crawl", "moving", "move", "feeding", "feed",
+        "eating", "eat", "foraging", "forage", "resting", "rest", "underwater",
+    };
+
+    private static readonly Dictionary<string, string> SubjectTokenAliases = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["octopi"] = "octopus",
     };
 
     private static readonly HashSet<string> SyntheticRepresentationWords = new(StringComparer.OrdinalIgnoreCase)
     {
         "puppet", "toy", "plush", "plushie", "figurine", "statue", "sculpture",
-        "painting", "painted", "illustration", "illustrated", "drawing", "cartoon", "cgi",
+        "painting", "painted", "illustration", "illustrated", "drawing", "cartoon", "cgi", "render", "rendered",
     };
 
     private static readonly string[] SyntheticRepresentationPhrases =
@@ -92,6 +102,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         fallbackQueries.AddRange(FallbackSearchQueries(query));
         var verificationQuery = BuildVerificationQuery(query, requiredSubject);
         var evidenceSubject = SceneEvidenceSubject(query, requiredSubject);
+        var evidenceCanReplaceSubject = evidenceSubject.Length > 0 && !BehaviorSceneEvidenceWords.Contains(evidenceSubject);
 
         foreach (var searchQuery in fallbackQueries)
         {
@@ -166,9 +177,9 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                 if (requiredSubject.Length > 0 &&
                     decision.SubjectIdentityMode.Equals("visually_recognizable", StringComparison.OrdinalIgnoreCase) &&
                     !decision.RequestedSubjectVisible &&
-                    evidenceSubject.Length == 0)
+                    !evidenceCanReplaceSubject)
                 {
-                    const string reason = "generic scene evidence cannot replace the explicit visual subject";
+                    const string reason = "generic or behavioral scene evidence cannot replace the explicit visual subject";
                     failures.Add($"{asset.Candidate.Provider}/{asset.Candidate.Id}: {reason}");
                     Report("verify", index + 1, scanLimit, $"Visual relevance rejected ({reason}); trying another asset");
                     Discard(asset);
@@ -232,9 +243,8 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
                         try
                         {
                             var evidenceDecision = await _verifier.VerifyAsync(
-                                BuildEvidenceVerificationQuery(query, evidenceSubject), asset, cancellationToken);
-                            if (!evidenceDecision.Accepted ||
-                                (!evidenceDecision.RequestedSubjectVisible && !evidenceDecision.RequestedSceneEvidenceVisible))
+                                BuildEvidenceVerificationQuery(query, requiredSubject, evidenceSubject), asset, cancellationToken);
+                            if (!evidenceDecision.Accepted || !evidenceDecision.RequestedSceneEvidenceVisible)
                             {
                                 decision = decision with
                                 {
@@ -486,15 +496,56 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
     private static string CandidateKey(NativeAssetCandidate candidate) =>
         $"{candidate.Provider}:{(string.IsNullOrWhiteSpace(candidate.Id) ? candidate.Url : candidate.Id)}";
 
-    private static bool CandidateTitleMentionsSubject(string candidateTitle, string requiredSubject)
+    internal static bool CandidateTitleMentionsSubject(string candidateTitle, string requiredSubject)
     {
-        var subjectMatch = Regex.Match(requiredSubject ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*");
-        if (!subjectMatch.Success)
+        var subjectWords = Regex.Matches(requiredSubject ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*")
+            .Select(match => match.Value)
+            .ToList();
+        if (subjectWords.Count == 0)
             return true;
-        return Regex.IsMatch(
-            candidateTitle ?? "",
-            $@"\b{Regex.Escape(subjectMatch.Value)}\b",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+        var titleWords = Regex.Matches(candidateTitle ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*")
+            .Select(match => match.Value)
+            .ToList();
+        return subjectWords.All(subjectWord =>
+            titleWords.Any(titleWord => SubjectTokensEquivalent(subjectWord, titleWord)));
+    }
+
+    internal static bool SubjectTokensEquivalent(string left, string right) =>
+        CanonicalSubjectToken(left).Equals(CanonicalSubjectToken(right), StringComparison.OrdinalIgnoreCase);
+
+    private static string CanonicalSubjectToken(string value)
+    {
+        var match = Regex.Match(value ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*");
+        if (!match.Success)
+            return "";
+
+        var token = match.Value.ToLowerInvariant();
+        if (SubjectTokenAliases.TryGetValue(token, out var alias))
+            return alias;
+
+        if (token.Length > 4 && token.EndsWith("ies", StringComparison.Ordinal))
+            return token[..^3] + "y";
+
+        if (token.Length > 4 && token.EndsWith("es", StringComparison.Ordinal))
+        {
+            var stem = token[..^2];
+            if (stem.EndsWith("s", StringComparison.Ordinal) ||
+                stem.EndsWith("x", StringComparison.Ordinal) ||
+                stem.EndsWith("z", StringComparison.Ordinal) ||
+                stem.EndsWith("ch", StringComparison.Ordinal) ||
+                stem.EndsWith("sh", StringComparison.Ordinal))
+                return stem;
+        }
+
+        if (token.Length > 3 &&
+            token.EndsWith("s", StringComparison.Ordinal) &&
+            !token.EndsWith("ss", StringComparison.Ordinal) &&
+            !token.EndsWith("us", StringComparison.Ordinal) &&
+            !token.EndsWith("is", StringComparison.Ordinal))
+            return token[..^1];
+
+        return token;
     }
 
     private static bool CandidateTitleIsSpecific(string candidateTitle) =>
@@ -506,18 +557,20 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
 
     public static string BuildVerificationQuery(string query, string requiredSubject)
     {
-        var cleanQuery = Regex.Replace((query ?? "").Trim(), @"\s+", " ");
-        var subjectMatch = Regex.Match(requiredSubject ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*");
-        if (!subjectMatch.Success)
-            return cleanQuery;
+        var queryWords = Regex.Matches(query ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*")
+            .Select(match => match.Value)
+            .ToList();
+        var subjectWords = Regex.Matches(requiredSubject ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*")
+            .Select(match => match.Value)
+            .ToList();
+        if (subjectWords.Count == 0)
+            return Regex.Replace((query ?? "").Trim(), @"\s+", " ");
 
-        var subject = subjectMatch.Value.ToLowerInvariant();
-        var subjectPattern = new Regex(
-            $@"\b{Regex.Escape(subject)}\b",
-            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-        var remainder = subjectPattern.Replace(cleanQuery, "", 1);
-        remainder = Regex.Replace(remainder, @"\s+", " ").Trim();
-        return string.Join(" ", new[] { "subject", subject, remainder }
+        var subject = string.Join(" ", subjectWords.Select(CanonicalSubjectToken).Where(value => value.Length > 0));
+        var remainder = queryWords
+            .Where(queryWord => !subjectWords.Any(subjectWord => SubjectTokensEquivalent(queryWord, subjectWord)))
+            .ToList();
+        return string.Join(" ", new[] { "subject", subject, string.Join(" ", remainder) }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 
@@ -538,7 +591,7 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
             var match = true;
             for (var subjectIndex = 0; subjectIndex < subjectWords.Count; subjectIndex++)
             {
-                if (!queryWords[index + subjectIndex].Equals(subjectWords[subjectIndex], StringComparison.OrdinalIgnoreCase))
+                if (!SubjectTokensEquivalent(queryWords[index + subjectIndex], subjectWords[subjectIndex]))
                 {
                     match = false;
                     break;
@@ -551,7 +604,14 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
             }
         }
 
-        if (start < 0 || start >= queryWords.Count)
+        if (start < 0)
+            return "";
+
+        while (start < queryWords.Count &&
+               subjectWords.Any(subjectWord => SubjectTokensEquivalent(queryWords[start], subjectWord)))
+            start++;
+
+        if (start >= queryWords.Count)
             return "";
 
         var lead = queryWords[start];
@@ -566,6 +626,19 @@ public sealed class NativeVerifiedAssetAcquisitionEngine
         return subjectMatch.Success
             ? $"subject {subjectMatch.Value.ToLowerInvariant()}"
             : Regex.Replace((query ?? "").Trim(), @"\s+", " ");
+    }
+
+    public static string BuildEvidenceVerificationQuery(string query, string requiredSubject, string evidenceSubject)
+    {
+        var subjectWords = Regex.Matches(requiredSubject ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*")
+            .Select(match => CanonicalSubjectToken(match.Value))
+            .Where(value => value.Length > 0)
+            .ToList();
+        var evidenceMatch = Regex.Match(evidenceSubject ?? "", "[A-Za-z0-9][A-Za-z0-9'’-]*");
+        if (subjectWords.Count == 0 || !evidenceMatch.Success)
+            return BuildEvidenceVerificationQuery(query, evidenceSubject);
+
+        return $"subject {string.Join(" ", subjectWords)} {evidenceMatch.Value.ToLowerInvariant()}";
     }
 
     public static string UnrequestedSyntheticRepresentation(string query, string candidateTitle)
