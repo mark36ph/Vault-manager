@@ -18,10 +18,12 @@ public partial class MainShellWindow
     private UIElement? _projectsHeaderArea;
     private UIElement? _projectsFilterArea;
     private bool _projectsWorkflowInitialized;
+    private bool _productBrandApplied;
 
     protected override void OnActivated(EventArgs e)
     {
         base.OnActivated(e);
+        ApplyProductBranding();
         InitializeProjectsWorkflow();
         ConfigureNewFactToolbar();
         InitializeProjectCardsWorkflow();
@@ -33,6 +35,22 @@ public partial class MainShellWindow
         Dispatcher.BeginInvoke(new Action(InitializeAssetReviewWorkflow));
         Dispatcher.BeginInvoke(new Action(InitializeSettingsWorkflow));
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, new Action(ApplyProductionPolish));
+    }
+
+    private void ApplyProductBranding()
+    {
+        if (_productBrandApplied)
+            return;
+
+        _productBrandApplied = true;
+        Title = "Content Vault Manager";
+        if (Content is not DependencyObject root)
+            return;
+
+        var brand = FindVisualChildren<TextBlock>(root)
+            .FirstOrDefault(block => string.Equals(block.Text, "FactVaultManager", StringComparison.Ordinal));
+        if (brand is not null)
+            brand.Text = "Content Vault Manager";
     }
 
     private void InitializeProjectsWorkflow()
