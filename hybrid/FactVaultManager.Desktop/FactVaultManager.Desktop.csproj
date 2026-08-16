@@ -7,6 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>FactVaultManager.Desktop</RootNamespace>
     <AssemblyName>FactVaultManager.Desktop</AssemblyName>
+    <AssemblyTitle>Content Vault Manager</AssemblyTitle>
+    <Product>Content Vault Manager</Product>
     <StartupObject>FactVaultManager.Desktop.Program</StartupObject>
   </PropertyGroup>
 
