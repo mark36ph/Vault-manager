@@ -141,22 +141,22 @@ public static class QuizQuestionImportParser
     {
         count = Math.Clamp(count, 1, 500);
         category = string.IsNullOrWhiteSpace(category) ? "General Knowledge" : category.Trim();
-        return $"""
-Create {count} accurate multiple-choice quiz questions about {category}.
+        return $$"""
+Create {{count}} accurate multiple-choice quiz questions about {{category}}.
 Return JSON only, with no Markdown and no commentary.
 Use exactly this shape:
-{{
+{
   "questions": [
-    {{
+    {
       "question": "Question text",
       "answers": ["Answer A", "Answer B", "Answer C", "Answer D"],
       "correct_answer": "A",
       "explanation": "One short factual explanation.",
-      "category": "{category}",
+      "category": "{{category}}",
       "difficulty": "easy"
-    }}
+    }
   ]
-}}
+}
 Rules:
 - Exactly four distinct answer choices per question.
 - correct_answer must be A, B, C, or D.
