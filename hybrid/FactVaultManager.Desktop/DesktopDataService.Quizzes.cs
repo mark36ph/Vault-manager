@@ -70,7 +70,7 @@ public sealed partial class DesktopDataService
               AND ($category = '' OR category = $category COLLATE NOCASE)
               AND ($difficulty = '' OR difficulty = $difficulty COLLATE NOCASE)
               AND ($enabledOnly = 0 OR enabled <> 0)
-            ORDER BY category COLLATE NOCASE, question COLLATE NOCASE
+            ORDER BY id ASC
             LIMIT $limit
             """;
         command.Parameters.AddWithValue("$search", search);
