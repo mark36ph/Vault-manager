@@ -3,7 +3,7 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class QuizExportProjectFinalizerTests
 {
     [Fact]
-    public void Prepare_MovesExportToUniqueFolderAndRenamesNumberedStills()
+    public void Prepare_MovesExportToUniqueFolderAndRenamesStillsWithoutFrameNumbers()
     {
         var root = Path.Combine(Path.GetTempPath(), $"quiz-finalize-{Guid.NewGuid():N}");
         try
@@ -19,7 +19,8 @@ public sealed class QuizExportProjectFinalizerTests
             Assert.True(Directory.Exists(finalized.ProjectFolder));
             Assert.True(File.Exists(finalized.QuizJson));
             var imageSource = build.Timeline.Tracks.Single().Clips.Single().Source!;
-            Assert.Equal("still_000_intro.png", Path.GetFileName(imageSource));
+            Assert.Matches("^quizcard_[a-z]{12}\\.png$", Path.GetFileName(imageSource));
+            Assert.DoesNotMatch("[0-9]", Path.GetFileNameWithoutExtension(imageSource));
             Assert.True(File.Exists(imageSource));
         }
         finally
