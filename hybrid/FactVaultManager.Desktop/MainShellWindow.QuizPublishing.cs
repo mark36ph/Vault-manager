@@ -227,7 +227,15 @@ public partial class MainShellWindow
                 throw new ArgumentException("Episode number must be a whole number from 1 to 9999.");
             var vertical = _quizFormatComboBox?.SelectedIndex == 1;
             var metadata = QuizPublishMetadataGenerator.Generate(series, episode, _quizDraftQuestions, vertical);
+            var previousResolveTitle = (_quizTitleTextBox?.Text ?? "").Trim();
             ApplyQuizPublishingMetadata(metadata);
+            if (_quizTitleTextBox is not null &&
+                (previousResolveTitle.Length == 0 ||
+                 string.Equals(previousResolveTitle, "General Knowledge Quiz", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(previousResolveTitle, series, StringComparison.OrdinalIgnoreCase)))
+            {
+                _quizTitleTextBox.Text = $"{metadata.SeriesName} {metadata.EpisodeLabel}";
+            }
             if (_quizPublishingStatusText is not null)
                 _quizPublishingStatusText.Text = $"Generated metadata for {metadata.SeriesName} {metadata.EpisodeLabel}. You can edit every field before export.";
         }
