@@ -8,6 +8,13 @@ public sealed partial class DesktopDataService
     public string LoadQuizLogoPath() => QuizBranding.LoadLogoPath(_settingsPath, _runtimeRoot);
 
     public void SaveQuizLogoPath(string? path) => QuizBranding.SaveLogoPath(_settingsPath, path);
+
+    public string ImportQuizLogo(string sourcePath)
+    {
+        var managedPath = QuizBranding.ImportLogo(sourcePath, _dataRoot);
+        QuizBranding.SaveLogoPath(_settingsPath, managedPath);
+        return managedPath;
+    }
 }
 
 public static class QuizBranding
@@ -55,6 +62,42 @@ public static class QuizBranding
         var temporary = settingsPath + ".tmp";
         File.WriteAllText(temporary, node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
         File.Move(temporary, settingsPath, overwrite: true);
+    }
+
+    public static string ImportLogo(string sourcePath, string dataRoot)
+    {
+        var source = ValidateLogoPath(sourcePath);
+        if (string.IsNullOrWhiteSpace(dataRoot))
+            throw new ArgumentException("App data folder is required.", nameof(dataRoot));
+
+        var managedDirectory = Path.Combine(Path.GetFullPath(dataRoot), "data", "quiz", "branding");
+        Directory.CreateDirectory(managedDirectory);
+
+        var extension = Path.GetExtension(source).ToLowerInvariant();
+        var destination = Path.GetFullPath(Path.Combine(managedDirectory, "quiz_logo" + extension));
+        if (!string.Equals(source, destination, StringComparison.OrdinalIgnoreCase))
+        {
+            var temporary = Path.Combine(managedDirectory, $".quiz_logo_{Guid.NewGuid():N}.tmp");
+            try
+            {
+                File.Copy(source, temporary, overwrite: false);
+                File.Move(temporary, destination, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(temporary))
+                    File.Delete(temporary);
+            }
+        }
+
+        foreach (var supportedExtension in SupportedLogoExtensions)
+        {
+            var oldManagedPath = Path.GetFullPath(Path.Combine(managedDirectory, "quiz_logo" + supportedExtension));
+            if (!string.Equals(oldManagedPath, destination, StringComparison.OrdinalIgnoreCase) && File.Exists(oldManagedPath))
+                File.Delete(oldManagedPath);
+        }
+
+        return destination;
     }
 
     public static string ValidateLogoPath(string path)
