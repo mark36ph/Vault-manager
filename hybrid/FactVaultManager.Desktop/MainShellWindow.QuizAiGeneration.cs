@@ -16,6 +16,12 @@ public partial class MainShellWindow
     private DataGrid? _quizAiResultsGrid;
     private TextBlock? _quizAiStatusText;
     private Button? _quizAiGenerateButton;
+    private Grid? _quizAiProgressPanel;
+    private ProgressBar? _quizAiProgressBar;
+    private TextBlock? _quizAiProgressText;
+    private DispatcherTimer? _quizAiProgressTimer;
+    private DateTime _quizAiProgressStartedUtc;
+    private int _quizAiProgressValue;
     private List<QuizAiReviewRow> _quizAiReviewRows = new();
     private bool _quizAiGenerationTabInitialized;
     private int _quizAiGenerationTabAttempts;
@@ -71,6 +77,7 @@ public partial class MainShellWindow
     private FrameworkElement BuildQuizAiGenerationPanel()
     {
         var root = new Grid { Margin = new Thickness(0, 12, 0, 0) };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -141,6 +148,37 @@ public partial class MainShellWindow
         Grid.SetRow(form, 1);
         root.Children.Add(form);
 
+        _quizAiProgressPanel = new Grid
+        {
+            Visibility = Visibility.Collapsed,
+            Margin = new Thickness(0, 0, 0, 10),
+        };
+        _quizAiProgressPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        _quizAiProgressPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        _quizAiProgressBar = new ProgressBar
+        {
+            Minimum = 0,
+            Maximum = 100,
+            Height = 16,
+            Value = 0,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        _quizAiProgressPanel.Children.Add(_quizAiProgressBar);
+
+        _quizAiProgressText = new TextBlock
+        {
+            Text = "0%",
+            Foreground = QuizMutedBrush(),
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(10, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetColumn(_quizAiProgressText, 1);
+        _quizAiProgressPanel.Children.Add(_quizAiProgressText);
+        Grid.SetRow(_quizAiProgressPanel, 2);
+        root.Children.Add(_quizAiProgressPanel);
+
         _quizAiResultsGrid = new DataGrid
         {
             AutoGenerateColumns = false,
@@ -180,7 +218,7 @@ public partial class MainShellWindow
             Binding = new Binding(nameof(QuizAiReviewRow.Difficulty)),
             Width = new DataGridLength(80),
         });
-        Grid.SetRow(_quizAiResultsGrid, 2);
+        Grid.SetRow(_quizAiResultsGrid, 3);
         root.Children.Add(_quizAiResultsGrid);
 
         var footer = new Grid { Margin = new Thickness(0, 10, 0, 0) };
@@ -217,7 +255,7 @@ public partial class MainShellWindow
         actions.Children.Add(addAll);
         Grid.SetColumn(actions, 1);
         footer.Children.Add(actions);
-        Grid.SetRow(footer, 3);
+        Grid.SetRow(footer, 4);
         root.Children.Add(footer);
 
         return root;
@@ -234,6 +272,7 @@ public partial class MainShellWindow
             return;
 
         _quizAiGenerateButton.IsEnabled = false;
+        ResetQuizAiProgress();
         try
         {
             if (!int.TryParse(_quizAiCountTextBox.Text.Trim(), out var count))
@@ -255,13 +294,17 @@ public partial class MainShellWindow
                 ? "gpt-5-mini"
                 : settings.OpenAiModel.Trim();
 
-            SetQuizAiStatus($"Generating {request.Count} questions with {model}…");
+            SetQuizAiStatus($"Generating {request.Count} questions with {model}… Progress is estimated while waiting for OpenAI.");
+            StartQuizAiProgress();
             using var provider = new NativeOpenAITextProvider(
                 apiKey,
                 QuizAiQuestionGeneration.ProviderInstructions,
                 model);
             var response = await provider.GenerateAsync(QuizAiQuestionGeneration.BuildPrompt(request));
+            SetQuizAiProgress(94, "94% • response received");
+
             var questions = QuizAiQuestionGeneration.ParseResponse(response, request);
+            SetQuizAiProgress(100, "100% • complete");
 
             _quizAiReviewRows = questions.Select(question => new QuizAiReviewRow(question)).ToList();
             _quizAiResultsGrid.ItemsSource = _quizAiReviewRows;
@@ -270,13 +313,69 @@ public partial class MainShellWindow
         }
         catch (Exception error)
         {
+            StopQuizAiProgress(markStopped: true);
             SetQuizAiStatus(error.Message);
             MessageBox.Show(this, error.Message, "Generate Quiz Questions", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
+            _quizAiProgressTimer?.Stop();
             _quizAiGenerateButton.IsEnabled = true;
         }
+    }
+
+    private void StartQuizAiProgress()
+    {
+        _quizAiProgressStartedUtc = DateTime.UtcNow;
+        SetQuizAiProgress(5, "5% • estimated");
+
+        _quizAiProgressTimer?.Stop();
+        _quizAiProgressTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(500),
+        };
+        _quizAiProgressTimer.Tick += QuizAiProgressTimer_Tick;
+        _quizAiProgressTimer.Start();
+    }
+
+    private void QuizAiProgressTimer_Tick(object? sender, EventArgs e)
+    {
+        var estimate = QuizAiQuestionGeneration.EstimateProgress(DateTime.UtcNow - _quizAiProgressStartedUtc);
+        if (estimate > _quizAiProgressValue)
+            SetQuizAiProgress(estimate, $"{estimate}% • estimated");
+    }
+
+    private void SetQuizAiProgress(int value, string text)
+    {
+        _quizAiProgressValue = Math.Clamp(value, 0, 100);
+        if (_quizAiProgressPanel is not null)
+            _quizAiProgressPanel.Visibility = Visibility.Visible;
+        if (_quizAiProgressBar is not null)
+            _quizAiProgressBar.Value = _quizAiProgressValue;
+        if (_quizAiProgressText is not null)
+            _quizAiProgressText.Text = text;
+
+        if (_quizAiProgressValue >= 100)
+            _quizAiProgressTimer?.Stop();
+    }
+
+    private void StopQuizAiProgress(bool markStopped)
+    {
+        _quizAiProgressTimer?.Stop();
+        if (markStopped && _quizAiProgressValue > 0 && _quizAiProgressText is not null)
+            _quizAiProgressText.Text = $"{_quizAiProgressValue}% • stopped";
+    }
+
+    private void ResetQuizAiProgress()
+    {
+        _quizAiProgressTimer?.Stop();
+        _quizAiProgressValue = 0;
+        if (_quizAiProgressBar is not null)
+            _quizAiProgressBar.Value = 0;
+        if (_quizAiProgressText is not null)
+            _quizAiProgressText.Text = "0%";
+        if (_quizAiProgressPanel is not null)
+            _quizAiProgressPanel.Visibility = Visibility.Collapsed;
     }
 
     private void AddGeneratedQuizQuestionsToBank(bool selectedOnly)
