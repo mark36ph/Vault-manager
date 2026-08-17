@@ -84,20 +84,34 @@ public partial class MainShellWindow
             Header = "No.",
             Binding = new Binding(nameof(QuizHistorySummary.Id)),
             SortMemberPath = nameof(QuizHistorySummary.Id),
-            Width = new DataGridLength(66),
+            Width = new DataGridLength(58),
         });
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Created",
             Binding = new Binding(nameof(QuizHistorySummary.Created)),
             SortMemberPath = nameof(QuizHistorySummary.Created),
-            Width = new DataGridLength(150),
+            Width = new DataGridLength(140),
         });
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
-            Header = "Title",
-            Binding = new Binding(nameof(QuizHistorySummary.Title)),
-            SortMemberPath = nameof(QuizHistorySummary.Title),
+            Header = "Series",
+            Binding = new Binding(nameof(QuizHistorySummary.SeriesName)),
+            SortMemberPath = nameof(QuizHistorySummary.SeriesName),
+            Width = new DataGridLength(175),
+        });
+        _quizHistoryGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Ep.",
+            Binding = new Binding(nameof(QuizHistorySummary.EpisodeLabel)),
+            SortMemberPath = nameof(QuizHistorySummary.EpisodeNumber),
+            Width = new DataGridLength(58),
+        });
+        _quizHistoryGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "YouTube title",
+            Binding = new Binding(nameof(QuizHistorySummary.YouTubeTitle)),
+            SortMemberPath = nameof(QuizHistorySummary.YouTubeTitle),
             Width = new DataGridLength(1, DataGridLengthUnitType.Star),
         });
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
@@ -105,35 +119,35 @@ public partial class MainShellWindow
             Header = "Questions",
             Binding = new Binding(nameof(QuizHistorySummary.QuestionCount)),
             SortMemberPath = nameof(QuizHistorySummary.QuestionCount),
-            Width = new DataGridLength(82),
+            Width = new DataGridLength(78),
         });
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Categories",
             Binding = new Binding(nameof(QuizHistorySummary.Categories)),
             SortMemberPath = nameof(QuizHistorySummary.Categories),
-            Width = new DataGridLength(230),
+            Width = new DataGridLength(180),
         });
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Format",
             Binding = new Binding(nameof(QuizHistorySummary.Format)),
             SortMemberPath = nameof(QuizHistorySummary.Format),
-            Width = new DataGridLength(70),
+            Width = new DataGridLength(65),
         });
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Seconds",
             Binding = new Binding(nameof(QuizHistorySummary.QuestionSeconds)),
             SortMemberPath = nameof(QuizHistorySummary.QuestionSeconds),
-            Width = new DataGridLength(72),
+            Width = new DataGridLength(68),
         });
         _quizHistoryGrid.Columns.Add(new DataGridCheckBoxColumn
         {
             Header = "Shuffled",
             Binding = new Binding(nameof(QuizHistorySummary.ShuffleAnswers)),
             SortMemberPath = nameof(QuizHistorySummary.ShuffleAnswers),
-            Width = new DataGridLength(76),
+            Width = new DataGridLength(72),
         });
         _quizHistoryGrid.MouseDoubleClick += QuizHistoryGrid_MouseDoubleClick;
         Grid.SetRow(_quizHistoryGrid, 1);
@@ -148,6 +162,9 @@ public partial class MainShellWindow
         var view = new Button { Content = "View questions", MinWidth = 110 };
         view.Click += (_, _) => ShowSelectedQuizHistoryQuestions();
         actions.Children.Add(view);
+        var publishing = new Button { Content = "View publishing", MinWidth = 110, Margin = new Thickness(8, 0, 0, 0) };
+        publishing.Click += (_, _) => ShowSelectedQuizPublishingMetadata();
+        actions.Children.Add(publishing);
         var openFolder = new Button { Content = "Open export folder", MinWidth = 125, Margin = new Thickness(8, 0, 0, 0) };
         openFolder.Click += (_, _) => OpenSelectedQuizHistoryFolder();
         actions.Children.Add(openFolder);
@@ -190,9 +207,14 @@ public partial class MainShellWindow
             if (_quizHistoryStatusText is not null)
             {
                 var questions = history.Sum(item => item.QuestionCount);
+                var seriesCount = history
+                    .Select(item => item.SeriesName)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count();
                 _quizHistoryStatusText.Text = history.Count == 0
                     ? "No quiz exports recorded yet. New successful Resolve exports will appear here."
-                    : $"{history.Count:N0} exported quiz{(history.Count == 1 ? "" : "zes")} • {questions:N0} recorded question uses • newest first";
+                    : $"{history.Count:N0} exported quiz{(history.Count == 1 ? "" : "zes")} • {seriesCount:N0} series • {questions:N0} recorded question uses • newest first";
             }
         }
         catch (Exception error)
@@ -230,9 +252,12 @@ public partial class MainShellWindow
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         dialog.Content = root;
 
+        var series = string.IsNullOrWhiteSpace(history.SeriesName)
+            ? "Unnumbered legacy export"
+            : $"{history.SeriesName} {history.EpisodeLabel}";
         root.Children.Add(new TextBlock
         {
-            Text = $"{history.Created} • {history.QuestionCount} questions • {history.Categories} • {history.Format} • {history.QuestionSeconds} sec/question",
+            Text = $"{series} • {history.Created} • {history.QuestionCount} questions • {history.Categories} • {history.Format} • {history.QuestionSeconds} sec/question",
             Foreground = QuizMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 10),
@@ -255,6 +280,90 @@ public partial class MainShellWindow
         Grid.SetRow(grid, 1);
         root.Children.Add(grid);
         dialog.ShowDialog();
+    }
+
+    private void ShowSelectedQuizPublishingMetadata()
+    {
+        if (_quizHistoryGrid?.SelectedItem is not QuizHistorySummary history)
+            return;
+        if (string.IsNullOrWhiteSpace(history.YouTubeTitle))
+        {
+            MessageBox.Show(
+                this,
+                "This is a legacy quiz-history entry and does not have publishing metadata recorded.",
+                "Quiz Publishing",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new Window
+        {
+            Title = $"Publishing — {history.SeriesName} {history.EpisodeLabel}",
+            Owner = this,
+            Width = 760,
+            Height = 680,
+            MinWidth = 620,
+            MinHeight = 520,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = Brushes.White,
+        };
+        var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+        var stack = new StackPanel { Margin = new Thickness(18) };
+        scroll.Content = stack;
+        dialog.Content = scroll;
+
+        stack.Children.Add(new TextBlock
+        {
+            Text = $"{history.SeriesName} {history.EpisodeLabel}",
+            FontSize = 22,
+            FontWeight = FontWeights.SemiBold,
+        });
+        stack.Children.Add(new TextBlock
+        {
+            Text = "Publishing metadata saved with this successful quiz export.",
+            Foreground = QuizMutedBrush(),
+            Margin = new Thickness(0, 3, 0, 12),
+        });
+        AddQuizHistoryPublishingField(stack, "YouTube title", history.YouTubeTitle, 58);
+        AddQuizHistoryPublishingField(stack, "Description", history.YouTubeDescription, 180);
+        AddQuizHistoryPublishingField(stack, "Hashtags", history.Hashtags, 58);
+        AddQuizHistoryPublishingField(stack, "Pinned comment", history.PinnedComment, 95);
+
+        var copy = new Button
+        {
+            Content = "Copy all metadata",
+            MinHeight = 34,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Padding = new Thickness(12, 0, 12, 0),
+            Margin = new Thickness(0, 12, 0, 0),
+        };
+        copy.Click += (_, _) =>
+        {
+            Clipboard.SetText(
+                $"TITLE\n{history.YouTubeTitle}\n\nDESCRIPTION\n{history.YouTubeDescription}\n\nHASHTAGS\n{history.Hashtags}\n\nPINNED COMMENT\n{history.PinnedComment}");
+        };
+        stack.Children.Add(copy);
+        dialog.ShowDialog();
+    }
+
+    private static void AddQuizHistoryPublishingField(Panel parent, string label, string value, double height)
+    {
+        parent.Children.Add(new TextBlock
+        {
+            Text = label,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 8, 0, 4),
+        });
+        parent.Children.Add(new TextBox
+        {
+            Text = value,
+            IsReadOnly = true,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            Height = height,
+        });
     }
 
     private void OpenSelectedQuizHistoryFolder()
