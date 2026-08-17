@@ -38,6 +38,24 @@ public sealed class QuizAiQuestionGenerationTests
     }
 
     [Fact]
+    public void EstimateProgress_RisesButNeverPretendsRequestIsComplete()
+    {
+        var samples = new[]
+        {
+            QuizAiQuestionGeneration.EstimateProgress(TimeSpan.Zero),
+            QuizAiQuestionGeneration.EstimateProgress(TimeSpan.FromSeconds(5)),
+            QuizAiQuestionGeneration.EstimateProgress(TimeSpan.FromSeconds(10)),
+            QuizAiQuestionGeneration.EstimateProgress(TimeSpan.FromSeconds(30)),
+            QuizAiQuestionGeneration.EstimateProgress(TimeSpan.FromMinutes(1)),
+            QuizAiQuestionGeneration.EstimateProgress(TimeSpan.FromMinutes(10)),
+        };
+
+        Assert.Equal(new[] { 5, 25, 45, 85, 92, 92 }, samples);
+        Assert.All(samples, value => Assert.InRange(value, 5, 92));
+        Assert.Equal(samples.OrderBy(value => value), samples);
+    }
+
+    [Fact]
     public void ParseResponse_UsesRequestedCategoryDifficultyAndSource()
     {
         const string json = """
