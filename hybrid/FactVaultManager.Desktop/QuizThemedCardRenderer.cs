@@ -158,26 +158,69 @@ public sealed class QuizThemedCardRenderer
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = CardMargin(options),
         };
-        content.Children.Add(new TextBlock
+
+        if (!string.IsNullOrWhiteSpace(options.QuizLogoPath))
         {
-            Text = "QUIZ TIME",
-            Foreground = Brush(theme.Accent),
-            FontSize = options.Vertical ? 38 : 32,
-            FontWeight = FontWeights.Bold,
+            var logoPath = QuizBranding.ValidateLogoPath(options.QuizLogoPath);
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.UriSource = new Uri(logoPath, UriKind.Absolute);
+            bitmap.EndInit();
+            bitmap.Freeze();
+            content.Children.Add(new Image
+            {
+                Source = bitmap,
+                Stretch = Stretch.Uniform,
+                Height = options.Vertical ? 260 : 210,
+                MaxWidth = options.Vertical ? 720 : 620,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 0, 0, options.Vertical ? 44 : 30),
+                SnapsToDevicePixels = true,
+            });
+        }
+
+        var badge = new Border
+        {
+            Background = Brush(Color.FromArgb(58, theme.Accent.R, theme.Accent.G, theme.Accent.B)),
+            BorderBrush = Brush(Color.FromArgb(170, theme.Accent.R, theme.Accent.G, theme.Accent.B)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(999),
+            Padding = new Thickness(options.Vertical ? 30 : 26, options.Vertical ? 12 : 9, options.Vertical ? 30 : 26, options.Vertical ? 12 : 9),
             HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, 0, 0, 28),
-        });
+            Margin = new Thickness(0, 0, 0, options.Vertical ? 34 : 24),
+            Child = new TextBlock
+            {
+                Text = "QUIZ TIME",
+                Foreground = Brush(theme.Accent),
+                FontSize = options.Vertical ? 36 : 30,
+                FontWeight = FontWeights.Bold,
+                CharacterSpacing = 120,
+            },
+        };
+        content.Children.Add(badge);
+
         content.Children.Add(new TextBlock
         {
             Text = title,
             Foreground = Brush(theme.Text),
-            FontSize = options.Vertical ? 72 : 70,
+            FontSize = options.Vertical ? 78 : 72,
             FontWeight = FontWeights.Bold,
             TextAlignment = TextAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
             MaxWidth = options.Width * 0.82,
         });
-        root.Child = WithQuizLogo(content, options, visual);
+        content.Children.Add(new TextBlock
+        {
+            Text = "ARE YOU READY?",
+            Foreground = Brush(theme.AccentSoft),
+            FontSize = options.Vertical ? 34 : 28,
+            FontWeight = FontWeights.SemiBold,
+            TextAlignment = TextAlignment.Center,
+            Margin = new Thickness(0, options.Vertical ? 34 : 24, 0, 0),
+        });
+
+        root.Child = content;
         return root;
     }
 
