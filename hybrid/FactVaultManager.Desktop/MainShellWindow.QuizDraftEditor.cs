@@ -23,6 +23,9 @@ public partial class MainShellWindow
         _quizDraftGrid.SelectionUnit = DataGridSelectionUnit.FullRow;
         _quizDraftGrid.AlternationCount = 2;
         _quizDraftGrid.AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(248, 250, 252));
+        _quizDraftGrid.MinHeight = 460;
+        _quizDraftGrid.MaxHeight = 500;
+        _quizDraftGrid.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
         _quizDraftGrid.SelectionChanged += (_, _) => UpdateQuizDraftSelectionDetails();
 
         _quizDraftGrid.Columns.Insert(1, new DataGridTextColumn
