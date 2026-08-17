@@ -53,38 +53,37 @@ public partial class MainShellWindow
             Width = new DataGridLength(62),
         });
 
-        var actionRow = draft.RowDefinitions.Count;
-        draft.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-        var panel = new Border
-        {
-            Background = new SolidColorBrush(Color.FromRgb(248, 249, 251)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(228, 231, 236)),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(7),
-            Padding = new Thickness(10),
-            Margin = new Thickness(0, 10, 0, 0),
-        };
-        Grid.SetRow(panel, actionRow);
-        draft.Children.Add(panel);
-
+        var panel = AddQuizBuilderSectionCard(draft);
         var layout = new Grid();
+        layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         panel.Child = layout;
 
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal };
+        layout.Children.Add(new TextBlock
+        {
+            Text = "Draft controls",
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 14,
+        });
+
+        var buttons = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(0, 8, 0, 0),
+        };
         buttons.Children.Add(DraftButton("Add from bank", AddQuestionToDraft_Click));
         buttons.Children.Add(DraftButton("Replace", ReplaceDraftQuestion_Click));
         buttons.Children.Add(DraftButton("Remove", RemoveDraftQuestion_Click));
         buttons.Children.Add(DraftButton("Move up", (_, _) => MoveSelectedDraftQuestion(-1)));
         buttons.Children.Add(DraftButton("Move down", (_, _) => MoveSelectedDraftQuestion(1), last: true));
+        Grid.SetRow(buttons, 1);
         layout.Children.Add(buttons);
 
         var info = new Grid { Margin = new Thickness(0, 9, 0, 0) };
         info.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         info.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        Grid.SetRow(info, 1);
+        Grid.SetRow(info, 2);
         layout.Children.Add(info);
 
         _quizDraftSelectionText = new TextBlock
@@ -108,6 +107,34 @@ public partial class MainShellWindow
         info.Children.Add(_quizShuffleAnswersCheckBox);
 
         UpdateQuizDraftSelectionDetails();
+    }
+
+    private Border AddQuizBuilderSectionCard(Grid draft)
+    {
+        if (draft.Parent is Border draftCard &&
+            draftCard.Parent is Grid workspace &&
+            workspace.ColumnDefinitions.Count == 1)
+        {
+            if (workspace.RowDefinitions.Count == 0)
+                workspace.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var row = workspace.RowDefinitions.Count;
+            workspace.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            var card = QuizCard(new Thickness(14));
+            card.Margin = new Thickness(0, 12, 0, 0);
+            Grid.SetColumn(card, 0);
+            Grid.SetRow(card, row);
+            workspace.Children.Add(card);
+            return card;
+        }
+
+        var nestedRow = draft.RowDefinitions.Count;
+        draft.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var nestedCard = QuizCard(new Thickness(10));
+        nestedCard.Margin = new Thickness(0, 10, 0, 0);
+        Grid.SetRow(nestedCard, nestedRow);
+        draft.Children.Add(nestedCard);
+        return nestedCard;
     }
 
     private Binding DraftMetadataBinding(Func<QuizQuestion, object?> selector) => new(nameof(QuizDraftDisplayRow.Number))
