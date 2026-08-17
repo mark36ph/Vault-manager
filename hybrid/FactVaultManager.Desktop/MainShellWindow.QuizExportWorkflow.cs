@@ -11,6 +11,8 @@ public partial class MainShellWindow
     private TextBox? _quizTitleTextBox;
     private ComboBox? _quizFormatComboBox;
     private TextBox? _quizLogoPathTextBox;
+    private CheckBox? _quizCountdownCheckBox;
+    private CheckBox? _quizRevealAnimationCheckBox;
 
     private void InitializeQuizExportWorkflow()
     {
@@ -34,6 +36,7 @@ public partial class MainShellWindow
         draft.Children.Add(exportPanel);
 
         var layout = new Grid();
+        layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -127,6 +130,43 @@ public partial class MainShellWindow
         };
         Grid.SetColumn(clearLogo, 6);
         branding.Children.Add(clearLogo);
+
+        var presentation = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(0, 10, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetRow(presentation, 3);
+        layout.Children.Add(presentation);
+
+        presentation.Children.Add(new TextBlock
+        {
+            Text = "Presentation",
+            FontWeight = FontWeights.SemiBold,
+            Foreground = QuizMutedBrush(),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 14, 0),
+        });
+
+        _quizCountdownCheckBox = new CheckBox
+        {
+            Content = "3-2-1 countdown",
+            IsChecked = true,
+            VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = "Split the final three seconds of each question into visible countdown cards in Resolve.",
+            Margin = new Thickness(0, 0, 18, 0),
+        };
+        presentation.Children.Add(_quizCountdownCheckBox);
+
+        _quizRevealAnimationCheckBox = new CheckBox
+        {
+            Content = "Answer reveal pulse",
+            IsChecked = true,
+            VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = "Show a short highlighted CORRECT reveal before the explanation card.",
+        };
+        presentation.Children.Add(_quizRevealAnimationCheckBox);
     }
 
     private void BrowseQuizLogo_Click(object sender, RoutedEventArgs e)
@@ -181,6 +221,8 @@ public partial class MainShellWindow
             }
 
             var shuffleAnswers = _quizShuffleAnswersCheckBox?.IsChecked == true;
+            var showCountdown = _quizCountdownCheckBox?.IsChecked != false;
+            var animateReveal = _quizRevealAnimationCheckBox?.IsChecked != false;
             var exportQuestions = shuffleAnswers
                 ? QuizAnswerShuffler.Shuffle(_quizDraftQuestions)
                 : _quizDraftQuestions.ToList();
@@ -194,7 +236,9 @@ public partial class MainShellWindow
                 AnswerSeconds: 3,
                 Vertical: vertical,
                 FrameRate: settings.FrameRate > 0 ? settings.FrameRate : 30,
-                QuizLogoPath: logoPath);
+                QuizLogoPath: logoPath,
+                ShowCountdown: showCountdown,
+                AnimateAnswerReveal: animateReveal);
             var result = new NativeQuizVideoBuilder().BuildAndExport(
                 exportQuestions,
                 options,
@@ -216,14 +260,15 @@ public partial class MainShellWindow
                 var duration = options.EstimatedDuration(_quizDraftQuestions.Count);
                 var brandingStatus = logoPath.Length == 0 ? "no quiz logo" : $"logo: {System.IO.Path.GetFileName(logoPath)}";
                 var answerStatus = shuffleAnswers ? "answers shuffled" : "answer order unchanged";
-                _quizDraftStatusText.Text = $"Resolve quiz ready • {_quizDraftQuestions.Count} questions • {seconds} sec/question • {answerStatus} • {brandingStatus} • saved to Quiz History • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
+                var presentationStatus = $"{(showCountdown ? "countdown on" : "countdown off")} • {(animateReveal ? "reveal pulse on" : "reveal pulse off")}";
+                _quizDraftStatusText.Text = $"Resolve quiz ready • {_quizDraftQuestions.Count} questions • {seconds} sec/question • {answerStatus} • {presentationStatus} • {brandingStatus} • saved to Quiz History • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
             }
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Resolve quiz export created and added to Quiz History";
 
             MessageBox.Show(
                 this,
-                $"Quiz export created.\n\nFCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nAnswer positions: {(shuffleAnswers ? "Shuffled for this export" : "Original bank order")}\nQuiz logo: {(logoPath.Length == 0 ? "None" : System.IO.Path.GetFileName(logoPath))}\nQuiz History: recorded\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
+                $"Quiz export created.\n\nFCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nAnswer positions: {(shuffleAnswers ? "Shuffled for this export" : "Original bank order")}\nCountdown: {(showCountdown ? "3-2-1 enabled" : "Off")}\nAnswer reveal pulse: {(animateReveal ? "Enabled" : "Off")}\nQuiz logo: {(logoPath.Length == 0 ? "None" : System.IO.Path.GetFileName(logoPath))}\nQuiz History: recorded\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
                 "Quiz Resolve Export",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
