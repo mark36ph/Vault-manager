@@ -54,6 +54,7 @@ public static class QuizOpeningSequence
         }
 
         QuizOpeningTimelinePlanner.Apply(timeline, spinPaths, countdownPaths);
+        QuizOutroSequence.RenderAndApply(timeline, projectFolder, options);
         timeline.Metadata["opening_sequence_applied"] = true;
         timeline.Metadata["opening_countdown_seconds"] = StartCountdownSeconds;
         timeline.Metadata["opening_spin_frames"] = SpinFrameCount;
