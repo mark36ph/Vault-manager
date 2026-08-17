@@ -459,8 +459,8 @@ public sealed class NativeQuizVideoBuilder
                     : (string.IsNullOrWhiteSpace(question.Explanation)
                         ? $"Correct answer: {question.CorrectLetter}. {question.CorrectAnswer}"
                         : question.Explanation)
-                : countdownValue is int remaining
-                    ? $"{remaining} second{(remaining == 1 ? "" : "s")} remaining"
+                : countdownValue is int footerRemaining
+                    ? $"{footerRemaining} second{(footerRemaining == 1 ? "" : "s")} remaining"
                     : "Choose A, B, C, or D",
             Foreground = revealAnswer
                 ? new SolidColorBrush(Color.FromRgb(220, 252, 231))
@@ -479,8 +479,8 @@ public sealed class NativeQuizVideoBuilder
         if (!revealAnswer)
         {
             var timerWidth = options.Width - CardMargin(options).Left - CardMargin(options).Right;
-            var timerFraction = countdownValue is int remaining
-                ? Math.Clamp(remaining / (double)options.QuestionSeconds, 0.0, 1.0)
+            var timerFraction = countdownValue is int timerRemaining
+                ? Math.Clamp(timerRemaining / (double)options.QuestionSeconds, 0.0, 1.0)
                 : 1.0;
             var timerTrack = new Border
             {
