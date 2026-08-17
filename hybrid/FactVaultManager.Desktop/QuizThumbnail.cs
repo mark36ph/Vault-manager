@@ -46,6 +46,7 @@ public sealed class QuizThumbnailRenderer
 {
     public const int Width = 1280;
     public const int Height = 720;
+    public const string FileName = "Thumbnail.png";
 
     public BitmapSource RenderPreview(
         QuizPublishMetadata metadata,
@@ -84,10 +85,10 @@ public sealed class QuizThumbnailRenderer
         var bitmap = RenderPreview(metadata, questions, thumbnail, visual, logoPath);
         var folder = Path.GetFullPath(projectFolder.Trim());
         Directory.CreateDirectory(folder);
-        var path = Path.Combine(folder, "Thumbnail.jpg");
+        var path = Path.Combine(folder, FileName);
         var temporary = path + ".tmp";
 
-        var encoder = new JpegBitmapEncoder { QualityLevel = 92 };
+        var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
             encoder.Save(stream);
@@ -289,21 +290,46 @@ public static class QuizPublishChecklist
 {
     public static IReadOnlyList<QuizPublishChecklistItem> Evaluate(
         int draftQuestionCount,
+        bool youtubeTitleReady,
+        bool descriptionReady,
+        bool hashtagsReady,
+        bool pinnedCommentReady,
+        bool thumbnailReady,
+        bool resolveExportReady,
+        bool historyRecorded)
+    {
+        return
+        [
+            new("Quiz draft", draftQuestionCount > 0, draftQuestionCount > 0 ? $"{draftQuestionCount} questions selected" : "Build a draft"),
+            new("YouTube title", youtubeTitleReady, youtubeTitleReady ? "Ready" : "Add a valid YouTube title"),
+            new("Description", descriptionReady, descriptionReady ? "Ready" : "Add a valid description"),
+            new("Hashtags", hashtagsReady, hashtagsReady ? "Ready" : "Add at least one valid hashtag"),
+            new("Pinned comment", pinnedCommentReady, pinnedCommentReady ? "Ready" : "Add a valid pinned comment"),
+            new("Thumbnail", thumbnailReady, thumbnailReady ? "1280×720 thumbnail ready" : "Generate the thumbnail preview"),
+            new("Resolve export", resolveExportReady, resolveExportReady ? "Resolve/FCPXML package created" : "Created after a successful Resolve export"),
+            new("Quiz History entry", historyRecorded, historyRecorded ? "Successful export recorded" : "Recorded after a successful Resolve export"),
+        ];
+    }
+
+    public static IReadOnlyList<QuizPublishChecklistItem> Evaluate(
+        int draftQuestionCount,
         bool metadataReady,
         bool thumbnailReady,
         bool preflightReady,
         bool exportSettingsReady,
         bool exportCompleted)
     {
-        return
-        [
-            new("Quiz draft", draftQuestionCount > 0, draftQuestionCount > 0 ? $"{draftQuestionCount} questions selected" : "Build a draft"),
-            new("YouTube metadata", metadataReady, metadataReady ? "Title, description, hashtags and pinned comment ready" : "Generate or complete metadata"),
-            new("Thumbnail", thumbnailReady, thumbnailReady ? "1280×720 thumbnail preview ready" : "Generate the thumbnail preview"),
-            new("Preflight", preflightReady, preflightReady ? "No blocking layout errors" : "Resolve layout errors before export"),
-            new("Export settings", exportSettingsReady, exportSettingsReady ? "Resolve destination and title ready" : "Check the project folder and export title"),
-            new("Upload package", exportCompleted, exportCompleted ? "Resolve export, metadata and thumbnail created" : "Created after a successful Resolve export"),
-        ];
+        _ = preflightReady;
+        _ = exportSettingsReady;
+        return Evaluate(
+            draftQuestionCount,
+            metadataReady,
+            metadataReady,
+            metadataReady,
+            metadataReady,
+            thumbnailReady,
+            exportCompleted,
+            exportCompleted);
     }
 
     public static string Format(IReadOnlyList<QuizPublishChecklistItem> items)
