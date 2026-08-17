@@ -84,20 +84,20 @@ public static class QuizFullCountdownRewriter
 
         var badge = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(220, 15, 23, 42)),
+            Background = new SolidColorBrush(Color.FromArgb(248, 15, 23, 42)),
             BorderBrush = new SolidColorBrush(Color.FromRgb(250, 204, 21)),
-            BorderThickness = new Thickness(options.Vertical ? 5 : 4),
-            CornerRadius = new CornerRadius(999),
-            Width = options.Vertical ? 180 : 140,
-            Height = options.Vertical ? 180 : 140,
+            BorderThickness = new Thickness(options.Vertical ? 3 : 2),
+            CornerRadius = new CornerRadius(options.Vertical ? 18 : 14),
+            Width = options.Vertical ? 240 : 190,
+            Height = options.Vertical ? 82 : 64,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
             Margin = options.Vertical ? new Thickness(0, 110, 76, 0) : new Thickness(0, 66, 120, 0),
             Child = new TextBlock
             {
-                Text = remaining.ToString(),
+                Text = $"{remaining} SEC",
                 Foreground = new SolidColorBrush(Color.FromRgb(254, 240, 138)),
-                FontSize = options.Vertical ? 96 : 76,
+                FontSize = options.Vertical ? 42 : 34,
                 FontWeight = FontWeights.Bold,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
