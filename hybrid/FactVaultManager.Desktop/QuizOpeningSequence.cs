@@ -10,8 +10,8 @@ public static class QuizOpeningSequence
 {
     public const double IntroSeconds = 2.0;
     public const int StartCountdownSeconds = 3;
-    public const int SpinFrameCount = 12;
-    public const double SpinFrameSeconds = 0.08;
+    public const int SpinFrameCount = 36;
+    public const double SpinFrameSeconds = 1.0 / 30.0;
 
     public static void RenderAndApply(
         NativeTimeline timeline,
@@ -37,9 +37,9 @@ public static class QuizOpeningSequence
         {
             var progress = index / (double)(SpinFrameCount - 1);
             var eased = 1.0 - Math.Pow(1.0 - progress, 3);
-            var angle = -300.0 * (1.0 - eased);
-            var scale = 0.22 + (0.78 * eased);
-            var opacity = 0.30 + (0.70 * eased);
+            var angle = -240.0 * (1.0 - eased);
+            var scale = 0.55 + (0.45 * eased);
+            const double opacity = 1.0;
             var path = Path.Combine(cardsFolder, $"000_intro_spin_{index:00}.png");
             RenderCard(BuildIntroCard(options, theme, angle, scale, opacity), path, options.Width, options.Height);
             spinPaths.Add(path);
