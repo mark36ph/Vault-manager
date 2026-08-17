@@ -229,14 +229,17 @@ public static class NativeFcpXmlExporter
                 continue;
             var assetId = $"r{nextAssetId++}";
             assetIds[item.Source] = assetId;
-            resources.Add(new XElement("asset",
+            var asset = new XElement("asset",
                 new XAttribute("id", assetId),
                 new XAttribute("name", string.IsNullOrWhiteSpace(item.Clip.Name) ? Path.GetFileName(item.Source) : item.Clip.Name),
-                new XAttribute("src", FileUrl(item.Source, basePath)),
                 new XAttribute("start", "0s"),
                 new XAttribute("duration", Time(Math.Max(item.Clip.Duration, timeline.Duration), fps)),
                 new XAttribute("hasVideo", item.Clip.Kind == NativeTimelineClipKind.Audio ? "0" : "1"),
-                new XAttribute("hasAudio", item.Clip.Kind is NativeTimelineClipKind.Audio or NativeTimelineClipKind.Video ? "1" : "0")));
+                new XAttribute("hasAudio", item.Clip.Kind is NativeTimelineClipKind.Audio or NativeTimelineClipKind.Video ? "1" : "0"));
+            asset.Add(new XElement("media-rep",
+                new XAttribute("kind", "original-media"),
+                new XAttribute("src", FileUrl(item.Source, basePath))));
+            resources.Add(asset);
         }
 
         var library = new XElement("library");
@@ -325,10 +328,13 @@ public static class NativeFcpXmlExporter
 
         foreach (var asset in document.Root?.Element("resources")?.Elements("asset") ?? Enumerable.Empty<XElement>())
         {
-            var src = ((string?)asset.Attribute("src") ?? "").Trim();
+            var src = ((string?)asset.Elements("media-rep")
+                .FirstOrDefault(element => string.Equals((string?)element.Attribute("kind"), "original-media", StringComparison.OrdinalIgnoreCase))
+                ?.Attribute("src") ??
+                (string?)asset.Attribute("src") ?? "").Trim();
             if (src.Length == 0)
             {
-                failures.Add("FCPXML asset is missing its src path");
+                failures.Add("FCPXML asset is missing its original media src path");
                 continue;
             }
 
