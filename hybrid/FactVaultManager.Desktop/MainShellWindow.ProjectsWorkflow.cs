@@ -37,6 +37,7 @@ public partial class MainShellWindow
         InitializeQuizRotationWorkflow();
         InitializeQuizExportWorkflow();
         InitializeQuizWorkspaceNavigation();
+        ApplyNavigationSections();
         Dispatcher.BeginInvoke(new Action(InitializeAssetReviewWorkflow));
         Dispatcher.BeginInvoke(new Action(InitializeSettingsWorkflow));
         Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.ContextIdle, new Action(ApplyProductionPolish));
