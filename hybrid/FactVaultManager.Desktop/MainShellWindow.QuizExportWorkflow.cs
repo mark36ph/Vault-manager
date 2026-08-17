@@ -559,7 +559,6 @@ public partial class MainShellWindow
                 options,
                 narrationByQuestion,
                 visual);
-            result = QuizVisualExportRewriter.ReExport(result, exportQuestions, options);
             result = QuizAudioTimelineAugmenter.ApplyAndReExport(
                 result,
                 exportQuestions,
@@ -569,6 +568,7 @@ public partial class MainShellWindow
                     revealChime,
                     backgroundMusic,
                     narrate ? selectedVoice : ""));
+            result = QuizVisualExportRewriter.ReExport(result, exportQuestions, options);
 
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Creating thumbnail and publishing files...";
