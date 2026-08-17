@@ -15,6 +15,8 @@ public partial class MainShellWindow
     private TextBox? _quizAiTopicTextBox;
     private DataGrid? _quizAiResultsGrid;
     private TextBlock? _quizAiStatusText;
+    private ProgressBar? _quizAiProgressBar;
+    private TextBlock? _quizAiProgressText;
     private Button? _quizAiGenerateButton;
     private List<QuizAiReviewRow> _quizAiReviewRows = new();
     private bool _quizAiGenerationTabInitialized;
@@ -186,14 +188,48 @@ public partial class MainShellWindow
         var footer = new Grid { Margin = new Thickness(0, 10, 0, 0) };
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var statusPanel = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         _quizAiStatusText = new TextBlock
         {
             Text = "Ready. OpenAI settings are read from Settings → AI.",
             Foreground = QuizMutedBrush(),
-            VerticalAlignment = VerticalAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
         };
-        footer.Children.Add(_quizAiStatusText);
+        statusPanel.Children.Add(_quizAiStatusText);
+
+        var progressRow = new Grid
+        {
+            Margin = new Thickness(0, 6, 18, 0),
+            Visibility = Visibility.Collapsed,
+        };
+        progressRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        progressRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _quizAiProgressBar = new ProgressBar
+        {
+            Minimum = 0,
+            Maximum = 100,
+            Value = 0,
+            Height = 9,
+            MinWidth = 220,
+            VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = "Workflow progress. OpenAI does not expose an exact server-side completion percentage for a single generation request.",
+        };
+        progressRow.Children.Add(_quizAiProgressBar);
+        _quizAiProgressText = new TextBlock
+        {
+            Text = "0%",
+            MinWidth = 44,
+            Margin = new Thickness(10, 0, 0, 0),
+            FontWeight = FontWeights.SemiBold,
+            Foreground = QuizMutedBrush(),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetColumn(_quizAiProgressText, 1);
+        progressRow.Children.Add(_quizAiProgressText);
+        statusPanel.Children.Add(progressRow);
+        footer.Children.Add(statusPanel);
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal };
         var addSelected = new Button
@@ -236,6 +272,8 @@ public partial class MainShellWindow
         _quizAiGenerateButton.IsEnabled = false;
         try
         {
+            SetQuizAiProgress(QuizAiGenerationStage.Preparing, "Preparing AI generation");
+
             if (!int.TryParse(_quizAiCountTextBox.Text.Trim(), out var count))
                 throw new ArgumentException("Question count must be a whole number between 1 and 50.");
 
@@ -255,18 +293,28 @@ public partial class MainShellWindow
                 ? "gpt-5-mini"
                 : settings.OpenAiModel.Trim();
 
-            SetQuizAiStatus($"Generating {request.Count} questions with {model}…");
             using var provider = new NativeOpenAITextProvider(
                 apiKey,
                 QuizAiQuestionGeneration.ProviderInstructions,
                 model);
+
+            SetQuizAiProgress(
+                QuizAiGenerationStage.WaitingForOpenAi,
+                $"Generating {request.Count} questions with {model}");
             var response = await provider.GenerateAsync(QuizAiQuestionGeneration.BuildPrompt(request));
+
+            SetQuizAiProgress(QuizAiGenerationStage.ResponseReceived, "OpenAI response received");
+            SetQuizAiProgress(QuizAiGenerationStage.Validating, "Validating generated questions");
             var questions = QuizAiQuestionGeneration.ParseResponse(response, request);
 
+            SetQuizAiProgress(QuizAiGenerationStage.LoadingReview, "Loading questions for review");
             _quizAiReviewRows = questions.Select(question => new QuizAiReviewRow(question)).ToList();
             _quizAiResultsGrid.ItemsSource = _quizAiReviewRows;
             _quizAiResultsGrid.SelectAll();
-            SetQuizAiStatus($"Generated {_quizAiReviewRows.Count} questions. Review them, then add selected or add all.");
+
+            SetQuizAiProgress(
+                QuizAiGenerationStage.Complete,
+                $"Generated {_quizAiReviewRows.Count} questions. Review them, then add selected or add all");
         }
         catch (Exception error)
         {
@@ -304,6 +352,20 @@ public partial class MainShellWindow
             SetQuizAiStatus(error.Message);
             MessageBox.Show(this, error.Message, "Add AI Questions", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private void SetQuizAiProgress(QuizAiGenerationStage stage, string message)
+    {
+        var percent = QuizAiGenerationProgress.Percent(stage);
+        if (_quizAiProgressBar is not null)
+        {
+            _quizAiProgressBar.Value = percent;
+            if (_quizAiProgressBar.Parent is FrameworkElement progressRow)
+                progressRow.Visibility = Visibility.Visible;
+        }
+        if (_quizAiProgressText is not null)
+            _quizAiProgressText.Text = $"{percent}%";
+        SetQuizAiStatus($"{message}… {percent}%");
     }
 
     private void SetQuizAiStatus(string message)
