@@ -1,3 +1,4 @@
+using IOPath = System.IO.Path;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -39,10 +40,10 @@ public static class QuizOutroSequence
         if (string.IsNullOrWhiteSpace(outro.Source) || !File.Exists(outro.Source))
             throw new InvalidOperationException("Quiz outro card has no image source.");
 
-        var cardsFolder = Path.Combine(Path.GetFullPath(projectFolder), "Cards");
+        var cardsFolder = IOPath.Combine(IOPath.GetFullPath(projectFolder), "Cards");
         Directory.CreateDirectory(cardsFolder);
 
-        var enhancedOutroPath = Path.Combine(cardsFolder, "999_outro_youtube.png");
+        var enhancedOutroPath = IOPath.Combine(cardsFolder, "999_outro_youtube.png");
         RenderEnhancedOutro(outro.Source, enhancedOutroPath, options);
         outro.Source = enhancedOutroPath;
         outro.Name = "Quiz Outro YouTube CTA";
@@ -54,7 +55,7 @@ public static class QuizOutroSequence
             var eased = progress * progress * (3.0 - (2.0 * progress));
             var angle = 240.0 * eased;
             var scale = 1.0 - (0.65 * eased);
-            var framePath = Path.Combine(cardsFolder, $"999_outro_spin_{index:00}.png");
+            var framePath = IOPath.Combine(cardsFolder, $"999_outro_spin_{index:00}.png");
             RenderSpinFrame(options, framePath, angle, scale);
             videoTrack.AddClip(new NativeTimelineClip
             {
@@ -162,7 +163,7 @@ public static class QuizOutroSequence
         var bitmap = new BitmapImage();
         bitmap.BeginInit();
         bitmap.CacheOption = BitmapCacheOption.OnLoad;
-        bitmap.UriSource = new Uri(Path.GetFullPath(path), UriKind.Absolute);
+        bitmap.UriSource = new Uri(IOPath.GetFullPath(path), UriKind.Absolute);
         bitmap.EndInit();
         bitmap.Freeze();
         return bitmap;
@@ -170,7 +171,7 @@ public static class QuizOutroSequence
 
     private static void RenderCard(FrameworkElement card, string destination, int width, int height)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        Directory.CreateDirectory(IOPath.GetDirectoryName(destination)!);
         card.Measure(new Size(width, height));
         card.Arrange(new Rect(0, 0, width, height));
         card.UpdateLayout();
