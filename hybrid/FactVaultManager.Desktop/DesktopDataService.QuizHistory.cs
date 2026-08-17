@@ -11,7 +11,16 @@ public sealed record QuizHistorySummary(
     string Format,
     int QuestionSeconds,
     bool ShuffleAnswers,
-    string ProjectFolder);
+    string ProjectFolder,
+    string SeriesName,
+    int EpisodeNumber,
+    string YouTubeTitle,
+    string YouTubeDescription,
+    string Hashtags,
+    string PinnedComment)
+{
+    public string EpisodeLabel => EpisodeNumber > 0 ? $"#{EpisodeNumber:000}" : "";
+}
 
 public sealed record QuizHistoryQuestion(
     int Position,
@@ -28,7 +37,24 @@ public sealed partial class DesktopDataService
         bool vertical,
         int questionSeconds,
         bool shuffleAnswers,
-        string projectFolder)
+        string projectFolder) =>
+        RecordQuizExport(
+            title,
+            questions,
+            vertical,
+            questionSeconds,
+            shuffleAnswers,
+            projectFolder,
+            publishing: null);
+
+    public int RecordQuizExport(
+        string title,
+        IReadOnlyList<QuizQuestion> questions,
+        bool vertical,
+        int questionSeconds,
+        bool shuffleAnswers,
+        string projectFolder,
+        QuizPublishMetadata? publishing)
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Quiz title is required.", nameof(title));
@@ -37,6 +63,7 @@ public sealed partial class DesktopDataService
         if (questionSeconds is < 2 or > 60)
             throw new ArgumentOutOfRangeException(nameof(questionSeconds));
 
+        publishing = publishing is null ? null : QuizPublishMetadataGenerator.Validate(publishing);
         EnsureQuizHistorySchema();
         var created = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
         var categories = string.Join(", ", questions
@@ -56,10 +83,14 @@ public sealed partial class DesktopDataService
             insertHistory.CommandText = """
                 INSERT INTO quiz_history(
                     title, created, question_count, categories, format,
-                    question_seconds, shuffle_answers, project_folder)
+                    question_seconds, shuffle_answers, project_folder,
+                    series_name, episode_number, youtube_title, youtube_description,
+                    youtube_hashtags, pinned_comment)
                 VALUES(
                     $title, $created, $questionCount, $categories, $format,
-                    $questionSeconds, $shuffleAnswers, $projectFolder);
+                    $questionSeconds, $shuffleAnswers, $projectFolder,
+                    $seriesName, $episodeNumber, $youtubeTitle, $youtubeDescription,
+                    $youtubeHashtags, $pinnedComment);
                 SELECT last_insert_rowid();
                 """;
             insertHistory.Parameters.AddWithValue("$title", title.Trim());
@@ -70,6 +101,12 @@ public sealed partial class DesktopDataService
             insertHistory.Parameters.AddWithValue("$questionSeconds", questionSeconds);
             insertHistory.Parameters.AddWithValue("$shuffleAnswers", shuffleAnswers ? 1 : 0);
             insertHistory.Parameters.AddWithValue("$projectFolder", (projectFolder ?? "").Trim());
+            insertHistory.Parameters.AddWithValue("$seriesName", publishing?.SeriesName ?? "");
+            insertHistory.Parameters.AddWithValue("$episodeNumber", publishing?.EpisodeNumber ?? 0);
+            insertHistory.Parameters.AddWithValue("$youtubeTitle", publishing?.YouTubeTitle ?? "");
+            insertHistory.Parameters.AddWithValue("$youtubeDescription", publishing?.Description ?? "");
+            insertHistory.Parameters.AddWithValue("$youtubeHashtags", publishing?.Hashtags ?? "");
+            insertHistory.Parameters.AddWithValue("$pinnedComment", publishing?.PinnedComment ?? "");
             historyId = Convert.ToInt32((long)(insertHistory.ExecuteScalar() ?? 0L));
         }
 
@@ -138,6 +175,42 @@ public sealed partial class DesktopDataService
         return ids;
     }
 
+    public IReadOnlyList<string> GetQuizSeriesNames()
+    {
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT DISTINCT series_name
+            FROM quiz_history
+            WHERE TRIM(series_name) <> ''
+            ORDER BY series_name COLLATE NOCASE
+            """;
+        using var reader = command.ExecuteReader();
+        var results = new List<string>();
+        while (reader.Read())
+            results.Add(reader.GetString(0));
+        return results;
+    }
+
+    public int GetNextQuizSeriesEpisode(string? seriesName)
+    {
+        var series = QuizPublishMetadataGenerator.NormalizeSeriesName(seriesName);
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT COALESCE(MAX(episode_number), 0) + 1
+            FROM quiz_history
+            WHERE series_name = $series COLLATE NOCASE
+            """;
+        command.Parameters.AddWithValue("$series", series);
+        var next = Convert.ToInt32((long)(command.ExecuteScalar() ?? 1L));
+        if (next > 9_999)
+            throw new InvalidOperationException($"Quiz series '{series}' has reached the maximum episode number.");
+        return Math.Max(1, next);
+    }
+
     public IReadOnlyList<QuizHistorySummary> GetQuizHistory(int limit = 500)
     {
         EnsureQuizHistorySchema();
@@ -146,7 +219,9 @@ public sealed partial class DesktopDataService
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT id, title, created, question_count, categories, format,
-                   question_seconds, shuffle_answers, project_folder
+                   question_seconds, shuffle_answers, project_folder,
+                   series_name, episode_number, youtube_title, youtube_description,
+                   youtube_hashtags, pinned_comment
             FROM quiz_history
             ORDER BY id DESC
             LIMIT $limit
@@ -166,7 +241,13 @@ public sealed partial class DesktopDataService
                 reader.GetString(5),
                 reader.GetInt32(6),
                 reader.GetInt32(7) != 0,
-                reader.GetString(8)));
+                reader.GetString(8),
+                reader.GetString(9),
+                reader.GetInt32(10),
+                reader.GetString(11),
+                reader.GetString(12),
+                reader.GetString(13),
+                reader.GetString(14)));
         }
         return results;
     }
@@ -204,36 +285,78 @@ public sealed partial class DesktopDataService
     {
         EnsureQuizSchema();
         using var connection = OpenConnection();
-        using var command = connection.CreateCommand();
-        command.CommandText = """
-            CREATE TABLE IF NOT EXISTS quiz_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                created TEXT NOT NULL,
-                question_count INTEGER NOT NULL,
-                categories TEXT NOT NULL DEFAULT '',
-                format TEXT NOT NULL DEFAULT '16:9',
-                question_seconds INTEGER NOT NULL,
-                shuffle_answers INTEGER NOT NULL DEFAULT 0,
-                project_folder TEXT NOT NULL DEFAULT ''
-            );
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                CREATE TABLE IF NOT EXISTS quiz_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    created TEXT NOT NULL,
+                    question_count INTEGER NOT NULL,
+                    categories TEXT NOT NULL DEFAULT '',
+                    format TEXT NOT NULL DEFAULT '16:9',
+                    question_seconds INTEGER NOT NULL,
+                    shuffle_answers INTEGER NOT NULL DEFAULT 0,
+                    project_folder TEXT NOT NULL DEFAULT '',
+                    series_name TEXT NOT NULL DEFAULT '',
+                    episode_number INTEGER NOT NULL DEFAULT 0,
+                    youtube_title TEXT NOT NULL DEFAULT '',
+                    youtube_description TEXT NOT NULL DEFAULT '',
+                    youtube_hashtags TEXT NOT NULL DEFAULT '',
+                    pinned_comment TEXT NOT NULL DEFAULT ''
+                );
 
-            CREATE TABLE IF NOT EXISTS quiz_history_questions (
-                history_id INTEGER NOT NULL,
-                position INTEGER NOT NULL,
-                question_id INTEGER NOT NULL,
-                question TEXT NOT NULL,
-                category TEXT NOT NULL DEFAULT '',
-                difficulty TEXT NOT NULL DEFAULT '',
-                PRIMARY KEY(history_id, position),
-                FOREIGN KEY(history_id) REFERENCES quiz_history(id) ON DELETE CASCADE
-            );
+                CREATE TABLE IF NOT EXISTS quiz_history_questions (
+                    history_id INTEGER NOT NULL,
+                    position INTEGER NOT NULL,
+                    question_id INTEGER NOT NULL,
+                    question TEXT NOT NULL,
+                    category TEXT NOT NULL DEFAULT '',
+                    difficulty TEXT NOT NULL DEFAULT '',
+                    PRIMARY KEY(history_id, position),
+                    FOREIGN KEY(history_id) REFERENCES quiz_history(id) ON DELETE CASCADE
+                );
 
-            CREATE INDEX IF NOT EXISTS ix_quiz_history_created
-                ON quiz_history(id DESC);
-            CREATE INDEX IF NOT EXISTS ix_quiz_history_questions_question
-                ON quiz_history_questions(question_id, history_id DESC);
+                CREATE INDEX IF NOT EXISTS ix_quiz_history_created
+                    ON quiz_history(id DESC);
+                CREATE INDEX IF NOT EXISTS ix_quiz_history_questions_question
+                    ON quiz_history_questions(question_id, history_id DESC);
+                """;
+            command.ExecuteNonQuery();
+        }
+
+        EnsureQuizHistoryColumn(connection, "series_name", "TEXT NOT NULL DEFAULT ''");
+        EnsureQuizHistoryColumn(connection, "episode_number", "INTEGER NOT NULL DEFAULT 0");
+        EnsureQuizHistoryColumn(connection, "youtube_title", "TEXT NOT NULL DEFAULT ''");
+        EnsureQuizHistoryColumn(connection, "youtube_description", "TEXT NOT NULL DEFAULT ''");
+        EnsureQuizHistoryColumn(connection, "youtube_hashtags", "TEXT NOT NULL DEFAULT ''");
+        EnsureQuizHistoryColumn(connection, "pinned_comment", "TEXT NOT NULL DEFAULT ''");
+        using var seriesIndex = connection.CreateCommand();
+        seriesIndex.CommandText = """
+            CREATE INDEX IF NOT EXISTS ix_quiz_history_series_episode
+                ON quiz_history(series_name COLLATE NOCASE, episode_number DESC);
             """;
-        command.ExecuteNonQuery();
+        seriesIndex.ExecuteNonQuery();
+    }
+
+    private static void EnsureQuizHistoryColumn(
+        Microsoft.Data.Sqlite.SqliteConnection connection,
+        string columnName,
+        string definition)
+    {
+        using var inspect = connection.CreateCommand();
+        inspect.CommandText = "PRAGMA table_info(quiz_history)";
+        using (var reader = inspect.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
+                    return;
+            }
+        }
+
+        using var alter = connection.CreateCommand();
+        alter.CommandText = $"ALTER TABLE quiz_history ADD COLUMN {columnName} {definition}";
+        alter.ExecuteNonQuery();
     }
 }
