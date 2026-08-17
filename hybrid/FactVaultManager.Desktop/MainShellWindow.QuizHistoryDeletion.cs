@@ -80,6 +80,12 @@ public partial class MainShellWindow
             RefreshQuizHistory();
             RefreshQuizBank();
         }
+        catch (QuizHistoryFolderCleanupException error)
+        {
+            RefreshQuizHistory();
+            RefreshQuizBank();
+            MessageBox.Show(this, error.Message, "Delete Quiz", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
         catch (Exception error)
         {
             MessageBox.Show(this, error.Message, "Delete Quiz", MessageBoxButton.OK, MessageBoxImage.Error);
