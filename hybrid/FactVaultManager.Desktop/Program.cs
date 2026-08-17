@@ -30,7 +30,9 @@ public static class Program
             var application = new Application();
             AppInteractionPolish.Initialize();
             application.DispatcherUnhandledException += Application_DispatcherUnhandledException;
-            application.Run(new MainShellWindow());
+            var mainWindow = new MainShellWindow();
+            mainWindow.InitializeQuizHeaderActionsForApp();
+            application.Run(mainWindow);
         }
         catch (Exception error)
         {
