@@ -47,7 +47,7 @@ public sealed class NativeQuizSpeechProvider : IDisposable
     {
         _apiKey = Required(apiKey, "OpenAI API key");
         _model = Required(model, "voice model");
-        _voice = Required(voice, "voice");
+        _voice = QuizVoiceCatalog.Validate(voice);
         _client = client ?? CreateClient();
         _ownsClient = client is null;
     }
