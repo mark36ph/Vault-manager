@@ -1,4 +1,5 @@
 using System.Text;
+using System.Xml.Linq;
 
 namespace FactVaultManager.Desktop;
 
@@ -30,6 +31,7 @@ public static class QuizVisualExportRewriter
             metadata,
             strict: true,
             overwrite: true);
+        QuizFcpXmlTimelineSynchronizer.AlignToTimeline(resolve, build.Timeline);
 
         return new QuizVideoBuildResult(
             finalized.ProjectFolder,
@@ -53,6 +55,110 @@ public static class QuizVisualExportRewriter
             builder.AppendLine();
         }
         return builder.ToString().Trim();
+    }
+}
+
+public static class QuizFcpXmlTimelineSynchronizer
+{
+    public static void AlignToTimeline(NativeResolveFreeExportResult resolve, NativeTimeline timeline)
+    {
+        ArgumentNullException.ThrowIfNull(resolve);
+        ArgumentNullException.ThrowIfNull(timeline);
+        timeline.Validate();
+
+        var document = XDocument.Load(resolve.FcpXml.Path);
+        var resources = document.Root?.Element("resources")
+            ?? throw new NativeResolveExportException("Quiz FCPXML is missing its resources section.");
+        var sequence = document.Root?.Element("library")?.Element("event")?.Element("project")?.Element("sequence")
+            ?? throw new NativeResolveExportException("Quiz FCPXML is missing its sequence.");
+        var spine = sequence.Element("spine")
+            ?? throw new NativeResolveExportException("Quiz FCPXML is missing its spine.");
+
+        var assetIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var asset in resources.Elements("asset"))
+        {
+            var id = ((string?)asset.Attribute("id") ?? "").Trim();
+            var source = ((string?)asset.Elements("media-rep")
+                .FirstOrDefault(element => string.Equals(
+                    (string?)element.Attribute("kind"),
+                    "original-media",
+                    StringComparison.OrdinalIgnoreCase))
+                ?.Attribute("src") ?? "").Trim();
+            if (id.Length == 0 || source.Length == 0 ||
+                !Uri.TryCreate(source, UriKind.Absolute, out var uri) || !uri.IsFile)
+                continue;
+            assetIds[Path.GetFullPath(uri.LocalPath)] = id;
+        }
+
+        var parent = new XElement("gap",
+            new XAttribute("name", "Quiz Timeline"),
+            new XAttribute("offset", "0s"),
+            new XAttribute("start", "0s"),
+            new XAttribute("duration", Time(timeline.Duration, timeline.FrameRate)));
+
+        foreach (var track in timeline.Tracks.Where(track => track.Kind == NativeTimelineTrackKind.Video))
+        {
+            foreach (var clip in track.Clips
+                         .Where(clip => clip.Kind is NativeTimelineClipKind.Image or NativeTimelineClipKind.Video)
+                         .OrderBy(clip => clip.Start))
+            {
+                parent.Add(BuildConnectedClip(resolve, clip, assetIds, timeline.FrameRate, lane: 1));
+            }
+        }
+
+        var audioLane = -1;
+        foreach (var track in timeline.Tracks.Where(track => track.Kind == NativeTimelineTrackKind.Audio))
+        {
+            foreach (var clip in track.Clips
+                         .Where(clip => clip.Kind == NativeTimelineClipKind.Audio)
+                         .OrderBy(clip => clip.Start))
+            {
+                parent.Add(BuildConnectedClip(resolve, clip, assetIds, timeline.FrameRate, audioLane));
+            }
+            audioLane--;
+        }
+
+        spine.ReplaceNodes(parent);
+        sequence.SetAttributeValue("duration", Time(timeline.Duration, timeline.FrameRate));
+        document.Save(resolve.FcpXml.Path, SaveOptions.None);
+
+        NativeFcpXmlExporter.ValidateMedia(
+            resolve.FcpXml.Path,
+            resolve.Package.PackageFolder,
+            resolve.ValidatedMedia);
+    }
+
+    private static XElement BuildConnectedClip(
+        NativeResolveFreeExportResult resolve,
+        NativeTimelineClip clip,
+        IReadOnlyDictionary<string, string> assetIds,
+        double frameRate,
+        int lane)
+    {
+        if (string.IsNullOrWhiteSpace(clip.Source))
+            throw new NativeResolveExportException($"Quiz clip has no source: {clip.Id}");
+
+        var original = Path.GetFullPath(clip.Source);
+        if (!resolve.Package.SourceMap.TryGetValue(original, out var copied))
+            throw new NativeResolveExportException($"Quiz media is missing from the portable package: {original}");
+        copied = Path.GetFullPath(copied);
+        if (!assetIds.TryGetValue(copied, out var assetId))
+            throw new NativeResolveExportException($"Quiz FCPXML asset was not found for: {copied}");
+
+        return new XElement("asset-clip",
+            new XAttribute("name", string.IsNullOrWhiteSpace(clip.Name) ? Path.GetFileName(original) : clip.Name),
+            new XAttribute("ref", assetId),
+            new XAttribute("offset", Time(clip.Start, frameRate)),
+            new XAttribute("start", Time(clip.SourceIn, frameRate)),
+            new XAttribute("duration", Time(clip.Duration, frameRate)),
+            new XAttribute("lane", lane));
+    }
+
+    private static string Time(double seconds, double frameRate)
+    {
+        var frames = Math.Max(0, (int)Math.Round(seconds * frameRate, MidpointRounding.ToEven));
+        var denominator = Math.Max(1, (int)Math.Round(frameRate, MidpointRounding.ToEven));
+        return $"{frames}/{denominator}s";
     }
 }
 
