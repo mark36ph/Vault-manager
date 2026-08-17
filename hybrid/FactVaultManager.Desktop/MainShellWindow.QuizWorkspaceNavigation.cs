@@ -87,6 +87,7 @@ public partial class MainShellWindow
         AddQuizWorkspaceNav(sidebarStack, "builder", "Builder");
         AddQuizWorkspaceNav(sidebarStack, "draft", "Draft");
         AddQuizWorkspaceNav(sidebarStack, "preview", "Preview");
+        AddQuizWorkspaceNav(sidebarStack, "publish", "Publish");
         AddQuizWorkspaceNav(sidebarStack, "export", "Export");
 
         var contentBorder = QuizCard(new Thickness(18));
@@ -108,6 +109,10 @@ public partial class MainShellWindow
             "Preview",
             "Preview the actual quiz cards, choose a visual theme, position the logo, save presets, and run layout preflight checks.",
             BuildQuizPreviewPanel());
+        _quizWorkspacePages["publish"] = BuildQuizWorkspacePage(
+            "Publish",
+            "Manage quiz series and episode numbering, then prepare editable YouTube title, description, hashtags, and pinned-comment metadata.",
+            BuildQuizPublishingPanel());
         _quizWorkspacePages["export"] = BuildQuizWorkspacePage(
             "Export",
             "Configure Resolve format, quiz branding, presentation, narration, sound effects, and background music.",
@@ -156,6 +161,8 @@ public partial class MainShellWindow
 
         if (string.Equals(key, "preview", StringComparison.OrdinalIgnoreCase))
             RefreshQuizPreview();
+        else if (string.Equals(key, "publish", StringComparison.OrdinalIgnoreCase))
+            RefreshQuizPublishingPage();
     }
 
     private static FrameworkElement BuildQuizWorkspacePage(
