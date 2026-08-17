@@ -15,6 +15,7 @@ public static class QuizVisualExportRewriter
         options.Validate();
         build.Timeline.Validate();
 
+        QuizTimelineEndTrimmer.TrimToVideoEnd(build.Timeline);
         var finalized = QuizExportProjectFinalizer.Prepare(build);
         var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -52,5 +53,38 @@ public static class QuizVisualExportRewriter
             builder.AppendLine();
         }
         return builder.ToString().Trim();
+    }
+}
+
+public static class QuizTimelineEndTrimmer
+{
+    public static double TrimToVideoEnd(NativeTimeline timeline)
+    {
+        ArgumentNullException.ThrowIfNull(timeline);
+        timeline.Validate();
+
+        var videoEnd = timeline.Tracks
+            .Where(track => track.Kind == NativeTimelineTrackKind.Video)
+            .SelectMany(track => track.Clips)
+            .Where(clip => clip.Kind is NativeTimelineClipKind.Image or NativeTimelineClipKind.Video)
+            .Select(clip => clip.End)
+            .DefaultIfEmpty(0)
+            .Max();
+        if (videoEnd <= 0)
+            throw new InvalidOperationException("Quiz timeline has no video cards to export.");
+
+        foreach (var track in timeline.Tracks.Where(track => track.Kind != NativeTimelineTrackKind.Video))
+        {
+            track.Clips.RemoveAll(clip => clip.Start >= videoEnd);
+            foreach (var clip in track.Clips.Where(clip => clip.End > videoEnd))
+                clip.Duration = videoEnd - clip.Start;
+        }
+
+        timeline.Scenes.RemoveAll(scene => scene.Start >= videoEnd);
+        foreach (var scene in timeline.Scenes.Where(scene => scene.End > videoEnd))
+            scene.Duration = videoEnd - scene.Start;
+
+        timeline.Validate();
+        return videoEnd;
     }
 }
