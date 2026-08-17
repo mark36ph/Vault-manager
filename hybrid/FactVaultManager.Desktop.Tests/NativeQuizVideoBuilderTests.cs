@@ -31,6 +31,41 @@ public sealed class NativeQuizVideoBuilderTests
         Assert.Equal(114, options.EstimatedDuration(10));
     }
 
+    [Fact]
+    public void Countdown_DefaultsToFinalThreeSeconds()
+    {
+        var options = new QuizVideoBuildOptions("Quiz", QuestionSeconds: 8);
+
+        Assert.Equal(3, options.CountdownSeconds);
+    }
+
+    [Fact]
+    public void Countdown_UsesAvailableQuestionTimeForShortQuestions()
+    {
+        var options = new QuizVideoBuildOptions("Quiz", QuestionSeconds: 2);
+
+        Assert.Equal(2, options.CountdownSeconds);
+    }
+
+    [Fact]
+    public void Countdown_CanBeDisabledWithoutChangingDuration()
+    {
+        var options = new QuizVideoBuildOptions("Quiz", QuestionSeconds: 8, ShowCountdown: false);
+
+        Assert.Equal(0, options.CountdownSeconds);
+        Assert.Equal(15, options.EstimatedDuration(1));
+    }
+
+    [Fact]
+    public void RevealPulse_DefaultsToHalfSecondAndCanBeDisabled()
+    {
+        var enabled = new QuizVideoBuildOptions("Quiz", AnswerSeconds: 3);
+        var disabled = new QuizVideoBuildOptions("Quiz", AnswerSeconds: 3, AnimateAnswerReveal: false);
+
+        Assert.Equal(0.5, enabled.RevealEmphasisSeconds);
+        Assert.Equal(0, disabled.RevealEmphasisSeconds);
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(61)]
