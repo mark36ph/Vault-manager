@@ -54,12 +54,17 @@ public sealed class NativeResolveExportTests
             var result = NativeFcpXmlExporter.Export(builder.Timeline, fcpxml, mediaRoot);
             var validated = NativeFcpXmlExporter.ValidateMedia(fcpxml, package, new[] { image });
             var document = XDocument.Load(fcpxml);
+            var asset = Assert.Single(document.Root?.Element("resources")?.Elements("asset") ?? []);
+            var mediaRep = Assert.Single(asset.Elements("media-rep"));
 
             Assert.Equal(1, result.MediaCount);
             Assert.Equal(1, result.ClipCount);
             Assert.Single(validated);
             Assert.Equal("1.10", document.Root?.Attribute("version")?.Value);
             Assert.Equal("fcpxml", document.Root?.Name.LocalName);
+            Assert.Null(asset.Attribute("src"));
+            Assert.Equal("original-media", mediaRep.Attribute("kind")?.Value);
+            Assert.Equal(new Uri(image).AbsoluteUri, mediaRep.Attribute("src")?.Value);
         }
         finally
         {
