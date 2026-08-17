@@ -160,14 +160,41 @@ public sealed class NativeQuizVideoBuilder
             }
 
             var countdownSeconds = options.CountdownSeconds;
-            var leadSeconds = narrationSeconds + options.QuestionSeconds - countdownSeconds;
+            var answerLeadSeconds = options.QuestionSeconds - countdownSeconds;
             var questionCursor = cursor;
 
-            if (leadSeconds > 0)
+            if (narrationSeconds > 0)
+            {
+                var narrationCardPath = Path.Combine(cardsFolder, $"{number:000}_narration.png");
+                RenderCard(
+                    BuildQuestionCard(question, number, questions.Count, options, revealAnswer: false, countdownValue: null, emphasizeReveal: false, narrating: true),
+                    narrationCardPath,
+                    options.Width,
+                    options.Height);
+                var narrationCardClip = videoTrack.AddClip(new NativeTimelineClip
+                {
+                    Kind = NativeTimelineClipKind.Image,
+                    Start = questionCursor,
+                    Duration = narrationSeconds,
+                    Source = narrationCardPath,
+                    Name = $"Question {number} Narration Card",
+                    Metadata = new()
+                    {
+                        ["quiz_card"] = "narration",
+                        ["question_id"] = question.Id,
+                        ["correct_index"] = question.CorrectIndex,
+                        ["narration_seconds"] = narrationSeconds,
+                    },
+                });
+                sceneClipIds.Add(narrationCardClip.Id);
+                questionCursor += narrationSeconds;
+            }
+
+            if (answerLeadSeconds > 0)
             {
                 var questionPath = Path.Combine(cardsFolder, $"{number:000}_question.png");
                 RenderCard(
-                    BuildQuestionCard(question, number, questions.Count, options, revealAnswer: false, countdownValue: null, emphasizeReveal: false, narrating: narrationSeconds > 0),
+                    BuildQuestionCard(question, number, questions.Count, options, revealAnswer: false, countdownValue: null, emphasizeReveal: false, narrating: false),
                     questionPath,
                     options.Width,
                     options.Height);
@@ -175,7 +202,7 @@ public sealed class NativeQuizVideoBuilder
                 {
                     Kind = NativeTimelineClipKind.Image,
                     Start = questionCursor,
-                    Duration = leadSeconds,
+                    Duration = answerLeadSeconds,
                     Source = questionPath,
                     Name = $"Question {number}",
                     Metadata = new()
@@ -183,11 +210,10 @@ public sealed class NativeQuizVideoBuilder
                         ["quiz_card"] = "question",
                         ["question_id"] = question.Id,
                         ["correct_index"] = question.CorrectIndex,
-                        ["narration_seconds"] = narrationSeconds,
                     },
                 });
                 sceneClipIds.Add(questionClip.Id);
-                questionCursor += leadSeconds;
+                questionCursor += answerLeadSeconds;
             }
 
             for (var remaining = countdownSeconds; remaining >= 1; remaining--)
