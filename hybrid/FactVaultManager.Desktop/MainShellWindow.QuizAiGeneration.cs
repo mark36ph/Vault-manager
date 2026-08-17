@@ -2,11 +2,13 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
+    private static readonly bool QuizAiGenerationHookRegistered = RegisterQuizAiGenerationHook();
     private TextBox? _quizAiCountTextBox;
     private ComboBox? _quizAiCategoryComboBox;
     private ComboBox? _quizAiDifficultyComboBox;
@@ -15,6 +17,39 @@ public partial class MainShellWindow
     private TextBlock? _quizAiStatusText;
     private Button? _quizAiGenerateButton;
     private List<QuizAiReviewRow> _quizAiReviewRows = new();
+    private bool _quizAiGenerationTabInitialized;
+    private int _quizAiGenerationTabAttempts;
+
+    private static bool RegisterQuizAiGenerationHook()
+    {
+        EventManager.RegisterClassHandler(
+            typeof(MainShellWindow),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler(QuizAiGenerationWindow_Loaded));
+        return true;
+    }
+
+    private static void QuizAiGenerationWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is MainShellWindow window)
+            window.Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(window.InitializeQuizAiGenerationTab));
+    }
+
+    private void InitializeQuizAiGenerationTab()
+    {
+        if (_quizAiGenerationTabInitialized)
+            return;
+
+        if (_quizBankTabs is null)
+        {
+            if (_quizAiGenerationTabAttempts++ < 40)
+                Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(InitializeQuizAiGenerationTab));
+            return;
+        }
+
+        EnsureQuizAiGenerationTab(_quizBankTabs);
+        _quizAiGenerationTabInitialized = true;
+    }
 
     private void EnsureQuizAiGenerationTab(TabControl tabs)
     {
