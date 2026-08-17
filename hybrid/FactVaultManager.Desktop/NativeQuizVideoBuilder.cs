@@ -35,8 +35,8 @@ public sealed record QuizVideoBuildOptions(
             QuizBranding.ValidateLogoPath(QuizLogoPath);
     }
 
-    public double EstimatedDuration(int questionCount) =>
-        2.0 + (Math.Max(0, questionCount) * (QuestionSeconds + AnswerSeconds)) + 2.0;
+    public double EstimatedDuration(int questionCount, double narrationSeconds = 0) =>
+        2.0 + (Math.Max(0, questionCount) * (QuestionSeconds + AnswerSeconds)) + Math.Max(0, narrationSeconds) + 2.0;
 }
 
 public sealed record QuizVideoBuildResult(
@@ -50,7 +50,8 @@ public sealed class NativeQuizVideoBuilder
     public QuizVideoBuildResult BuildAndExport(
         IReadOnlyList<QuizQuestion> questions,
         QuizVideoBuildOptions options,
-        string projectsRoot)
+        string projectsRoot,
+        IReadOnlyDictionary<int, QuizNarrationAsset>? narrationByQuestion = null)
     {
         ArgumentNullException.ThrowIfNull(questions);
         ArgumentNullException.ThrowIfNull(options);
@@ -63,6 +64,10 @@ public sealed class NativeQuizVideoBuilder
             throw new InvalidOperationException("Set the Projects Folder in Settings before creating a quiz video.");
         if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
             throw new InvalidOperationException("Quiz cards must be rendered on the desktop UI thread.");
+
+        narrationByQuestion ??= new Dictionary<int, QuizNarrationAsset>();
+        ValidateNarrationAssets(questions, narrationByQuestion);
+        var narrationTotal = narrationByQuestion.Values.Sum(asset => asset.Duration);
 
         projectsRoot = Path.GetFullPath(projectsRoot.Trim());
         Directory.CreateDirectory(projectsRoot);
@@ -93,6 +98,8 @@ public sealed class NativeQuizVideoBuilder
                 ["show_countdown"] = options.ShowCountdown,
                 ["countdown_seconds"] = options.CountdownSeconds,
                 ["animate_answer_reveal"] = options.AnimateAnswerReveal,
+                ["narration_enabled"] = narrationByQuestion.Count > 0,
+                ["narration_total_seconds"] = narrationTotal,
                 ["quiz_logo"] = string.IsNullOrWhiteSpace(options.QuizLogoPath)
                     ? ""
                     : Path.GetFileName(options.QuizLogoPath),
@@ -103,6 +110,15 @@ public sealed class NativeQuizVideoBuilder
             Name = "Quiz Cards",
             Kind = NativeTimelineTrackKind.Video,
         });
+        NativeTimelineTrack? narrationTrack = null;
+        if (narrationByQuestion.Count > 0)
+        {
+            narrationTrack = timeline.AddTrack(new NativeTimelineTrack
+            {
+                Name = "Quiz Narration",
+                Kind = NativeTimelineTrackKind.Audio,
+            });
+        }
 
         var cursor = 0.0;
         var introPath = Path.Combine(cardsFolder, "000_intro.png");
@@ -123,15 +139,35 @@ public sealed class NativeQuizVideoBuilder
             var question = questions[index];
             var number = index + 1;
             var sceneClipIds = new List<string>();
+            narrationByQuestion.TryGetValue(question.Id, out var narration);
+            var narrationSeconds = narration?.Duration ?? 0;
+            if (narration is not null && narrationTrack is not null)
+            {
+                var narrationClip = narrationTrack.AddClip(new NativeTimelineClip
+                {
+                    Kind = NativeTimelineClipKind.Audio,
+                    Start = cursor,
+                    Duration = narration.Duration,
+                    Source = narration.Path,
+                    Name = $"Question {number} Narration",
+                    Metadata = new()
+                    {
+                        ["quiz_audio"] = "narration",
+                        ["question_id"] = question.Id,
+                    },
+                });
+                sceneClipIds.Add(narrationClip.Id);
+            }
+
             var countdownSeconds = options.CountdownSeconds;
-            var leadSeconds = options.QuestionSeconds - countdownSeconds;
+            var leadSeconds = narrationSeconds + options.QuestionSeconds - countdownSeconds;
             var questionCursor = cursor;
 
             if (leadSeconds > 0)
             {
                 var questionPath = Path.Combine(cardsFolder, $"{number:000}_question.png");
                 RenderCard(
-                    BuildQuestionCard(question, number, questions.Count, options, revealAnswer: false, countdownValue: null, emphasizeReveal: false),
+                    BuildQuestionCard(question, number, questions.Count, options, revealAnswer: false, countdownValue: null, emphasizeReveal: false, narrating: narrationSeconds > 0),
                     questionPath,
                     options.Width,
                     options.Height);
@@ -147,6 +183,7 @@ public sealed class NativeQuizVideoBuilder
                         ["quiz_card"] = "question",
                         ["question_id"] = question.Id,
                         ["correct_index"] = question.CorrectIndex,
+                        ["narration_seconds"] = narrationSeconds,
                     },
                 });
                 sceneClipIds.Add(questionClip.Id);
@@ -157,7 +194,7 @@ public sealed class NativeQuizVideoBuilder
             {
                 var countdownPath = Path.Combine(cardsFolder, $"{number:000}_countdown_{remaining}.png");
                 RenderCard(
-                    BuildQuestionCard(question, number, questions.Count, options, revealAnswer: false, countdownValue: remaining, emphasizeReveal: false),
+                    BuildQuestionCard(question, number, questions.Count, options, revealAnswer: false, countdownValue: remaining, emphasizeReveal: false, narrating: false),
                     countdownPath,
                     options.Width,
                     options.Height);
@@ -180,14 +217,14 @@ public sealed class NativeQuizVideoBuilder
                 questionCursor += 1;
             }
 
-            var answerStart = cursor + options.QuestionSeconds;
+            var answerStart = cursor + narrationSeconds + options.QuestionSeconds;
             var answerCursor = answerStart;
             var emphasisSeconds = options.RevealEmphasisSeconds;
             if (emphasisSeconds > 0)
             {
                 var emphasisPath = Path.Combine(cardsFolder, $"{number:000}_answer_reveal.png");
                 RenderCard(
-                    BuildQuestionCard(question, number, questions.Count, options, revealAnswer: true, countdownValue: null, emphasizeReveal: true),
+                    BuildQuestionCard(question, number, questions.Count, options, revealAnswer: true, countdownValue: null, emphasizeReveal: true, narrating: false),
                     emphasisPath,
                     options.Width,
                     options.Height);
@@ -214,7 +251,7 @@ public sealed class NativeQuizVideoBuilder
             {
                 var answerPath = Path.Combine(cardsFolder, $"{number:000}_answer.png");
                 RenderCard(
-                    BuildQuestionCard(question, number, questions.Count, options, revealAnswer: true, countdownValue: null, emphasizeReveal: false),
+                    BuildQuestionCard(question, number, questions.Count, options, revealAnswer: true, countdownValue: null, emphasizeReveal: false, narrating: false),
                     answerPath,
                     options.Width,
                     options.Height);
@@ -235,11 +272,12 @@ public sealed class NativeQuizVideoBuilder
                 sceneClipIds.Add(answerClip.Id);
             }
 
+            var sceneDuration = narrationSeconds + options.QuestionSeconds + options.AnswerSeconds;
             timeline.AddScene(new NativeTimelineScene
             {
                 Title = $"Question {number}",
                 Start = cursor,
-                Duration = options.QuestionSeconds + options.AnswerSeconds,
+                Duration = sceneDuration,
                 Narration = question.Question,
                 ClipIds = sceneClipIds,
                 Metadata = new()
@@ -247,9 +285,10 @@ public sealed class NativeQuizVideoBuilder
                     ["question_id"] = question.Id,
                     ["category"] = question.Category,
                     ["difficulty"] = question.Difficulty,
+                    ["narration_seconds"] = narrationSeconds,
                 },
             });
-            cursor += options.QuestionSeconds + options.AnswerSeconds;
+            cursor += sceneDuration;
         }
 
         var outroPath = Path.Combine(cardsFolder, "999_outro.png");
@@ -265,7 +304,7 @@ public sealed class NativeQuizVideoBuilder
         });
 
         timeline.Validate();
-        var quizJson = WriteQuizProject(projectFolder, questions, options);
+        var quizJson = WriteQuizProject(projectFolder, questions, options, narrationByQuestion);
         var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["title"] = safeTitle,
@@ -281,6 +320,23 @@ public sealed class NativeQuizVideoBuilder
             overwrite: true);
 
         return new QuizVideoBuildResult(projectFolder, quizJson, timeline, resolve);
+    }
+
+    private static void ValidateNarrationAssets(
+        IReadOnlyList<QuizQuestion> questions,
+        IReadOnlyDictionary<int, QuizNarrationAsset> narrationByQuestion)
+    {
+        var questionIds = questions.Select(question => question.Id).ToHashSet();
+        foreach (var pair in narrationByQuestion)
+        {
+            if (!questionIds.Contains(pair.Key) || pair.Value.QuestionId != pair.Key)
+                throw new ArgumentException($"Quiz narration references unknown question #{pair.Key}.", nameof(narrationByQuestion));
+            if (pair.Value.Duration <= 0 || double.IsNaN(pair.Value.Duration) || double.IsInfinity(pair.Value.Duration))
+                throw new ArgumentException($"Quiz narration for question #{pair.Key} has an invalid duration.", nameof(narrationByQuestion));
+            var path = Path.GetFullPath(pair.Value.Path);
+            if (!File.Exists(path))
+                throw new FileNotFoundException($"Quiz narration was not found for question #{pair.Key}.", path);
+        }
     }
 
     private static FrameworkElement BuildTitleCard(string title, QuizVideoBuildOptions options)
@@ -353,7 +409,8 @@ public sealed class NativeQuizVideoBuilder
         QuizVideoBuildOptions options,
         bool revealAnswer,
         int? countdownValue,
-        bool emphasizeReveal)
+        bool emphasizeReveal,
+        bool narrating)
     {
         var root = CardRoot(options);
         var page = new Grid { Margin = CardMargin(options) };
@@ -379,7 +436,9 @@ public sealed class NativeQuizVideoBuilder
             ? (emphasizeReveal ? "✓ CORRECT!" : "ANSWER")
             : countdownValue is int countdown
                 ? countdown.ToString()
-                : $"{options.QuestionSeconds} SECONDS";
+                : narrating
+                    ? "LISTEN"
+                    : $"{options.QuestionSeconds} SECONDS";
         var phase = new TextBlock
         {
             Text = phaseText,
@@ -387,7 +446,9 @@ public sealed class NativeQuizVideoBuilder
                 ? new SolidColorBrush(Color.FromRgb(134, 239, 172))
                 : countdownValue.HasValue
                     ? new SolidColorBrush(Color.FromRgb(250, 204, 21))
-                    : new SolidColorBrush(Color.FromRgb(203, 213, 225)),
+                    : narrating
+                        ? new SolidColorBrush(Color.FromRgb(196, 181, 253))
+                        : new SolidColorBrush(Color.FromRgb(203, 213, 225)),
             FontSize = countdownValue.HasValue
                 ? (options.Vertical ? 54 : 44)
                 : (options.Vertical ? 26 : 22),
@@ -461,12 +522,16 @@ public sealed class NativeQuizVideoBuilder
                         : question.Explanation)
                 : countdownValue is int footerRemaining
                     ? $"{footerRemaining} second{(footerRemaining == 1 ? "" : "s")} remaining"
-                    : "Choose A, B, C, or D",
+                    : narrating
+                        ? "Answer time starts after the narration"
+                        : "Choose A, B, C, or D",
             Foreground = revealAnswer
                 ? new SolidColorBrush(Color.FromRgb(220, 252, 231))
                 : countdownValue.HasValue
                     ? new SolidColorBrush(Color.FromRgb(254, 240, 138))
-                    : new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+                    : narrating
+                        ? new SolidColorBrush(Color.FromRgb(221, 214, 254))
+                        : new SolidColorBrush(Color.FromRgb(148, 163, 184)),
             FontSize = emphasizeReveal
                 ? (options.Vertical ? 38 : 32)
                 : (options.Vertical ? 30 : 24),
@@ -476,7 +541,7 @@ public sealed class NativeQuizVideoBuilder
             HorizontalAlignment = HorizontalAlignment.Stretch,
         });
 
-        if (!revealAnswer)
+        if (!revealAnswer && !narrating)
         {
             var timerWidth = options.Width - CardMargin(options).Left - CardMargin(options).Right;
             var timerFraction = countdownValue is int timerRemaining
@@ -619,7 +684,8 @@ public sealed class NativeQuizVideoBuilder
     private static string WriteQuizProject(
         string projectFolder,
         IReadOnlyList<QuizQuestion> questions,
-        QuizVideoBuildOptions options)
+        QuizVideoBuildOptions options,
+        IReadOnlyDictionary<int, QuizNarrationAsset> narrationByQuestion)
     {
         var path = Path.Combine(projectFolder, "quiz.json");
         var payload = new
@@ -634,18 +700,31 @@ public sealed class NativeQuizVideoBuilder
             show_countdown = options.ShowCountdown,
             countdown_seconds = options.CountdownSeconds,
             animate_answer_reveal = options.AnimateAnswerReveal,
+            narration_enabled = narrationByQuestion.Count > 0,
+            narration_total_seconds = narrationByQuestion.Values.Sum(asset => asset.Duration),
             quiz_logo = string.IsNullOrWhiteSpace(options.QuizLogoPath) ? "" : Path.GetFileName(options.QuizLogoPath),
-            questions = questions.Select((question, index) => new
+            questions = questions.Select((question, index) =>
             {
-                number = index + 1,
-                id = question.Id,
-                question = question.Question,
-                answers = question.Answers,
-                correct_index = question.CorrectIndex,
-                correct_answer = question.CorrectAnswer,
-                explanation = question.Explanation,
-                category = question.Category,
-                difficulty = question.Difficulty,
+                narrationByQuestion.TryGetValue(question.Id, out var narration);
+                return new
+                {
+                    number = index + 1,
+                    id = question.Id,
+                    question = question.Question,
+                    answers = question.Answers,
+                    correct_index = question.CorrectIndex,
+                    correct_answer = question.CorrectAnswer,
+                    explanation = question.Explanation,
+                    category = question.Category,
+                    difficulty = question.Difficulty,
+                    narration = narration is null
+                        ? null
+                        : new
+                        {
+                            file = Path.GetFileName(narration.Path),
+                            duration = narration.Duration,
+                        },
+                };
             }).ToArray(),
         };
         var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
