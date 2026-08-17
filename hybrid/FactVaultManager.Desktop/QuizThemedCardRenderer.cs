@@ -299,10 +299,19 @@ public sealed class QuizThemedCardRenderer
             TextWrapping = TextWrapping.Wrap,
             TextAlignment = TextAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Stretch,
-            Margin = new Thickness(0, 0, 0, options.Vertical ? 42 : 24),
         };
-        Grid.SetRow(questionText, 2);
-        page.Children.Add(questionText);
+        var questionPanel = new Border
+        {
+            Background = Brush(Color.FromArgb(210, theme.Panel.R, theme.Panel.G, theme.Panel.B)),
+            BorderBrush = Brush(Color.FromArgb(105, theme.Accent.R, theme.Accent.G, theme.Accent.B)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(options.Vertical ? 24 : 18),
+            Padding = new Thickness(options.Vertical ? 30 : 26, options.Vertical ? 26 : 20, options.Vertical ? 30 : 26, options.Vertical ? 26 : 20),
+            Margin = new Thickness(0, 0, 0, options.Vertical ? 42 : 24),
+            Child = questionText,
+        };
+        Grid.SetRow(questionPanel, 2);
+        page.Children.Add(questionPanel);
 
         var answers = new StackPanel
         {
@@ -392,9 +401,17 @@ public sealed class QuizThemedCardRenderer
     {
         var background = correct ? theme.Correct : theme.Panel;
         var borderColor = correct ? theme.CorrectBorder : theme.PanelBorder;
+        var backgroundBrush = new LinearGradientBrush(
+            new GradientStopCollection
+            {
+                new(background, 0),
+                new(Blend(background, correct ? theme.CorrectBorder : theme.Accent, correct ? 0.12 : 0.06), 1),
+            },
+            new Point(0, 0),
+            new Point(1, 1));
         var row = new Border
         {
-            Background = Brush(background),
+            Background = backgroundBrush,
             BorderBrush = Brush(borderColor),
             BorderThickness = new Thickness(emphasized ? 6 : correct ? 3 : 1),
             CornerRadius = new CornerRadius(options.Vertical ? 18 : 14),
@@ -427,12 +444,26 @@ public sealed class QuizThemedCardRenderer
         return row;
     }
 
-    private static Border CardRoot(QuizVideoBuildOptions options, QuizVisualTheme theme) => new()
+    private static Border CardRoot(QuizVideoBuildOptions options, QuizVisualTheme theme)
     {
-        Width = options.Width,
-        Height = options.Height,
-        Background = Brush(theme.Background),
-    };
+        var gradient = new LinearGradientBrush(
+            new GradientStopCollection
+            {
+                new(Blend(theme.Background, theme.Accent, 0.16), 0),
+                new(theme.Background, 0.48),
+                new(Blend(theme.Background, Colors.Black, 0.28), 1),
+            },
+            new Point(0, 0),
+            new Point(1, 1));
+        return new Border
+        {
+            Width = options.Width,
+            Height = options.Height,
+            Background = gradient,
+            BorderBrush = Brush(Color.FromArgb(85, theme.Accent.R, theme.Accent.G, theme.Accent.B)),
+            BorderThickness = new Thickness(options.Vertical ? 10 : 7),
+        };
+    }
 
     private static FrameworkElement WithQuizLogo(
         FrameworkElement content,
@@ -477,6 +508,16 @@ public sealed class QuizThemedCardRenderer
     private static Thickness CardMargin(QuizVideoBuildOptions options) => options.Vertical
         ? new Thickness(76, 110, 76, 110)
         : new Thickness(120, 66, 120, 66);
+
+    private static Color Blend(Color left, Color right, double amount)
+    {
+        amount = Math.Clamp(amount, 0, 1);
+        return Color.FromArgb(
+            255,
+            (byte)Math.Round(left.R + ((right.R - left.R) * amount)),
+            (byte)Math.Round(left.G + ((right.G - left.G) * amount)),
+            (byte)Math.Round(left.B + ((right.B - left.B) * amount)));
+    }
 
     private static SolidColorBrush Brush(Color color) => new(color);
 
