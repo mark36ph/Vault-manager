@@ -27,20 +27,7 @@ public partial class MainShellWindow
             return;
 
         _quizExportWorkflowInitialized = true;
-        var exportRow = draft.RowDefinitions.Count;
-        draft.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-        var exportPanel = new Border
-        {
-            Background = new SolidColorBrush(Color.FromRgb(248, 249, 251)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(228, 231, 236)),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(7),
-            Padding = new Thickness(10),
-            Margin = new Thickness(0, 10, 0, 0),
-        };
-        Grid.SetRow(exportPanel, exportRow);
-        draft.Children.Add(exportPanel);
+        var exportPanel = AddQuizBuilderSectionCard(draft);
 
         var layout = new Grid();
         for (var row = 0; row < 7; row++)
