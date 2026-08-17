@@ -15,6 +15,7 @@ public static class QuizVisualExportRewriter
         options.Validate();
         build.Timeline.Validate();
 
+        var finalized = QuizExportProjectFinalizer.Prepare(build);
         var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["title"] = options.Title,
@@ -24,14 +25,14 @@ public static class QuizVisualExportRewriter
         };
         var resolve = new NativeResolveFreeExportService().Export(
             build.Timeline,
-            build.ProjectFolder,
+            finalized.ProjectFolder,
             metadata,
             strict: true,
             overwrite: true);
 
         return new QuizVideoBuildResult(
-            build.ProjectFolder,
-            build.QuizJson,
+            finalized.ProjectFolder,
+            finalized.QuizJson,
             build.Timeline,
             resolve);
     }
