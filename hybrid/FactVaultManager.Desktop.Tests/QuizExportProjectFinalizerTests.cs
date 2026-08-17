@@ -30,6 +30,45 @@ public sealed class QuizExportProjectFinalizerTests
     }
 
     [Fact]
+    public void Prepare_RebasesAudioClipsAddedBeforeFinalFolderMove()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"quiz-finalize-{Guid.NewGuid():N}");
+        try
+        {
+            var build = CreateBuild(root, "Quiz With Audio");
+            var audioFolder = Path.Combine(build.ProjectFolder, "Audio");
+            Directory.CreateDirectory(audioFolder);
+            var tick = Path.Combine(audioFolder, "countdown_tick.wav");
+            File.WriteAllBytes(tick, new byte[] { 1, 2, 3, 4 });
+            var audioTrack = build.Timeline.AddTrack(new NativeTimelineTrack
+            {
+                Name = "Quiz SFX",
+                Kind = NativeTimelineTrackKind.Audio,
+            });
+            audioTrack.AddClip(new NativeTimelineClip
+            {
+                Kind = NativeTimelineClipKind.Audio,
+                Start = 0,
+                Duration = 0.14,
+                Source = tick,
+                Name = "Countdown Tick",
+            });
+
+            var finalized = QuizExportProjectFinalizer.Prepare(build);
+
+            var audioSource = audioTrack.Clips.Single().Source!;
+            Assert.StartsWith(finalized.ProjectFolder, audioSource, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal("countdown_tick.wav", Path.GetFileName(audioSource));
+            Assert.True(File.Exists(audioSource));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Prepare_AllocatesNextFolderInsteadOfReusingPreviousExport()
     {
         var root = Path.Combine(Path.GetTempPath(), $"quiz-finalize-{Guid.NewGuid():N}");
