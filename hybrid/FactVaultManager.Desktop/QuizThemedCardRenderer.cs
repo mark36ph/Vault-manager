@@ -288,12 +288,14 @@ public sealed class QuizThemedCardRenderer
         });
 
         var phaseText = revealAnswer
-            ? (emphasizeReveal ? "✓ CORRECT!" : "ANSWER")
+            ? "✓ CORRECT ANSWER"
             : countdownValue is int countdown
                 ? countdown.ToString()
                 : narrating
                     ? "LISTEN"
-                    : $"{options.QuestionSeconds} SECONDS";
+                    : options.ShowCountdown
+                        ? ""
+                        : $"{options.QuestionSeconds} SECONDS";
         var phaseColor = revealAnswer
             ? theme.CorrectBorder
             : countdownValue.HasValue
@@ -375,11 +377,9 @@ public sealed class QuizThemedCardRenderer
 
         var footer = new StackPanel { Margin = new Thickness(0, options.Vertical ? 28 : 16, 0, 0) };
         var footerText = revealAnswer
-            ? emphasizeReveal
-                ? $"{question.CorrectLetter}. {question.CorrectAnswer}"
-                : (string.IsNullOrWhiteSpace(question.Explanation)
-                    ? $"Correct answer: {question.CorrectLetter}. {question.CorrectAnswer}"
-                    : question.Explanation)
+            ? emphasizeReveal || string.IsNullOrWhiteSpace(question.Explanation)
+                ? $"Correct answer: {question.CorrectLetter}. {question.CorrectAnswer}"
+                : question.Explanation
             : countdownValue is int footerRemaining
                 ? $"{footerRemaining} second{(footerRemaining == 1 ? "" : "s")} remaining"
                 : narrating
