@@ -1,5 +1,16 @@
 namespace FactVaultManager.Desktop;
 
+public sealed class QuizHistoryFolderCleanupException : IOException
+{
+    public QuizHistoryFolderCleanupException(string projectFolder, Exception inner)
+        : base($"The quiz was removed from Quiz History, but Windows would not delete its export folder:\n{projectFolder}\n\nClose DaVinci Resolve or File Explorer windows using that folder, then delete the folder manually.", inner)
+    {
+        ProjectFolder = projectFolder;
+    }
+
+    public string ProjectFolder { get; }
+}
+
 public sealed partial class DesktopDataService
 {
     public bool DeleteQuizHistory(int historyId, bool deleteFolder = true)
@@ -26,15 +37,9 @@ public sealed partial class DesktopDataService
             projectFolder = Convert.ToString(value)?.Trim() ?? "";
         }
 
-        string? stagedFolder = null;
+        string? safeFolder = null;
         if (deleteFolder && !string.IsNullOrWhiteSpace(projectFolder) && Directory.Exists(projectFolder))
-        {
-            var safeFolder = ProjectPathSecurity.EnsureContained(GetProjectsRoot(), projectFolder);
-            var parent = Path.GetDirectoryName(safeFolder)
-                ?? throw new InvalidOperationException("Quiz export folder has no parent folder.");
-            stagedFolder = Path.Combine(parent, $".{Path.GetFileName(safeFolder)}.deleting-{Guid.NewGuid():N}");
-            Directory.Move(safeFolder, stagedFolder);
-        }
+            safeFolder = ProjectPathSecurity.EnsureContained(GetProjectsRoot(), projectFolder);
 
         try
         {
@@ -77,7 +82,6 @@ public sealed partial class DesktopDataService
             if (deleted == 0)
             {
                 transaction.Rollback();
-                RestoreStagedQuizFolder(stagedFolder, projectFolder);
                 return false;
             }
 
@@ -105,20 +109,33 @@ public sealed partial class DesktopDataService
         catch
         {
             try { transaction.Rollback(); } catch { }
-            RestoreStagedQuizFolder(stagedFolder, projectFolder);
             throw;
         }
 
-        if (stagedFolder is not null && Directory.Exists(stagedFolder))
-            Directory.Delete(stagedFolder, recursive: true);
+        if (safeFolder is not null && Directory.Exists(safeFolder))
+        {
+            try
+            {
+                ClearReadOnlyAttributes(safeFolder);
+                Directory.Delete(safeFolder, recursive: true);
+            }
+            catch (Exception error) when (error is UnauthorizedAccessException or IOException)
+            {
+                throw new QuizHistoryFolderCleanupException(safeFolder, error);
+            }
+        }
 
         return true;
     }
 
-    private static void RestoreStagedQuizFolder(string? stagedFolder, string projectFolder)
+    private static void ClearReadOnlyAttributes(string folder)
     {
-        if (string.IsNullOrWhiteSpace(stagedFolder) || !Directory.Exists(stagedFolder) || Directory.Exists(projectFolder))
-            return;
-        Directory.Move(stagedFolder, projectFolder);
+        foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories))
+            File.SetAttributes(file, File.GetAttributes(file) & ~FileAttributes.ReadOnly);
+
+        foreach (var directory in Directory.EnumerateDirectories(folder, "*", SearchOption.AllDirectories))
+            File.SetAttributes(directory, File.GetAttributes(directory) & ~FileAttributes.ReadOnly);
+
+        File.SetAttributes(folder, File.GetAttributes(folder) & ~FileAttributes.ReadOnly);
     }
 }
