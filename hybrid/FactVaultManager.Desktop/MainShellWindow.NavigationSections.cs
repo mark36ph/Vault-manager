@@ -33,71 +33,35 @@ public partial class MainShellWindow
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _quizHistoryTabIndex.ToString(), StringComparison.Ordinal));
 
         if (dashboard?.Parent is not StackPanel navigation ||
-            projects is null || production is null || media is null || assetReview is null ||
+            projects is null || production is null || media is null ||
             settings is null || quizzes is null || questions is null || quizHistory is null)
         {
             return;
         }
 
         _navigationSectionsApplied = true;
-        var known = new HashSet<Button>
-        {
-            dashboard, projects, production, media, assetReview, settings, quizzes, questions, quizHistory,
-        };
-        var extraButtons = navigation.Children
-            .OfType<Button>()
-            .Where(button => !known.Contains(button))
-            .ToArray();
 
         navigation.Children.Clear();
-
-        AddNavigationSectionLabel(navigation, "OVERVIEW");
         navigation.Children.Add(dashboard);
-
-        navigation.Children.Add(NavigationDivider());
-        AddNavigationSectionLabel(navigation, "FACTS");
         navigation.Children.Add(projects);
         navigation.Children.Add(production);
         navigation.Children.Add(media);
-        navigation.Children.Add(assetReview);
 
-        navigation.Children.Add(NavigationDivider());
-        AddNavigationSectionLabel(navigation, "QUIZZES");
+        navigation.Children.Add(NavigationSpacer());
         navigation.Children.Add(quizzes);
         navigation.Children.Add(questions);
         navigation.Children.Add(quizHistory);
 
-        if (extraButtons.Length > 0)
-        {
-            navigation.Children.Add(NavigationDivider());
-            AddNavigationSectionLabel(navigation, "OTHER");
-            foreach (var extra in extraButtons)
-                navigation.Children.Add(extra);
-        }
-
-        navigation.Children.Add(NavigationDivider());
-        AddNavigationSectionLabel(navigation, "SYSTEM");
+        navigation.Children.Add(NavigationSpacer());
         navigation.Children.Add(settings);
 
         ApplyNavigationSelection(MainTabs.SelectedIndex);
     }
 
-    private static void AddNavigationSectionLabel(Panel parent, string text)
-    {
-        parent.Children.Add(new TextBlock
-        {
-            Text = text,
-            Foreground = new SolidColorBrush(Color.FromRgb(119, 119, 119)),
-            FontSize = 10,
-            FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(16, 4, 0, 7),
-        });
-    }
-
-    private static Border NavigationDivider() => new()
+    private static Border NavigationSpacer() => new()
     {
         Height = 1,
         Background = new SolidColorBrush(Color.FromRgb(225, 225, 225)),
-        Margin = new Thickness(12, 10, 12, 8),
+        Margin = new Thickness(12, 13, 12, 12),
     };
 }
