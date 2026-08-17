@@ -235,7 +235,7 @@ public sealed class QuizThemedCardRenderer
         };
         content.Children.Add(new TextBlock
         {
-            Text = "Like this quiz? Subscribe for more!",
+            Text = "👍  Like this quiz? Subscribe for more!",
             Foreground = Brush(theme.Text),
             FontSize = options.Vertical ? 64 : 60,
             FontWeight = FontWeights.Bold,
