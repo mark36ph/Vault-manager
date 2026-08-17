@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+
 namespace FactVaultManager.Desktop;
 
 public sealed record QuizFinalizedProject(string ProjectFolder, string QuizJson);
@@ -57,15 +60,24 @@ public static class QuizExportProjectFinalizer
         if (!File.Exists(path))
             throw new FileNotFoundException("Quiz still image was not found after finalizing the export folder.", path);
 
-        var fileName = Path.GetFileName(path);
-        if (fileName.Length == 0 || !char.IsDigit(fileName[0]))
+        var extension = Path.GetExtension(path);
+        var token = AlphabeticToken(path);
+        var destination = Path.Combine(Path.GetDirectoryName(path)!, $"quizcard_{token}{extension}");
+        if (string.Equals(path, destination, StringComparison.OrdinalIgnoreCase))
             return path;
-
-        var destination = Path.Combine(Path.GetDirectoryName(path)!, $"still_{fileName}");
         if (File.Exists(destination))
             File.Delete(destination);
         File.Move(path, destination);
         return destination;
+    }
+
+    private static string AlphabeticToken(string value)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(value));
+        var characters = new char[12];
+        for (var index = 0; index < characters.Length; index++)
+            characters[index] = (char)('a' + (hash[index] % 26));
+        return new string(characters);
     }
 
     private static string RebaseContainedPath(string oldRoot, string newRoot, string path)
