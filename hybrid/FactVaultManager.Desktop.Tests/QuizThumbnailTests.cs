@@ -27,27 +27,71 @@ public sealed class QuizThumbnailTests
     }
 
     [Fact]
-    public void Checklist_OnlyMarksUploadPackageCompleteAfterExport()
+    public void Renderer_UsesPortablePngFileName()
+    {
+        Assert.Equal("Thumbnail.png", QuizThumbnailRenderer.FileName);
+        Assert.Equal(1280, QuizThumbnailRenderer.Width);
+        Assert.Equal(720, QuizThumbnailRenderer.Height);
+    }
+
+    [Fact]
+    public void Checklist_ShowsRequestedPublishingItemsAndPostExportStates()
     {
         var beforeExport = QuizPublishChecklist.Evaluate(
             draftQuestionCount: 10,
-            metadataReady: true,
+            youtubeTitleReady: true,
+            descriptionReady: true,
+            hashtagsReady: true,
+            pinnedCommentReady: true,
             thumbnailReady: true,
-            preflightReady: true,
-            exportSettingsReady: true,
-            exportCompleted: false);
+            resolveExportReady: false,
+            historyRecorded: false);
         var afterExport = QuizPublishChecklist.Evaluate(
             draftQuestionCount: 10,
-            metadataReady: true,
+            youtubeTitleReady: true,
+            descriptionReady: true,
+            hashtagsReady: true,
+            pinnedCommentReady: true,
             thumbnailReady: true,
-            preflightReady: true,
-            exportSettingsReady: true,
-            exportCompleted: true);
+            resolveExportReady: true,
+            historyRecorded: true);
 
-        Assert.True(beforeExport.Take(5).All(item => item.IsComplete));
-        Assert.False(beforeExport[^1].IsComplete);
+        Assert.Equal(
+            [
+                "Quiz draft",
+                "YouTube title",
+                "Description",
+                "Hashtags",
+                "Pinned comment",
+                "Thumbnail",
+                "Resolve export",
+                "Quiz History entry",
+            ],
+            beforeExport.Select(item => item.Label).ToArray());
+        Assert.True(beforeExport.Take(6).All(item => item.IsComplete));
+        Assert.False(beforeExport[6].IsComplete);
+        Assert.False(beforeExport[7].IsComplete);
         Assert.True(afterExport.All(item => item.IsComplete));
-        Assert.Contains("Upload package", QuizPublishChecklist.Format(afterExport));
+        Assert.Contains("Quiz History entry", QuizPublishChecklist.Format(afterExport));
+    }
+
+    [Fact]
+    public void Checklist_TracksMetadataFieldsIndependently()
+    {
+        var items = QuizPublishChecklist.Evaluate(
+            draftQuestionCount: 10,
+            youtubeTitleReady: true,
+            descriptionReady: false,
+            hashtagsReady: true,
+            pinnedCommentReady: false,
+            thumbnailReady: true,
+            resolveExportReady: false,
+            historyRecorded: false);
+
+        Assert.True(items.Single(item => item.Label == "YouTube title").IsComplete);
+        Assert.False(items.Single(item => item.Label == "Description").IsComplete);
+        Assert.True(items.Single(item => item.Label == "Hashtags").IsComplete);
+        Assert.False(items.Single(item => item.Label == "Pinned comment").IsComplete);
     }
 
     private static QuizQuestion Question(int id) => new(
