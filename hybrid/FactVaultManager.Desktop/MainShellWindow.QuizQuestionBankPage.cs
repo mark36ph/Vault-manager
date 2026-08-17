@@ -65,6 +65,7 @@ public partial class MainShellWindow
         workspace.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         UpdateQuizBuilderCopy();
+        MakeQuizBuilderScrollable();
         RenameQuestionBankCardHeading(bankCard);
         ConfigureStandaloneQuestionBank(bankCard);
         if (_quizBankTabs is not null)
@@ -104,6 +105,24 @@ public partial class MainShellWindow
         }
 
         return null;
+    }
+
+    private void MakeQuizBuilderScrollable()
+    {
+        if (_quizTabIndex < 0 || _quizTabIndex >= MainTabs.Items.Count || MainTabs.Items[_quizTabIndex] is not TabItem quizTab)
+            return;
+        if (quizTab.Content is ScrollViewer)
+            return;
+        if (quizTab.Content is not FrameworkElement content)
+            return;
+
+        quizTab.Content = null;
+        quizTab.Content = new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            Content = content,
+        };
     }
 
     private FrameworkElement BuildStandaloneQuestionBankPage(Border bankCard)
