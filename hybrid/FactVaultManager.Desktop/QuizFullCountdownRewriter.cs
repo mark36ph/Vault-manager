@@ -85,8 +85,7 @@ public static class QuizFullCountdownRewriter
         var badge = new Border
         {
             Background = new SolidColorBrush(Color.FromArgb(248, 15, 23, 42)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(250, 204, 21)),
-            BorderThickness = new Thickness(options.Vertical ? 3 : 2),
+            BorderThickness = new Thickness(0),
             CornerRadius = new CornerRadius(options.Vertical ? 18 : 14),
             Width = options.Vertical ? 240 : 190,
             Height = options.Vertical ? 82 : 64,
