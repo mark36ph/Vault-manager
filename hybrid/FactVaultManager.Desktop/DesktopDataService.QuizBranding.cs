@@ -7,11 +7,26 @@ public sealed partial class DesktopDataService
 {
     public string LoadQuizLogoPath() => QuizBranding.LoadLogoPath(_settingsPath, _runtimeRoot);
 
-    public void SaveQuizLogoPath(string? path) => QuizBranding.SaveLogoPath(_settingsPath, path);
+    public void SaveQuizLogoPath(string? path)
+    {
+        var sourcePath = (path ?? "").Trim();
+        if (sourcePath.Length == 0)
+        {
+            QuizBranding.SaveLogoPath(_settingsPath, "");
+            return;
+        }
+
+        sourcePath = QuizBranding.ValidateLogoPath(sourcePath);
+        var managedPath = QuizBranding.ImportLogo(sourcePath, _dataRoot);
+        QuizBranding.RegisterManagedAlias(sourcePath, managedPath);
+        QuizBranding.SaveLogoPath(_settingsPath, managedPath);
+    }
 
     public string ImportQuizLogo(string sourcePath)
     {
+        sourcePath = QuizBranding.ValidateLogoPath(sourcePath);
         var managedPath = QuizBranding.ImportLogo(sourcePath, _dataRoot);
+        QuizBranding.RegisterManagedAlias(sourcePath, managedPath);
         QuizBranding.SaveLogoPath(_settingsPath, managedPath);
         return managedPath;
     }
@@ -23,6 +38,8 @@ public static class QuizBranding
     {
         ".png", ".jpg", ".jpeg", ".bmp",
     };
+    private static readonly object ManagedAliasLock = new();
+    private static readonly Dictionary<string, string> ManagedAliases = new(StringComparer.OrdinalIgnoreCase);
 
     public static string LoadLogoPath(string settingsPath, string runtimeRoot)
     {
@@ -100,6 +117,14 @@ public static class QuizBranding
         return destination;
     }
 
+    internal static void RegisterManagedAlias(string sourcePath, string managedPath)
+    {
+        var source = Path.GetFullPath(sourcePath);
+        var managed = Path.GetFullPath(managedPath);
+        lock (ManagedAliasLock)
+            ManagedAliases[source] = managed;
+    }
+
     public static string ValidateLogoPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -107,7 +132,14 @@ public static class QuizBranding
 
         var fullPath = Path.GetFullPath(path.Trim());
         if (!File.Exists(fullPath))
+        {
+            string? managedPath;
+            lock (ManagedAliasLock)
+                ManagedAliases.TryGetValue(fullPath, out managedPath);
+            if (!string.IsNullOrWhiteSpace(managedPath) && File.Exists(managedPath))
+                return managedPath;
             throw new FileNotFoundException("Quiz logo file was not found.", fullPath);
+        }
         if (!SupportedLogoExtensions.Contains(Path.GetExtension(fullPath)))
             throw new InvalidDataException("Quiz logo must be a PNG, JPG, JPEG, or BMP image.");
         return fullPath;
