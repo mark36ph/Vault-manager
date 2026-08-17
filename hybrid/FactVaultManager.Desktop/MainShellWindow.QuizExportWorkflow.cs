@@ -58,6 +58,7 @@ public partial class MainShellWindow
         _quizTitleTextBox.TextChanged += (_, _) =>
         {
             InvalidateQuizThumbnailPreview();
+            InvalidateQuizPublishingExportCompletion();
             UpdateQuizPublishingChecklist();
         };
         controls.Children.Add(_quizTitleTextBox);
@@ -69,6 +70,7 @@ public partial class MainShellWindow
         _quizFormatComboBox.SelectionChanged += (_, _) =>
         {
             InvalidateQuizThumbnailPreview();
+            InvalidateQuizPublishingExportCompletion();
             UpdateQuizPublishingChecklist();
         };
         Grid.SetColumn(_quizFormatComboBox, 2);
@@ -130,6 +132,7 @@ public partial class MainShellWindow
             _quizLogoPathTextBox.Clear();
             _data.SaveQuizLogoPath("");
             InvalidateQuizThumbnailPreview();
+            InvalidateQuizPublishingExportCompletion();
             UpdateQuizPublishingChecklist();
         };
         Grid.SetColumn(clearLogo, 6);
@@ -363,6 +366,7 @@ public partial class MainShellWindow
             if (_quizLogoPathTextBox is not null)
                 _quizLogoPathTextBox.Text = path;
             InvalidateQuizThumbnailPreview();
+            InvalidateQuizPublishingExportCompletion();
             UpdateQuizPublishingChecklist();
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = $"Quiz logo selected: {System.IO.Path.GetFileName(path)}";
@@ -415,6 +419,8 @@ public partial class MainShellWindow
 
             if (exportButton is not null)
                 exportButton.IsEnabled = false;
+            InvalidateQuizPublishingExportCompletion();
+            UpdateQuizPublishingChecklist();
 
             var title = ProjectPathSecurity.ValidateSegment(_quizTitleTextBox.Text, "Quiz title");
             var vertical = _quizFormatComboBox.SelectedIndex == 1;
@@ -575,7 +581,7 @@ public partial class MainShellWindow
                 logoPath);
             QuizPublishMetadataFiles.Write(result.ProjectFolder, publishing);
 
-            _data.RecordQuizExport(
+            var historyId = _data.RecordQuizExport(
                 title,
                 _quizDraftQuestions,
                 vertical,
@@ -583,7 +589,11 @@ public partial class MainShellWindow
                 shuffleAnswers,
                 result.ProjectFolder,
                 publishing);
-            MarkQuizPublishingExportComplete(result.ProjectFolder, thumbnailPath);
+            MarkQuizPublishingExportComplete(
+                result.ProjectFolder,
+                thumbnailPath,
+                result.ResolveExport.FcpXml.Path,
+                historyId);
             RefreshQuizBank();
             RefreshQuizDraftUsageCounts();
             RefreshQuizHistory();
@@ -609,7 +619,7 @@ public partial class MainShellWindow
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Resolve quiz export created with thumbnail and publishing metadata, then added to Quiz History";
             if (_quizPublishingStatusText is not null)
-                _quizPublishingStatusText.Text = $"Upload package ready for {publishing.SeriesName} {publishing.EpisodeLabel}: Resolve project, metadata and Thumbnail.jpg are in the quiz export folder.";
+                _quizPublishingStatusText.Text = $"Upload package ready for {publishing.SeriesName} {publishing.EpisodeLabel}: Resolve project, metadata and Thumbnail.png are in the quiz export folder.";
 
             MessageBox.Show(
                 this,
