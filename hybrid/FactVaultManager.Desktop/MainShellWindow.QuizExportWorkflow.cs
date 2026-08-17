@@ -437,6 +437,31 @@ public partial class MainShellWindow
                 QuizLogoPath: logoPath,
                 ShowCountdown: showCountdown,
                 AnimateAnswerReveal: animateReveal);
+            var visual = CurrentQuizVisualSettings();
+
+            var preflight = QuizPreflight.Analyze(exportQuestions, options);
+            var preflightErrors = preflight.Where(issue => issue.Severity == QuizPreflightSeverity.Error).ToList();
+            if (preflightErrors.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    "Quiz preflight failed:\n\n" +
+                    string.Join("\n", preflightErrors.Select(issue => "• " + issue.Message)));
+            }
+            var preflightWarnings = preflight.Where(issue => issue.Severity == QuizPreflightSeverity.Warning).ToList();
+            if (preflightWarnings.Count > 0)
+            {
+                var warningText = string.Join("\n", preflightWarnings.Take(8).Select(issue => "• " + issue.Message));
+                if (preflightWarnings.Count > 8)
+                    warningText += $"\n• …and {preflightWarnings.Count - 8} more warning(s).";
+                var continueExport = MessageBox.Show(
+                    this,
+                    $"Preflight found {preflightWarnings.Count} layout warning(s):\n\n{warningText}\n\nContinue with the Resolve export?",
+                    "Quiz Preflight",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+                if (continueExport != MessageBoxResult.Yes)
+                    return;
+            }
 
             var quizFolder = ProjectPathSecurity.CombineContained(settings.ProjectsFolder, "Quizzes", title);
             var voiceFolder = ProjectPathSecurity.CombineContained(settings.ProjectsFolder, "Quizzes", title, "Voice");
@@ -506,6 +531,13 @@ public partial class MainShellWindow
                 options,
                 settings.ProjectsFolder,
                 narrationByQuestion);
+            new QuizThemedCardRenderer().OverwriteCards(
+                result.ProjectFolder,
+                exportQuestions,
+                options,
+                narrationByQuestion,
+                visual);
+            result = QuizVisualExportRewriter.ReExport(result, exportQuestions, options);
             result = QuizAudioTimelineAugmenter.ApplyAndReExport(
                 result,
                 exportQuestions,
@@ -526,6 +558,7 @@ public partial class MainShellWindow
             RefreshQuizBank();
             RefreshQuizDraftUsageCounts();
             RefreshQuizHistory();
+            RefreshQuizPreview();
 
             if (_quizDraftStatusText is not null)
             {
@@ -540,14 +573,15 @@ public partial class MainShellWindow
                 var musicStatus = backgroundMusic is null
                     ? "music off"
                     : backgroundMusic.DuckedForNarration ? "music on, ducking on" : "music on";
-                _quizDraftStatusText.Text = $"Resolve quiz ready • {_quizDraftQuestions.Count} questions • {seconds} sec answer time • {answerStatus} • {presentationStatus} • {narrationStatus} • {sfxStatus} • {musicStatus} • {brandingStatus} • saved to Quiz History • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
+                var themeStatus = QuizVisualThemeCatalog.Resolve(visual.ThemeKey).DisplayName;
+                _quizDraftStatusText.Text = $"Resolve quiz ready • {_quizDraftQuestions.Count} questions • {seconds} sec answer time • {answerStatus} • {themeStatus} theme • {presentationStatus} • {narrationStatus} • {sfxStatus} • {musicStatus} • {brandingStatus} • saved to Quiz History • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
             }
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Resolve quiz export created and added to Quiz History";
 
             MessageBox.Show(
                 this,
-                $"Quiz export created.\n\nFCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nAnswer positions: {(shuffleAnswers ? "Shuffled for this export" : "Original bank order")}\nCountdown: {(showCountdown ? "3-2-1 enabled" : "Off")}\nCountdown ticks: {(countdownTicks ? "Enabled" : "Off")}\nAnswer reveal pulse: {(animateReveal ? "Enabled" : "Off")}\nCorrect-answer chime: {(answerRevealSfx ? "Enabled" : "Off")}\nOpenAI narration: {(narrate ? (narrateAnswers ? $"{selectedVoice} • question + answer choices" : $"{selectedVoice} • question only") : "Off")}\nBackground music: {(backgroundMusic is null ? "Off" : backgroundMusic.DuckedForNarration ? "Enabled • narration ducking on" : "Enabled")}\nQuiz logo: {(logoPath.Length == 0 ? "None" : System.IO.Path.GetFileName(logoPath))}\nQuiz History: recorded\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
+                $"Quiz export created.\n\nFCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nTheme: {QuizVisualThemeCatalog.Resolve(visual.ThemeKey).DisplayName}\nLogo position: {visual.LogoPosition}\nLogo size: {visual.LogoScale * 100:0}%\nAnswer positions: {(shuffleAnswers ? "Shuffled for this export" : "Original bank order")}\nCountdown: {(showCountdown ? "3-2-1 enabled" : "Off")}\nCountdown ticks: {(countdownTicks ? "Enabled" : "Off")}\nAnswer reveal pulse: {(animateReveal ? "Enabled" : "Off")}\nCorrect-answer chime: {(answerRevealSfx ? "Enabled" : "Off")}\nOpenAI narration: {(narrate ? (narrateAnswers ? $"{selectedVoice} • question + answer choices" : $"{selectedVoice} • question only") : "Off")}\nBackground music: {(backgroundMusic is null ? "Off" : backgroundMusic.DuckedForNarration ? "Enabled • narration ducking on" : "Enabled")}\nQuiz logo: {(logoPath.Length == 0 ? "None" : System.IO.Path.GetFileName(logoPath))}\nQuiz History: recorded\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
                 "Quiz Resolve Export",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
