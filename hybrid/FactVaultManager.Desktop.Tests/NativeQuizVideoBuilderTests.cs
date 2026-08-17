@@ -32,6 +32,14 @@ public sealed class NativeQuizVideoBuilderTests
     }
 
     [Fact]
+    public void EstimatedDuration_AddsNarrationBeforeAnswerTime()
+    {
+        var options = new QuizVideoBuildOptions("Quiz", QuestionSeconds: 8, AnswerSeconds: 3);
+
+        Assert.Equal(20.25, options.EstimatedDuration(1, narrationSeconds: 5.25));
+    }
+
+    [Fact]
     public void Countdown_DefaultsToFinalThreeSeconds()
     {
         var options = new QuizVideoBuildOptions("Quiz", QuestionSeconds: 8);
@@ -64,6 +72,23 @@ public sealed class NativeQuizVideoBuilderTests
 
         Assert.Equal(0.5, enabled.RevealEmphasisSeconds);
         Assert.Equal(0, disabled.RevealEmphasisSeconds);
+    }
+
+    [Fact]
+    public void NarrationScript_QuestionOnly_DoesNotReadChoices()
+    {
+        var script = QuizNarrationScript.Create(Question(), includeAnswers: false);
+
+        Assert.Equal("Which planet is largest?", script);
+        Assert.DoesNotContain("Jupiter", script, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NarrationScript_WithChoices_ReadsLettersInBankOrder()
+    {
+        var script = QuizNarrationScript.Create(Question(), includeAnswers: true);
+
+        Assert.Equal("Which planet is largest? A. Earth. B. Mars. C. Jupiter. D. Venus.", script);
     }
 
     [Theory]
@@ -107,4 +132,18 @@ public sealed class NativeQuizVideoBuilderTests
             File.Delete(path);
         }
     }
+
+    private static QuizQuestion Question() => new(
+        1,
+        "Which planet is largest?",
+        "Earth",
+        "Mars",
+        "Jupiter",
+        "Venus",
+        2,
+        "Jupiter is the largest planet.",
+        "Space",
+        "easy",
+        "Test",
+        0);
 }
