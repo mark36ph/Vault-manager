@@ -13,6 +13,8 @@ public partial class MainShellWindow
     private TextBox? _quizLogoPathTextBox;
     private CheckBox? _quizCountdownCheckBox;
     private CheckBox? _quizRevealAnimationCheckBox;
+    private CheckBox? _quizNarrationCheckBox;
+    private CheckBox? _quizNarrateAnswersCheckBox;
 
     private void InitializeQuizExportWorkflow()
     {
@@ -36,6 +38,7 @@ public partial class MainShellWindow
         draft.Children.Add(exportPanel);
 
         var layout = new Grid();
+        layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         layout.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -167,6 +170,53 @@ public partial class MainShellWindow
             ToolTip = "Show a short highlighted CORRECT reveal before the explanation card.",
         };
         presentation.Children.Add(_quizRevealAnimationCheckBox);
+
+        var audio = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(0, 10, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetRow(audio, 4);
+        layout.Children.Add(audio);
+        audio.Children.Add(new TextBlock
+        {
+            Text = "Audio",
+            FontWeight = FontWeights.SemiBold,
+            Foreground = QuizMutedBrush(),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 14, 0),
+        });
+
+        _quizNarrationCheckBox = new CheckBox
+        {
+            Content = "OpenAI narration",
+            IsChecked = false,
+            VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = "Use the OpenAI API key saved in Settings to narrate each question. Narration is cached in the quiz Voice folder.",
+            Margin = new Thickness(0, 0, 18, 0),
+        };
+        audio.Children.Add(_quizNarrationCheckBox);
+
+        _quizNarrateAnswersCheckBox = new CheckBox
+        {
+            Content = "Read A/B/C/D choices",
+            IsChecked = true,
+            IsEnabled = false,
+            VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = "When narration is enabled, read all four answer choices after the question.",
+        };
+        audio.Children.Add(_quizNarrateAnswersCheckBox);
+        _quizNarrationCheckBox.Checked += (_, _) =>
+        {
+            if (_quizNarrateAnswersCheckBox is not null)
+                _quizNarrateAnswersCheckBox.IsEnabled = true;
+        };
+        _quizNarrationCheckBox.Unchecked += (_, _) =>
+        {
+            if (_quizNarrateAnswersCheckBox is not null)
+                _quizNarrateAnswersCheckBox.IsEnabled = false;
+        };
     }
 
     private void BrowseQuizLogo_Click(object sender, RoutedEventArgs e)
@@ -196,8 +246,9 @@ public partial class MainShellWindow
         }
     }
 
-    private void ExportQuizToResolve_Click(object sender, RoutedEventArgs e)
+    private async void ExportQuizToResolve_Click(object sender, RoutedEventArgs e)
     {
+        var exportButton = sender as Button;
         try
         {
             if (_quizDraftQuestions.Count == 0)
@@ -206,6 +257,9 @@ public partial class MainShellWindow
                 throw new InvalidOperationException("Quiz export controls are not ready.");
             if (!int.TryParse(_quizSecondsPerQuestionTextBox.Text.Trim(), out var seconds) || seconds is < 2 or > 60)
                 throw new ArgumentException("Seconds per question must be a whole number from 2 to 60.");
+
+            if (exportButton is not null)
+                exportButton.IsEnabled = false;
 
             var title = ProjectPathSecurity.ValidateSegment(_quizTitleTextBox.Text, "Quiz title");
             var vertical = _quizFormatComboBox.SelectedIndex == 1;
@@ -223,9 +277,40 @@ public partial class MainShellWindow
             var shuffleAnswers = _quizShuffleAnswersCheckBox?.IsChecked == true;
             var showCountdown = _quizCountdownCheckBox?.IsChecked != false;
             var animateReveal = _quizRevealAnimationCheckBox?.IsChecked != false;
+            var narrate = _quizNarrationCheckBox?.IsChecked == true;
+            var narrateAnswers = narrate && _quizNarrateAnswersCheckBox?.IsChecked == true;
             var exportQuestions = shuffleAnswers
                 ? QuizAnswerShuffler.Shuffle(_quizDraftQuestions)
                 : _quizDraftQuestions.ToList();
+
+            IReadOnlyDictionary<int, QuizNarrationAsset> narrationByQuestion = new Dictionary<int, QuizNarrationAsset>();
+            if (narrate)
+            {
+                var credentials = NativeProviderCredentials.FromSettings(settings);
+                var apiKey = credentials.Get("openai");
+                var quizFolder = ProjectPathSecurity.CombineContained(settings.ProjectsFolder, "Quizzes", title);
+                var voiceFolder = ProjectPathSecurity.CombineContained(settings.ProjectsFolder, "Quizzes", title, "Voice");
+                Directory.CreateDirectory(quizFolder);
+                Directory.CreateDirectory(voiceFolder);
+
+                using var speech = new NativeQuizSpeechProvider(apiKey);
+                var media = new NativeFfmpegTimelineService();
+                var generated = new Dictionary<int, QuizNarrationAsset>();
+                for (var index = 0; index < exportQuestions.Count; index++)
+                {
+                    var question = exportQuestions[index];
+                    if (_quizPageStatusText is not null)
+                        _quizPageStatusText.Text = $"Generating quiz narration {index + 1}/{exportQuestions.Count}...";
+                    var path = await speech.GenerateQuestionAsync(
+                        question,
+                        index + 1,
+                        narrateAnswers,
+                        voiceFolder);
+                    var duration = await media.MediaDurationAsync(path);
+                    generated[question.Id] = new QuizNarrationAsset(question.Id, path, duration);
+                }
+                narrationByQuestion = generated;
+            }
 
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Rendering quiz cards and creating Resolve export...";
@@ -242,7 +327,8 @@ public partial class MainShellWindow
             var result = new NativeQuizVideoBuilder().BuildAndExport(
                 exportQuestions,
                 options,
-                settings.ProjectsFolder);
+                settings.ProjectsFolder,
+                narrationByQuestion);
 
             _data.RecordQuizExport(
                 title,
@@ -255,20 +341,24 @@ public partial class MainShellWindow
             RefreshQuizDraftUsageCounts();
             RefreshQuizHistory();
 
+            var narrationSeconds = narrationByQuestion.Values.Sum(asset => asset.Duration);
             if (_quizDraftStatusText is not null)
             {
-                var duration = options.EstimatedDuration(_quizDraftQuestions.Count);
+                var duration = result.Timeline.Duration;
                 var brandingStatus = logoPath.Length == 0 ? "no quiz logo" : $"logo: {System.IO.Path.GetFileName(logoPath)}";
                 var answerStatus = shuffleAnswers ? "answers shuffled" : "answer order unchanged";
                 var presentationStatus = $"{(showCountdown ? "countdown on" : "countdown off")} • {(animateReveal ? "reveal pulse on" : "reveal pulse off")}";
-                _quizDraftStatusText.Text = $"Resolve quiz ready • {_quizDraftQuestions.Count} questions • {seconds} sec/question • {answerStatus} • {presentationStatus} • {brandingStatus} • saved to Quiz History • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
+                var audioStatus = narrate
+                    ? $"OpenAI narration on ({narrationSeconds:0.0}s{(narrateAnswers ? ", choices read" : "")})"
+                    : "narration off";
+                _quizDraftStatusText.Text = $"Resolve quiz ready • {_quizDraftQuestions.Count} questions • {seconds} sec answer time • {answerStatus} • {presentationStatus} • {audioStatus} • {brandingStatus} • saved to Quiz History • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
             }
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Resolve quiz export created and added to Quiz History";
 
             MessageBox.Show(
                 this,
-                $"Quiz export created.\n\nFCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nAnswer positions: {(shuffleAnswers ? "Shuffled for this export" : "Original bank order")}\nCountdown: {(showCountdown ? "3-2-1 enabled" : "Off")}\nAnswer reveal pulse: {(animateReveal ? "Enabled" : "Off")}\nQuiz logo: {(logoPath.Length == 0 ? "None" : System.IO.Path.GetFileName(logoPath))}\nQuiz History: recorded\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
+                $"Quiz export created.\n\nFCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nAnswer positions: {(shuffleAnswers ? "Shuffled for this export" : "Original bank order")}\nCountdown: {(showCountdown ? "3-2-1 enabled" : "Off")}\nAnswer reveal pulse: {(animateReveal ? "Enabled" : "Off")}\nOpenAI narration: {(narrate ? (narrateAnswers ? "Question + answer choices" : "Question only") : "Off")}\nQuiz logo: {(logoPath.Length == 0 ? "None" : System.IO.Path.GetFileName(logoPath))}\nQuiz History: recorded\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
                 "Quiz Resolve Export",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -278,6 +368,11 @@ public partial class MainShellWindow
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = $"Quiz export failed: {error.Message}";
             MessageBox.Show(this, error.Message, "Quiz Resolve Export", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            if (exportButton is not null)
+                exportButton.IsEnabled = true;
         }
     }
 }
