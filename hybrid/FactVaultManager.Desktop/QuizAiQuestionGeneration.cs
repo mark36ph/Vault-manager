@@ -37,6 +37,30 @@ public sealed record QuizAiGenerationRequest(
     }
 }
 
+public enum QuizAiGenerationStage
+{
+    Preparing,
+    WaitingForOpenAi,
+    ResponseReceived,
+    Validating,
+    LoadingReview,
+    Complete,
+}
+
+public static class QuizAiGenerationProgress
+{
+    public static int Percent(QuizAiGenerationStage stage) => stage switch
+    {
+        QuizAiGenerationStage.Preparing => 5,
+        QuizAiGenerationStage.WaitingForOpenAi => 25,
+        QuizAiGenerationStage.ResponseReceived => 70,
+        QuizAiGenerationStage.Validating => 85,
+        QuizAiGenerationStage.LoadingReview => 95,
+        QuizAiGenerationStage.Complete => 100,
+        _ => 0,
+    };
+}
+
 public static class QuizAiQuestionGeneration
 {
     public const string ProviderInstructions =
