@@ -168,6 +168,9 @@ public partial class MainShellWindow
         var openFolder = new Button { Content = "Open export folder", MinWidth = 125, Margin = new Thickness(8, 0, 0, 0) };
         openFolder.Click += (_, _) => OpenSelectedQuizHistoryFolder();
         actions.Children.Add(openFolder);
+        var delete = new Button { Content = "Delete quiz", MinWidth = 100, Margin = new Thickness(8, 0, 0, 0) };
+        delete.Click += (_, _) => DeleteSelectedQuizHistory();
+        actions.Children.Add(delete);
         Grid.SetRow(actions, 2);
         root.Children.Add(actions);
 
