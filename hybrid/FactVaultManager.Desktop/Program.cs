@@ -28,6 +28,7 @@ public static class Program
             InstalledDataMigration.Run();
 
             var application = new Application();
+            AppInteractionPolish.Initialize();
             application.DispatcherUnhandledException += Application_DispatcherUnhandledException;
             application.Run(new MainShellWindow());
         }
