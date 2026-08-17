@@ -6,7 +6,7 @@ namespace FactVaultManager.Desktop;
 public partial class MainShellWindow
 {
     private static readonly bool QuizExportPreferencesHookRegistered = RegisterQuizExportPreferencesHook();
-    private bool _quizResolvePreferencesApplied;
+    private Button? _quizResolvePreferencesAppliedButton;
 
     private static bool RegisterQuizExportPreferencesHook()
     {
@@ -28,7 +28,7 @@ public partial class MainShellWindow
             Window.GetWindow(button) is not MainShellWindow window)
             return;
 
-        window.ApplyLastQuizResolveExportPreferences();
+        window.ApplyLastQuizResolveExportPreferences(button);
     }
 
     private static void QuizResolveExportButton_Click(object sender, RoutedEventArgs e)
@@ -41,9 +41,9 @@ public partial class MainShellWindow
         window.SaveCurrentQuizResolveExportPreferences();
     }
 
-    private void ApplyLastQuizResolveExportPreferences()
+    private void ApplyLastQuizResolveExportPreferences(Button exportButton)
     {
-        if (_quizResolvePreferencesApplied)
+        if (ReferenceEquals(_quizResolvePreferencesAppliedButton, exportButton))
             return;
         if (_quizFormatComboBox is null || _quizCountdownCheckBox is null || _quizRevealAnimationCheckBox is null ||
             _quizNarrationCheckBox is null || _quizNarrateAnswersCheckBox is null || _quizVoiceComboBox is null ||
@@ -70,7 +70,7 @@ public partial class MainShellWindow
         _quizNarrateAnswersCheckBox.IsEnabled = saved.Narrate;
         _quizVoiceComboBox.IsEnabled = saved.Narrate;
         _quizCountdownTickCheckBox.IsEnabled = saved.ShowCountdown;
-        _quizResolvePreferencesApplied = true;
+        _quizResolvePreferencesAppliedButton = exportButton;
     }
 
     private void SaveCurrentQuizResolveExportPreferences()
