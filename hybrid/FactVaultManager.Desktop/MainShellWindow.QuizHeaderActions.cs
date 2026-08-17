@@ -9,6 +9,7 @@ public partial class MainShellWindow
 {
     private Button? _quizHeaderProductionButton;
     private Button? _quizHeaderResolveButton;
+    private Button? _quizHeaderReopenButton;
     private bool _quizHeaderActionsInitialized;
 
     public void InitializeQuizHeaderActionsForApp()
@@ -54,12 +55,24 @@ public partial class MainShellWindow
         };
         _quizHeaderResolveButton.Click += OpenLatestQuizInResolve_Click;
         headerActions.Children.Add(_quizHeaderResolveButton);
+
+        _quizHeaderReopenButton = new Button
+        {
+            Content = "Reopen in Quiz Builder",
+            Height = 34,
+            Padding = new Thickness(13, 0, 13, 0),
+            Margin = new Thickness(0),
+            Visibility = Visibility.Collapsed,
+            ToolTip = "Load the selected Quiz History entry back into the quiz workflow.",
+        };
+        _quizHeaderReopenButton.Click += (_, _) => ReopenSelectedQuizHistoryInBuilder();
+        headerActions.Children.Add(_quizHeaderReopenButton);
     }
 
     private void UpdateQuizHeaderButtons()
     {
         InitializeQuizHeaderButtons();
-        if (_quizHeaderProductionButton is null || _quizHeaderResolveButton is null)
+        if (_quizHeaderProductionButton is null || _quizHeaderResolveButton is null || _quizHeaderReopenButton is null)
             return;
 
         var selected = MainTabs.SelectedIndex;
@@ -71,6 +84,9 @@ public partial class MainShellWindow
             ? Visibility.Collapsed
             : Visibility.Visible;
         _quizHeaderResolveButton.Visibility = selected == _quizTabIndex
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        _quizHeaderReopenButton.Visibility = selected == _quizHistoryTabIndex
             ? Visibility.Visible
             : Visibility.Collapsed;
 
