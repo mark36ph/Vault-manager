@@ -13,10 +13,14 @@ public sealed record QuizVideoBuildOptions(
     int AnswerSeconds = 3,
     bool Vertical = false,
     double FrameRate = 30,
-    string QuizLogoPath = "")
+    string QuizLogoPath = "",
+    bool ShowCountdown = true,
+    bool AnimateAnswerReveal = true)
 {
     public int Width => Vertical ? 1080 : 1920;
     public int Height => Vertical ? 1920 : 1080;
+    public int CountdownSeconds => ShowCountdown ? Math.Min(3, QuestionSeconds) : 0;
+    public double RevealEmphasisSeconds => AnimateAnswerReveal ? Math.Min(0.5, AnswerSeconds / 2.0) : 0.0;
 
     public void Validate()
     {
@@ -86,6 +90,9 @@ public sealed class NativeQuizVideoBuilder
                 ["question_seconds"] = options.QuestionSeconds,
                 ["answer_seconds"] = options.AnswerSeconds,
                 ["orientation"] = options.Vertical ? "vertical" : "landscape",
+                ["show_countdown"] = options.ShowCountdown,
+                ["countdown_seconds"] = options.CountdownSeconds,
+                ["animate_answer_reveal"] = options.AnimateAnswerReveal,
                 ["quiz_logo"] = string.IsNullOrWhiteSpace(options.QuizLogoPath)
                     ? ""
                     : Path.GetFileName(options.QuizLogoPath),
@@ -115,40 +122,118 @@ public sealed class NativeQuizVideoBuilder
         {
             var question = questions[index];
             var number = index + 1;
-            var questionPath = Path.Combine(cardsFolder, $"{number:000}_question.png");
-            var answerPath = Path.Combine(cardsFolder, $"{number:000}_answer.png");
-            RenderCard(BuildQuestionCard(question, number, questions.Count, options, revealAnswer: false), questionPath, options.Width, options.Height);
-            RenderCard(BuildQuestionCard(question, number, questions.Count, options, revealAnswer: true), answerPath, options.Width, options.Height);
+            var sceneClipIds = new List<string>();
+            var countdownSeconds = options.CountdownSeconds;
+            var leadSeconds = options.QuestionSeconds - countdownSeconds;
+            var questionCursor = cursor;
 
-            var questionClip = videoTrack.AddClip(new NativeTimelineClip
+            if (leadSeconds > 0)
             {
-                Kind = NativeTimelineClipKind.Image,
-                Start = cursor,
-                Duration = options.QuestionSeconds,
-                Source = questionPath,
-                Name = $"Question {number}",
-                Metadata = new()
+                var questionPath = Path.Combine(cardsFolder, $"{number:000}_question.png");
+                RenderCard(
+                    BuildQuestionCard(question, number, questions.Count, options, revealAnswer: false, countdownValue: null, emphasizeReveal: false),
+                    questionPath,
+                    options.Width,
+                    options.Height);
+                var questionClip = videoTrack.AddClip(new NativeTimelineClip
                 {
-                    ["quiz_card"] = "question",
-                    ["question_id"] = question.Id,
-                    ["correct_index"] = question.CorrectIndex,
-                },
-            });
+                    Kind = NativeTimelineClipKind.Image,
+                    Start = questionCursor,
+                    Duration = leadSeconds,
+                    Source = questionPath,
+                    Name = $"Question {number}",
+                    Metadata = new()
+                    {
+                        ["quiz_card"] = "question",
+                        ["question_id"] = question.Id,
+                        ["correct_index"] = question.CorrectIndex,
+                    },
+                });
+                sceneClipIds.Add(questionClip.Id);
+                questionCursor += leadSeconds;
+            }
+
+            for (var remaining = countdownSeconds; remaining >= 1; remaining--)
+            {
+                var countdownPath = Path.Combine(cardsFolder, $"{number:000}_countdown_{remaining}.png");
+                RenderCard(
+                    BuildQuestionCard(question, number, questions.Count, options, revealAnswer: false, countdownValue: remaining, emphasizeReveal: false),
+                    countdownPath,
+                    options.Width,
+                    options.Height);
+                var countdownClip = videoTrack.AddClip(new NativeTimelineClip
+                {
+                    Kind = NativeTimelineClipKind.Image,
+                    Start = questionCursor,
+                    Duration = 1,
+                    Source = countdownPath,
+                    Name = $"Question {number} Countdown {remaining}",
+                    Metadata = new()
+                    {
+                        ["quiz_card"] = "countdown",
+                        ["question_id"] = question.Id,
+                        ["correct_index"] = question.CorrectIndex,
+                        ["seconds_remaining"] = remaining,
+                    },
+                });
+                sceneClipIds.Add(countdownClip.Id);
+                questionCursor += 1;
+            }
+
             var answerStart = cursor + options.QuestionSeconds;
-            var answerClip = videoTrack.AddClip(new NativeTimelineClip
+            var answerCursor = answerStart;
+            var emphasisSeconds = options.RevealEmphasisSeconds;
+            if (emphasisSeconds > 0)
             {
-                Kind = NativeTimelineClipKind.Image,
-                Start = answerStart,
-                Duration = options.AnswerSeconds,
-                Source = answerPath,
-                Name = $"Answer {number}",
-                Metadata = new()
+                var emphasisPath = Path.Combine(cardsFolder, $"{number:000}_answer_reveal.png");
+                RenderCard(
+                    BuildQuestionCard(question, number, questions.Count, options, revealAnswer: true, countdownValue: null, emphasizeReveal: true),
+                    emphasisPath,
+                    options.Width,
+                    options.Height);
+                var emphasisClip = videoTrack.AddClip(new NativeTimelineClip
                 {
-                    ["quiz_card"] = "answer",
-                    ["question_id"] = question.Id,
-                    ["correct_index"] = question.CorrectIndex,
-                },
-            });
+                    Kind = NativeTimelineClipKind.Image,
+                    Start = answerCursor,
+                    Duration = emphasisSeconds,
+                    Source = emphasisPath,
+                    Name = $"Answer {number} Reveal",
+                    Metadata = new()
+                    {
+                        ["quiz_card"] = "answer_reveal",
+                        ["question_id"] = question.Id,
+                        ["correct_index"] = question.CorrectIndex,
+                    },
+                });
+                sceneClipIds.Add(emphasisClip.Id);
+                answerCursor += emphasisSeconds;
+            }
+
+            var steadyAnswerSeconds = options.AnswerSeconds - emphasisSeconds;
+            if (steadyAnswerSeconds > 0)
+            {
+                var answerPath = Path.Combine(cardsFolder, $"{number:000}_answer.png");
+                RenderCard(
+                    BuildQuestionCard(question, number, questions.Count, options, revealAnswer: true, countdownValue: null, emphasizeReveal: false),
+                    answerPath,
+                    options.Width,
+                    options.Height);
+                var answerClip = videoTrack.AddClip(new NativeTimelineClip
+                {
+                    Kind = NativeTimelineClipKind.Image,
+                    Start = answerCursor,
+                    Duration = steadyAnswerSeconds,
+                    Source = answerPath,
+                    Name = $"Answer {number}",
+                    Metadata = new()
+                    {
+                        ["quiz_card"] = "answer",
+                        ["question_id"] = question.Id,
+                        ["correct_index"] = question.CorrectIndex,
+                    },
+                });
+                sceneClipIds.Add(answerClip.Id);
+            }
 
             timeline.AddScene(new NativeTimelineScene
             {
@@ -156,7 +241,7 @@ public sealed class NativeQuizVideoBuilder
                 Start = cursor,
                 Duration = options.QuestionSeconds + options.AnswerSeconds,
                 Narration = question.Question,
-                ClipIds = [questionClip.Id, answerClip.Id],
+                ClipIds = sceneClipIds,
                 Metadata = new()
                 {
                     ["question_id"] = question.Id,
@@ -266,16 +351,19 @@ public sealed class NativeQuizVideoBuilder
         int number,
         int total,
         QuizVideoBuildOptions options,
-        bool revealAnswer)
+        bool revealAnswer,
+        int? countdownValue,
+        bool emphasizeReveal)
     {
         var root = CardRoot(options);
         var page = new Grid { Margin = CardMargin(options) };
         page.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         page.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        page.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         page.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        var header = new Grid { Margin = new Thickness(0, 0, 0, options.Vertical ? 34 : 20) };
+        var header = new Grid { Margin = new Thickness(0, 0, 0, options.Vertical ? 18 : 12) };
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.Children.Add(new TextBlock
@@ -286,18 +374,50 @@ public sealed class NativeQuizVideoBuilder
             FontWeight = FontWeights.Bold,
             VerticalAlignment = VerticalAlignment.Center,
         });
+
+        var phaseText = revealAnswer
+            ? (emphasizeReveal ? "✓ CORRECT!" : "ANSWER")
+            : countdownValue is int countdown
+                ? countdown.ToString()
+                : $"{options.QuestionSeconds} SECONDS";
         var phase = new TextBlock
         {
-            Text = revealAnswer ? "ANSWER" : $"{options.QuestionSeconds} SECONDS",
+            Text = phaseText,
             Foreground = revealAnswer
                 ? new SolidColorBrush(Color.FromRgb(134, 239, 172))
-                : new SolidColorBrush(Color.FromRgb(203, 213, 225)),
-            FontSize = options.Vertical ? 26 : 22,
-            FontWeight = FontWeights.SemiBold,
+                : countdownValue.HasValue
+                    ? new SolidColorBrush(Color.FromRgb(250, 204, 21))
+                    : new SolidColorBrush(Color.FromRgb(203, 213, 225)),
+            FontSize = countdownValue.HasValue
+                ? (options.Vertical ? 54 : 44)
+                : (options.Vertical ? 26 : 22),
+            FontWeight = FontWeights.Bold,
+            VerticalAlignment = VerticalAlignment.Center,
         };
         Grid.SetColumn(phase, 1);
         header.Children.Add(phase);
         page.Children.Add(header);
+
+        var quizProgressTrack = new Border
+        {
+            Height = options.Vertical ? 10 : 8,
+            Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
+            CornerRadius = new CornerRadius(999),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(0, 0, 0, options.Vertical ? 28 : 18),
+        };
+        var progressWidth = Math.Max(1, (options.Width - CardMargin(options).Left - CardMargin(options).Right) * number / (double)Math.Max(1, total));
+        quizProgressTrack.Child = new Border
+        {
+            Width = progressWidth,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Background = revealAnswer
+                ? new SolidColorBrush(Color.FromRgb(74, 222, 128))
+                : new SolidColorBrush(Color.FromRgb(96, 165, 250)),
+            CornerRadius = new CornerRadius(999),
+        };
+        Grid.SetRow(quizProgressTrack, 1);
+        page.Children.Add(quizProgressTrack);
 
         var questionText = new TextBlock
         {
@@ -310,7 +430,7 @@ public sealed class NativeQuizVideoBuilder
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Margin = new Thickness(0, 0, 0, options.Vertical ? 42 : 24),
         };
-        Grid.SetRow(questionText, 1);
+        Grid.SetRow(questionText, 2);
         page.Children.Add(questionText);
 
         var answers = new StackPanel
@@ -319,46 +439,94 @@ public sealed class NativeQuizVideoBuilder
             HorizontalAlignment = HorizontalAlignment.Stretch,
         };
         for (var index = 0; index < 4; index++)
-            answers.Children.Add(BuildAnswerRow(question.Answers[index], index, revealAnswer && index == question.CorrectIndex, options));
-        Grid.SetRow(answers, 2);
+        {
+            answers.Children.Add(BuildAnswerRow(
+                question.Answers[index],
+                index,
+                revealAnswer && index == question.CorrectIndex,
+                emphasizeReveal && index == question.CorrectIndex,
+                options));
+        }
+        Grid.SetRow(answers, 3);
         page.Children.Add(answers);
 
-        var footer = new TextBlock
+        var footer = new StackPanel { Margin = new Thickness(0, options.Vertical ? 28 : 16, 0, 0) };
+        footer.Children.Add(new TextBlock
         {
             Text = revealAnswer
-                ? (string.IsNullOrWhiteSpace(question.Explanation)
-                    ? $"Correct answer: {question.CorrectLetter}. {question.CorrectAnswer}"
-                    : question.Explanation)
-                : "Choose A, B, C, or D",
+                ? emphasizeReveal
+                    ? $"{question.CorrectLetter}. {question.CorrectAnswer}"
+                    : (string.IsNullOrWhiteSpace(question.Explanation)
+                        ? $"Correct answer: {question.CorrectLetter}. {question.CorrectAnswer}"
+                        : question.Explanation)
+                : countdownValue is int remaining
+                    ? $"{remaining} second{(remaining == 1 ? "" : "s")} remaining"
+                    : "Choose A, B, C, or D",
             Foreground = revealAnswer
                 ? new SolidColorBrush(Color.FromRgb(220, 252, 231))
-                : new SolidColorBrush(Color.FromRgb(148, 163, 184)),
-            FontSize = options.Vertical ? 30 : 24,
+                : countdownValue.HasValue
+                    ? new SolidColorBrush(Color.FromRgb(254, 240, 138))
+                    : new SolidColorBrush(Color.FromRgb(148, 163, 184)),
+            FontSize = emphasizeReveal
+                ? (options.Vertical ? 38 : 32)
+                : (options.Vertical ? 30 : 24),
             FontWeight = revealAnswer ? FontWeights.SemiBold : FontWeights.Normal,
             TextAlignment = TextAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, options.Vertical ? 34 : 20, 0, 0),
-        };
-        Grid.SetRow(footer, 3);
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        });
+
+        if (!revealAnswer)
+        {
+            var timerWidth = options.Width - CardMargin(options).Left - CardMargin(options).Right;
+            var timerFraction = countdownValue is int remaining
+                ? Math.Clamp(remaining / (double)options.QuestionSeconds, 0.0, 1.0)
+                : 1.0;
+            var timerTrack = new Border
+            {
+                Width = timerWidth,
+                Height = options.Vertical ? 12 : 10,
+                Background = new SolidColorBrush(Color.FromRgb(30, 41, 59)),
+                CornerRadius = new CornerRadius(999),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, options.Vertical ? 18 : 12, 0, 0),
+            };
+            timerTrack.Child = new Border
+            {
+                Width = Math.Max(1, timerWidth * timerFraction),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Background = countdownValue.HasValue
+                    ? new SolidColorBrush(Color.FromRgb(250, 204, 21))
+                    : new SolidColorBrush(Color.FromRgb(96, 165, 250)),
+                CornerRadius = new CornerRadius(999),
+            };
+            footer.Children.Add(timerTrack);
+        }
+
+        Grid.SetRow(footer, 4);
         page.Children.Add(footer);
 
         root.Child = WithQuizLogo(page, options);
         return root;
     }
 
-    private static Border BuildAnswerRow(string answer, int index, bool correct, QuizVideoBuildOptions options)
+    private static Border BuildAnswerRow(string answer, int index, bool correct, bool emphasized, QuizVideoBuildOptions options)
     {
-        var background = correct
-            ? new SolidColorBrush(Color.FromRgb(22, 101, 52))
-            : new SolidColorBrush(Color.FromRgb(30, 41, 59));
-        var border = correct
-            ? new SolidColorBrush(Color.FromRgb(74, 222, 128))
-            : new SolidColorBrush(Color.FromRgb(71, 85, 105));
+        var background = emphasized
+            ? new SolidColorBrush(Color.FromRgb(21, 128, 61))
+            : correct
+                ? new SolidColorBrush(Color.FromRgb(22, 101, 52))
+                : new SolidColorBrush(Color.FromRgb(30, 41, 59));
+        var border = emphasized
+            ? new SolidColorBrush(Color.FromRgb(187, 247, 208))
+            : correct
+                ? new SolidColorBrush(Color.FromRgb(74, 222, 128))
+                : new SolidColorBrush(Color.FromRgb(71, 85, 105));
         var row = new Border
         {
             Background = background,
             BorderBrush = border,
-            BorderThickness = new Thickness(correct ? 3 : 1),
+            BorderThickness = new Thickness(emphasized ? 6 : correct ? 3 : 1),
             CornerRadius = new CornerRadius(options.Vertical ? 18 : 14),
             Padding = new Thickness(options.Vertical ? 24 : 20, options.Vertical ? 22 : 15, options.Vertical ? 24 : 20, options.Vertical ? 22 : 15),
             Margin = new Thickness(0, 0, 0, options.Vertical ? 22 : 12),
@@ -368,7 +536,7 @@ public sealed class NativeQuizVideoBuilder
         content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         content.Children.Add(new TextBlock
         {
-            Text = ((char)('A' + index)).ToString(),
+            Text = correct ? $"✓ {(char)('A' + index)}" : ((char)('A' + index)).ToString(),
             Foreground = correct ? new SolidColorBrush(Color.FromRgb(187, 247, 208)) : new SolidColorBrush(Color.FromRgb(147, 197, 253)),
             FontSize = options.Vertical ? 38 : 32,
             FontWeight = FontWeights.Bold,
@@ -378,8 +546,10 @@ public sealed class NativeQuizVideoBuilder
         {
             Text = answer,
             Foreground = Brushes.White,
-            FontSize = options.Vertical ? 38 : 32,
-            FontWeight = correct ? FontWeights.SemiBold : FontWeights.Normal,
+            FontSize = emphasized
+                ? (options.Vertical ? 42 : 36)
+                : (options.Vertical ? 38 : 32),
+            FontWeight = correct ? FontWeights.Bold : FontWeights.Normal,
             TextWrapping = TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -461,6 +631,9 @@ public sealed class NativeQuizVideoBuilder
             width = options.Width,
             height = options.Height,
             frame_rate = options.FrameRate,
+            show_countdown = options.ShowCountdown,
+            countdown_seconds = options.CountdownSeconds,
+            animate_answer_reveal = options.AnimateAnswerReveal,
             quiz_logo = string.IsNullOrWhiteSpace(options.QuizLogoPath) ? "" : Path.GetFileName(options.QuizLogoPath),
             questions = questions.Select((question, index) => new
             {
