@@ -195,7 +195,6 @@ public sealed class QuizThemedCardRenderer
                 Foreground = Brush(theme.Accent),
                 FontSize = options.Vertical ? 36 : 30,
                 FontWeight = FontWeights.Bold,
-                CharacterSpacing = 120,
             },
         };
         content.Children.Add(badge);
