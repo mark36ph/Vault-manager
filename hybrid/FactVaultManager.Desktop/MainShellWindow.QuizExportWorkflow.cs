@@ -438,6 +438,7 @@ public partial class MainShellWindow
                 ShowCountdown: showCountdown,
                 AnimateAnswerReveal: animateReveal);
             var visual = CurrentQuizVisualSettings();
+            var publishing = CurrentQuizPublishMetadata(exportQuestions, vertical);
 
             var preflight = QuizPreflight.Analyze(exportQuestions, options);
             var preflightErrors = preflight.Where(issue => issue.Severity == QuizPreflightSeverity.Error).ToList();
@@ -547,6 +548,7 @@ public partial class MainShellWindow
                     revealChime,
                     backgroundMusic,
                     narrate ? selectedVoice : ""));
+            QuizPublishMetadataFiles.Write(result.ProjectFolder, publishing);
 
             _data.RecordQuizExport(
                 title,
@@ -554,11 +556,13 @@ public partial class MainShellWindow
                 vertical,
                 seconds,
                 shuffleAnswers,
-                result.ProjectFolder);
+                result.ProjectFolder,
+                publishing);
             RefreshQuizBank();
             RefreshQuizDraftUsageCounts();
             RefreshQuizHistory();
             RefreshQuizPreview();
+            RefreshQuizPublishingSeries();
 
             if (_quizDraftStatusText is not null)
             {
@@ -574,14 +578,16 @@ public partial class MainShellWindow
                     ? "music off"
                     : backgroundMusic.DuckedForNarration ? "music on, ducking on" : "music on";
                 var themeStatus = QuizVisualThemeCatalog.Resolve(visual.ThemeKey).DisplayName;
-                _quizDraftStatusText.Text = $"Resolve quiz ready • {_quizDraftQuestions.Count} questions • {seconds} sec answer time • {answerStatus} • {themeStatus} theme • {presentationStatus} • {narrationStatus} • {sfxStatus} • {musicStatus} • {brandingStatus} • saved to Quiz History • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
+                _quizDraftStatusText.Text = $"Resolve quiz ready • {publishing.SeriesName} {publishing.EpisodeLabel} • {_quizDraftQuestions.Count} questions • {seconds} sec answer time • {answerStatus} • {themeStatus} theme • {presentationStatus} • {narrationStatus} • {sfxStatus} • {musicStatus} • {brandingStatus} • publishing metadata saved • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
             }
             if (_quizPageStatusText is not null)
-                _quizPageStatusText.Text = "Resolve quiz export created and added to Quiz History";
+                _quizPageStatusText.Text = "Resolve quiz export created, publishing metadata saved, and added to Quiz History";
+            if (_quizPublishingStatusText is not null)
+                _quizPublishingStatusText.Text = $"Exported {publishing.SeriesName} {publishing.EpisodeLabel}. Publishing metadata is saved in the quiz export folder.";
 
             MessageBox.Show(
                 this,
-                $"Quiz export created.\n\nFCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nTheme: {QuizVisualThemeCatalog.Resolve(visual.ThemeKey).DisplayName}\nLogo position: {visual.LogoPosition}\nLogo size: {visual.LogoScale * 100:0}%\nAnswer positions: {(shuffleAnswers ? "Shuffled for this export" : "Original bank order")}\nCountdown: {(showCountdown ? "3-2-1 enabled" : "Off")}\nCountdown ticks: {(countdownTicks ? "Enabled" : "Off")}\nAnswer reveal pulse: {(animateReveal ? "Enabled" : "Off")}\nCorrect-answer chime: {(answerRevealSfx ? "Enabled" : "Off")}\nOpenAI narration: {(narrate ? (narrateAnswers ? $"{selectedVoice} • question + answer choices" : $"{selectedVoice} • question only") : "Off")}\nBackground music: {(backgroundMusic is null ? "Off" : backgroundMusic.DuckedForNarration ? "Enabled • narration ducking on" : "Enabled")}\nQuiz logo: {(logoPath.Length == 0 ? "None" : System.IO.Path.GetFileName(logoPath))}\nQuiz History: recorded\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
+                $"Quiz export created.\n\nFCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nSeries: {publishing.SeriesName} {publishing.EpisodeLabel}\nYouTube title: {publishing.YouTubeTitle}\nPublishing metadata: saved with the quiz project\nTheme: {QuizVisualThemeCatalog.Resolve(visual.ThemeKey).DisplayName}\nLogo position: {visual.LogoPosition}\nLogo size: {visual.LogoScale * 100:0}%\nAnswer positions: {(shuffleAnswers ? "Shuffled for this export" : "Original bank order")}\nCountdown: {(showCountdown ? "3-2-1 enabled" : "Off")}\nCountdown ticks: {(countdownTicks ? "Enabled" : "Off")}\nAnswer reveal pulse: {(animateReveal ? "Enabled" : "Off")}\nCorrect-answer chime: {(answerRevealSfx ? "Enabled" : "Off")}\nOpenAI narration: {(narrate ? (narrateAnswers ? $"{selectedVoice} • question + answer choices" : $"{selectedVoice} • question only") : "Off")}\nBackground music: {(backgroundMusic is null ? "Off" : backgroundMusic.DuckedForNarration ? "Enabled • narration ducking on" : "Enabled")}\nQuiz logo: {(logoPath.Length == 0 ? "None" : System.IO.Path.GetFileName(logoPath))}\nQuiz History: recorded\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
                 "Quiz Resolve Export",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
