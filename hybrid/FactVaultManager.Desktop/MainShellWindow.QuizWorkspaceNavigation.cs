@@ -86,6 +86,7 @@ public partial class MainShellWindow
 
         AddQuizWorkspaceNav(sidebarStack, "builder", "Builder");
         AddQuizWorkspaceNav(sidebarStack, "draft", "Draft");
+        AddQuizWorkspaceNav(sidebarStack, "preview", "Preview");
         AddQuizWorkspaceNav(sidebarStack, "export", "Export");
 
         var contentBorder = QuizCard(new Thickness(18));
@@ -103,6 +104,10 @@ public partial class MainShellWindow
             "Review the selected questions, change their order, replace or remove questions, and control answer shuffling.",
             draftCard,
             draftControlsCard);
+        _quizWorkspacePages["preview"] = BuildQuizWorkspacePage(
+            "Preview",
+            "Preview the actual quiz cards, choose a visual theme, position the logo, save presets, and run layout preflight checks.",
+            BuildQuizPreviewPanel());
         _quizWorkspacePages["export"] = BuildQuizWorkspacePage(
             "Export",
             "Configure Resolve format, quiz branding, presentation, narration, sound effects, and background music.",
@@ -148,6 +153,9 @@ public partial class MainShellWindow
                 : new SolidColorBrush(Color.FromRgb(52, 64, 84));
             pair.Value.FontWeight = selected ? FontWeights.SemiBold : FontWeights.Normal;
         }
+
+        if (string.Equals(key, "preview", StringComparison.OrdinalIgnoreCase))
+            RefreshQuizPreview();
     }
 
     private static FrameworkElement BuildQuizWorkspacePage(
