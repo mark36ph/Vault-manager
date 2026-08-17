@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
+using System.Text.Json.Nodes;
 
 namespace FactVaultManager.Desktop;
 
@@ -14,7 +15,8 @@ public sealed record QuizPreparedBackgroundMusic(
 public sealed record QuizAudioAssets(
     QuizAudioCue? CountdownTick = null,
     QuizAudioCue? AnswerReveal = null,
-    QuizPreparedBackgroundMusic? BackgroundMusic = null);
+    QuizPreparedBackgroundMusic? BackgroundMusic = null,
+    string NarrationVoice = "");
 
 public sealed record QuizNarrationWindow(double Start, double End)
 {
@@ -317,5 +319,216 @@ public sealed class NativeQuizBackgroundMusicRenderer
     private static void TryDelete(string path)
     {
         try { if (File.Exists(path)) File.Delete(path); } catch { }
+    }
+}
+
+public static class QuizAudioTimelineAugmenter
+{
+    public static QuizVideoBuildResult ApplyAndReExport(
+        QuizVideoBuildResult build,
+        IReadOnlyList<QuizQuestion> questions,
+        QuizVideoBuildOptions options,
+        QuizAudioAssets assets)
+    {
+        ArgumentNullException.ThrowIfNull(build);
+        ArgumentNullException.ThrowIfNull(questions);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(assets);
+        options.Validate();
+
+        var timeline = build.Timeline;
+        var useTick = assets.CountdownTick is not null && options.CountdownSeconds > 0;
+        var useReveal = assets.AnswerReveal is not null;
+        var useMusic = assets.BackgroundMusic is not null;
+        var hasTimelineAudio = useTick || useReveal || useMusic;
+
+        if (useTick)
+            ValidateCue(assets.CountdownTick!, "countdown tick");
+        if (useReveal)
+            ValidateCue(assets.AnswerReveal!, "answer reveal");
+        if (useMusic)
+            ValidateBackgroundMusic(assets.BackgroundMusic!, timeline.Duration);
+
+        timeline.Tracks.RemoveAll(track =>
+            string.Equals(track.Name, "Quiz SFX", StringComparison.Ordinal) ||
+            string.Equals(track.Name, "Quiz Background Music", StringComparison.Ordinal));
+
+        NativeTimelineTrack? sfxTrack = null;
+        if (useTick || useReveal)
+        {
+            sfxTrack = timeline.AddTrack(new NativeTimelineTrack
+            {
+                Name = "Quiz SFX",
+                Kind = NativeTimelineTrackKind.Audio,
+            });
+        }
+
+        foreach (var scene in timeline.Scenes.OrderBy(scene => scene.Start))
+        {
+            var narrationSeconds = SceneNarrationSeconds(scene);
+            if (useTick && sfxTrack is not null)
+            {
+                var countdownStart = scene.Start + narrationSeconds + options.QuestionSeconds - options.CountdownSeconds;
+                for (var offset = 0; offset < options.CountdownSeconds; offset++)
+                {
+                    sfxTrack.AddClip(new NativeTimelineClip
+                    {
+                        Kind = NativeTimelineClipKind.Audio,
+                        Start = countdownStart + offset,
+                        Duration = assets.CountdownTick!.Duration,
+                        Source = assets.CountdownTick.Path,
+                        Name = $"{scene.Title} Countdown Tick {options.CountdownSeconds - offset}",
+                        Metadata = new()
+                        {
+                            ["quiz_audio"] = "countdown_tick",
+                            ["seconds_remaining"] = options.CountdownSeconds - offset,
+                        },
+                    });
+                }
+            }
+
+            if (useReveal && sfxTrack is not null)
+            {
+                var answerStart = scene.Start + narrationSeconds + options.QuestionSeconds;
+                sfxTrack.AddClip(new NativeTimelineClip
+                {
+                    Kind = NativeTimelineClipKind.Audio,
+                    Start = answerStart,
+                    Duration = assets.AnswerReveal!.Duration,
+                    Source = assets.AnswerReveal.Path,
+                    Name = $"{scene.Title} Correct Answer Chime",
+                    Metadata = new() { ["quiz_audio"] = "answer_reveal" },
+                });
+            }
+        }
+
+        if (useMusic)
+        {
+            var music = assets.BackgroundMusic!;
+            var musicTrack = timeline.AddTrack(new NativeTimelineTrack
+            {
+                Name = "Quiz Background Music",
+                Kind = NativeTimelineTrackKind.Audio,
+            });
+            musicTrack.AddClip(new NativeTimelineClip
+            {
+                Kind = NativeTimelineClipKind.Audio,
+                Start = 0,
+                Duration = music.Duration,
+                Source = music.Path,
+                Name = "Quiz Background Music",
+                Metadata = new()
+                {
+                    ["quiz_audio"] = "background_music",
+                    ["ducked_for_narration"] = music.DuckedForNarration,
+                },
+            });
+        }
+
+        timeline.Metadata["countdown_tick_sfx"] = useTick;
+        timeline.Metadata["answer_reveal_sfx"] = useReveal;
+        timeline.Metadata["background_music"] = useMusic;
+        timeline.Metadata["background_music_ducked"] = assets.BackgroundMusic?.DuckedForNarration == true;
+        timeline.Metadata["narration_voice"] = assets.NarrationVoice.Trim();
+        timeline.Validate();
+        WriteAudioMetadata(build.QuizJson, assets, useTick, useReveal, useMusic);
+
+        if (!hasTimelineAudio)
+            return build;
+
+        var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["title"] = options.Title,
+            ["description"] = $"{questions.Count}-question quiz generated by FactVaultManager.",
+            ["script"] = BuildTextScript(questions),
+            ["sources"] = "Quiz question bank",
+        };
+        var resolve = new NativeResolveFreeExportService().Export(
+            timeline,
+            build.ProjectFolder,
+            metadata,
+            strict: true,
+            overwrite: true);
+
+        return new QuizVideoBuildResult(
+            build.ProjectFolder,
+            build.QuizJson,
+            timeline,
+            resolve);
+    }
+
+    private static void ValidateCue(QuizAudioCue cue, string label)
+    {
+        if (cue.Duration <= 0 || double.IsNaN(cue.Duration) || double.IsInfinity(cue.Duration))
+            throw new ArgumentException($"Quiz {label} has an invalid duration.");
+        var path = Path.GetFullPath(cue.Path);
+        if (!File.Exists(path))
+            throw new FileNotFoundException($"Quiz {label} audio file was not found.", path);
+    }
+
+    private static void ValidateBackgroundMusic(QuizPreparedBackgroundMusic music, double timelineDuration)
+    {
+        if (music.Duration <= 0 || double.IsNaN(music.Duration) || double.IsInfinity(music.Duration))
+            throw new ArgumentException("Quiz background music has an invalid duration.");
+        if (Math.Abs(music.Duration - timelineDuration) > 0.05)
+            throw new ArgumentException("Prepared quiz background music does not match the quiz duration.");
+        var path = Path.GetFullPath(music.Path);
+        if (!File.Exists(path))
+            throw new FileNotFoundException("Prepared quiz background music was not found.", path);
+    }
+
+    private static double SceneNarrationSeconds(NativeTimelineScene scene)
+    {
+        if (!scene.Metadata.TryGetValue("narration_seconds", out var value) || value is null)
+            return 0;
+        try
+        {
+            return Math.Max(0, Convert.ToDouble(value, CultureInfo.InvariantCulture));
+        }
+        catch (Exception error) when (error is FormatException or InvalidCastException or OverflowException)
+        {
+            throw new InvalidDataException($"{scene.Title} has invalid narration timing metadata.", error);
+        }
+    }
+
+    private static void WriteAudioMetadata(
+        string quizJson,
+        QuizAudioAssets assets,
+        bool useTick,
+        bool useReveal,
+        bool useMusic)
+    {
+        var root = JsonNode.Parse(File.ReadAllText(quizJson)) as JsonObject
+            ?? throw new InvalidDataException("Quiz JSON root is invalid.");
+        root["audio"] = new JsonObject
+        {
+            ["narration_voice"] = assets.NarrationVoice.Trim(),
+            ["countdown_tick_sfx"] = useTick,
+            ["answer_reveal_sfx"] = useReveal,
+            ["background_music"] = useMusic,
+            ["background_music_file"] = useMusic ? Path.GetFileName(assets.BackgroundMusic!.Path) : "",
+            ["background_music_ducked_for_narration"] = assets.BackgroundMusic?.DuckedForNarration == true,
+        };
+
+        var temporary = quizJson + ".tmp";
+        File.WriteAllText(temporary, root.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+        File.Move(temporary, quizJson, overwrite: true);
+    }
+
+    private static string BuildTextScript(IReadOnlyList<QuizQuestion> questions)
+    {
+        var builder = new StringBuilder();
+        for (var index = 0; index < questions.Count; index++)
+        {
+            var question = questions[index];
+            builder.AppendLine($"Question {index + 1}: {question.Question}");
+            for (var answer = 0; answer < question.Answers.Count; answer++)
+                builder.AppendLine($"{(char)('A' + answer)}. {question.Answers[answer]}");
+            builder.AppendLine($"Correct: {question.CorrectLetter}. {question.CorrectAnswer}");
+            if (!string.IsNullOrWhiteSpace(question.Explanation))
+                builder.AppendLine(question.Explanation);
+            builder.AppendLine();
+        }
+        return builder.ToString().Trim();
     }
 }
