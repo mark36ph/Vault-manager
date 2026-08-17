@@ -23,6 +23,27 @@ public sealed class QuizAiQuestionGenerationTests
     }
 
     [Fact]
+    public void ProgressStages_IncreaseAndFinishAtOneHundredPercent()
+    {
+        var stages = new[]
+        {
+            QuizAiGenerationStage.Preparing,
+            QuizAiGenerationStage.WaitingForOpenAi,
+            QuizAiGenerationStage.ResponseReceived,
+            QuizAiGenerationStage.Validating,
+            QuizAiGenerationStage.LoadingReview,
+            QuizAiGenerationStage.Complete,
+        };
+
+        var percentages = stages.Select(QuizAiGenerationProgress.Percent).ToArray();
+
+        Assert.Equal(100, percentages[^1]);
+        Assert.All(percentages, percent => Assert.InRange(percent, 0, 100));
+        for (var index = 1; index < percentages.Length; index++)
+            Assert.True(percentages[index] > percentages[index - 1]);
+    }
+
+    [Fact]
     public void BuildPrompt_IncludesRequestedControlsAndJsonShape()
     {
         var request = QuizAiGenerationRequest.Create(8, "History", "medium", "Ancient Rome");
