@@ -20,6 +20,8 @@ public partial class MainShellWindow
     private bool _quizThumbnailPreviewCurrent;
     private string _lastQuizExportFolder = "";
     private string _lastQuizThumbnailPath = "";
+    private string _lastQuizResolveExportPath = "";
+    private int _lastQuizHistoryId;
 
     private FrameworkElement BuildQuizPublishingPanel()
     {
@@ -154,7 +156,7 @@ public partial class MainShellWindow
         });
         thumbnailStack.Children.Add(new TextBlock
         {
-            Text = "Create a standard 1280×720 thumbnail using the current quiz theme and quiz logo. Edit the copy here; the final JPEG is saved with the Resolve export.",
+            Text = "Create a standard 1280×720 thumbnail using the current quiz theme and quiz logo. Edit the copy here; the final PNG is saved with the Resolve export.",
             Foreground = QuizMutedBrush(),
             Margin = new Thickness(0, 3, 0, 10),
             TextWrapping = TextWrapping.Wrap,
@@ -243,7 +245,7 @@ public partial class MainShellWindow
         });
         checklistStack.Children.Add(new TextBlock
         {
-            Text = "A quick readiness check for the current quiz. The final item becomes ready only after a successful Resolve export.",
+            Text = "A quick readiness check for the current quiz. Resolve export and Quiz History become ready only after a successful export.",
             Foreground = QuizMutedBrush(),
             Margin = new Thickness(0, 3, 0, 10),
             TextWrapping = TextWrapping.Wrap,
@@ -304,6 +306,7 @@ public partial class MainShellWindow
                 textBox.TextChanged += (_, _) =>
                 {
                     InvalidateQuizThumbnailPreview();
+                    InvalidateQuizPublishingExportCompletion();
                     UpdateQuizPublishingChecklist();
                 };
         }
@@ -314,6 +317,7 @@ public partial class MainShellWindow
                 textBox.TextChanged += (_, _) =>
                 {
                     _quizThumbnailPreviewCurrent = false;
+                    InvalidateQuizPublishingExportCompletion();
                     UpdateQuizPublishingChecklist();
                 };
         }
@@ -505,7 +509,7 @@ public partial class MainShellWindow
                 _quizThumbnailPreviewImage.Source = bitmap;
             _quizThumbnailPreviewCurrent = true;
             if (_quizPublishingStatusText is not null)
-                _quizPublishingStatusText.Text = "Thumbnail preview ready • 1280×720 JPEG will be written during a successful Resolve export.";
+                _quizPublishingStatusText.Text = "Thumbnail preview ready • 1280×720 PNG will be written during a successful Resolve export.";
         }
         catch (Exception error)
         {
@@ -523,10 +527,24 @@ public partial class MainShellWindow
         _quizThumbnailPreviewCurrent = false;
     }
 
-    private void MarkQuizPublishingExportComplete(string projectFolder, string thumbnailPath)
+    private void InvalidateQuizPublishingExportCompletion()
+    {
+        _lastQuizExportFolder = "";
+        _lastQuizThumbnailPath = "";
+        _lastQuizResolveExportPath = "";
+        _lastQuizHistoryId = 0;
+    }
+
+    private void MarkQuizPublishingExportComplete(
+        string projectFolder,
+        string thumbnailPath,
+        string resolveExportPath,
+        int historyId)
     {
         _lastQuizExportFolder = (projectFolder ?? "").Trim();
         _lastQuizThumbnailPath = (thumbnailPath ?? "").Trim();
+        _lastQuizResolveExportPath = (resolveExportPath ?? "").Trim();
+        _lastQuizHistoryId = Math.Max(0, historyId);
         _quizThumbnailPreviewCurrent = _lastQuizThumbnailPath.Length > 0 && File.Exists(_lastQuizThumbnailPath);
         UpdateQuizPublishingChecklist();
     }
@@ -536,21 +554,74 @@ public partial class MainShellWindow
         if (_quizPublishChecklistText is null)
             return;
 
-        var metadataReady = TryValidateCurrentQuizPublishingMetadata();
-        var preflightReady = TryCheckCurrentQuizPreflight();
-        var exportSettingsReady = TryCheckQuizExportSettings();
-        var exportCompleted = _lastQuizExportFolder.Length > 0 &&
-                              Directory.Exists(_lastQuizExportFolder) &&
-                              _lastQuizThumbnailPath.Length > 0 &&
-                              File.Exists(_lastQuizThumbnailPath);
+        var youtubeTitleReady = PublishingTextReady(
+            _quizYouTubeTitleTextBox?.Text,
+            QuizPublishMetadataGenerator.MaxTitleLength);
+        var descriptionReady = PublishingTextReady(
+            _quizYouTubeDescriptionTextBox?.Text,
+            QuizPublishMetadataGenerator.MaxDescriptionLength);
+        var hashtagsReady = TryValidateCurrentQuizHashtags();
+        var pinnedCommentReady = PublishingTextReady(
+            _quizPinnedCommentTextBox?.Text,
+            QuizPublishMetadataGenerator.MaxPinnedCommentLength);
+        var resolveExportReady = _lastQuizResolveExportPath.Length > 0 && File.Exists(_lastQuizResolveExportPath);
+        var historyRecorded = TryCheckLastQuizHistoryEntry();
+
         var items = QuizPublishChecklist.Evaluate(
             _quizDraftQuestions.Count,
-            metadataReady,
+            youtubeTitleReady,
+            descriptionReady,
+            hashtagsReady,
+            pinnedCommentReady,
             _quizThumbnailPreviewCurrent,
-            preflightReady,
-            exportSettingsReady,
-            exportCompleted);
+            resolveExportReady,
+            historyRecorded);
         _quizPublishChecklistText.Text = QuizPublishChecklist.Format(items);
+    }
+
+    private static bool PublishingTextReady(string? value, int maxLength)
+    {
+        var text = (value ?? "").Trim();
+        return text.Length > 0 && text.Length <= maxLength;
+    }
+
+    private bool TryValidateCurrentQuizHashtags()
+    {
+        try
+        {
+            QuizPublishMetadataGenerator.Validate(new QuizPublishMetadata(
+                "Checklist",
+                1,
+                "Checklist title",
+                "Checklist description",
+                _quizHashtagsTextBox?.Text ?? "",
+                "Checklist pinned comment"));
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool TryCheckLastQuizHistoryEntry()
+    {
+        if (_lastQuizHistoryId <= 0 || _lastQuizExportFolder.Length == 0)
+            return false;
+
+        try
+        {
+            return _data.GetQuizHistory(500).Any(history =>
+                history.Id == _lastQuizHistoryId &&
+                string.Equals(
+                    Path.GetFullPath(history.ProjectFolder),
+                    Path.GetFullPath(_lastQuizExportFolder),
+                    StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private bool TryValidateCurrentQuizPublishingMetadata()
