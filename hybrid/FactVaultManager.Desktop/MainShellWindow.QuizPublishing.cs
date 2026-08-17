@@ -452,9 +452,14 @@ public partial class MainShellWindow
     private QuizThumbnailSettings CurrentQuizThumbnailSettings(QuizPublishMetadata metadata)
     {
         EnsureQuizThumbnailDefaults(metadata);
+        var suggested = QuizThumbnailDefaults.Create(metadata, _quizDraftQuestions.Count);
         return new QuizThumbnailSettings(
-            _quizThumbnailHeadlineTextBox?.Text ?? "",
-            _quizThumbnailSubtitleTextBox?.Text ?? "").Normalize();
+            string.IsNullOrWhiteSpace(_quizThumbnailHeadlineTextBox?.Text)
+                ? suggested.Headline
+                : _quizThumbnailHeadlineTextBox.Text,
+            string.IsNullOrWhiteSpace(_quizThumbnailSubtitleTextBox?.Text)
+                ? suggested.Subtitle
+                : _quizThumbnailSubtitleTextBox.Text).Normalize();
     }
 
     private void EnsureQuizThumbnailDefaults(QuizPublishMetadata metadata)
