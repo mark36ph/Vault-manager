@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -82,25 +83,25 @@ public static class QuizFullCountdownRewriter
         var root = new Grid { Width = options.Width, Height = options.Height };
         root.Children.Add(new Image { Source = bitmap, Stretch = Stretch.Fill });
 
+        var countdownColor = ResolveCountdownColor(directory);
         var badge = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(248, 15, 23, 42)),
+            Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
-            CornerRadius = new CornerRadius(options.Vertical ? 18 : 14),
-            Width = options.Vertical ? 240 : 190,
-            Height = options.Vertical ? 82 : 64,
+            Width = options.Vertical ? 120 : 96,
+            Height = options.Vertical ? 72 : 58,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
             Margin = options.Vertical ? new Thickness(0, 110, 76, 0) : new Thickness(0, 66, 120, 0),
             Child = new TextBlock
             {
-                Text = $"{remaining} SEC",
-                Foreground = new SolidColorBrush(Color.FromRgb(254, 240, 138)),
-                FontSize = options.Vertical ? 42 : 34,
+                Text = remaining.ToString(),
+                Foreground = new SolidColorBrush(countdownColor),
+                FontSize = options.Vertical ? 54 : 44,
                 FontWeight = FontWeights.Bold,
-                HorizontalAlignment = HorizontalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center,
-                TextAlignment = TextAlignment.Center,
+                TextAlignment = TextAlignment.Right,
             },
         };
         root.Children.Add(badge);
@@ -115,6 +116,30 @@ public static class QuizFullCountdownRewriter
         using var stream = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None);
         encoder.Save(stream);
         return destination;
+    }
+
+    private static Color ResolveCountdownColor(string cardsDirectory)
+    {
+        try
+        {
+            var projectFolder = Directory.GetParent(cardsDirectory)?.FullName;
+            var quizPath = projectFolder is null ? null : Path.Combine(projectFolder, "quiz.json");
+            if (!string.IsNullOrWhiteSpace(quizPath) && File.Exists(quizPath))
+            {
+                using var document = JsonDocument.Parse(File.ReadAllText(quizPath));
+                if (document.RootElement.TryGetProperty("theme", out var themeElement))
+                {
+                    var themeKey = themeElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(themeKey))
+                        return QuizVisualThemeCatalog.Resolve(themeKey).Countdown;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return QuizVisualThemeCatalog.Resolve("dark").Countdown;
     }
 
     private static string MetadataText(NativeTimelineClip clip, string key) =>
