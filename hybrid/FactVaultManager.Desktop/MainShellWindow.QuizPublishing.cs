@@ -12,7 +12,14 @@ public partial class MainShellWindow
     private TextBox? _quizYouTubeDescriptionTextBox;
     private TextBox? _quizHashtagsTextBox;
     private TextBox? _quizPinnedCommentTextBox;
+    private TextBox? _quizThumbnailHeadlineTextBox;
+    private TextBox? _quizThumbnailSubtitleTextBox;
+    private Image? _quizThumbnailPreviewImage;
+    private TextBlock? _quizPublishChecklistText;
     private TextBlock? _quizPublishingStatusText;
+    private bool _quizThumbnailPreviewCurrent;
+    private string _lastQuizExportFolder = "";
+    private string _lastQuizThumbnailPath = "";
 
     private FrameworkElement BuildQuizPublishingPanel()
     {
@@ -77,7 +84,11 @@ public partial class MainShellWindow
             Padding = new Thickness(12, 0, 12, 0),
             VerticalAlignment = VerticalAlignment.Bottom,
         };
-        nextEpisode.Click += (_, _) => SuggestNextQuizEpisode();
+        nextEpisode.Click += (_, _) =>
+        {
+            SuggestNextQuizEpisode();
+            InvalidateQuizThumbnailPreview();
+        };
         Grid.SetColumn(nextEpisode, 4);
         seriesRow.Children.Add(nextEpisode);
 
@@ -96,6 +107,7 @@ public partial class MainShellWindow
         seriesRow.Children.Add(generate);
 
         var metadataCard = QuizCard(new Thickness(14, 12, 14, 14));
+        metadataCard.Margin = new Thickness(0, 0, 0, 10);
         root.Children.Add(metadataCard);
         var metadataStack = new StackPanel();
         metadataCard.Child = metadataStack;
@@ -129,16 +141,133 @@ public partial class MainShellWindow
         _quizPinnedCommentTextBox = PublishingMultilineBox(78);
         metadataStack.Children.Add(_quizPinnedCommentTextBox);
 
+        var thumbnailCard = QuizCard(new Thickness(14, 12, 14, 14));
+        thumbnailCard.Margin = new Thickness(0, 0, 0, 10);
+        root.Children.Add(thumbnailCard);
+        var thumbnailStack = new StackPanel();
+        thumbnailCard.Child = thumbnailStack;
+        thumbnailStack.Children.Add(new TextBlock
+        {
+            Text = "YouTube thumbnail",
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 14,
+        });
+        thumbnailStack.Children.Add(new TextBlock
+        {
+            Text = "Create a standard 1280×720 thumbnail using the current quiz theme and quiz logo. Edit the copy here; the final JPEG is saved with the Resolve export.",
+            Foreground = QuizMutedBrush(),
+            Margin = new Thickness(0, 3, 0, 10),
+            TextWrapping = TextWrapping.Wrap,
+        });
+
+        var thumbnailFields = new Grid();
+        thumbnailFields.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        thumbnailFields.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) });
+        thumbnailFields.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        thumbnailStack.Children.Add(thumbnailFields);
+
+        var headlineField = new StackPanel();
+        headlineField.Children.Add(PublishingLabel("HEADLINE"));
+        _quizThumbnailHeadlineTextBox = new TextBox
+        {
+            MinHeight = 34,
+            MaxLength = QuizThumbnailSettings.MaxHeadlineLength,
+            ToolTip = "Large text shown on the thumbnail",
+        };
+        headlineField.Children.Add(_quizThumbnailHeadlineTextBox);
+        thumbnailFields.Children.Add(headlineField);
+
+        var subtitleField = new StackPanel();
+        subtitleField.Children.Add(PublishingLabel("SUBTITLE"));
+        _quizThumbnailSubtitleTextBox = new TextBox
+        {
+            MinHeight = 34,
+            MaxLength = QuizThumbnailSettings.MaxSubtitleLength,
+            ToolTip = "Smaller supporting text shown below the thumbnail headline",
+        };
+        subtitleField.Children.Add(_quizThumbnailSubtitleTextBox);
+        Grid.SetColumn(subtitleField, 2);
+        thumbnailFields.Children.Add(subtitleField);
+
+        var thumbnailActions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(0, 10, 0, 10),
+        };
+        var suggestedThumbnail = new Button
+        {
+            Content = "Use suggested text",
+            MinHeight = 34,
+            Padding = new Thickness(12, 0, 12, 0),
+        };
+        suggestedThumbnail.Click += (_, _) => ApplySuggestedQuizThumbnailText();
+        thumbnailActions.Children.Add(suggestedThumbnail);
+        var refreshThumbnail = new Button
+        {
+            Content = "Refresh thumbnail preview",
+            MinHeight = 34,
+            Padding = new Thickness(12, 0, 12, 0),
+            Margin = new Thickness(8, 0, 0, 0),
+        };
+        refreshThumbnail.Click += (_, _) => GenerateQuizThumbnailPreview();
+        thumbnailActions.Children.Add(refreshThumbnail);
+        thumbnailStack.Children.Add(thumbnailActions);
+
+        var thumbnailPreviewBorder = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(17, 24, 39)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(228, 231, 236)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(8),
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        _quizThumbnailPreviewImage = new Image
+        {
+            Width = 640,
+            Height = 360,
+            Stretch = Stretch.Uniform,
+        };
+        thumbnailPreviewBorder.Child = _quizThumbnailPreviewImage;
+        thumbnailStack.Children.Add(thumbnailPreviewBorder);
+
+        var checklistCard = QuizCard(new Thickness(14, 12, 14, 14));
+        root.Children.Add(checklistCard);
+        var checklistStack = new StackPanel();
+        checklistCard.Child = checklistStack;
+        checklistStack.Children.Add(new TextBlock
+        {
+            Text = "Publishing checklist",
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 14,
+        });
+        checklistStack.Children.Add(new TextBlock
+        {
+            Text = "A quick readiness check for the current quiz. The final item becomes ready only after a successful Resolve export.",
+            Foreground = QuizMutedBrush(),
+            Margin = new Thickness(0, 3, 0, 10),
+            TextWrapping = TextWrapping.Wrap,
+        });
+        _quizPublishChecklistText = new TextBlock
+        {
+            Foreground = new SolidColorBrush(Color.FromRgb(52, 64, 84)),
+            TextWrapping = TextWrapping.Wrap,
+            LineHeight = 24,
+        };
+        checklistStack.Children.Add(_quizPublishChecklistText);
+
         _quizPublishingStatusText = new TextBlock
         {
             Foreground = QuizMutedBrush(),
-            Margin = new Thickness(0, 10, 0, 0),
+            Margin = new Thickness(0, 12, 0, 0),
             TextWrapping = TextWrapping.Wrap,
         };
-        metadataStack.Children.Add(_quizPublishingStatusText);
+        checklistStack.Children.Add(_quizPublishingStatusText);
 
+        HookQuizPublishingChangeEvents();
         RefreshQuizPublishingSeries();
         SuggestNextQuizEpisode();
+        UpdateQuizPublishingChecklist();
         return root;
     }
 
@@ -160,18 +289,53 @@ public partial class MainShellWindow
         VerticalContentAlignment = VerticalAlignment.Top,
     };
 
+    private void HookQuizPublishingChangeEvents()
+    {
+        foreach (var textBox in new[]
+                 {
+                     _quizEpisodeTextBox,
+                     _quizYouTubeTitleTextBox,
+                     _quizYouTubeDescriptionTextBox,
+                     _quizHashtagsTextBox,
+                     _quizPinnedCommentTextBox,
+                 })
+        {
+            if (textBox is not null)
+                textBox.TextChanged += (_, _) =>
+                {
+                    InvalidateQuizThumbnailPreview();
+                    UpdateQuizPublishingChecklist();
+                };
+        }
+
+        foreach (var textBox in new[] { _quizThumbnailHeadlineTextBox, _quizThumbnailSubtitleTextBox })
+        {
+            if (textBox is not null)
+                textBox.TextChanged += (_, _) =>
+                {
+                    _quizThumbnailPreviewCurrent = false;
+                    UpdateQuizPublishingChecklist();
+                };
+        }
+    }
+
     private void RefreshQuizPublishingPage()
     {
         RefreshQuizPublishingSeries();
+        _quizThumbnailPreviewCurrent = false;
         if (_quizDraftQuestions.Count == 0)
         {
             if (_quizPublishingStatusText is not null)
-                _quizPublishingStatusText.Text = "Build a quiz draft first, then generate publishing metadata.";
+                _quizPublishingStatusText.Text = "Build a quiz draft first, then generate publishing metadata and a thumbnail.";
+            UpdateQuizPublishingChecklist();
             return;
         }
 
         if (string.IsNullOrWhiteSpace(_quizYouTubeTitleTextBox?.Text))
             GenerateQuizPublishingMetadataFromDraft(showErrors: false);
+        else
+            GenerateQuizThumbnailPreview(showErrors: false);
+        UpdateQuizPublishingChecklist();
     }
 
     private void RefreshQuizPublishingSeries()
@@ -214,6 +378,7 @@ public partial class MainShellWindow
             if (_quizPublishingStatusText is not null)
                 _quizPublishingStatusText.Text = error.Message;
         }
+        UpdateQuizPublishingChecklist();
     }
 
     private void GenerateQuizPublishingMetadataFromDraft(bool showErrors = true)
@@ -236,8 +401,10 @@ public partial class MainShellWindow
             {
                 _quizTitleTextBox.Text = $"{metadata.SeriesName} {metadata.EpisodeLabel}";
             }
+            EnsureQuizThumbnailDefaults(metadata);
+            GenerateQuizThumbnailPreview(showErrors: false);
             if (_quizPublishingStatusText is not null)
-                _quizPublishingStatusText.Text = $"Generated metadata for {metadata.SeriesName} {metadata.EpisodeLabel}. You can edit every field before export.";
+                _quizPublishingStatusText.Text = $"Generated metadata and thumbnail preview for {metadata.SeriesName} {metadata.EpisodeLabel}. You can edit every field before export.";
         }
         catch (Exception error)
         {
@@ -246,6 +413,7 @@ public partial class MainShellWindow
             if (showErrors)
                 MessageBox.Show(this, error.Message, "Quiz Publishing", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+        UpdateQuizPublishingChecklist();
     }
 
     private QuizPublishMetadata CurrentQuizPublishMetadata(
@@ -275,6 +443,181 @@ public partial class MainShellWindow
             _quizYouTubeDescriptionTextBox.Text,
             _quizHashtagsTextBox.Text,
             _quizPinnedCommentTextBox.Text));
+    }
+
+    private QuizThumbnailSettings CurrentQuizThumbnailSettings(QuizPublishMetadata metadata)
+    {
+        EnsureQuizThumbnailDefaults(metadata);
+        return new QuizThumbnailSettings(
+            _quizThumbnailHeadlineTextBox?.Text ?? "",
+            _quizThumbnailSubtitleTextBox?.Text ?? "").Normalize();
+    }
+
+    private void EnsureQuizThumbnailDefaults(QuizPublishMetadata metadata)
+    {
+        if (_quizDraftQuestions.Count == 0)
+            return;
+        var suggested = QuizThumbnailDefaults.Create(metadata, _quizDraftQuestions.Count);
+        if (_quizThumbnailHeadlineTextBox is not null && string.IsNullOrWhiteSpace(_quizThumbnailHeadlineTextBox.Text))
+            _quizThumbnailHeadlineTextBox.Text = suggested.Headline;
+        if (_quizThumbnailSubtitleTextBox is not null && string.IsNullOrWhiteSpace(_quizThumbnailSubtitleTextBox.Text))
+            _quizThumbnailSubtitleTextBox.Text = suggested.Subtitle;
+    }
+
+    private void ApplySuggestedQuizThumbnailText()
+    {
+        try
+        {
+            if (_quizDraftQuestions.Count == 0)
+                throw new InvalidOperationException("Build a quiz draft first.");
+            var metadata = CurrentQuizPublishMetadata(_quizDraftQuestions, _quizFormatComboBox?.SelectedIndex == 1);
+            var suggested = QuizThumbnailDefaults.Create(metadata, _quizDraftQuestions.Count);
+            if (_quizThumbnailHeadlineTextBox is not null)
+                _quizThumbnailHeadlineTextBox.Text = suggested.Headline;
+            if (_quizThumbnailSubtitleTextBox is not null)
+                _quizThumbnailSubtitleTextBox.Text = suggested.Subtitle;
+            GenerateQuizThumbnailPreview();
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Quiz Thumbnail", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void GenerateQuizThumbnailPreview(bool showErrors = true)
+    {
+        try
+        {
+            if (_quizDraftQuestions.Count == 0)
+                throw new InvalidOperationException("Build a quiz draft before generating a thumbnail.");
+            var vertical = _quizFormatComboBox?.SelectedIndex == 1;
+            var metadata = CurrentQuizPublishMetadata(_quizDraftQuestions, vertical);
+            var thumbnail = CurrentQuizThumbnailSettings(metadata);
+            var visual = CurrentQuizVisualSettings();
+            var logoPath = (_quizLogoPathTextBox?.Text ?? "").Trim();
+            var bitmap = new QuizThumbnailRenderer().RenderPreview(
+                metadata,
+                _quizDraftQuestions,
+                thumbnail,
+                visual,
+                logoPath);
+            if (_quizThumbnailPreviewImage is not null)
+                _quizThumbnailPreviewImage.Source = bitmap;
+            _quizThumbnailPreviewCurrent = true;
+            if (_quizPublishingStatusText is not null)
+                _quizPublishingStatusText.Text = "Thumbnail preview ready • 1280×720 JPEG will be written during a successful Resolve export.";
+        }
+        catch (Exception error)
+        {
+            _quizThumbnailPreviewCurrent = false;
+            if (_quizPublishingStatusText is not null)
+                _quizPublishingStatusText.Text = $"Thumbnail: {error.Message}";
+            if (showErrors)
+                MessageBox.Show(this, error.Message, "Quiz Thumbnail", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        UpdateQuizPublishingChecklist();
+    }
+
+    private void InvalidateQuizThumbnailPreview()
+    {
+        _quizThumbnailPreviewCurrent = false;
+    }
+
+    private void MarkQuizPublishingExportComplete(string projectFolder, string thumbnailPath)
+    {
+        _lastQuizExportFolder = (projectFolder ?? "").Trim();
+        _lastQuizThumbnailPath = (thumbnailPath ?? "").Trim();
+        _quizThumbnailPreviewCurrent = _lastQuizThumbnailPath.Length > 0 && File.Exists(_lastQuizThumbnailPath);
+        UpdateQuizPublishingChecklist();
+    }
+
+    private void UpdateQuizPublishingChecklist()
+    {
+        if (_quizPublishChecklistText is null)
+            return;
+
+        var metadataReady = TryValidateCurrentQuizPublishingMetadata();
+        var preflightReady = TryCheckCurrentQuizPreflight();
+        var exportSettingsReady = TryCheckQuizExportSettings();
+        var exportCompleted = _lastQuizExportFolder.Length > 0 &&
+                              Directory.Exists(_lastQuizExportFolder) &&
+                              _lastQuizThumbnailPath.Length > 0 &&
+                              File.Exists(_lastQuizThumbnailPath);
+        var items = QuizPublishChecklist.Evaluate(
+            _quizDraftQuestions.Count,
+            metadataReady,
+            _quizThumbnailPreviewCurrent,
+            preflightReady,
+            exportSettingsReady,
+            exportCompleted);
+        _quizPublishChecklistText.Text = QuizPublishChecklist.Format(items);
+    }
+
+    private bool TryValidateCurrentQuizPublishingMetadata()
+    {
+        try
+        {
+            if (_quizDraftQuestions.Count == 0 ||
+                !int.TryParse((_quizEpisodeTextBox?.Text ?? "").Trim(), out var episode))
+            {
+                return false;
+            }
+            QuizPublishMetadataGenerator.Validate(new QuizPublishMetadata(
+                QuizPublishMetadataGenerator.NormalizeSeriesName(_quizSeriesComboBox?.Text),
+                episode,
+                _quizYouTubeTitleTextBox?.Text ?? "",
+                _quizYouTubeDescriptionTextBox?.Text ?? "",
+                _quizHashtagsTextBox?.Text ?? "",
+                _quizPinnedCommentTextBox?.Text ?? ""));
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool TryCheckCurrentQuizPreflight()
+    {
+        try
+        {
+            if (_quizDraftQuestions.Count == 0 ||
+                !int.TryParse((_quizSecondsPerQuestionTextBox?.Text ?? "").Trim(), out var seconds) ||
+                seconds is < 2 or > 60)
+            {
+                return false;
+            }
+            var title = ProjectPathSecurity.ValidateSegment(_quizTitleTextBox?.Text ?? "", "Quiz title");
+            var options = new QuizVideoBuildOptions(
+                title,
+                QuestionSeconds: seconds,
+                AnswerSeconds: 3,
+                Vertical: _quizFormatComboBox?.SelectedIndex == 1,
+                FrameRate: 30,
+                QuizLogoPath: (_quizLogoPathTextBox?.Text ?? "").Trim(),
+                ShowCountdown: _quizCountdownCheckBox?.IsChecked != false,
+                AnimateAnswerReveal: _quizRevealAnimationCheckBox?.IsChecked != false);
+            return QuizPreflight.Analyze(_quizDraftQuestions, options)
+                .All(issue => issue.Severity != QuizPreflightSeverity.Error);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private bool TryCheckQuizExportSettings()
+    {
+        try
+        {
+            ProjectPathSecurity.ValidateSegment(_quizTitleTextBox?.Text ?? "", "Quiz title");
+            var settings = _data.LoadSettings();
+            return !string.IsNullOrWhiteSpace(settings.ProjectsFolder);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private void ApplyQuizPublishingMetadata(QuizPublishMetadata metadata)
