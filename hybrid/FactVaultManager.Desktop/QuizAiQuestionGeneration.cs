@@ -86,6 +86,20 @@ Rules:
 """;
     }
 
+    public static int EstimateProgress(TimeSpan elapsed)
+    {
+        if (elapsed <= TimeSpan.Zero)
+            return 5;
+
+        var seconds = elapsed.TotalSeconds;
+        if (seconds < 10)
+            return Math.Clamp(5 + (int)Math.Floor(seconds * 4), 5, 44);
+        if (seconds < 30)
+            return Math.Clamp(45 + (int)Math.Floor((seconds - 10) * 2), 45, 84);
+
+        return Math.Clamp(85 + (int)Math.Floor((seconds - 30) / 4), 85, 92);
+    }
+
     public static IReadOnlyList<QuizQuestionImportItem> ParseResponse(
         string response,
         QuizAiGenerationRequest request)
