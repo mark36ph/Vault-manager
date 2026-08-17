@@ -106,6 +106,44 @@ public sealed class NativeQuizAudioProductionTests
         }
     }
 
+    [Fact]
+    public void TimelineEndTrimmer_StopsAudioAtFinalVideoCard()
+    {
+        var timeline = new NativeTimeline { Name = "Quiz" };
+        var video = timeline.AddTrack(new NativeTimelineTrack
+        {
+            Name = "Quiz Cards",
+            Kind = NativeTimelineTrackKind.Video,
+        });
+        video.AddClip(new NativeTimelineClip
+        {
+            Kind = NativeTimelineClipKind.Image,
+            Start = 0,
+            Duration = 12,
+            Source = "card.png",
+            Name = "Final card",
+        });
+        var audio = timeline.AddTrack(new NativeTimelineTrack
+        {
+            Name = "Quiz Background Music",
+            Kind = NativeTimelineTrackKind.Audio,
+        });
+        audio.AddClip(new NativeTimelineClip
+        {
+            Kind = NativeTimelineClipKind.Audio,
+            Start = 0,
+            Duration = 30,
+            Source = "music.wav",
+            Name = "Music",
+        });
+
+        var end = QuizTimelineEndTrimmer.TrimToVideoEnd(timeline);
+
+        Assert.Equal(12, end);
+        Assert.Equal(12, audio.Clips.Single().Duration);
+        Assert.Equal(12, timeline.Duration);
+    }
+
     private static QuizQuestion Question(int id) => new(
         id,
         $"Question {id}?",
