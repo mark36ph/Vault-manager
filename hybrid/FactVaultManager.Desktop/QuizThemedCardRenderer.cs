@@ -193,7 +193,7 @@ public sealed class QuizThemedCardRenderer
         };
         content.Children.Add(new TextBlock
         {
-            Text = "How many did you get right?",
+            Text = "Like this quiz? Subscribe for more!",
             Foreground = Brush(theme.Text),
             FontSize = options.Vertical ? 64 : 60,
             FontWeight = FontWeights.Bold,
@@ -203,7 +203,7 @@ public sealed class QuizThemedCardRenderer
         });
         content.Children.Add(new TextBlock
         {
-            Text = "Share your score in the comments",
+            Text = "Like the video and share your score in the comments",
             Foreground = Brush(theme.AccentSoft),
             FontSize = options.Vertical ? 34 : 30,
             TextAlignment = TextAlignment.Center,
