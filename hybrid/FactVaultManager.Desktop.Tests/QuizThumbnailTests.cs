@@ -57,7 +57,8 @@ public sealed class QuizThumbnailTests
             historyRecorded: true);
 
         Assert.Equal(
-            [
+            new[]
+            {
                 "Quiz draft",
                 "YouTube title",
                 "Description",
@@ -66,7 +67,7 @@ public sealed class QuizThumbnailTests
                 "Thumbnail",
                 "Resolve export",
                 "Quiz History entry",
-            ],
+            },
             beforeExport.Select(item => item.Label).ToArray());
         Assert.True(beforeExport.Take(6).All(item => item.IsComplete));
         Assert.False(beforeExport[6].IsComplete);
