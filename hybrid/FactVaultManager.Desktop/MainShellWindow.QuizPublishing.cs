@@ -18,6 +18,7 @@ public partial class MainShellWindow
     private TextBlock? _quizPublishChecklistText;
     private TextBlock? _quizPublishingStatusText;
     private bool _quizThumbnailPreviewCurrent;
+    private string _quizAutoSeriesName = "General Knowledge Quiz";
     private string _lastQuizExportFolder = "";
     private string _lastQuizThumbnailPath = "";
     private string _lastQuizResolveExportPath = "";
@@ -156,7 +157,7 @@ public partial class MainShellWindow
         });
         thumbnailStack.Children.Add(new TextBlock
         {
-            Text = "Create a standard 1280×720 thumbnail using the current quiz theme and quiz logo. Edit the copy here; the final PNG is saved with the Resolve export.",
+            Text = "Create a bold 1280×720 FactBurst thumbnail using the current quiz theme and quiz logo. Edit the copy here; the final PNG is saved with the Resolve export.",
             Foreground = QuizMutedBrush(),
             Margin = new Thickness(0, 3, 0, 10),
             TextWrapping = TextWrapping.Wrap,
@@ -185,7 +186,7 @@ public partial class MainShellWindow
         {
             MinHeight = 34,
             MaxLength = QuizThumbnailSettings.MaxSubtitleLength,
-            ToolTip = "Smaller supporting text shown below the thumbnail headline",
+            ToolTip = "Category or quiz name shown below the thumbnail headline",
         };
         subtitleField.Children.Add(_quizThumbnailSubtitleTextBox);
         Grid.SetColumn(subtitleField, 2);
@@ -268,6 +269,7 @@ public partial class MainShellWindow
 
         HookQuizPublishingChangeEvents();
         RefreshQuizPublishingSeries();
+        SyncQuizCategorySeriesName();
         SuggestNextQuizEpisode();
         UpdateQuizPublishingChecklist();
         return root;
@@ -326,6 +328,7 @@ public partial class MainShellWindow
     private void RefreshQuizPublishingPage()
     {
         RefreshQuizPublishingSeries();
+        SyncQuizCategorySeriesName();
         _quizThumbnailPreviewCurrent = false;
         if (_quizDraftQuestions.Count == 0)
         {
@@ -364,6 +367,33 @@ public partial class MainShellWindow
         }
     }
 
+    private void SyncQuizCategorySeriesName()
+    {
+        var suggested = QuizPublishMetadataGenerator.SuggestSeriesName(SelectedQuizCategory());
+        var previousAuto = _quizAutoSeriesName;
+        var currentSeries = (_quizSeriesComboBox?.Text ?? "").Trim();
+        if (_quizSeriesComboBox is not null &&
+            (currentSeries.Length == 0 ||
+             string.Equals(currentSeries, previousAuto, StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(currentSeries, "General Knowledge Quiz", StringComparison.OrdinalIgnoreCase)))
+        {
+            _quizSeriesComboBox.Text = suggested;
+            _quizAutoSeriesName = suggested;
+        }
+
+        if (_quizTitleTextBox is not null)
+        {
+            var currentTitle = _quizTitleTextBox.Text.Trim();
+            if (currentTitle.Length == 0 ||
+                string.Equals(currentTitle, previousAuto, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(currentTitle, "General Knowledge Quiz", StringComparison.OrdinalIgnoreCase) ||
+                currentTitle.StartsWith(previousAuto + " #", StringComparison.OrdinalIgnoreCase))
+            {
+                _quizTitleTextBox.Text = suggested;
+            }
+        }
+    }
+
     private void SuggestNextQuizEpisode()
     {
         if (_quizSeriesComboBox is null || _quizEpisodeTextBox is null)
@@ -391,6 +421,7 @@ public partial class MainShellWindow
         {
             if (_quizDraftQuestions.Count == 0)
                 throw new InvalidOperationException("Build a quiz draft before generating publishing metadata.");
+            SyncQuizCategorySeriesName();
             var series = QuizPublishMetadataGenerator.NormalizeSeriesName(_quizSeriesComboBox?.Text);
             if (!int.TryParse((_quizEpisodeTextBox?.Text ?? "").Trim(), out var episode))
                 throw new ArgumentException("Episode number must be a whole number from 1 to 9999.");
