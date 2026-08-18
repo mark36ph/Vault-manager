@@ -19,6 +19,7 @@ public static class QuizVisualExportRewriter
         QuizOpeningSequence.RenderAndApply(build.Timeline, build.ProjectFolder, options);
         QuizFullCountdownRewriter.Apply(build.Timeline, questions, build.ProjectFolder, options);
         QuizTimelineEndTrimmer.TrimToVideoEnd(build.Timeline);
+        QuizAnimatedBackground.RenderAndApply(build.Timeline, build.ProjectFolder);
         var finalized = QuizExportProjectFinalizer.Prepare(build);
         var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -98,14 +99,16 @@ public static class QuizFcpXmlTimelineSynchronizer
             new XAttribute("start", "0s"),
             new XAttribute("duration", Time(timeline.Duration, timeline.FrameRate)));
 
+        var videoLane = 1;
         foreach (var track in timeline.Tracks.Where(track => track.Kind == NativeTimelineTrackKind.Video))
         {
             foreach (var clip in track.Clips
                          .Where(clip => clip.Kind is NativeTimelineClipKind.Image or NativeTimelineClipKind.Video)
                          .OrderBy(clip => clip.Start))
             {
-                parent.Add(BuildConnectedClip(resolve, clip, assetIds, timeline.FrameRate, lane: 1));
+                parent.Add(BuildConnectedClip(resolve, clip, assetIds, timeline.FrameRate, videoLane));
             }
+            videoLane++;
         }
 
         var audioLane = -1;
