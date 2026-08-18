@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using IOPath = System.IO.Path;
 
 namespace FactVaultManager.Desktop;
 
@@ -85,9 +86,9 @@ public sealed class QuizThumbnailRenderer
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectFolder);
         var bitmap = RenderPreview(metadata, questions, thumbnail, visual, logoPath);
-        var folder = Path.GetFullPath(projectFolder.Trim());
+        var folder = IOPath.GetFullPath(projectFolder.Trim());
         Directory.CreateDirectory(folder);
-        var path = Path.Combine(folder, FileName);
+        var path = IOPath.Combine(folder, FileName);
         var temporary = path + ".tmp";
 
         var encoder = new PngBitmapEncoder();
@@ -135,7 +136,7 @@ public sealed class QuizThumbnailRenderer
                 Y1 = centerY,
                 X2 = centerX + Math.Cos(angle) * length,
                 Y2 = centerY + Math.Sin(angle) * length,
-                Stroke = index % 3 switch
+                Stroke = (index % 3) switch
                 {
                     0 => Brush(theme.Accent),
                     1 => Brush(theme.Countdown),
