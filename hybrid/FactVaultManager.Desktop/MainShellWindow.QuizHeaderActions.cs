@@ -9,6 +9,7 @@ public partial class MainShellWindow
 {
     private Button? _quizHeaderProductionButton;
     private Button? _quizHeaderResolveButton;
+    private Button? _quizHeaderPublishButton;
     private Button? _quizHeaderReopenButton;
     private bool _quizHeaderActionsInitialized;
 
@@ -56,6 +57,22 @@ public partial class MainShellWindow
         _quizHeaderResolveButton.Click += OpenLatestQuizInResolve_Click;
         headerActions.Children.Add(_quizHeaderResolveButton);
 
+        _quizHeaderPublishButton = new Button
+        {
+            Content = "Open Publish",
+            Height = 34,
+            Padding = new Thickness(13, 0, 13, 0),
+            Margin = new Thickness(0),
+            Background = new SolidColorBrush(Color.FromRgb(15, 108, 189)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(15, 108, 189)),
+            Foreground = Brushes.White,
+            FontWeight = FontWeights.SemiBold,
+            Visibility = Visibility.Collapsed,
+            ToolTip = "Load the selected Quiz History entry and open its Publish step.",
+        };
+        _quizHeaderPublishButton.Click += (_, _) => ReopenSelectedQuizHistoryInBuilder("publish");
+        headerActions.Children.Add(_quizHeaderPublishButton);
+
         _quizHeaderReopenButton = new Button
         {
             Content = "Reopen in Quiz Builder",
@@ -72,8 +89,11 @@ public partial class MainShellWindow
     private void UpdateQuizHeaderButtons()
     {
         InitializeQuizHeaderButtons();
-        if (_quizHeaderProductionButton is null || _quizHeaderResolveButton is null || _quizHeaderReopenButton is null)
+        if (_quizHeaderProductionButton is null || _quizHeaderResolveButton is null ||
+            _quizHeaderPublishButton is null || _quizHeaderReopenButton is null)
+        {
             return;
+        }
 
         var selected = MainTabs.SelectedIndex;
         var quizContext = selected == _quizTabIndex ||
@@ -84,6 +104,9 @@ public partial class MainShellWindow
             ? Visibility.Collapsed
             : Visibility.Visible;
         _quizHeaderResolveButton.Visibility = selected == _quizTabIndex
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        _quizHeaderPublishButton.Visibility = selected == _quizHistoryTabIndex
             ? Visibility.Visible
             : Visibility.Collapsed;
         _quizHeaderReopenButton.Visibility = selected == _quizHistoryTabIndex
