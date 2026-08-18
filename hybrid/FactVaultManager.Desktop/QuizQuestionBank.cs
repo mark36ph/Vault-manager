@@ -68,6 +68,33 @@ public static class QuizQuestionFingerprint
         string.Join(" ", (value ?? "").Trim().ToLowerInvariant().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 }
 
+public static class QuizQuestionDuplicateKey
+{
+    public static string Create(string question)
+    {
+        var source = (question ?? "").Trim().ToLowerInvariant();
+        var builder = new StringBuilder(source.Length);
+        var pendingSpace = false;
+
+        foreach (var character in source)
+        {
+            if (char.IsLetterOrDigit(character))
+            {
+                if (pendingSpace && builder.Length > 0)
+                    builder.Append(' ');
+                builder.Append(character);
+                pendingSpace = false;
+            }
+            else if (builder.Length > 0)
+            {
+                pendingSpace = true;
+            }
+        }
+
+        return builder.ToString();
+    }
+}
+
 public static class QuizQuestionImportParser
 {
     public const int MaximumImportCharacters = 5_000_000;
@@ -96,7 +123,7 @@ public static class QuizQuestionImportParser
         {
             var questions = QuestionArray(document.RootElement);
             var results = new List<QuizQuestionImportItem>();
-            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var seenQuestions = new HashSet<string>(StringComparer.Ordinal);
 
             foreach (var element in questions.EnumerateArray())
             {
@@ -131,7 +158,7 @@ public static class QuizQuestionImportParser
                     difficulty,
                     source);
 
-                if (seen.Add(item.Fingerprint))
+                if (seenQuestions.Add(QuizQuestionDuplicateKey.Create(item.Question)))
                     results.Add(item);
             }
 
@@ -145,8 +172,22 @@ public static class QuizQuestionImportParser
     {
         count = Math.Clamp(count, 1, 500);
         category = string.IsNullOrWhiteSpace(category) ? "General Knowledge" : category.Trim();
+        var mixedCategories = string.Equals(category, "General Knowledge", StringComparison.OrdinalIgnoreCase) ||
+                              string.Equals(category, "All categories", StringComparison.OrdinalIgnoreCase);
+        var subjectLine = mixedCategories
+            ? "across a balanced mix of popular quiz categories"
+            : $"about {category}";
+        var categoryExample = mixedCategories ? "Science" : category;
+        var categoryRules = mixedCategories
+            ? """
+- Assign every question one specific broad category that matches its subject.
+- Use a balanced mix from these stable category names: Science, History, Geography, Space, Nature & Animals, Technology, Arts & Literature, Sports, Entertainment, Mathematics, and General Knowledge.
+- Spread the batch across as many of those categories as practical; do not label most questions as General Knowledge when a more specific category applies.
+"""
+            : $"- Set the category field to '{category}' for every question.\n";
+
         return $$"""
-Create {{count}} accurate multiple-choice quiz questions about {{category}}.
+Create {{count}} accurate multiple-choice quiz questions {{subjectLine}}.
 Return JSON only, with no Markdown and no commentary.
 Use exactly this shape:
 {
@@ -156,7 +197,7 @@ Use exactly this shape:
       "answers": ["Answer A", "Answer B", "Answer C", "Answer D"],
       "correct_answer": "A",
       "explanation": "One short factual explanation.",
-      "category": "{{category}}",
+      "category": "{{categoryExample}}",
       "difficulty": "easy"
     }
   ]
@@ -165,7 +206,8 @@ Rules:
 - Exactly four distinct answer choices per question.
 - correct_answer must be A, B, C, or D.
 - Mix easy, medium, and hard difficulty.
-- Avoid trick questions, ambiguous wording, duplicate questions, and opinion-based answers.
+{{categoryRules}}- Avoid trick questions, ambiguous wording, duplicate questions, semantically repeated questions, and opinion-based answers.
+- Do not ask the same fact again with slightly different wording.
 - Keep questions suitable for a YouTube quiz.
 - Verify factual accuracy before including each question.
 - Do not include citations, source links, URLs, footnotes, references, Markdown, or source lists anywhere in the JSON.
