@@ -8,7 +8,10 @@ public sealed record QuizDuplicateCandidate(
     string DuplicateQuestion,
     string DuplicateCategory,
     string CorrectAnswer,
-    string MatchType);
+    string MatchType)
+{
+    public bool IsSelected { get; set; }
+}
 
 public static class QuizDuplicateReview
 {
