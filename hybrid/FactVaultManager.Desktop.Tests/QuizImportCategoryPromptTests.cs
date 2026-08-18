@@ -59,4 +59,13 @@ public sealed class QuizImportCategoryPromptTests
 
         Assert.Equal(first, second);
     }
+
+    [Fact]
+    public void DuplicateKey_PreservesDifferentMathOperators()
+    {
+        var addition = QuizQuestionDuplicateKey.Create("What is 2 + 2?");
+        var subtraction = QuizQuestionDuplicateKey.Create("What is 2 - 2?");
+
+        Assert.NotEqual(addition, subtraction);
+    }
 }
