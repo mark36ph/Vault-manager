@@ -5,7 +5,7 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class QuizPublishingTests
 {
     [Fact]
-    public void Generate_BuildsSeriesEpisodeAndShortsMetadata()
+    public void Generate_BuildsViewerFocusedSeriesEpisodeAndShortsMetadata()
     {
         var metadata = QuizPublishMetadataGenerator.Generate(
             "World Knowledge",
@@ -16,13 +16,40 @@ public sealed class QuizPublishingTests
         Assert.Equal("World Knowledge", metadata.SeriesName);
         Assert.Equal(12, metadata.EpisodeNumber);
         Assert.Equal("#012", metadata.EpisodeLabel);
-        Assert.Contains("World Knowledge #012", metadata.YouTubeTitle);
-        Assert.Contains("2 Question", metadata.YouTubeTitle);
-        Assert.Contains("Geography, Science", metadata.Description);
-        Assert.Contains("#Geography", metadata.Hashtags);
-        Assert.Contains("#Science", metadata.Hashtags);
-        Assert.Contains("#Shorts", metadata.Hashtags);
-        Assert.Contains("2", metadata.PinnedComment);
+        Assert.Equal("Can You Get 2/2? | World Knowledge #012", metadata.YouTubeTitle);
+        Assert.Contains("Test your knowledge with 2 questions in World Knowledge #012.", metadata.Description);
+        Assert.Contains("Can you get 2/2?", metadata.Description);
+        Assert.Equal("#Quiz #Trivia #WorldKnowledge #Shorts", metadata.Hashtags);
+        Assert.Contains("How did you score?", metadata.PinnedComment);
+        Assert.Contains("Share your score out of 2", metadata.PinnedComment);
+        Assert.Contains("Can anyone get 2/2?", metadata.PinnedComment);
+    }
+
+    [Fact]
+    public void Generate_GeneralKnowledgeUsesThreeFocusedHashtagsAndSimpleDescription()
+    {
+        var metadata = QuizPublishMetadataGenerator.Generate(
+            "General Knowledge Quiz",
+            1,
+            [Question(1, "Science"), Question(2, "History"), Question(3, "Sports")],
+            vertical: false);
+
+        Assert.Equal("Can You Get 3/3? | General Knowledge Quiz #001", metadata.YouTubeTitle);
+        Assert.Equal("#Quiz #Trivia #GeneralKnowledge", metadata.Hashtags);
+        Assert.DoesNotContain("Categories:", metadata.Description);
+        Assert.EndsWith("#Quiz #Trivia #GeneralKnowledge", metadata.Description);
+    }
+
+    [Fact]
+    public void Generate_SingleCategoryUsesThatCategoryAsThirdHashtag()
+    {
+        var metadata = QuizPublishMetadataGenerator.Generate(
+            "Science Quiz",
+            4,
+            [Question(1, "Science"), Question(2, "Science")],
+            vertical: false);
+
+        Assert.Equal("#Quiz #Trivia #Science", metadata.Hashtags);
     }
 
     [Fact]
@@ -78,6 +105,7 @@ public sealed class QuizPublishingTests
             Assert.Equal("Science Challenge", json?["series"]?.GetValue<string>());
             Assert.Equal(7, json?["episode"]?.GetValue<int>());
             Assert.Equal(metadata.YouTubeTitle, json?["youtube_title"]?.GetValue<string>());
+            Assert.Equal(metadata.PinnedComment, json?["pinned_comment"]?.GetValue<string>());
         }
         finally
         {
