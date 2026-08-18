@@ -275,7 +275,11 @@ public sealed class QuizThemedCardRenderer
         page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         page.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        var header = new Grid { Margin = new Thickness(0, 0, 0, options.Vertical ? 24 : 12) };
+        var header = new Grid
+        {
+            Height = options.Vertical ? 70 : 62,
+            Margin = new Thickness(0, 0, 0, options.Vertical ? 24 : 12),
+        };
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
@@ -314,19 +318,17 @@ public sealed class QuizThemedCardRenderer
                 : narrating
                     ? theme.Narration
                     : theme.Muted;
-        if (!string.IsNullOrWhiteSpace(phaseText))
+        var phase = new TextBlock
         {
-            var phase = new TextBlock
-            {
-                Text = phaseText,
-                Foreground = Brush(phaseColor),
-                FontSize = countdownValue.HasValue ? (options.Vertical ? 58 : 52) : (options.Vertical ? 28 : 25),
-                FontWeight = FontWeights.Bold,
-                VerticalAlignment = VerticalAlignment.Center,
-            };
-            Grid.SetColumn(phase, 1);
-            header.Children.Add(phase);
-        }
+            Text = phaseText,
+            Foreground = Brush(phaseColor),
+            FontSize = countdownValue.HasValue ? (options.Vertical ? 58 : 52) : (options.Vertical ? 28 : 25),
+            FontWeight = FontWeights.Bold,
+            VerticalAlignment = VerticalAlignment.Center,
+            Visibility = string.IsNullOrWhiteSpace(phaseText) ? Visibility.Hidden : Visibility.Visible,
+        };
+        Grid.SetColumn(phase, 1);
+        header.Children.Add(phase);
         page.Children.Add(header);
 
         var questionPanel = new Border
