@@ -52,7 +52,8 @@ public sealed class QuizOpeningSequenceTests
         Assert.Equal(5, builder.Timeline.Scenes.Single().Start);
         Assert.Equal(10, builder.Timeline.Duration);
 
-        var countdown = builder.Timeline.GetTrack("Quiz Cards")!.Clips
+        var videoClips = builder.Timeline.GetTrack("Quiz Cards")!.Clips;
+        var countdown = videoClips
             .Where(clip => clip.Metadata.TryGetValue("quiz_card", out var value) &&
                            string.Equals(Convert.ToString(value), "start_countdown", StringComparison.Ordinal))
             .OrderBy(clip => clip.Start)
@@ -60,8 +61,14 @@ public sealed class QuizOpeningSequenceTests
         Assert.Equal(new[] { 2d, 3d, 4d }, countdown.Select(clip => clip.Start).ToArray());
         Assert.Equal(new[] { "3", "2", "1" }, countdown.Select(clip => Convert.ToString(clip.Metadata["seconds_remaining"])).ToArray());
         Assert.Equal(QuizOpeningSequence.SpinFrameCount,
-            builder.Timeline.GetTrack("Quiz Cards")!.Clips.Count(clip =>
+            videoClips.Count(clip =>
                 clip.Metadata.TryGetValue("quiz_card", out var value) &&
                 string.Equals(Convert.ToString(value), "intro_spin", StringComparison.Ordinal)));
+
+        var hold = videoClips.Single(clip =>
+            clip.Metadata.TryGetValue("quiz_card", out var value) &&
+            string.Equals(Convert.ToString(value), "intro", StringComparison.Ordinal));
+        Assert.Equal(spinPaths[^1], hold.Source);
+        Assert.NotEqual("intro.png", hold.Source);
     }
 }
