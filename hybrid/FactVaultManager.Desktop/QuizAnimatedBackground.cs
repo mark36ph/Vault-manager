@@ -24,8 +24,11 @@ public static class QuizAnimatedBackground
         Directory.CreateDirectory(mediaFolder);
         var theme = ResolveTheme(projectFolder);
         var destination = Path.Combine(mediaFolder, "quiz_animated_background.mp4");
+        var cachePath = QuizSharedAssetCache.BackgroundPath(timeline.Width, timeline.Height, timeline.FrameRate);
+        cachePath = QuizSharedAssetCache.GetOrCreate(cachePath, temporary =>
+            RenderLoop(temporary, Path.GetDirectoryName(temporary)!, timeline.Width, timeline.Height, timeline.FrameRate, theme));
+        QuizSharedAssetCache.CopyToProject(cachePath, destination);
 
-        RenderLoop(destination, mediaFolder, timeline.Width, timeline.Height, timeline.FrameRate, theme);
         ApplyTimeline(timeline, destination, LoopSeconds);
     }
 
