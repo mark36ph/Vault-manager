@@ -12,6 +12,13 @@ public partial class MainShellWindow
     private readonly Dictionary<string, FrameworkElement> _quizWorkspacePages = new(StringComparer.OrdinalIgnoreCase);
     private string _quizWorkspaceSelectedPage = "builder";
 
+    public void InitializeQuizWorkspaceNavigationForApp()
+    {
+        Loaded += (_, _) => Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Loaded,
+            new Action(InitializeQuizWorkspaceNavigation));
+    }
+
     private void InitializeQuizWorkspaceNavigation()
     {
         if (_quizWorkspaceNavigationInitialized ||
