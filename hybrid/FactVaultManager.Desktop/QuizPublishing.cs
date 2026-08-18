@@ -56,21 +56,20 @@ public static class QuizPublishMetadataGenerator
             .ToArray();
 
         var episode = $"#{episodeNumber:000}";
-        var formatLabel = vertical ? "Quiz Shorts" : "Quiz";
-        var title = Limit($"{series} {episode} | {questions.Count} Question {formatLabel}", MaxTitleLength);
+        var perfectScore = $"{questions.Count}/{questions.Count}";
+        var title = Limit($"Can You Get {perfectScore}? | {series} {episode}", MaxTitleLength);
 
-        var categoryText = categories.Length == 0
-            ? "Mixed topics"
-            : string.Join(", ", categories);
-        var hashtags = BuildHashtags(categories, vertical);
+        var hashtags = BuildHashtags(series, categories, vertical);
         var description = Limit(
             $"Test your knowledge with {questions.Count} questions in {series} {episode}.\n\n" +
-            $"Categories: {categoryText}\n\n" +
             "Keep track of your score as you go, then share your result in the comments.\n\n" +
+            $"Can you get {perfectScore}?\n\n" +
             hashtags,
             MaxDescriptionLength);
         var pinned = Limit(
-            $"How many did you get right out of {questions.Count}? Share your score below. {series} {episode}",
+            $"How did you score? 👇\n\n" +
+            $"Share your score out of {questions.Count} in the comments — and challenge someone to beat it.\n\n" +
+            $"Can anyone get {perfectScore}? 🎯",
             MaxPinnedCommentLength);
 
         return Validate(new QuizPublishMetadata(series, episodeNumber, title, description, hashtags, pinned));
@@ -106,16 +105,26 @@ public static class QuizPublishMetadataGenerator
             throw new ArgumentOutOfRangeException(nameof(episodeNumber), "Episode number must be between 1 and 9999.");
     }
 
-    private static string BuildHashtags(IEnumerable<string> categories, bool vertical)
+    private static string BuildHashtags(string seriesName, IReadOnlyList<string> categories, bool vertical)
     {
         var tags = new List<string> { "#Quiz", "#Trivia" };
-        foreach (var category in categories)
-        {
-            var slug = new string(category.Where(char.IsLetterOrDigit).ToArray());
-            if (slug.Length > 1)
-                tags.Add("#" + slug);
-        }
-        tags.Add("#GeneralKnowledge");
+        var topic = categories.Length == 1
+            ? categories[0]
+            : seriesName.StartsWith("General Knowledge", StringComparison.OrdinalIgnoreCase)
+                ? "General Knowledge"
+                : seriesName;
+        topic = topic
+            .Replace("Quiz", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("Trivia", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("Challenge", "", StringComparison.OrdinalIgnoreCase)
+            .Trim();
+
+        var slug = new string(topic.Where(char.IsLetterOrDigit).ToArray());
+        if (slug.Length > 1)
+            tags.Add("#" + slug);
+        else
+            tags.Add("#GeneralKnowledge");
+
         if (vertical)
             tags.Add("#Shorts");
 
