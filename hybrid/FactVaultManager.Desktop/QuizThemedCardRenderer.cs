@@ -268,7 +268,7 @@ public sealed class QuizThemedCardRenderer
         bool narrating)
     {
         var theme = QuizVisualThemeCatalog.Resolve(visual.ThemeKey);
-        var root = CardRoot(options, theme);
+        var root = CardRoot(options, theme, transparent: true);
         var page = new Grid { Margin = CardMargin(options) };
         page.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         page.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -549,7 +549,7 @@ public sealed class QuizThemedCardRenderer
         return row;
     }
 
-    private static Border CardRoot(QuizVideoBuildOptions options, QuizVisualTheme theme)
+    private static Border CardRoot(QuizVideoBuildOptions options, QuizVisualTheme theme, bool transparent = false)
     {
         var gradient = new LinearGradientBrush(
             new GradientStopCollection
@@ -565,7 +565,7 @@ public sealed class QuizThemedCardRenderer
         {
             Width = options.Width,
             Height = options.Height,
-            Background = gradient,
+            Background = transparent ? Brushes.Transparent : gradient,
             BorderBrush = Brush(Color.FromArgb(95, theme.Accent.R, theme.Accent.G, theme.Accent.B)),
             BorderThickness = new Thickness(options.Vertical ? 8 : 6),
         };
