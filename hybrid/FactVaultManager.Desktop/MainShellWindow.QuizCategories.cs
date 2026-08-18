@@ -60,6 +60,7 @@ public partial class MainShellWindow
             Foreground = QuizMutedBrush(),
             FontSize = 11,
             Margin = new Thickness(0, 3, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
         };
         heading.Children.Add(_quizCategoriesStatusText);
         header.Children.Add(heading);
@@ -214,13 +215,18 @@ public partial class MainShellWindow
 
             var total = summaries.Sum(item => item.QuestionCount);
             var populated = summaries.Count(item => item.QuestionCount > 0);
+            var easy = _data.GetQuizQuestionCount(difficulty: "easy");
+            var medium = _data.GetQuizQuestionCount(difficulty: "medium");
+            var hard = _data.GetQuizQuestionCount(difficulty: "hard");
             var generalKnowledge = summaries.FirstOrDefault(item =>
                 string.Equals(item.Category, "General Knowledge", StringComparison.OrdinalIgnoreCase));
             if (_quizCategoriesStatusText is not null)
             {
-                _quizCategoriesStatusText.Text = generalKnowledge is { QuestionCount: > 0 }
-                    ? $"{total:N0} questions across {populated:N0} populated categories • {generalKnowledge.QuestionCount:N0} still need categorizing"
+                var categorySummary = generalKnowledge is { QuestionCount: > 0 }
+                    ? $"{total:N0} questions across {populated:N0} populated categories • {generalKnowledge.QuestionCount:N0} General Knowledge"
                     : $"{total:N0} questions across {populated:N0} populated categories";
+                _quizCategoriesStatusText.Text =
+                    $"{categorySummary}\nEasy {easy:N0} • Medium {medium:N0} • Hard {hard:N0}";
             }
 
             var selectedItem = summaries.FirstOrDefault(item =>
