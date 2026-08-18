@@ -13,9 +13,22 @@ public sealed partial class DesktopDataService
         using var connection = OpenConnection();
         using var transaction = connection.BeginTransaction();
         var inserted = 0;
+        var existingQuestionKeys = new HashSet<string>(StringComparer.Ordinal);
+
+        using (var existing = connection.CreateCommand())
+        {
+            existing.Transaction = transaction;
+            existing.CommandText = "SELECT question FROM quiz_questions";
+            using var reader = existing.ExecuteReader();
+            while (reader.Read())
+                existingQuestionKeys.Add(QuizQuestionDuplicateKey.Create(reader.GetString(0)));
+        }
 
         foreach (var question in questions)
         {
+            if (!existingQuestionKeys.Add(QuizQuestionDuplicateKey.Create(question.Question)))
+                continue;
+
             using var command = connection.CreateCommand();
             command.Transaction = transaction;
             command.CommandText = """
