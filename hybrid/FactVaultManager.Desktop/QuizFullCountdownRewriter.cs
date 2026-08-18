@@ -84,27 +84,28 @@ public static class QuizFullCountdownRewriter
         root.Children.Add(new Image { Source = bitmap, Stretch = Stretch.Fill });
 
         var countdownColor = ResolveCountdownColor(directory);
-        var badge = new Border
+        var header = new Grid
         {
-            Background = Brushes.Transparent,
-            BorderThickness = new Thickness(0),
-            Width = options.Vertical ? 120 : 96,
-            Height = options.Vertical ? 72 : 58,
-            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = options.Vertical
+                ? new Thickness(76, 100, 76, 0)
+                : new Thickness(120, 58, 120, 0),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Top,
-            Margin = options.Vertical ? new Thickness(0, 110, 76, 0) : new Thickness(0, 66, 120, 0),
-            Child = new TextBlock
-            {
-                Text = remaining.ToString(),
-                Foreground = new SolidColorBrush(countdownColor),
-                FontSize = options.Vertical ? 54 : 44,
-                FontWeight = FontWeights.Bold,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Center,
-                TextAlignment = TextAlignment.Right,
-            },
         };
-        root.Children.Add(badge);
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var countdown = new TextBlock
+        {
+            Text = remaining.ToString(),
+            Foreground = new SolidColorBrush(countdownColor),
+            FontSize = options.Vertical ? 54 : 44,
+            FontWeight = FontWeights.Bold,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetColumn(countdown, 1);
+        header.Children.Add(countdown);
+        root.Children.Add(header);
 
         root.Measure(new Size(options.Width, options.Height));
         root.Arrange(new Rect(0, 0, options.Width, options.Height));
