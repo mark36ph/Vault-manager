@@ -3,7 +3,7 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class QuizThumbnailTests
 {
     [Fact]
-    public void Defaults_BuildsScoreHeadlineAndEpisodeSubtitle()
+    public void Defaults_BuildsChallengeHeadlineAndCategorySubtitle()
     {
         var metadata = QuizPublishMetadataGenerator.Generate(
             "Science Challenge",
@@ -13,8 +13,8 @@ public sealed class QuizThumbnailTests
 
         var thumbnail = QuizThumbnailDefaults.Create(metadata, 3);
 
-        Assert.Equal("CAN YOU SCORE 3/3?", thumbnail.Headline);
-        Assert.Equal("Science Challenge #008", thumbnail.Subtitle);
+        Assert.Equal("CAN YOU GET 3/3?", thumbnail.Headline);
+        Assert.Equal("SCIENCE CHALLENGE", thumbnail.Subtitle);
     }
 
     [Fact]
