@@ -381,27 +381,28 @@ public sealed class QuizThemedCardRenderer
             ? emphasizeReveal || string.IsNullOrWhiteSpace(question.Explanation)
                 ? $"Correct answer: {question.CorrectLetter}. {question.CorrectAnswer}"
                 : question.Explanation
-            : countdownValue is int footerRemaining
-                ? $"{footerRemaining} second{(footerRemaining == 1 ? "" : "s")} remaining"
+            : countdownValue.HasValue
+                ? ""
                 : narrating
                     ? "Answer time starts after the narration"
                     : "Choose A, B, C, or D";
-        footer.Children.Add(new TextBlock
+        if (!string.IsNullOrWhiteSpace(footerText))
         {
-            Text = footerText,
-            Foreground = Brush(revealAnswer
-                ? theme.CorrectBorder
-                : countdownValue.HasValue
-                    ? theme.Countdown
+            footer.Children.Add(new TextBlock
+            {
+                Text = footerText,
+                Foreground = Brush(revealAnswer
+                    ? theme.CorrectBorder
                     : narrating
                         ? theme.Narration
                         : theme.Muted),
-            FontSize = emphasizeReveal ? (options.Vertical ? 38 : 32) : (options.Vertical ? 30 : 24),
-            FontWeight = revealAnswer ? FontWeights.SemiBold : FontWeights.Normal,
-            TextAlignment = TextAlignment.Center,
-            TextWrapping = TextWrapping.Wrap,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-        });
+                FontSize = emphasizeReveal ? (options.Vertical ? 38 : 32) : (options.Vertical ? 30 : 24),
+                FontWeight = revealAnswer ? FontWeights.SemiBold : FontWeights.Normal,
+                TextAlignment = TextAlignment.Center,
+                TextWrapping = TextWrapping.Wrap,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+            });
+        }
 
         if (!revealAnswer && !narrating)
         {
