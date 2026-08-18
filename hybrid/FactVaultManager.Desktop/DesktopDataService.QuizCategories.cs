@@ -23,9 +23,7 @@ public sealed partial class DesktopDataService
         using var reader = command.ExecuteReader();
         while (reader.Read())
         {
-            var category = reader.IsDBNull(0) ? "" : reader.GetString(0).Trim();
-            if (category.Length == 0)
-                category = "Miscellaneous";
+            var category = QuizQuestionCategoryNormalizer.Normalize(reader.IsDBNull(0) ? "" : reader.GetString(0));
             var total = reader.GetInt32(1);
             var enabled = reader.IsDBNull(2) ? 0 : reader.GetInt32(2);
             var timesUsed = reader.IsDBNull(3) ? 0 : reader.GetInt32(3);
@@ -33,9 +31,6 @@ public sealed partial class DesktopDataService
         }
 
         var results = new List<QuizQuestionCategorySummary>();
-        if (stored.Remove("General Knowledge", out var generalKnowledge) && generalKnowledge.QuestionCount > 0)
-            results.Add(generalKnowledge);
-
         foreach (var category in QuizQuestionTopicCategorizer.Categories)
         {
             if (stored.Remove(category, out var summary))
@@ -50,9 +45,7 @@ public sealed partial class DesktopDataService
 
     public void SetQuizQuestionCategory(int questionId, string category)
     {
-        category = (category ?? "").Trim();
-        if (category.Length == 0)
-            throw new ArgumentException("Choose a category first.", nameof(category));
+        category = QuizQuestionCategoryNormalizer.Normalize(category);
         if (category.Length > 100)
             throw new ArgumentException("Quiz category cannot be longer than 100 characters.", nameof(category));
 
