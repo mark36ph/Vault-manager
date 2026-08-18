@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using FactVaultManager.Desktop;
 
 namespace FactVaultManager.Desktop.Tests;
@@ -27,16 +28,37 @@ public sealed class QuizThemedCardRendererTests
             Vertical: false,
             QuizLogoPath: "");
 
-        var bitmap = new QuizThemedCardRenderer().RenderPreviewBitmap(
-            question,
-            options,
-            new QuizVisualRenderSettings(),
-            QuizPreviewCardKind.Countdown,
-            number: 5,
-            total: 10,
-            countdownValue: 3);
+        Exception? renderError = null;
+        var pixelWidth = 0;
+        var pixelHeight = 0;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var bitmap = new QuizThemedCardRenderer().RenderPreviewBitmap(
+                    question,
+                    options,
+                    new QuizVisualRenderSettings(),
+                    QuizPreviewCardKind.Countdown,
+                    number: 5,
+                    total: 10,
+                    countdownValue: 3);
+                pixelWidth = bitmap.PixelWidth;
+                pixelHeight = bitmap.PixelHeight;
+            }
+            catch (Exception error)
+            {
+                renderError = error;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
 
-        Assert.Equal(1920, bitmap.PixelWidth);
-        Assert.Equal(1080, bitmap.PixelHeight);
+        if (renderError is not null)
+            ExceptionDispatchInfo.Capture(renderError).Throw();
+
+        Assert.Equal(1920, pixelWidth);
+        Assert.Equal(1080, pixelHeight);
     }
 }
