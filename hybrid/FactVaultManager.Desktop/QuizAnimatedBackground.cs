@@ -90,7 +90,7 @@ public static class QuizAnimatedBackground
     {
         var fps = Math.Max(1.0, frameRate);
         var frameCount = Math.Max(1, (int)Math.Round(LoopSeconds * fps, MidpointRounding.ToEven));
-        var glowSize = Math.Max(360, (int)Math.Round(Math.Min(width, height) * 0.72));
+        var glowSize = Math.Max(360, (int)Math.Round(Math.Min(width, height) * 0.68));
         var cyanGlow = Path.Combine(mediaFolder, "quiz_glow_cyan.ppm");
         var goldGlow = Path.Combine(mediaFolder, "quiz_glow_gold.ppm");
         var violetGlow = Path.Combine(mediaFolder, "quiz_glow_violet.ppm");
@@ -99,14 +99,14 @@ public static class QuizAnimatedBackground
         WriteRadialGlow(goldGlow, glowSize, theme.Countdown);
         WriteRadialGlow(violetGlow, glowSize, theme.Narration);
 
-        var background = Blend(Blend(theme.Background, Colors.White, 0.20), theme.AccentSoft, 0.18);
+        var background = Color.FromRgb(118, 148, 226);
         var filter =
-            "[1:v]format=rgba,colorkey=0x000000:0.025:0.22,colorchannelmixer=aa=0.46[g1];" +
-            "[2:v]format=rgba,colorkey=0x000000:0.025:0.22,colorchannelmixer=aa=0.40[g2];" +
-            "[3:v]format=rgba,colorkey=0x000000:0.025:0.22,colorchannelmixer=aa=0.42[g3];" +
-            $"[0:v][g1]overlay=x='(W-w)/2+(W-w)*0.44*sin(2*PI*t/{F(LoopSeconds)})':y='(H-h)/2+(H-h)*0.34*cos(2*PI*t/{F(LoopSeconds)})':eval=frame[v1];" +
-            $"[v1][g2]overlay=x='(W-w)/2+(W-w)*0.40*sin(2*PI*t/{F(LoopSeconds)}+2.094)':y='(H-h)/2+(H-h)*0.30*cos(2*PI*t/{F(LoopSeconds)}+1.047)':eval=frame[v2];" +
-            $"[v2][g3]overlay=x='(W-w)/2+(W-w)*0.42*sin(2*PI*t/{F(LoopSeconds)}+4.189)':y='(H-h)/2+(H-h)*0.32*cos(2*PI*t/{F(LoopSeconds)}+3.142)':eval=frame,format=yuv420p[out]";
+            "[1:v]format=rgba,colorkey=0x000000:0.025:0.22,colorchannelmixer=aa=0.56[g1];" +
+            "[2:v]format=rgba,colorkey=0x000000:0.025:0.22,colorchannelmixer=aa=0.42[g2];" +
+            "[3:v]format=rgba,colorkey=0x000000:0.025:0.22,colorchannelmixer=aa=0.52[g3];" +
+            $"[0:v][g1]overlay=x='(W-w)/2+(W-w)*0.52*sin(2*PI*t/{F(LoopSeconds)})':y='(H-h)/2+(H-h)*0.42*cos(2*PI*t/{F(LoopSeconds)})':eval=frame[v1];" +
+            $"[v1][g2]overlay=x='(W-w)/2+(W-w)*0.48*sin(2*PI*t/{F(LoopSeconds)}+2.094)':y='(H-h)/2+(H-h)*0.38*cos(2*PI*t/{F(LoopSeconds)}+1.047)':eval=frame[v2];" +
+            $"[v2][g3]overlay=x='(W-w)/2+(W-w)*0.50*sin(2*PI*t/{F(LoopSeconds)}+4.189)':y='(H-h)/2+(H-h)*0.40*cos(2*PI*t/{F(LoopSeconds)}+3.142)':eval=frame,format=yuv420p[out]";
 
         var ffmpeg = TrustedMediaExecutableLocator.Find("ffmpeg");
         using var process = new Process
