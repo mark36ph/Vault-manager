@@ -120,7 +120,8 @@ public sealed class QuizThemedCardRenderer
         QuizVisualRenderSettings visual,
         QuizPreviewCardKind kind,
         int number,
-        int total)
+        int total,
+        int? countdownValue = null)
     {
         ArgumentNullException.ThrowIfNull(question);
         ArgumentNullException.ThrowIfNull(options);
@@ -132,7 +133,7 @@ public sealed class QuizThemedCardRenderer
         FrameworkElement card = kind switch
         {
             QuizPreviewCardKind.Intro => BuildTitleCard(options.Title, options, visual),
-            QuizPreviewCardKind.Countdown => BuildQuestionCard(question, number, total, options, visual, false, Math.Min(3, options.QuestionSeconds), false, false),
+            QuizPreviewCardKind.Countdown => BuildQuestionCard(question, number, total, options, visual, false, countdownValue ?? Math.Min(3, options.QuestionSeconds), false, false),
             QuizPreviewCardKind.AnswerReveal => BuildQuestionCard(question, number, total, options, visual, true, null, true, false),
             QuizPreviewCardKind.Explanation => BuildQuestionCard(question, number, total, options, visual, true, null, false, false),
             QuizPreviewCardKind.Outro => BuildOutroCard(options, visual),
