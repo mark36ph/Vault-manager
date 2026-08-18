@@ -45,11 +45,21 @@ public static class QuizOpeningSequence
             spinPaths.Add(path);
         }
 
+        var countdownStyle = $"{theme.Accent}|{theme.Countdown}|{theme.AccentSoft}|{theme.Text}";
         var countdownPaths = new Dictionary<int, string>();
         for (var value = StartCountdownSeconds; value >= 1; value--)
         {
             var path = Path.Combine(cardsFolder, $"000_start_{value}.png");
-            RenderCard(BuildCountdownCard(options, theme, value), path, options.Width, options.Height);
+            var cachePath = QuizSharedAssetCache.OpeningCountdownPath(
+                value,
+                options.Width,
+                options.Height,
+                options.Vertical,
+                options.QuizLogoPath,
+                countdownStyle);
+            cachePath = QuizSharedAssetCache.GetOrCreate(cachePath, temporary =>
+                RenderCard(BuildCountdownCard(options, theme, value), temporary, options.Width, options.Height));
+            QuizSharedAssetCache.CopyToProject(cachePath, path);
             countdownPaths[value] = path;
         }
 
