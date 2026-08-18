@@ -183,17 +183,17 @@ public sealed class QuizThemedCardRenderer
 
         var badge = new Border
         {
-            Background = Brush(Color.FromArgb(58, theme.Accent.R, theme.Accent.G, theme.Accent.B)),
-            BorderBrush = Brush(Color.FromArgb(170, theme.Accent.R, theme.Accent.G, theme.Accent.B)),
-            BorderThickness = new Thickness(1),
+            Background = Brush(Color.FromArgb(95, theme.Accent.R, theme.Accent.G, theme.Accent.B)),
+            BorderBrush = Brush(theme.Countdown),
+            BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(999),
-            Padding = new Thickness(options.Vertical ? 30 : 26, options.Vertical ? 12 : 9, options.Vertical ? 30 : 26, options.Vertical ? 12 : 9),
+            Padding = new Thickness(options.Vertical ? 34 : 30, options.Vertical ? 13 : 10, options.Vertical ? 34 : 30, options.Vertical ? 13 : 10),
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = new Thickness(0, 0, 0, options.Vertical ? 34 : 24),
             Child = new TextBlock
             {
                 Text = "QUIZ TIME",
-                Foreground = Brush(theme.Accent),
+                Foreground = Brush(theme.Countdown),
                 FontSize = options.Vertical ? 36 : 30,
                 FontWeight = FontWeights.Bold,
             },
@@ -279,14 +279,25 @@ public sealed class QuizThemedCardRenderer
         var header = new Grid { Margin = new Thickness(0, 0, 0, options.Vertical ? 18 : 12) };
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        header.Children.Add(new TextBlock
+
+        var questionBadge = new Border
         {
-            Text = $"QUESTION {number} OF {total}",
-            Foreground = Brush(theme.Accent),
-            FontSize = options.Vertical ? 30 : 24,
-            FontWeight = FontWeights.Bold,
+            Background = Brush(Color.FromArgb(82, theme.Accent.R, theme.Accent.G, theme.Accent.B)),
+            BorderBrush = Brush(theme.Accent),
+            BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(999),
+            HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Center,
-        });
+            Padding = new Thickness(options.Vertical ? 22 : 18, options.Vertical ? 8 : 6, options.Vertical ? 22 : 18, options.Vertical ? 8 : 6),
+            Child = new TextBlock
+            {
+                Text = $"QUESTION {number} OF {total}",
+                Foreground = Brush(theme.Text),
+                FontSize = options.Vertical ? 28 : 22,
+                FontWeight = FontWeights.Bold,
+            },
+        };
+        header.Children.Add(questionBadge);
 
         var phaseText = revealAnswer
             ? "✓ CORRECT ANSWER"
@@ -304,22 +315,35 @@ public sealed class QuizThemedCardRenderer
                 : narrating
                     ? theme.Narration
                     : theme.Muted;
-        var phase = new TextBlock
+        if (!string.IsNullOrWhiteSpace(phaseText))
         {
-            Text = phaseText,
-            Foreground = Brush(phaseColor),
-            FontSize = countdownValue.HasValue ? (options.Vertical ? 54 : 44) : (options.Vertical ? 26 : 22),
-            FontWeight = FontWeights.Bold,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        Grid.SetColumn(phase, 1);
-        header.Children.Add(phase);
+            var phaseBadge = new Border
+            {
+                Background = Brush(Color.FromArgb(45, phaseColor.R, phaseColor.G, phaseColor.B)),
+                BorderBrush = Brush(phaseColor),
+                BorderThickness = new Thickness(countdownValue.HasValue ? 2 : 1),
+                CornerRadius = new CornerRadius(999),
+                Padding = countdownValue.HasValue
+                    ? new Thickness(options.Vertical ? 22 : 18, options.Vertical ? 5 : 3, options.Vertical ? 22 : 18, options.Vertical ? 5 : 3)
+                    : new Thickness(options.Vertical ? 18 : 14, options.Vertical ? 7 : 5, options.Vertical ? 18 : 14, options.Vertical ? 7 : 5),
+                Child = new TextBlock
+                {
+                    Text = phaseText,
+                    Foreground = Brush(phaseColor),
+                    FontSize = countdownValue.HasValue ? (options.Vertical ? 54 : 44) : (options.Vertical ? 26 : 22),
+                    FontWeight = FontWeights.Bold,
+                    VerticalAlignment = VerticalAlignment.Center,
+                },
+            };
+            Grid.SetColumn(phaseBadge, 1);
+            header.Children.Add(phaseBadge);
+        }
         page.Children.Add(header);
 
         var progressTrack = new Border
         {
             Height = options.Vertical ? 10 : 8,
-            Background = Brush(theme.Panel),
+            Background = Brush(Color.FromArgb(120, theme.Panel.R, theme.Panel.G, theme.Panel.B)),
             CornerRadius = new CornerRadius(999),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             Margin = new Thickness(0, 0, 0, options.Vertical ? 28 : 18),
@@ -347,11 +371,18 @@ public sealed class QuizThemedCardRenderer
         };
         var questionPanel = new Border
         {
-            Background = Brush(Color.FromArgb(210, theme.Panel.R, theme.Panel.G, theme.Panel.B)),
-            BorderBrush = Brush(Color.FromArgb(105, theme.Accent.R, theme.Accent.G, theme.Accent.B)),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(options.Vertical ? 24 : 18),
-            Padding = new Thickness(options.Vertical ? 30 : 26, options.Vertical ? 26 : 20, options.Vertical ? 30 : 26, options.Vertical ? 26 : 20),
+            Background = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new(Color.FromArgb(235, theme.Panel.R, theme.Panel.G, theme.Panel.B), 0),
+                    new(Color.FromArgb(220, Blend(theme.Panel, theme.Narration, 0.18).R, Blend(theme.Panel, theme.Narration, 0.18).G, Blend(theme.Panel, theme.Narration, 0.18).B), 1),
+                },
+                new Point(0, 0),
+                new Point(1, 1)),
+            BorderBrush = Brush(theme.Accent),
+            BorderThickness = new Thickness(options.Vertical ? 4 : 3),
+            CornerRadius = new CornerRadius(options.Vertical ? 28 : 22),
+            Padding = new Thickness(options.Vertical ? 34 : 30, options.Vertical ? 30 : 24, options.Vertical ? 34 : 30, options.Vertical ? 30 : 24),
             Margin = new Thickness(0, 0, 0, options.Vertical ? 42 : 24),
             Child = questionText,
         };
@@ -413,8 +444,10 @@ public sealed class QuizThemedCardRenderer
             var timerTrack = new Border
             {
                 Width = timerWidth,
-                Height = options.Vertical ? 12 : 10,
-                Background = Brush(theme.Panel),
+                Height = options.Vertical ? 14 : 12,
+                Background = Brush(Color.FromArgb(150, theme.Panel.R, theme.Panel.G, theme.Panel.B)),
+                BorderBrush = Brush(Color.FromArgb(95, theme.Accent.R, theme.Accent.G, theme.Accent.B)),
+                BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(999),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Margin = new Thickness(0, options.Vertical ? 18 : 12, 0, 0),
@@ -443,13 +476,14 @@ public sealed class QuizThemedCardRenderer
         QuizVideoBuildOptions options,
         QuizVisualTheme theme)
     {
-        var background = correct ? theme.Correct : theme.Panel;
-        var borderColor = correct ? theme.CorrectBorder : theme.PanelBorder;
+        var accent = AnswerAccent(theme, index);
+        var background = correct ? theme.Correct : Blend(theme.Panel, accent, 0.10);
+        var borderColor = correct ? theme.CorrectBorder : accent;
         var backgroundBrush = new LinearGradientBrush(
             new GradientStopCollection
             {
                 new(background, 0),
-                new(Blend(background, correct ? theme.CorrectBorder : theme.Accent, correct ? 0.12 : 0.06), 1),
+                new(Blend(background, correct ? theme.CorrectBorder : accent, correct ? 0.18 : 0.12), 1),
             },
             new Point(0, 0),
             new Point(1, 1));
@@ -457,28 +491,42 @@ public sealed class QuizThemedCardRenderer
         {
             Background = backgroundBrush,
             BorderBrush = Brush(borderColor),
-            BorderThickness = new Thickness(emphasized ? 6 : correct ? 3 : 1),
-            CornerRadius = new CornerRadius(options.Vertical ? 18 : 14),
-            Padding = new Thickness(options.Vertical ? 24 : 20, options.Vertical ? 22 : 15, options.Vertical ? 24 : 20, options.Vertical ? 22 : 15),
+            BorderThickness = new Thickness(emphasized ? 6 : correct ? 4 : 2),
+            CornerRadius = new CornerRadius(options.Vertical ? 22 : 18),
+            Padding = new Thickness(options.Vertical ? 18 : 15, options.Vertical ? 17 : 12, options.Vertical ? 24 : 20, options.Vertical ? 17 : 12),
             Margin = new Thickness(0, 0, 0, options.Vertical ? 22 : 12),
         };
         var content = new Grid();
-        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(options.Vertical ? 70 : 62) });
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(options.Vertical ? 84 : 72) });
         content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        content.Children.Add(new TextBlock
+
+        var letterBadge = new Border
         {
-            Text = correct ? $"✓ {(char)('A' + index)}" : ((char)('A' + index)).ToString(),
-            Foreground = Brush(correct ? theme.CorrectBorder : theme.Accent),
-            FontSize = options.Vertical ? 38 : 32,
-            FontWeight = FontWeights.Bold,
+            Width = options.Vertical ? 56 : 48,
+            Height = options.Vertical ? 56 : 48,
+            Background = Brush(correct ? theme.CorrectBorder : accent),
+            CornerRadius = new CornerRadius(999),
+            HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Center,
-        });
+            Child = new TextBlock
+            {
+                Text = correct ? "✓" : ((char)('A' + index)).ToString(),
+                Foreground = Brush(correct ? theme.Background : theme.Background),
+                FontSize = options.Vertical ? 28 : 24,
+                FontWeight = FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextAlignment = TextAlignment.Center,
+            },
+        };
+        content.Children.Add(letterBadge);
+
         var answerText = new TextBlock
         {
             Text = answer,
             Foreground = Brush(correct ? theme.Text : theme.PanelText),
             FontSize = emphasized ? (options.Vertical ? 42 : 36) : (options.Vertical ? 38 : 32),
-            FontWeight = correct ? FontWeights.Bold : FontWeights.Normal,
+            FontWeight = correct ? FontWeights.Bold : FontWeights.SemiBold,
             TextWrapping = TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -488,14 +536,23 @@ public sealed class QuizThemedCardRenderer
         return row;
     }
 
+    private static Color AnswerAccent(QuizVisualTheme theme, int index) => index switch
+    {
+        0 => theme.Accent,
+        1 => theme.Narration,
+        2 => theme.Countdown,
+        _ => Blend(theme.Accent, theme.Narration, 0.5),
+    };
+
     private static Border CardRoot(QuizVideoBuildOptions options, QuizVisualTheme theme)
     {
         var gradient = new LinearGradientBrush(
             new GradientStopCollection
             {
-                new(Blend(theme.Background, theme.Accent, 0.16), 0),
-                new(theme.Background, 0.48),
-                new(Blend(theme.Background, Colors.Black, 0.28), 1),
+                new(Blend(theme.Background, theme.Accent, 0.30), 0),
+                new(theme.Background, 0.34),
+                new(Blend(theme.Background, theme.Narration, 0.18), 0.72),
+                new(Blend(theme.Background, Colors.Black, 0.34), 1),
             },
             new Point(0, 0),
             new Point(1, 1));
@@ -504,8 +561,8 @@ public sealed class QuizThemedCardRenderer
             Width = options.Width,
             Height = options.Height,
             Background = gradient,
-            BorderBrush = Brush(Color.FromArgb(85, theme.Accent.R, theme.Accent.G, theme.Accent.B)),
-            BorderThickness = new Thickness(options.Vertical ? 10 : 7),
+            BorderBrush = Brush(theme.Countdown),
+            BorderThickness = new Thickness(options.Vertical ? 12 : 8),
         };
     }
 
