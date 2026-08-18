@@ -99,11 +99,11 @@ public static class QuizAnimatedBackground
         WriteRadialGlow(goldGlow, glowSize, theme.Countdown);
         WriteRadialGlow(violetGlow, glowSize, theme.Narration);
 
-        var background = Blend(theme.Background, theme.AccentSoft, 0.08);
+        var background = Blend(Blend(theme.Background, Colors.White, 0.20), theme.AccentSoft, 0.18);
         var filter =
-            "[1:v]format=rgba,colorkey=0x000000:0.025:0.22,colorchannelmixer=aa=0.42[g1];" +
-            "[2:v]format=rgba,colorkey=0x000000:0.025:0.22,colorchannelmixer=aa=0.34[g2];" +
-            "[3:v]format=rgba,colorkey=0x000000:0.025:0.22,colorchannelmixer=aa=0.38[g3];" +
+            "[1:v]format=rgba,colorkey=0x000000:0.025:0.22,colorchannelmixer=aa=0.46[g1];" +
+            "[2:v]format=rgba,colorkey=0x000000:0.025:0.22,colorchannelmixer=aa=0.40[g2];" +
+            "[3:v]format=rgba,colorkey=0x000000:0.025:0.22,colorchannelmixer=aa=0.42[g3];" +
             $"[0:v][g1]overlay=x='(W-w)/2+(W-w)*0.44*sin(2*PI*t/{F(LoopSeconds)})':y='(H-h)/2+(H-h)*0.34*cos(2*PI*t/{F(LoopSeconds)})':eval=frame[v1];" +
             $"[v1][g2]overlay=x='(W-w)/2+(W-w)*0.40*sin(2*PI*t/{F(LoopSeconds)}+2.094)':y='(H-h)/2+(H-h)*0.30*cos(2*PI*t/{F(LoopSeconds)}+1.047)':eval=frame[v2];" +
             $"[v2][g3]overlay=x='(W-w)/2+(W-w)*0.42*sin(2*PI*t/{F(LoopSeconds)}+4.189)':y='(H-h)/2+(H-h)*0.32*cos(2*PI*t/{F(LoopSeconds)}+3.142)':eval=frame,format=yuv420p[out]";
