@@ -2,25 +2,7 @@ namespace FactVaultManager.Desktop;
 
 public static class QuizQuestionTopicCategorizer
 {
-    public static IReadOnlyList<string> Categories { get; } =
-    [
-        "Geography",
-        "History",
-        "Science",
-        "Nature",
-        "Space",
-        "Technology",
-        "Literature",
-        "Art & Culture",
-        "Music",
-        "Film & TV",
-        "Sport",
-        "Games & Puzzles",
-        "Food & Drink",
-        "Language",
-        "Mathematics",
-        "Miscellaneous",
-    ];
+    public static IReadOnlyList<string> Categories { get; } = QuizQuestionCategoryNormalizer.CanonicalCategories;
 
     private static readonly TopicRule[] Rules =
     [
@@ -30,7 +12,7 @@ public static class QuizQuestionTopicCategorizer
             "jupiter", "saturn", "mars", "venus", "mercury", "neptune", "uranus",
             "astronomical", "orbit", "milky way",
         ]),
-        new("Nature",
+        new("Nature & Animals",
         [
             "animal", "whale", "cheetah", "elephant", "bird", "ostrich", "octopus",
             "insect", "spider", "frog", "mammal", "dolphin", "fish", "species", "wildlife",
@@ -42,44 +24,22 @@ public static class QuizQuestionTopicCategorizer
             "binary", "cpu", "html", "gps", "usb", "computer", "internet", "wright brothers",
             "powered flight", "printing press",
         ]),
-        new("Literature",
+        new("Arts & Literature",
         [
             "wrote", "novel", "play", "poet", "shakespeare", "austen", "orwell", "odyssey",
-            "hamlet", "pride and prejudice", "book", "author",
+            "hamlet", "pride and prejudice", "book", "author", "painted", "painting", "artist",
+            "mona lisa", "starry night", "sculpture", "michelangelo", "guernica", "the scream", "museum",
         ]),
-        new("Art & Culture",
-        [
-            "painted", "painting", "artist", "mona lisa", "starry night", "sculpture",
-            "michelangelo", "guernica", "the scream", "museum",
-        ]),
-        new("Music",
+        new("Entertainment",
         [
             "piano", "violin", "beatles", "mozart", "beethoven", "symphony", "composer",
-            "music", "song", "album",
+            "music", "song", "album", "film", "movie", "television", "actor", "actress",
+            "director", "cinema", "oscar", "academy award",
         ]),
-        new("Film & TV",
-        [
-            "film", "movie", "television", "actor", "actress", "director", "cinema",
-            "oscar", "academy award",
-        ]),
-        new("Sport",
+        new("Sports",
         [
             "football", "basketball", "tennis", "wimbledon", "olympic", "marathon",
             "free throw", "fifa", "cricket", "rugby", "golf", "players on the field",
-        ]),
-        new("Games & Puzzles",
-        [
-            "chess", "chessboard", "checkers", "draughts", "sudoku", "crossword", "puzzle",
-            "playing card", "deck of cards", "board game",
-        ]),
-        new("Food & Drink",
-        [
-            "food", "drink", "cuisine", "ingredient", "dish", "cooking", "wine", "cheese",
-            "coffee", "tea",
-        ]),
-        new("Language",
-        [
-            "synonym", "antonym", "grammar", "language", "spelling", "noun", "verb",
         ]),
         new("Mathematics",
         [
@@ -122,7 +82,7 @@ public static class QuizQuestionTopicCategorizer
             parts.Add(explanation);
 
         var text = " " + Normalize(string.Join(" ", parts)) + " ";
-        var bestCategory = "Miscellaneous";
+        var bestCategory = "General Knowledge";
         var bestScore = 0;
 
         foreach (var rule in Rules)
