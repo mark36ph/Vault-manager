@@ -326,7 +326,7 @@ public static class QuizOpeningTimelinePlanner
                 Kind = NativeTimelineClipKind.Image,
                 Start = cursor,
                 Duration = holdSeconds,
-                Source = intro.Source,
+                Source = spinFramePaths[^1],
                 Name = "Quiz Intro",
                 Metadata = new() { ["quiz_card"] = "intro" },
             });
