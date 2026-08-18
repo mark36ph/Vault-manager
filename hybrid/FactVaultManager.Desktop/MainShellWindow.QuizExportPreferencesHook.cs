@@ -7,6 +7,7 @@ public partial class MainShellWindow
 {
     private static readonly bool QuizExportPreferencesHookRegistered = RegisterQuizExportPreferencesHook();
     private Button? _quizResolvePreferencesAppliedButton;
+    private bool _quizResolvePreferencesApplying;
 
     private static bool RegisterQuizExportPreferencesHook()
     {
@@ -51,34 +52,74 @@ public partial class MainShellWindow
             _quizBackgroundMusicCheckBox is null || _quizBackgroundMusicPathTextBox is null)
             return;
 
-        var saved = _data.LoadQuizResolveExportPreferences();
-        _quizFormatComboBox.SelectedIndex = saved.FormatIndex;
-        _quizCountdownCheckBox.Content = "Full question countdown";
-        _quizCountdownCheckBox.ToolTip = "Show every second of the answer countdown, for example 8, 7, 6, 5, 4, 3, 2, 1.";
-        _quizCountdownCheckBox.IsChecked = saved.ShowCountdown;
-        _quizRevealAnimationCheckBox.IsChecked = saved.AnimateReveal;
-        _quizNarrationCheckBox.IsChecked = saved.Narrate;
-        _quizNarrateAnswersCheckBox.IsChecked = saved.NarrateAnswers;
-        _quizVoiceComboBox.SelectedItem = saved.Voice;
-        _quizCountdownTickCheckBox.IsChecked = saved.CountdownTicks;
-        _quizAnswerRevealSfxCheckBox.IsChecked = saved.AnswerRevealSfx;
+        _quizResolvePreferencesApplying = true;
+        try
+        {
+            var saved = _data.LoadQuizResolveExportPreferences();
+            _quizFormatComboBox.SelectedIndex = saved.FormatIndex;
+            _quizCountdownCheckBox.Content = "Full question countdown";
+            _quizCountdownCheckBox.ToolTip = "Show every second of the answer countdown, for example 8, 7, 6, 5, 4, 3, 2, 1.";
+            _quizCountdownCheckBox.IsChecked = saved.ShowCountdown;
+            _quizRevealAnimationCheckBox.IsChecked = saved.AnimateReveal;
+            _quizNarrationCheckBox.IsChecked = saved.Narrate;
+            _quizNarrateAnswersCheckBox.IsChecked = saved.NarrateAnswers;
+            _quizVoiceComboBox.SelectedItem = saved.Voice;
+            _quizCountdownTickCheckBox.IsChecked = saved.CountdownTicks;
+            _quizAnswerRevealSfxCheckBox.IsChecked = saved.AnswerRevealSfx;
 
-        var musicExists = saved.BackgroundMusicPath.Length > 0 && File.Exists(saved.BackgroundMusicPath);
-        _quizBackgroundMusicPathTextBox.Text = musicExists ? saved.BackgroundMusicPath : "";
-        _quizBackgroundMusicCheckBox.IsChecked = saved.UseBackgroundMusic && musicExists;
+            var musicExists = saved.BackgroundMusicPath.Length > 0 && File.Exists(saved.BackgroundMusicPath);
+            _quizBackgroundMusicPathTextBox.Text = musicExists ? saved.BackgroundMusicPath : "";
+            _quizBackgroundMusicCheckBox.IsChecked = saved.UseBackgroundMusic && musicExists;
 
-        _quizNarrateAnswersCheckBox.IsEnabled = saved.Narrate;
-        _quizVoiceComboBox.IsEnabled = saved.Narrate;
-        _quizCountdownTickCheckBox.IsEnabled = saved.ShowCountdown;
-        _quizResolvePreferencesAppliedButton = exportButton;
+            _quizNarrateAnswersCheckBox.IsEnabled = saved.Narrate;
+            _quizVoiceComboBox.IsEnabled = saved.Narrate;
+            _quizCountdownTickCheckBox.IsEnabled = saved.ShowCountdown;
+            _quizResolvePreferencesAppliedButton = exportButton;
+        }
+        finally
+        {
+            _quizResolvePreferencesApplying = false;
+        }
 
-        _quizNarrationCheckBox.Checked += QuizNarrationPreferenceChanged;
-        _quizNarrationCheckBox.Unchecked += QuizNarrationPreferenceChanged;
+        HookQuizResolvePreferenceChanges();
     }
 
-    private void QuizNarrationPreferenceChanged(object sender, RoutedEventArgs e)
+    private void HookQuizResolvePreferenceChanges()
     {
-        if (_quizResolvePreferencesAppliedButton is null)
+        if (_quizFormatComboBox is null || _quizCountdownCheckBox is null || _quizRevealAnimationCheckBox is null ||
+            _quizNarrationCheckBox is null || _quizNarrateAnswersCheckBox is null || _quizVoiceComboBox is null ||
+            _quizCountdownTickCheckBox is null || _quizAnswerRevealSfxCheckBox is null ||
+            _quizBackgroundMusicCheckBox is null || _quizBackgroundMusicPathTextBox is null)
+            return;
+
+        _quizFormatComboBox.SelectionChanged -= QuizResolvePreferenceChanged;
+        _quizFormatComboBox.SelectionChanged += QuizResolvePreferenceChanged;
+        _quizVoiceComboBox.SelectionChanged -= QuizResolvePreferenceChanged;
+        _quizVoiceComboBox.SelectionChanged += QuizResolvePreferenceChanged;
+        _quizBackgroundMusicPathTextBox.TextChanged -= QuizResolvePreferenceChanged;
+        _quizBackgroundMusicPathTextBox.TextChanged += QuizResolvePreferenceChanged;
+
+        foreach (var checkBox in new[]
+                 {
+                     _quizCountdownCheckBox,
+                     _quizRevealAnimationCheckBox,
+                     _quizNarrationCheckBox,
+                     _quizNarrateAnswersCheckBox,
+                     _quizCountdownTickCheckBox,
+                     _quizAnswerRevealSfxCheckBox,
+                     _quizBackgroundMusicCheckBox,
+                 })
+        {
+            checkBox.Checked -= QuizResolvePreferenceChanged;
+            checkBox.Unchecked -= QuizResolvePreferenceChanged;
+            checkBox.Checked += QuizResolvePreferenceChanged;
+            checkBox.Unchecked += QuizResolvePreferenceChanged;
+        }
+    }
+
+    private void QuizResolvePreferenceChanged(object sender, RoutedEventArgs e)
+    {
+        if (_quizResolvePreferencesApplying || _quizResolvePreferencesAppliedButton is null)
             return;
 
         SaveCurrentQuizResolveExportPreferences();
