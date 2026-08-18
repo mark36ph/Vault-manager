@@ -85,7 +85,7 @@ public static class QuizQuestionDuplicateKey
                 builder.Append(character);
                 pendingSpace = false;
             }
-            else if ("+-*/=%<>".Contains(character, StringComparison.Ordinal))
+            else if ("+-*/=%<>".Contains(character))
             {
                 if (builder.Length > 0 && builder[^1] != ' ')
                     builder.Append(' ');
