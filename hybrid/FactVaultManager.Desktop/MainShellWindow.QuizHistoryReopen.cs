@@ -31,7 +31,7 @@ public static class QuizHistoryDraftRestorer
 
 public partial class MainShellWindow
 {
-    private void ReopenSelectedQuizHistoryInBuilder()
+    private void ReopenSelectedQuizHistoryInBuilder(string workspacePage = "draft")
     {
         if (_quizHistoryGrid?.SelectedItem is not QuizHistorySummary history)
         {
@@ -75,9 +75,9 @@ public partial class MainShellWindow
                 _quizPageStatusText.Text = $"Reopened {history.Title} from Quiz History";
 
             MainTabs.SelectedIndex = _quizTabIndex;
-            SelectQuizWorkspacePage("draft");
             RefreshQuizPreview();
             RefreshQuizPublishingPage();
+            SelectQuizWorkspacePage(workspacePage);
             UpdateQuizHeaderButtons();
         }
         catch (Exception error)
