@@ -108,7 +108,7 @@ public static class QuizPublishMetadataGenerator
     private static string BuildHashtags(string seriesName, IReadOnlyList<string> categories, bool vertical)
     {
         var tags = new List<string> { "#Quiz", "#Trivia" };
-        var topic = categories.Length == 1
+        var topic = categories.Count == 1
             ? categories[0]
             : seriesName.StartsWith("General Knowledge", StringComparison.OrdinalIgnoreCase)
                 ? "General Knowledge"
