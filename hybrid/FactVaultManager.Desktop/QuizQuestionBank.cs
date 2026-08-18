@@ -85,13 +85,20 @@ public static class QuizQuestionDuplicateKey
                 builder.Append(character);
                 pendingSpace = false;
             }
+            else if ("+-*/=%<>".Contains(character, StringComparison.Ordinal))
+            {
+                if (builder.Length > 0 && builder[^1] != ' ')
+                    builder.Append(' ');
+                builder.Append(character);
+                pendingSpace = true;
+            }
             else if (builder.Length > 0)
             {
                 pendingSpace = true;
             }
         }
 
-        return builder.ToString();
+        return builder.ToString().Trim();
     }
 }
 
