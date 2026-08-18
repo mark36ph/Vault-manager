@@ -1,7 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
 
 namespace FactVaultManager.Desktop;
 
@@ -37,8 +39,8 @@ public static class QuizThumbnailDefaults
             throw new ArgumentOutOfRangeException(nameof(questionCount));
 
         return new QuizThumbnailSettings(
-            $"CAN YOU SCORE {questionCount}/{questionCount}?",
-            $"{metadata.SeriesName} {metadata.EpisodeLabel}").Normalize();
+            $"CAN YOU GET {questionCount}/{questionCount}?",
+            metadata.SeriesName.ToUpperInvariant()).Normalize();
     }
 }
 
@@ -104,93 +106,174 @@ public sealed class QuizThumbnailRenderer
         string? logoPath)
     {
         var theme = QuizVisualThemeCatalog.Resolve(visual.ThemeKey);
-        var root = new Border
+        var root = new Grid
         {
             Width = Width,
             Height = Height,
-            Background = Brush(theme.Background),
+            Background = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new(Color.FromRgb(7, 13, 57), 0),
+                    new(Color.FromRgb(18, 34, 115), 0.48),
+                    new(Color.FromRgb(80, 30, 145), 1),
+                },
+                new Point(0, 0),
+                new Point(1, 1)),
+            ClipToBounds = true,
         };
 
-        var page = new Grid { Margin = new Thickness(62, 48, 62, 48) };
+        var rays = new Canvas { IsHitTestVisible = false, Opacity = 0.33 };
+        var centerX = 1040.0;
+        var centerY = 366.0;
+        for (var index = 0; index < 24; index++)
+        {
+            var angle = (Math.PI * 2.0 * index / 24.0) + 0.04;
+            var length = 900.0;
+            rays.Children.Add(new Line
+            {
+                X1 = centerX,
+                Y1 = centerY,
+                X2 = centerX + Math.Cos(angle) * length,
+                Y2 = centerY + Math.Sin(angle) * length,
+                Stroke = index % 3 switch
+                {
+                    0 => Brush(theme.Accent),
+                    1 => Brush(theme.Countdown),
+                    _ => Brush(theme.AccentSoft),
+                },
+                StrokeThickness = index % 2 == 0 ? 7 : 3,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+            });
+        }
+        root.Children.Add(rays);
+
+        root.Children.Add(new Ellipse
+        {
+            Width = 760,
+            Height = 760,
+            Fill = new RadialGradientBrush(
+                Color.FromArgb(130, theme.Accent.R, theme.Accent.G, theme.Accent.B),
+                Colors.Transparent),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, -250, 0),
+            IsHitTestVisible = false,
+        });
+
+        var page = new Grid { Margin = new Thickness(62, 42, 58, 42) };
         page.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         page.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         var eyebrow = new Border
         {
-            Background = Brush(theme.Panel),
-            BorderBrush = Brush(theme.PanelBorder),
-            BorderThickness = new Thickness(1),
+            Background = new SolidColorBrush(Color.FromArgb(205, 7, 13, 57)),
+            BorderBrush = Brush(theme.Accent),
+            BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(999),
-            Padding = new Thickness(18, 8, 18, 8),
+            Padding = new Thickness(22, 9, 22, 9),
             HorizontalAlignment = HorizontalAlignment.Left,
+            Effect = Glow(theme.Accent, 18, 0.65),
         };
         eyebrow.Child = new TextBlock
         {
-            Text = $"{metadata.SeriesName.ToUpperInvariant()}  {metadata.EpisodeLabel}",
-            Foreground = Brush(theme.Accent),
-            FontSize = 24,
+            Text = $"FACTBURST QUIZ  •  {metadata.EpisodeLabel}",
+            Foreground = Brushes.White,
+            FontSize = 25,
             FontWeight = FontWeights.Bold,
         };
         page.Children.Add(eyebrow);
 
-        var middle = new Grid { Margin = new Thickness(0, 28, 0, 26) };
+        var middle = new Grid { Margin = new Thickness(0, 24, 0, 18) };
         middle.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        middle.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(360) });
+        middle.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(400) });
         Grid.SetRow(middle, 1);
         page.Children.Add(middle);
 
         var copy = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 40, 0),
+            Margin = new Thickness(0, 0, 30, 0),
         };
         copy.Children.Add(new TextBlock
         {
-            Text = thumbnail.Headline,
-            Foreground = Brush(theme.Text),
+            Text = thumbnail.Headline.ToUpperInvariant(),
+            Foreground = Brushes.White,
             FontSize = HeadlineFontSize(thumbnail.Headline.Length),
-            FontWeight = FontWeights.Bold,
+            FontWeight = FontWeights.Black,
             TextWrapping = TextWrapping.Wrap,
-            LineHeight = 94,
-            MaxWidth = 790,
+            LineHeight = 102,
+            MaxWidth = 775,
+            Effect = Glow(Colors.Black, 12, 0.7),
         });
-        copy.Children.Add(new TextBlock
+        var topic = new Border
         {
-            Text = thumbnail.Subtitle,
-            Foreground = Brush(theme.AccentSoft),
-            FontSize = 34,
-            FontWeight = FontWeights.SemiBold,
+            Background = new SolidColorBrush(Color.FromArgb(215, 7, 13, 57)),
+            BorderBrush = Brush(theme.Countdown),
+            BorderThickness = new Thickness(3),
+            CornerRadius = new CornerRadius(16),
+            Padding = new Thickness(22, 10, 22, 10),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, 20, 0, 0),
+            Effect = Glow(theme.Countdown, 16, 0.7),
+        };
+        topic.Child = new TextBlock
+        {
+            Text = thumbnail.Subtitle.ToUpperInvariant(),
+            Foreground = Brush(theme.Countdown),
+            FontSize = 38,
+            FontWeight = FontWeights.Black,
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 22, 0, 0),
-            MaxWidth = 780,
-        });
+            MaxWidth = 730,
+        };
+        copy.Children.Add(topic);
         middle.Children.Add(copy);
 
         var challenge = new Grid
         {
-            Width = 320,
-            Height = 320,
+            Width = 340,
+            Height = 340,
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Center,
+            Effect = Glow(theme.Accent, 28, 0.85),
         };
-        challenge.Children.Add(new Border
+        challenge.Children.Add(new Ellipse
         {
-            Background = Brush(theme.Panel),
-            BorderBrush = Brush(theme.Accent),
-            BorderThickness = new Thickness(8),
-            CornerRadius = new CornerRadius(160),
+            Fill = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new(Color.FromRgb(8, 18, 78), 0),
+                    new(Color.FromRgb(20, 32, 112), 1),
+                },
+                new Point(0, 0),
+                new Point(1, 1)),
+            Stroke = Brush(theme.Accent),
+            StrokeThickness = 10,
         });
-        challenge.Children.Add(new TextBlock
+        var score = new StackPanel
         {
-            Text = "?",
-            Foreground = Brush(theme.Accent),
-            FontSize = 210,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        score.Children.Add(new TextBlock
+        {
+            Text = $"{questions.Count}/{questions.Count}",
+            Foreground = Brushes.White,
+            FontSize = questions.Count >= 100 ? 78 : 96,
+            FontWeight = FontWeights.Black,
+            HorizontalAlignment = HorizontalAlignment.Center,
+        });
+        score.Children.Add(new TextBlock
+        {
+            Text = "CAN YOU DO IT?",
+            Foreground = Brush(theme.Countdown),
+            FontSize = 24,
             FontWeight = FontWeights.Bold,
             HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, -20, 0, 0),
+            Margin = new Thickness(0, -6, 0, 0),
         });
+        challenge.Children.Add(score);
         Grid.SetColumn(challenge, 1);
         middle.Children.Add(challenge);
 
@@ -200,15 +283,19 @@ public sealed class QuizThumbnailRenderer
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(4)
             .ToArray();
+        var categoryText = categories.Length == 0
+            ? "GENERAL KNOWLEDGE"
+            : string.Join("  •  ", categories.Select(value => value.ToUpperInvariant()));
+
         var footer = new Grid();
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var categoryText = categories.Length == 0 ? "MIXED TRIVIA" : string.Join("  •  ", categories.Select(value => value.ToUpperInvariant()));
         footer.Children.Add(new TextBlock
         {
             Text = categoryText,
-            Foreground = Brush(theme.Muted),
-            FontSize = 22,
+            Foreground = Brushes.White,
+            Opacity = 0.82,
+            FontSize = 21,
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center,
             TextTrimming = TextTrimming.CharacterEllipsis,
@@ -216,22 +303,23 @@ public sealed class QuizThumbnailRenderer
         var countBadge = new Border
         {
             Background = Brush(theme.Accent),
-            CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(18, 9, 18, 9),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(19, 9, 19, 9),
+            Effect = Glow(theme.Accent, 12, 0.55),
         };
         countBadge.Child = new TextBlock
         {
             Text = $"{questions.Count} QUESTIONS",
-            Foreground = Brush(theme.Background),
+            Foreground = ColorBrightness(theme.Accent) > 145 ? Brushes.Black : Brushes.White,
             FontSize = 22,
-            FontWeight = FontWeights.Bold,
+            FontWeight = FontWeights.Black,
         };
         Grid.SetColumn(countBadge, 1);
         footer.Children.Add(countBadge);
         Grid.SetRow(footer, 2);
         page.Children.Add(footer);
 
-        root.Child = WithLogo(page, visual, logoPath);
+        root.Children.Add(WithLogo(page, visual, logoPath));
         return root;
     }
 
@@ -262,21 +350,34 @@ public sealed class QuizThumbnailRenderer
             Stretch = Stretch.Uniform,
             HorizontalAlignment = left ? HorizontalAlignment.Left : HorizontalAlignment.Right,
             VerticalAlignment = top ? VerticalAlignment.Top : VerticalAlignment.Bottom,
-            Height = 62 * visual.LogoScale,
-            MaxWidth = 240 * visual.LogoScale,
+            Height = 82 * visual.LogoScale,
+            MaxWidth = 300 * visual.LogoScale,
             Margin = new Thickness(34),
             SnapsToDevicePixels = true,
+            Effect = Glow(Colors.White, 10, 0.35),
         });
         return layout;
     }
 
     private static double HeadlineFontSize(int length) => length switch
     {
-        <= 24 => 104,
-        <= 40 => 90,
-        <= 58 => 78,
-        _ => 66,
+        <= 22 => 112,
+        <= 34 => 100,
+        <= 48 => 86,
+        <= 62 => 74,
+        _ => 64,
     };
+
+    private static DropShadowEffect Glow(Color color, double radius, double opacity) => new()
+    {
+        Color = color,
+        BlurRadius = radius,
+        ShadowDepth = 0,
+        Opacity = opacity,
+    };
+
+    private static double ColorBrightness(Color color) =>
+        (color.R * 0.299) + (color.G * 0.587) + (color.B * 0.114);
 
     private static SolidColorBrush Brush(Color color) => new(color);
 }
