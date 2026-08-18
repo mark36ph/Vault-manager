@@ -90,7 +90,7 @@ public static class QuizOpeningSequence
         double scale,
         double opacity)
     {
-        var root = CardRoot(options, theme);
+        var root = CardRoot(options, theme, transparent: true);
         var content = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Center,
@@ -107,8 +107,8 @@ public static class QuizOpeningSequence
         AddCenteredLogo(content, options, options.Vertical ? 290 : 235, options.Vertical ? 760 : 680);
         content.Children.Add(new Border
         {
-            Background = Brush(Color.FromArgb(70, theme.Accent.R, theme.Accent.G, theme.Accent.B)),
-            BorderBrush = Brush(Color.FromArgb(190, theme.Accent.R, theme.Accent.G, theme.Accent.B)),
+            Background = Brush(Color.FromArgb(110, 8, 15, 65)),
+            BorderBrush = Brush(theme.Accent),
             BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(999),
             Padding = new Thickness(options.Vertical ? 34 : 28, options.Vertical ? 13 : 10, options.Vertical ? 34 : 28, options.Vertical ? 13 : 10),
@@ -125,7 +125,7 @@ public static class QuizOpeningSequence
         content.Children.Add(new TextBlock
         {
             Text = options.Title,
-            Foreground = Brush(theme.Text),
+            Foreground = Brushes.White,
             FontSize = options.Vertical ? 82 : 76,
             FontWeight = FontWeights.Bold,
             TextAlignment = TextAlignment.Center,
@@ -150,45 +150,66 @@ public static class QuizOpeningSequence
         QuizVisualTheme theme,
         int value)
     {
-        var root = CardRoot(options, theme);
+        var root = CardRoot(options, theme, transparent: true);
         var content = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = CardMargin(options),
         };
-        AddCenteredLogo(content, options, options.Vertical ? 235 : 185, options.Vertical ? 650 : 560);
-        content.Children.Add(new TextBlock
+        AddCenteredLogo(content, options, options.Vertical ? 235 : 205, options.Vertical ? 650 : 610);
+        content.Children.Add(new Border
         {
-            Text = "FIRST QUESTION STARTS IN",
-            Foreground = Brush(theme.AccentSoft),
-            FontSize = options.Vertical ? 36 : 30,
-            FontWeight = FontWeights.Bold,
-            TextAlignment = TextAlignment.Center,
-            Margin = new Thickness(0, options.Vertical ? 34 : 24, 0, 0),
+            Background = Brush(Color.FromArgb(135, 8, 15, 65)),
+            BorderBrush = Brush(theme.Accent),
+            BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(999),
+            Padding = new Thickness(options.Vertical ? 30 : 26, options.Vertical ? 10 : 8, options.Vertical ? 30 : 26, options.Vertical ? 10 : 8),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, options.Vertical ? 28 : 20, 0, options.Vertical ? 20 : 14),
+            Child = new TextBlock
+            {
+                Text = "FIRST QUESTION STARTS IN",
+                Foreground = Brushes.White,
+                FontSize = options.Vertical ? 36 : 30,
+                FontWeight = FontWeights.Bold,
+                TextAlignment = TextAlignment.Center,
+            },
         });
-        content.Children.Add(new TextBlock
+        content.Children.Add(new Border
         {
-            Text = value.ToString(),
-            Foreground = Brush(theme.Countdown),
-            FontSize = options.Vertical ? 230 : 190,
-            FontWeight = FontWeights.Black,
-            TextAlignment = TextAlignment.Center,
-            Margin = new Thickness(0, options.Vertical ? 8 : 0, 0, 0),
+            Width = options.Vertical ? 280 : 220,
+            Height = options.Vertical ? 280 : 220,
+            Background = Brush(Color.FromArgb(155, 8, 15, 65)),
+            BorderBrush = Brush(theme.Countdown),
+            BorderThickness = new Thickness(options.Vertical ? 10 : 8),
+            CornerRadius = new CornerRadius(999),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Child = new TextBlock
+            {
+                Text = value.ToString(),
+                Foreground = Brush(theme.Countdown),
+                FontSize = options.Vertical ? 190 : 150,
+                FontWeight = FontWeights.Black,
+                TextAlignment = TextAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            },
         });
         content.Children.Add(new TextBlock
         {
             Text = "GET READY!",
-            Foreground = Brush(theme.Text),
+            Foreground = Brushes.White,
             FontSize = options.Vertical ? 50 : 42,
             FontWeight = FontWeights.Bold,
             TextAlignment = TextAlignment.Center,
+            Margin = new Thickness(0, options.Vertical ? 22 : 16, 0, 0),
         });
         root.Child = content;
         return root;
     }
 
-    private static Border CardRoot(QuizVideoBuildOptions options, QuizVisualTheme theme)
+    private static Border CardRoot(QuizVideoBuildOptions options, QuizVisualTheme theme, bool transparent = false)
     {
         var gradient = new LinearGradientBrush(
             new GradientStopCollection
@@ -203,7 +224,7 @@ public static class QuizOpeningSequence
         {
             Width = options.Width,
             Height = options.Height,
-            Background = gradient,
+            Background = transparent ? Brushes.Transparent : gradient,
             BorderBrush = Brush(Color.FromArgb(95, theme.Accent.R, theme.Accent.G, theme.Accent.B)),
             BorderThickness = new Thickness(options.Vertical ? 10 : 7),
         };
