@@ -170,7 +170,7 @@ public partial class MainShellWindow
         };
         foreach (var category in QuizQuestionTopicCategorizer.Categories)
             _quizAssignCategoryComboBox.Items.Add(category);
-        _quizAssignCategoryComboBox.SelectedItem = "Miscellaneous";
+        _quizAssignCategoryComboBox.SelectedItem = "General Knowledge";
         Grid.SetColumn(_quizAssignCategoryComboBox, 4);
         actions.Children.Add(_quizAssignCategoryComboBox);
 
