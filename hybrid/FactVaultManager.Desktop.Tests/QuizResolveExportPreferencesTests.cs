@@ -11,6 +11,15 @@ public sealed class QuizResolveExportPreferencesTests
     }
 
     [Fact]
+    public void Defaults_NarrateQuestionWithoutReadingAnswers()
+    {
+        var preferences = new QuizResolveExportPreferences();
+
+        Assert.True(preferences.Narrate);
+        Assert.False(preferences.NarrateAnswers);
+    }
+
+    [Fact]
     public void PreferenceStore_RoundTripsResolveOptions()
     {
         var root = Path.Combine(Path.GetTempPath(), "FactVaultManager.Tests", Guid.NewGuid().ToString("N"));
