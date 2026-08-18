@@ -29,8 +29,10 @@ public sealed class QuizAnimatedBackgroundTests
         var originalDuration = cards.Clips[0].Duration;
         QuizAnimatedBackground.ApplyTimeline(timeline, Path.GetFullPath("background.mp4"), 12);
 
-        var background = Assert.Same(timeline.Tracks[0], timeline.GetTrack(QuizAnimatedBackground.TrackName));
-        Assert.Equal(NativeTimelineTrackKind.Video, background.Kind);
+        var background = timeline.GetTrack(QuizAnimatedBackground.TrackName);
+        Assert.NotNull(background);
+        Assert.Same(timeline.Tracks[0], background);
+        Assert.Equal(NativeTimelineTrackKind.Video, background!.Kind);
         Assert.Equal(3, background.Clips.Count);
         Assert.Equal(new[] { 0.0, 12.0, 24.0 }, background.Clips.Select(clip => clip.Start).ToArray());
         Assert.Equal(new[] { 12.0, 12.0, 1.5 }, background.Clips.Select(clip => clip.Duration).ToArray());
