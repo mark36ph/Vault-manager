@@ -21,6 +21,20 @@ public static class QuizPublishMetadataGenerator
     public const int MaxHashtagsLength = 500;
     public const int MaxPinnedCommentLength = 10_000;
 
+    public static string SuggestSeriesName(string? selectedCategory)
+    {
+        var category = (selectedCategory ?? "").Trim();
+        if (category.Length == 0 || category.StartsWith("All ", StringComparison.OrdinalIgnoreCase))
+            return "General Knowledge Quiz";
+        if (category.EndsWith("Quiz", StringComparison.OrdinalIgnoreCase) ||
+            category.EndsWith("Trivia", StringComparison.OrdinalIgnoreCase) ||
+            category.EndsWith("Challenge", StringComparison.OrdinalIgnoreCase))
+        {
+            return NormalizeSeriesName(category);
+        }
+        return NormalizeSeriesName($"{category} Quiz");
+    }
+
     public static QuizPublishMetadata Generate(
         string? seriesName,
         int episodeNumber,
