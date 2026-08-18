@@ -45,7 +45,7 @@ public static class QuizOpeningSequence
             spinPaths.Add(path);
         }
 
-        var countdownStyle = $"{theme.Accent}|{theme.Countdown}|{theme.AccentSoft}|{theme.Text}";
+        var countdownStyle = $"opening-large-v2|{theme.Accent}|{theme.Countdown}|{theme.AccentSoft}|{theme.Text}";
         var countdownPaths = new Dictionary<int, string>();
         for (var value = StartCountdownSeconds; value >= 1; value--)
         {
@@ -114,21 +114,21 @@ public static class QuizOpeningSequence
         transforms.Children.Add(new RotateTransform(angle));
         content.RenderTransform = transforms;
 
-        AddCenteredLogo(content, options, options.Vertical ? 290 : 235, options.Vertical ? 760 : 680);
+        AddCenteredLogo(content, options, options.Vertical ? 340 : 285, options.Vertical ? 900 : 820);
         content.Children.Add(new Border
         {
             Background = Brush(Color.FromArgb(110, 8, 15, 65)),
             BorderBrush = Brush(theme.Accent),
             BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(999),
-            Padding = new Thickness(options.Vertical ? 34 : 28, options.Vertical ? 13 : 10, options.Vertical ? 34 : 28, options.Vertical ? 13 : 10),
+            Padding = new Thickness(options.Vertical ? 40 : 34, options.Vertical ? 15 : 12, options.Vertical ? 40 : 34, options.Vertical ? 15 : 12),
             HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, options.Vertical ? 24 : 18, 0, options.Vertical ? 34 : 24),
+            Margin = new Thickness(0, options.Vertical ? 20 : 14, 0, options.Vertical ? 28 : 18),
             Child = new TextBlock
             {
                 Text = "QUIZ TIME",
                 Foreground = Brush(theme.Accent),
-                FontSize = options.Vertical ? 42 : 34,
+                FontSize = options.Vertical ? 50 : 40,
                 FontWeight = FontWeights.Bold,
             },
         });
@@ -136,20 +136,20 @@ public static class QuizOpeningSequence
         {
             Text = options.Title,
             Foreground = Brushes.White,
-            FontSize = options.Vertical ? 82 : 76,
+            FontSize = options.Vertical ? 96 : 90,
             FontWeight = FontWeights.Bold,
             TextAlignment = TextAlignment.Center,
             TextWrapping = TextWrapping.Wrap,
-            MaxWidth = options.Width * 0.84,
+            MaxWidth = options.Width * 0.88,
         });
         content.Children.Add(new TextBlock
         {
             Text = "ARE YOU READY?",
             Foreground = Brush(theme.AccentSoft),
-            FontSize = options.Vertical ? 38 : 31,
+            FontSize = options.Vertical ? 46 : 38,
             FontWeight = FontWeights.SemiBold,
             TextAlignment = TextAlignment.Center,
-            Margin = new Thickness(0, options.Vertical ? 36 : 26, 0, 0),
+            Margin = new Thickness(0, options.Vertical ? 28 : 20, 0, 0),
         });
         root.Child = content;
         return root;
@@ -167,39 +167,39 @@ public static class QuizOpeningSequence
             HorizontalAlignment = HorizontalAlignment.Center,
             Margin = CardMargin(options),
         };
-        AddCenteredLogo(content, options, options.Vertical ? 235 : 205, options.Vertical ? 650 : 610);
+        AddCenteredLogo(content, options, options.Vertical ? 280 : 250, options.Vertical ? 760 : 730);
         content.Children.Add(new Border
         {
             Background = Brush(Color.FromArgb(135, 8, 15, 65)),
             BorderBrush = Brush(theme.Accent),
             BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(999),
-            Padding = new Thickness(options.Vertical ? 30 : 26, options.Vertical ? 10 : 8, options.Vertical ? 30 : 26, options.Vertical ? 10 : 8),
+            Padding = new Thickness(options.Vertical ? 34 : 30, options.Vertical ? 12 : 10, options.Vertical ? 34 : 30, options.Vertical ? 12 : 10),
             HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, options.Vertical ? 28 : 20, 0, options.Vertical ? 20 : 14),
+            Margin = new Thickness(0, options.Vertical ? 22 : 16, 0, options.Vertical ? 16 : 10),
             Child = new TextBlock
             {
                 Text = "FIRST QUESTION STARTS IN",
                 Foreground = Brushes.White,
-                FontSize = options.Vertical ? 36 : 30,
+                FontSize = options.Vertical ? 42 : 34,
                 FontWeight = FontWeights.Bold,
                 TextAlignment = TextAlignment.Center,
             },
         });
         content.Children.Add(new Border
         {
-            Width = options.Vertical ? 280 : 220,
-            Height = options.Vertical ? 280 : 220,
+            Width = options.Vertical ? 330 : 260,
+            Height = options.Vertical ? 330 : 260,
             Background = Brush(Color.FromArgb(155, 8, 15, 65)),
             BorderBrush = Brush(theme.Countdown),
-            BorderThickness = new Thickness(options.Vertical ? 10 : 8),
+            BorderThickness = new Thickness(options.Vertical ? 12 : 9),
             CornerRadius = new CornerRadius(999),
             HorizontalAlignment = HorizontalAlignment.Center,
             Child = new TextBlock
             {
                 Text = value.ToString(),
                 Foreground = Brush(theme.Countdown),
-                FontSize = options.Vertical ? 190 : 150,
+                FontSize = options.Vertical ? 225 : 180,
                 FontWeight = FontWeights.Black,
                 TextAlignment = TextAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center,
@@ -210,10 +210,10 @@ public static class QuizOpeningSequence
         {
             Text = "GET READY!",
             Foreground = Brushes.White,
-            FontSize = options.Vertical ? 50 : 42,
+            FontSize = options.Vertical ? 58 : 48,
             FontWeight = FontWeights.Bold,
             TextAlignment = TextAlignment.Center,
-            Margin = new Thickness(0, options.Vertical ? 22 : 16, 0, 0),
+            Margin = new Thickness(0, options.Vertical ? 18 : 12, 0, 0),
         });
         root.Child = content;
         return root;
@@ -263,8 +263,8 @@ public static class QuizOpeningSequence
     }
 
     private static Thickness CardMargin(QuizVideoBuildOptions options) => options.Vertical
-        ? new Thickness(76, 100, 76, 100)
-        : new Thickness(120, 58, 120, 58);
+        ? new Thickness(64, 72, 64, 72)
+        : new Thickness(96, 38, 96, 38);
 
     private static Color Blend(Color left, Color right, double amount)
     {
