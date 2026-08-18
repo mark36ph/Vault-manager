@@ -14,20 +14,40 @@ public sealed partial class DesktopDataService
         using var transaction = connection.BeginTransaction();
         var inserted = 0;
         var existingQuestionKeys = new HashSet<string>(StringComparer.Ordinal);
+        var existingQuestions = new List<(string Question, string CorrectAnswer)>();
 
         using (var existing = connection.CreateCommand())
         {
             existing.Transaction = transaction;
-            existing.CommandText = "SELECT question FROM quiz_questions";
+            existing.CommandText = "SELECT question, option_a, option_b, option_c, option_d, correct_index FROM quiz_questions";
             using var reader = existing.ExecuteReader();
             while (reader.Read())
-                existingQuestionKeys.Add(QuizQuestionDuplicateKey.Create(reader.GetString(0)));
+            {
+                var text = reader.GetString(0);
+                var correctIndex = reader.GetInt32(5);
+                var correctAnswer = reader.GetString(correctIndex + 1);
+                existingQuestionKeys.Add(QuizQuestionDuplicateKey.Create(text));
+                existingQuestions.Add((text, correctAnswer));
+            }
         }
 
-        foreach (var question in questions)
+        foreach (var parsedQuestion in questions)
         {
-            if (!existingQuestionKeys.Add(QuizQuestionDuplicateKey.Create(question.Question)))
+            var question = parsedQuestion with
+            {
+                Category = QuizQuestionCategoryNormalizer.Normalize(parsedQuestion.Category),
+            };
+            var duplicateKey = QuizQuestionDuplicateKey.Create(question.Question);
+            var correctAnswer = question.Answers[question.CorrectIndex];
+            if (existingQuestionKeys.Contains(duplicateKey) ||
+                existingQuestions.Any(existing => QuizQuestionDuplicateDetector.IsLikelyDuplicate(
+                    question.Question,
+                    correctAnswer,
+                    existing.Question,
+                    existing.CorrectAnswer)))
+            {
                 continue;
+            }
 
             using var command = connection.CreateCommand();
             command.Transaction = transaction;
@@ -53,7 +73,13 @@ public sealed partial class DesktopDataService
             command.Parameters.AddWithValue("$source", question.Source);
             command.Parameters.AddWithValue("$fingerprint", question.Fingerprint);
             command.Parameters.AddWithValue("$created", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
-            inserted += command.ExecuteNonQuery();
+            var added = command.ExecuteNonQuery();
+            inserted += added;
+            if (added > 0)
+            {
+                existingQuestionKeys.Add(duplicateKey);
+                existingQuestions.Add((question.Question, correctAnswer));
+            }
         }
 
         transaction.Commit();
@@ -252,6 +278,32 @@ public sealed partial class DesktopDataService
                 ON quiz_questions(enabled, times_used);
             """;
         enabledIndex.ExecuteNonQuery();
+        NormalizeStoredQuizCategories(connection);
+    }
+
+    private static void NormalizeStoredQuizCategories(SqliteConnection connection)
+    {
+        var storedCategories = new List<string>();
+        using (var read = connection.CreateCommand())
+        {
+            read.CommandText = "SELECT DISTINCT category FROM quiz_questions";
+            using var reader = read.ExecuteReader();
+            while (reader.Read())
+                storedCategories.Add(reader.IsDBNull(0) ? "" : reader.GetString(0));
+        }
+
+        foreach (var stored in storedCategories)
+        {
+            var normalized = QuizQuestionCategoryNormalizer.Normalize(stored);
+            if (string.Equals(stored.Trim(), normalized, StringComparison.Ordinal))
+                continue;
+
+            using var update = connection.CreateCommand();
+            update.CommandText = "UPDATE quiz_questions SET category = $normalized WHERE category = $stored COLLATE NOCASE";
+            update.Parameters.AddWithValue("$normalized", normalized);
+            update.Parameters.AddWithValue("$stored", stored);
+            update.ExecuteNonQuery();
+        }
     }
 
     private static void EnsureQuizColumn(SqliteConnection connection, string columnName, string definition)
