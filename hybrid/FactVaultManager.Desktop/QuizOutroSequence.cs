@@ -53,8 +53,8 @@ public static class QuizOutroSequence
         {
             var progress = index / (double)(SpinFrameCount - 1);
             var eased = progress * progress * (3.0 - (2.0 * progress));
-            var angle = 240.0 * eased;
-            var scale = 1.0 - (0.65 * eased);
+            var angle = 360.0 * eased;
+            var scale = 1.0 - (0.92 * eased);
             var framePath = IOPath.Combine(cardsFolder, $"999_outro_spin_{index:00}.png");
             RenderSpinFrame(options, framePath, angle, scale);
             videoTrack.AddClip(new NativeTimelineClip
@@ -142,8 +142,8 @@ public static class QuizOutroSequence
             {
                 Source = LoadBitmap(logoPath),
                 Stretch = Stretch.Uniform,
-                Width = options.Width * (options.Vertical ? 0.68 : 0.48),
-                Height = options.Height * (options.Vertical ? 0.28 : 0.34),
+                Width = options.Width * (options.Vertical ? 0.90 : 0.66),
+                Height = options.Height * (options.Vertical ? 0.44 : 0.46),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
                 RenderTransformOrigin = new Point(0.5, 0.5),
