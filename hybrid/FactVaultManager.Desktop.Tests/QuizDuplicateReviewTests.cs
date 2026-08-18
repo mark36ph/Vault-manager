@@ -34,6 +34,24 @@ public sealed class QuizDuplicateReviewTests
         Assert.Empty(QuizDuplicateReview.FindCandidates(questions));
     }
 
+    [Fact]
+    public void Candidate_SelectionDefaultsOffAndCanBeChanged()
+    {
+        var candidate = new QuizDuplicateCandidate(
+            1,
+            "Keep?",
+            "General Knowledge",
+            2,
+            "Duplicate?",
+            "General Knowledge",
+            "Answer",
+            "Same wording");
+
+        Assert.False(candidate.IsSelected);
+        candidate.IsSelected = true;
+        Assert.True(candidate.IsSelected);
+    }
+
     private static QuizQuestion Question(int id, string text, string answer) => new(
         id,
         text,
