@@ -76,7 +76,9 @@ public partial class MainShellWindow
         _quizDuplicatesGrid = new DataGrid
         {
             AutoGenerateColumns = false,
-            IsReadOnly = true,
+            IsReadOnly = false,
+            CanUserAddRows = false,
+            CanUserDeleteRows = false,
             CanUserSortColumns = true,
             SelectionMode = DataGridSelectionMode.Single,
             HeadersVisibility = DataGridHeadersVisibility.Column,
@@ -87,41 +89,57 @@ public partial class MainShellWindow
             GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
             HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(230, 234, 240)),
         };
+        _quizDuplicatesGrid.Columns.Add(new DataGridCheckBoxColumn
+        {
+            Header = "Delete",
+            Binding = new Binding(nameof(QuizDuplicateCandidate.IsSelected))
+            {
+                Mode = BindingMode.TwoWay,
+                UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged,
+            },
+            Width = new DataGridLength(58),
+        });
         _quizDuplicatesGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Match",
             Binding = new Binding(nameof(QuizDuplicateCandidate.MatchType)),
             Width = new DataGridLength(90),
+            IsReadOnly = true,
         });
         _quizDuplicatesGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Keep ID",
             Binding = new Binding(nameof(QuizDuplicateCandidate.KeepId)),
             Width = new DataGridLength(65),
+            IsReadOnly = true,
         });
         _quizDuplicatesGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Keep question",
             Binding = new Binding(nameof(QuizDuplicateCandidate.KeepQuestion)),
             Width = new DataGridLength(1, DataGridLengthUnitType.Star),
+            IsReadOnly = true,
         });
         _quizDuplicatesGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Duplicate ID",
             Binding = new Binding(nameof(QuizDuplicateCandidate.DuplicateId)),
             Width = new DataGridLength(85),
+            IsReadOnly = true,
         });
         _quizDuplicatesGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Duplicate question",
             Binding = new Binding(nameof(QuizDuplicateCandidate.DuplicateQuestion)),
             Width = new DataGridLength(1, DataGridLengthUnitType.Star),
+            IsReadOnly = true,
         });
         _quizDuplicatesGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Answer",
             Binding = new Binding(nameof(QuizDuplicateCandidate.CorrectAnswer)),
             Width = new DataGridLength(125),
+            IsReadOnly = true,
         });
         Grid.SetRow(_quizDuplicatesGrid, 1);
         root.Children.Add(_quizDuplicatesGrid);
@@ -131,22 +149,42 @@ public partial class MainShellWindow
             Orientation = Orientation.Horizontal,
             Margin = new Thickness(0, 10, 0, 0),
         };
+        var selectAll = new Button
+        {
+            Content = "Select all",
+            Height = 34,
+            Padding = new Thickness(12, 0, 12, 0),
+            ToolTip = "Tick every duplicate candidate currently shown.",
+        };
+        selectAll.Click += (_, _) => SetAllQuizDuplicateSelections(true);
+        actions.Children.Add(selectAll);
+
+        var clearAll = new Button
+        {
+            Content = "Clear selection",
+            Height = 34,
+            Padding = new Thickness(12, 0, 12, 0),
+            ToolTip = "Untick every duplicate candidate.",
+        };
+        clearAll.Click += (_, _) => SetAllQuizDuplicateSelections(false);
+        actions.Children.Add(clearAll);
+
         var delete = new Button
         {
-            Content = "Delete selected duplicate",
+            Content = "Delete selected",
             Height = 34,
             Padding = new Thickness(12, 0, 12, 0),
             Background = new SolidColorBrush(Color.FromRgb(180, 35, 35)),
             BorderBrush = new SolidColorBrush(Color.FromRgb(180, 35, 35)),
             Foreground = Brushes.White,
             FontWeight = FontWeights.SemiBold,
-            ToolTip = "Deletes the newer duplicate while keeping the earlier question shown in the Keep column.",
+            ToolTip = "Deletes every checked duplicate while keeping the earlier question shown in the Keep column.",
         };
-        delete.Click += DeleteSelectedQuizDuplicate_Click;
+        delete.Click += DeleteSelectedQuizDuplicates_Click;
         actions.Children.Add(delete);
         actions.Children.Add(new TextBlock
         {
-            Text = "Nothing is deleted automatically. Review each pair before deleting.",
+            Text = "Tick the duplicates you want removed. The Keep questions are never deleted by this action.",
             Foreground = QuizMutedBrush(),
             FontSize = 11,
             VerticalAlignment = VerticalAlignment.Center,
@@ -184,13 +222,31 @@ public partial class MainShellWindow
         }
     }
 
-    private void DeleteSelectedQuizDuplicate_Click(object sender, RoutedEventArgs e)
+    private void SetAllQuizDuplicateSelections(bool selected)
     {
-        if (_quizDuplicatesGrid?.SelectedItem is not QuizDuplicateCandidate candidate)
+        if (_quizDuplicatesGrid?.ItemsSource is not IEnumerable<QuizDuplicateCandidate> candidates)
+            return;
+
+        foreach (var candidate in candidates)
+            candidate.IsSelected = selected;
+        _quizDuplicatesGrid.Items.Refresh();
+    }
+
+    private void DeleteSelectedQuizDuplicates_Click(object sender, RoutedEventArgs e)
+    {
+        if (_quizDuplicatesGrid?.ItemsSource is not IEnumerable<QuizDuplicateCandidate> source)
+            return;
+
+        var selected = source
+            .Where(candidate => candidate.IsSelected)
+            .GroupBy(candidate => candidate.DuplicateId)
+            .Select(group => group.First())
+            .ToList();
+        if (selected.Count == 0)
         {
             MessageBox.Show(
                 this,
-                "Select a duplicate pair first.",
+                "Tick one or more duplicate questions first.",
                 "Duplicate Review",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -199,8 +255,8 @@ public partial class MainShellWindow
 
         var answer = MessageBox.Show(
             this,
-            $"Keep question #{candidate.KeepId}:\n{candidate.KeepQuestion}\n\nDelete duplicate #{candidate.DuplicateId}:\n{candidate.DuplicateQuestion}?",
-            "Delete Duplicate Question",
+            $"Delete {selected.Count:N0} selected duplicate question{(selected.Count == 1 ? "" : "s")}?\n\nThe earlier question shown in each Keep column will remain.",
+            "Delete Selected Duplicates",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
         if (answer != MessageBoxResult.Yes)
@@ -208,9 +264,12 @@ public partial class MainShellWindow
 
         try
         {
-            _data.DeleteQuizQuestion(candidate.DuplicateId);
+            var duplicateIds = selected.Select(candidate => candidate.DuplicateId).ToHashSet();
+            foreach (var duplicateId in duplicateIds)
+                _data.DeleteQuizQuestion(duplicateId);
+
             _quizDraftQuestions = _quizDraftQuestions
-                .Where(question => question.Id != candidate.DuplicateId)
+                .Where(question => !duplicateIds.Contains(question.Id))
                 .ToList();
             if (_quizDraftGrid is not null)
                 _quizDraftGrid.ItemsSource = QuizDraftRows(_quizDraftQuestions);
@@ -219,11 +278,11 @@ public partial class MainShellWindow
             RefreshQuizDuplicateSection();
             RefreshQuizCategorySection();
             if (_quizPageStatusText is not null)
-                _quizPageStatusText.Text = $"Deleted duplicate question #{candidate.DuplicateId}";
+                _quizPageStatusText.Text = $"Deleted {duplicateIds.Count:N0} selected duplicate question{(duplicateIds.Count == 1 ? "" : "s")}";
         }
         catch (Exception error)
         {
-            MessageBox.Show(this, error.Message, "Delete Duplicate Question", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, error.Message, "Delete Selected Duplicates", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 }
