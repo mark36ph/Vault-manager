@@ -71,6 +71,17 @@ public partial class MainShellWindow
         _quizVoiceComboBox.IsEnabled = saved.Narrate;
         _quizCountdownTickCheckBox.IsEnabled = saved.ShowCountdown;
         _quizResolvePreferencesAppliedButton = exportButton;
+
+        _quizNarrationCheckBox.Checked += QuizNarrationPreferenceChanged;
+        _quizNarrationCheckBox.Unchecked += QuizNarrationPreferenceChanged;
+    }
+
+    private void QuizNarrationPreferenceChanged(object sender, RoutedEventArgs e)
+    {
+        if (_quizResolvePreferencesAppliedButton is null)
+            return;
+
+        SaveCurrentQuizResolveExportPreferences();
     }
 
     private void SaveCurrentQuizResolveExportPreferences()
