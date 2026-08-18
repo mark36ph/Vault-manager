@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 
 namespace FactVaultManager.Desktop;
@@ -263,14 +264,17 @@ public sealed class QuizThemedCardRenderer
         bool narrating)
     {
         var theme = QuizVisualThemeCatalog.Resolve(visual.ThemeKey);
+        if (options.Vertical)
+            return BuildVerticalQuestionCard(question, number, total, options, theme, revealAnswer, countdownValue, emphasizeReveal, narrating);
+
         var root = CardRoot(options, theme, transparent: true);
-        var page = new Grid { Margin = QuestionCardMargin(options) };
-        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(options.Vertical ? 92 : 88) });
-        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(options.Vertical ? 72 : 66) });
-        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(options.Vertical ? 82 : 74) });
-        page.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var page = new Grid { Margin = new Thickness(72, 18, 72, 24) };
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(140) });
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(88) });
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(96) });
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(224) });
         page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        page.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(44) });
 
         var logo = BuildTopQuizLogo(options, theme);
         Grid.SetRow(logo, 0);
@@ -278,65 +282,64 @@ public sealed class QuizThemedCardRenderer
 
         var titleBar = new Border
         {
-            Height = options.Vertical ? 64 : 58,
-            Background = Brush(Color.FromArgb(225, theme.Panel.R, theme.Panel.G, theme.Panel.B)),
+            Height = 76,
+            MinWidth = options.Width * 0.56,
+            MaxWidth = options.Width * 0.72,
+            Background = Brush(Color.FromArgb(242, 10, 17, 72)),
             BorderBrush = Brush(theme.Countdown),
-            BorderThickness = new Thickness(2),
+            BorderThickness = new Thickness(3),
             CornerRadius = new CornerRadius(999),
-            Padding = new Thickness(options.Vertical ? 30 : 26, 6, options.Vertical ? 30 : 26, 6),
             HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Top,
-            MinWidth = options.Vertical ? options.Width * 0.72 : options.Width * 0.58,
-            MaxWidth = options.Width * 0.78,
+            VerticalAlignment = VerticalAlignment.Center,
+            Effect = Glow(theme.Countdown, 18, 0.45),
             Child = new TextBlock
             {
                 Text = options.Title.ToUpperInvariant(),
-                Foreground = Brush(theme.Text),
-                FontSize = options.Vertical ? 34 : 32,
+                Foreground = Brushes.White,
+                FontSize = 38,
                 FontWeight = FontWeights.Bold,
                 TextAlignment = TextAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(34, 0, 34, 0),
             },
         };
         Grid.SetRow(titleBar, 1);
         page.Children.Add(titleBar);
 
-        var statusRow = new Grid
-        {
-            Height = options.Vertical ? 72 : 66,
-            Margin = new Thickness(0, 0, 0, options.Vertical ? 12 : 8),
-        };
-        statusRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var statusRow = new Grid { Margin = new Thickness(0, 2, 0, 8) };
+        statusRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(190) });
         statusRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        statusRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        statusRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(190) });
 
         var questionBadge = new Border
         {
-            Width = options.Vertical ? 176 : 164,
-            Height = options.Vertical ? 66 : 60,
-            Background = Brush(Color.FromArgb(232, theme.Panel.R, theme.Panel.G, theme.Panel.B)),
+            Width = 176,
+            Height = 82,
+            Background = Brush(Color.FromArgb(244, 9, 20, 78)),
             BorderBrush = Brush(theme.Accent),
-            BorderThickness = new Thickness(2),
-            CornerRadius = new CornerRadius(options.Vertical ? 18 : 16),
-            Padding = new Thickness(14, 5, 14, 5),
+            BorderThickness = new Thickness(3),
+            CornerRadius = new CornerRadius(22),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Effect = Glow(theme.Accent, 16, 0.45),
             Child = new StackPanel
             {
+                VerticalAlignment = VerticalAlignment.Center,
                 Children =
                 {
                     new TextBlock
                     {
                         Text = "QUESTION",
                         Foreground = Brush(theme.Countdown),
-                        FontSize = options.Vertical ? 18 : 16,
+                        FontSize = 19,
                         FontWeight = FontWeights.Bold,
                         HorizontalAlignment = HorizontalAlignment.Center,
                     },
                     new TextBlock
                     {
                         Text = $"{number} / {total}",
-                        Foreground = Brush(theme.Text),
-                        FontSize = options.Vertical ? 28 : 25,
+                        Foreground = Brushes.White,
+                        FontSize = 31,
                         FontWeight = FontWeights.Bold,
                         HorizontalAlignment = HorizontalAlignment.Center,
                     },
@@ -351,31 +354,28 @@ public sealed class QuizThemedCardRenderer
                 ? countdown.ToString()
                 : narrating
                     ? "LISTEN"
-                    : options.ShowCountdown
-                        ? ""
-                        : $"{options.QuestionSeconds}s";
+                    : options.ShowCountdown ? "" : options.QuestionSeconds.ToString();
         var phaseColor = revealAnswer
             ? theme.CorrectBorder
             : countdownValue.HasValue
                 ? theme.Countdown
-                : narrating
-                    ? theme.Narration
-                    : theme.Muted;
+                : narrating ? theme.Narration : theme.Accent;
         var phase = new Border
         {
-            Width = options.Vertical ? 92 : 84,
-            Height = options.Vertical ? 66 : 60,
-            Background = Brush(Color.FromArgb(232, theme.Panel.R, theme.Panel.G, theme.Panel.B)),
+            Width = 90,
+            Height = 90,
+            Background = Brush(Color.FromArgb(244, 9, 20, 78)),
             BorderBrush = Brush(phaseColor),
-            BorderThickness = new Thickness(countdownValue.HasValue ? 5 : 2),
+            BorderThickness = new Thickness(countdownValue.HasValue ? 6 : 3),
             CornerRadius = new CornerRadius(999),
             HorizontalAlignment = HorizontalAlignment.Right,
             Visibility = string.IsNullOrWhiteSpace(phaseText) ? Visibility.Hidden : Visibility.Visible,
+            Effect = Glow(phaseColor, 20, 0.55),
             Child = new TextBlock
             {
                 Text = phaseText,
                 Foreground = Brush(phaseColor),
-                FontSize = countdownValue.HasValue ? (options.Vertical ? 40 : 36) : (options.Vertical ? 20 : 18),
+                FontSize = countdownValue.HasValue ? 48 : 24,
                 FontWeight = FontWeights.Bold,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -389,18 +389,19 @@ public sealed class QuizThemedCardRenderer
 
         var questionPanel = new Border
         {
-            MinHeight = options.Vertical ? 170 : 160,
-            Background = Brush(Color.FromArgb(235, theme.Panel.R, theme.Panel.G, theme.Panel.B)),
+            Height = 196,
+            Background = Brush(Color.FromArgb(246, 8, 15, 65)),
             BorderBrush = Brush(theme.Accent),
-            BorderThickness = new Thickness(3),
-            CornerRadius = new CornerRadius(options.Vertical ? 24 : 22),
-            Padding = new Thickness(options.Vertical ? 36 : 42, options.Vertical ? 26 : 24, options.Vertical ? 36 : 42, options.Vertical ? 26 : 24),
-            Margin = new Thickness(options.Vertical ? 34 : 190, 0, options.Vertical ? 34 : 190, options.Vertical ? 24 : 16),
+            BorderThickness = new Thickness(4),
+            CornerRadius = new CornerRadius(30),
+            Margin = new Thickness(170, 4, 170, 18),
+            Padding = new Thickness(50, 26, 50, 26),
+            Effect = Glow(theme.Accent, 24, 0.50),
             Child = new TextBlock
             {
                 Text = question.Question,
-                Foreground = Brush(theme.Text),
-                FontSize = options.Vertical ? 50 : 46,
+                Foreground = Brushes.White,
+                FontSize = 50,
                 FontWeight = FontWeights.Bold,
                 TextWrapping = TextWrapping.Wrap,
                 TextAlignment = TextAlignment.Center,
@@ -411,62 +412,35 @@ public sealed class QuizThemedCardRenderer
         Grid.SetRow(questionPanel, 3);
         page.Children.Add(questionPanel);
 
-        FrameworkElement answerArea;
-        if (options.Vertical)
+        var answers = new Grid
         {
-            var stack = new StackPanel
-            {
-                VerticalAlignment = VerticalAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-            };
-            for (var index = 0; index < 4; index++)
-            {
-                stack.Children.Add(BuildAnswerRow(
-                    question.Answers[index],
-                    index,
-                    revealAnswer && index == question.CorrectIndex,
-                    emphasizeReveal && index == question.CorrectIndex,
-                    options,
-                    theme));
-            }
-            answerArea = stack;
-        }
-        else
+            Margin = new Thickness(120, 0, 120, 0),
+            VerticalAlignment = VerticalAlignment.Stretch,
+        };
+        answers.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        answers.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });
+        answers.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        answers.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        answers.RowDefinitions.Add(new RowDefinition { Height = new GridLength(22) });
+        answers.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        for (var index = 0; index < 4; index++)
         {
-            var grid = new Grid
-            {
-                MinHeight = 360,
-                VerticalAlignment = VerticalAlignment.Stretch,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                Margin = new Thickness(120, 0, 120, 0),
-            };
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(18) });
-            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-
-            for (var index = 0; index < 4; index++)
-            {
-                var card = BuildAnswerRow(
-                    question.Answers[index],
-                    index,
-                    revealAnswer && index == question.CorrectIndex,
-                    emphasizeReveal && index == question.CorrectIndex,
-                    options,
-                    theme);
-                card.Margin = new Thickness(0);
-                Grid.SetColumn(card, index % 2 == 0 ? 0 : 2);
-                Grid.SetRow(card, index < 2 ? 0 : 2);
-                grid.Children.Add(card);
-            }
-            answerArea = grid;
+            var card = BuildAnswerRow(
+                question.Answers[index],
+                index,
+                revealAnswer && index == question.CorrectIndex,
+                emphasizeReveal && index == question.CorrectIndex,
+                options,
+                theme);
+            card.Margin = new Thickness(0);
+            Grid.SetColumn(card, index % 2 == 0 ? 0 : 2);
+            Grid.SetRow(card, index < 2 ? 0 : 2);
+            answers.Children.Add(card);
         }
-        Grid.SetRow(answerArea, 4);
-        page.Children.Add(answerArea);
+        Grid.SetRow(answers, 4);
+        page.Children.Add(answers);
 
-        var footer = new Grid { Margin = new Thickness(options.Vertical ? 0 : 120, options.Vertical ? 20 : 8, options.Vertical ? 0 : 120, 0) };
+        var footer = new Grid { Margin = new Thickness(120, 8, 120, 0) };
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
@@ -478,7 +452,7 @@ public sealed class QuizThemedCardRenderer
                     ? $"{question.CorrectLetter}. {question.CorrectAnswer}"
                     : question.Explanation,
                 Foreground = Brush(theme.CorrectBorder),
-                FontSize = emphasizeReveal ? (options.Vertical ? 36 : 30) : (options.Vertical ? 29 : 24),
+                FontSize = emphasizeReveal ? 28 : 23,
                 FontWeight = FontWeights.SemiBold,
                 TextWrapping = TextWrapping.Wrap,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -490,7 +464,7 @@ public sealed class QuizThemedCardRenderer
             {
                 Text = "Listen, then choose your answer",
                 Foreground = Brush(theme.Narration),
-                FontSize = options.Vertical ? 26 : 22,
+                FontSize = 22,
                 VerticalAlignment = VerticalAlignment.Center,
             });
         }
@@ -499,23 +473,23 @@ public sealed class QuizThemedCardRenderer
             footer.Children.Add(new TextBlock
             {
                 Text = "Choose A, B, C or D",
-                Foreground = Brush(theme.Muted),
-                FontSize = options.Vertical ? 26 : 22,
+                Foreground = Brushes.White,
+                FontSize = 21,
                 VerticalAlignment = VerticalAlignment.Center,
             });
         }
 
         if (!revealAnswer && !narrating)
         {
-            var timerWidth = options.Vertical ? 500.0 : 430.0;
+            var timerWidth = 430.0;
             var timerFraction = countdownValue is int timerRemaining
                 ? Math.Clamp(timerRemaining / (double)options.QuestionSeconds, 0.0, 1.0)
                 : 1.0;
             var timerTrack = new Border
             {
                 Width = timerWidth,
-                Height = options.Vertical ? 12 : 10,
-                Background = Brush(Color.FromArgb(125, theme.PanelBorder.R, theme.PanelBorder.G, theme.PanelBorder.B)),
+                Height = 12,
+                Background = Brush(Color.FromArgb(150, 35, 45, 100)),
                 CornerRadius = new CornerRadius(999),
                 VerticalAlignment = VerticalAlignment.Center,
             };
@@ -536,6 +510,157 @@ public sealed class QuizThemedCardRenderer
         return root;
     }
 
+    private static FrameworkElement BuildVerticalQuestionCard(
+        QuizQuestion question,
+        int number,
+        int total,
+        QuizVideoBuildOptions options,
+        QuizVisualTheme theme,
+        bool revealAnswer,
+        int? countdownValue,
+        bool emphasizeReveal,
+        bool narrating)
+    {
+        var root = CardRoot(options, theme, transparent: true);
+        var page = new Grid { Margin = QuestionCardMargin(options) };
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(92) });
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(72) });
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(82) });
+        page.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        page.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var logo = BuildTopQuizLogo(options, theme);
+        Grid.SetRow(logo, 0);
+        page.Children.Add(logo);
+
+        var titleBar = new Border
+        {
+            Height = 64,
+            Background = Brush(Color.FromArgb(225, theme.Panel.R, theme.Panel.G, theme.Panel.B)),
+            BorderBrush = Brush(theme.Countdown),
+            BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(999),
+            Padding = new Thickness(30, 6, 30, 6),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            MinWidth = options.Width * 0.72,
+            MaxWidth = options.Width * 0.78,
+            Child = new TextBlock
+            {
+                Text = options.Title.ToUpperInvariant(),
+                Foreground = Brush(theme.Text),
+                FontSize = 34,
+                FontWeight = FontWeights.Bold,
+                TextAlignment = TextAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center,
+            },
+        };
+        Grid.SetRow(titleBar, 1);
+        page.Children.Add(titleBar);
+
+        var statusRow = new Grid { Height = 72, Margin = new Thickness(0, 0, 0, 12) };
+        statusRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        statusRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        statusRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var questionBadge = new Border
+        {
+            Width = 176,
+            Height = 66,
+            Background = Brush(Color.FromArgb(232, theme.Panel.R, theme.Panel.G, theme.Panel.B)),
+            BorderBrush = Brush(theme.Accent),
+            BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(18),
+            Padding = new Thickness(14, 5, 14, 5),
+            Child = new StackPanel
+            {
+                Children =
+                {
+                    new TextBlock { Text = "QUESTION", Foreground = Brush(theme.Countdown), FontSize = 18, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center },
+                    new TextBlock { Text = $"{number} / {total}", Foreground = Brush(theme.Text), FontSize = 28, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center },
+                },
+            },
+        };
+        statusRow.Children.Add(questionBadge);
+
+        var phaseText = revealAnswer ? "✓" : countdownValue is int countdown ? countdown.ToString() : narrating ? "LISTEN" : options.ShowCountdown ? "" : $"{options.QuestionSeconds}s";
+        var phaseColor = revealAnswer ? theme.CorrectBorder : countdownValue.HasValue ? theme.Countdown : narrating ? theme.Narration : theme.Muted;
+        var phase = new Border
+        {
+            Width = 92,
+            Height = 66,
+            Background = Brush(Color.FromArgb(232, theme.Panel.R, theme.Panel.G, theme.Panel.B)),
+            BorderBrush = Brush(phaseColor),
+            BorderThickness = new Thickness(countdownValue.HasValue ? 5 : 2),
+            CornerRadius = new CornerRadius(999),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Visibility = string.IsNullOrWhiteSpace(phaseText) ? Visibility.Hidden : Visibility.Visible,
+            Child = new TextBlock
+            {
+                Text = phaseText,
+                Foreground = Brush(phaseColor),
+                FontSize = countdownValue.HasValue ? 40 : 20,
+                FontWeight = FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextAlignment = TextAlignment.Center,
+            },
+        };
+        Grid.SetColumn(phase, 2);
+        statusRow.Children.Add(phase);
+        Grid.SetRow(statusRow, 2);
+        page.Children.Add(statusRow);
+
+        var questionPanel = new Border
+        {
+            MinHeight = 170,
+            Background = Brush(Color.FromArgb(235, theme.Panel.R, theme.Panel.G, theme.Panel.B)),
+            BorderBrush = Brush(theme.Accent),
+            BorderThickness = new Thickness(3),
+            CornerRadius = new CornerRadius(24),
+            Padding = new Thickness(36, 26, 36, 26),
+            Margin = new Thickness(34, 0, 34, 24),
+            Child = new TextBlock
+            {
+                Text = question.Question,
+                Foreground = Brush(theme.Text),
+                FontSize = 50,
+                FontWeight = FontWeights.Bold,
+                TextWrapping = TextWrapping.Wrap,
+                TextAlignment = TextAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            },
+        };
+        Grid.SetRow(questionPanel, 3);
+        page.Children.Add(questionPanel);
+
+        var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Stretch };
+        for (var index = 0; index < 4; index++)
+        {
+            stack.Children.Add(BuildAnswerRow(
+                question.Answers[index],
+                index,
+                revealAnswer && index == question.CorrectIndex,
+                emphasizeReveal && index == question.CorrectIndex,
+                options,
+                theme));
+        }
+        Grid.SetRow(stack, 4);
+        page.Children.Add(stack);
+
+        var footer = new Grid { Margin = new Thickness(0, 20, 0, 0) };
+        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetRow(footer, 5);
+        page.Children.Add(footer);
+
+        root.Child = page;
+        return root;
+    }
+
     private static FrameworkElement BuildTopQuizLogo(QuizVideoBuildOptions options, QuizVisualTheme theme)
     {
         if (string.IsNullOrWhiteSpace(options.QuizLogoPath))
@@ -544,10 +669,11 @@ public sealed class QuizThemedCardRenderer
             {
                 Text = "FACTBURST QUIZ",
                 Foreground = Brush(theme.Countdown),
-                FontSize = options.Vertical ? 36 : 32,
+                FontSize = options.Vertical ? 42 : 50,
                 FontWeight = FontWeights.Bold,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
+                Effect = Glow(theme.Countdown, 14, 0.35),
             };
         }
 
@@ -556,11 +682,12 @@ public sealed class QuizThemedCardRenderer
         {
             Source = bitmap,
             Stretch = Stretch.Uniform,
-            Height = options.Vertical ? 88 : 84,
-            MaxWidth = options.Vertical ? 330 : 310,
+            Height = options.Vertical ? 104 : 132,
+            MaxWidth = options.Vertical ? 380 : 470,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             SnapsToDevicePixels = true,
+            Effect = Glow(theme.Accent, 16, 0.38),
         };
     }
 
@@ -574,46 +701,48 @@ public sealed class QuizThemedCardRenderer
     {
         var accent = index switch
         {
-            0 => theme.Accent,
-            1 => theme.Narration,
-            2 => theme.Countdown,
-            _ => Blend(theme.Accent, theme.Narration, 0.55),
+            0 => Color.FromRgb(0, 209, 255),
+            1 => Color.FromRgb(201, 72, 255),
+            2 => Color.FromRgb(255, 201, 49),
+            _ => Color.FromRgb(76, 235, 111),
         };
         var background = correct
             ? Blend(theme.Correct, theme.CorrectBorder, 0.10)
-            : Blend(theme.Panel, accent, 0.055);
+            : Color.FromRgb(9, 17, 68);
         var border = correct ? theme.CorrectBorder : accent;
 
         var row = new Border
         {
-            MinHeight = options.Vertical ? 0 : 168,
-            Background = Brush(Color.FromArgb(238, background.R, background.G, background.B)),
+            MinHeight = options.Vertical ? 0 : 174,
+            Background = Brush(Color.FromArgb(246, background.R, background.G, background.B)),
             BorderBrush = Brush(border),
-            BorderThickness = new Thickness(emphasized ? 5 : correct ? 4 : 3),
-            CornerRadius = new CornerRadius(options.Vertical ? 20 : 22),
-            Padding = new Thickness(options.Vertical ? 20 : 26, options.Vertical ? 16 : 20, options.Vertical ? 24 : 30, options.Vertical ? 16 : 20),
+            BorderThickness = new Thickness(emphasized ? 6 : correct ? 5 : 3),
+            CornerRadius = new CornerRadius(options.Vertical ? 24 : 26),
+            Padding = new Thickness(options.Vertical ? 22 : 30, options.Vertical ? 18 : 22, options.Vertical ? 28 : 32, options.Vertical ? 18 : 22),
             Margin = new Thickness(0, 0, 0, options.Vertical ? 18 : 0),
+            Effect = Glow(border, emphasized ? 30 : 18, emphasized ? 0.75 : 0.48),
         };
 
         var content = new Grid();
-        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(options.Vertical ? 78 : 84) });
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(options.Vertical ? 86 : 92) });
         content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         var marker = new Border
         {
-            Width = options.Vertical ? 58 : 62,
-            Height = options.Vertical ? 58 : 62,
+            Width = options.Vertical ? 62 : 68,
+            Height = options.Vertical ? 62 : 68,
             Background = Brush(correct ? theme.CorrectBorder : accent),
-            BorderBrush = Brush(theme.Text),
-            BorderThickness = new Thickness(1),
+            BorderBrush = Brushes.White,
+            BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(999),
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Center,
+            Effect = Glow(correct ? theme.CorrectBorder : accent, 14, 0.6),
             Child = new TextBlock
             {
                 Text = correct ? "✓" : ((char)('A' + index)).ToString(),
-                Foreground = Brush(theme.Background),
-                FontSize = options.Vertical ? 29 : 30,
+                Foreground = Brushes.White,
+                FontSize = options.Vertical ? 31 : 34,
                 FontWeight = FontWeights.Bold,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
@@ -625,8 +754,8 @@ public sealed class QuizThemedCardRenderer
         var answerText = new TextBlock
         {
             Text = answer,
-            Foreground = Brush(correct ? theme.Text : theme.PanelText),
-            FontSize = emphasized ? (options.Vertical ? 40 : 36) : (options.Vertical ? 36 : 32),
+            Foreground = Brushes.White,
+            FontSize = emphasized ? (options.Vertical ? 40 : 40) : (options.Vertical ? 36 : 35),
             FontWeight = correct ? FontWeights.Bold : FontWeights.SemiBold,
             TextWrapping = TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Center,
@@ -702,6 +831,14 @@ public sealed class QuizThemedCardRenderer
         bitmap.Freeze();
         return bitmap;
     }
+
+    private static DropShadowEffect Glow(Color color, double radius, double opacity) => new()
+    {
+        Color = color,
+        BlurRadius = radius,
+        ShadowDepth = 0,
+        Opacity = opacity,
+    };
 
     private static Thickness CardMargin(QuizVideoBuildOptions options) => options.Vertical
         ? new Thickness(76, 110, 76, 110)
