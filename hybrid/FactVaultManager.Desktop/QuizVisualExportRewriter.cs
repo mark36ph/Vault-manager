@@ -17,7 +17,7 @@ public static class QuizVisualExportRewriter
         build.Timeline.Validate();
 
         QuizOpeningSequence.RenderAndApply(build.Timeline, build.ProjectFolder, options);
-        QuizFullCountdownRewriter.Apply(build.Timeline, options);
+        QuizFullCountdownRewriter.Apply(build.Timeline, questions, build.ProjectFolder, options);
         QuizTimelineEndTrimmer.TrimToVideoEnd(build.Timeline);
         var finalized = QuizExportProjectFinalizer.Prepare(build);
         var metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
