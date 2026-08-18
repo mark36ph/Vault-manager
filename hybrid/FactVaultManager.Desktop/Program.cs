@@ -32,6 +32,7 @@ public static class Program
             application.DispatcherUnhandledException += Application_DispatcherUnhandledException;
             var mainWindow = new MainShellWindow();
             mainWindow.InitializeQuizHeaderActionsForApp();
+            mainWindow.InitializeQuizWorkspaceNavigationForApp();
             application.Run(mainWindow);
         }
         catch (Exception error)
