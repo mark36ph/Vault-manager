@@ -6,6 +6,48 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class QuizThemedCardRendererTests
 {
     [Fact]
+    public void LongQuestionText_ScalesDownToFitLandscapePanel()
+    {
+        Exception? renderError = null;
+        double naturalHeight = 0;
+        double viewportHeight = 0;
+        System.Windows.Media.StretchDirection stretchDirection = default;
+
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var fitted = QuizThemedCardRenderer.BuildFittedQuestionText(
+                    "Who is closely associated with the development of movable-type printing in 15th-century Europe?",
+                    fontSize: 54,
+                    maxWidth: 1090);
+
+                fitted.Measure(new System.Windows.Size(1120, 142));
+                fitted.Arrange(new System.Windows.Rect(0, 0, 1120, 142));
+                fitted.UpdateLayout();
+
+                naturalHeight = ((System.Windows.Controls.TextBlock)fitted.Child).DesiredSize.Height;
+                viewportHeight = fitted.RenderSize.Height;
+                stretchDirection = fitted.StretchDirection;
+            }
+            catch (Exception error)
+            {
+                renderError = error;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (renderError is not null)
+            ExceptionDispatchInfo.Capture(renderError).Throw();
+
+        Assert.True(naturalHeight > viewportHeight);
+        Assert.Equal(142, viewportHeight);
+        Assert.Equal(System.Windows.Media.StretchDirection.DownOnly, stretchDirection);
+    }
+
+    [Fact]
     public void QuestionPreview_RendersApprovedLandscapeLayoutAtYouTubeSize()
     {
         var question = new QuizQuestion(
