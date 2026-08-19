@@ -42,13 +42,8 @@ public partial class MainShellWindow
         textBoxStyle.Setters.Add(new Setter(TextBox.CaretBrushProperty, new SolidColorBrush(Color.FromRgb(0, 204, 255))));
         bankCard.Resources[typeof(TextBox)] = textBoxStyle;
 
-        var comboBoxStyle = new Style(typeof(ComboBox));
-        comboBoxStyle.Setters.Add(new Setter(FrameworkElement.MinHeightProperty, 34d));
-        comboBoxStyle.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(20, 32, 72))));
-        comboBoxStyle.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(225, 235, 255))));
-        comboBoxStyle.Setters.Add(new Setter(Control.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(70, 105, 180))));
-        comboBoxStyle.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(1)));
-        bankCard.Resources[typeof(ComboBox)] = comboBoxStyle;
+        if (FindResource("DarkQuizComboBoxStyle") is Style comboBoxStyle)
+            bankCard.Resources[typeof(ComboBox)] = comboBoxStyle;
 
         if (_quizBankGrid is not null)
         {
