@@ -82,7 +82,7 @@ public partial class MainShellWindow
         var intro = new TextBlock
         {
             Text = "Generate quiz questions with your OpenAI API key, review them here, then add the ones you want to the question bank.",
-            Foreground = QuizMutedBrush(),
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 10),
         };
@@ -111,12 +111,18 @@ public partial class MainShellWindow
         _quizAiCategoryComboBox.Items.Add("General Knowledge");
         foreach (var category in QuizQuestionTopicCategorizer.Categories)
             _quizAiCategoryComboBox.Items.Add(category);
+        _quizAiCategoryComboBox.Background = new SolidColorBrush(Color.FromRgb(210, 220, 240));
+        _quizAiCategoryComboBox.Foreground = new SolidColorBrush(Color.FromRgb(20, 32, 72));
+        _quizAiCategoryComboBox.BorderBrush = new SolidColorBrush(Color.FromRgb(70, 105, 180));
         _quizAiCategoryComboBox.SelectedIndex = 0;
         AddQuizAiField(form, 2, "CATEGORY", _quizAiCategoryComboBox);
 
         _quizAiDifficultyComboBox = new ComboBox { MinHeight = 34 };
         foreach (var difficulty in new[] { "mixed", "easy", "medium", "hard" })
             _quizAiDifficultyComboBox.Items.Add(difficulty);
+        _quizAiDifficultyComboBox.Background = new SolidColorBrush(Color.FromRgb(210, 220, 240));
+        _quizAiDifficultyComboBox.Foreground = new SolidColorBrush(Color.FromRgb(20, 32, 72));
+        _quizAiDifficultyComboBox.BorderBrush = new SolidColorBrush(Color.FromRgb(70, 105, 180));
         _quizAiDifficultyComboBox.SelectedIndex = 0;
         AddQuizAiField(form, 4, "DIFFICULTY", _quizAiDifficultyComboBox);
 
@@ -138,6 +144,7 @@ public partial class MainShellWindow
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Bottom,
         };
+        StyleStandaloneQuestionBankButton(_quizAiGenerateButton, Color.FromRgb(0, 204, 255));
         _quizAiGenerateButton.Click += GenerateQuizAiQuestions_Click;
         Grid.SetColumn(_quizAiGenerateButton, 8);
         form.Children.Add(_quizAiGenerateButton);
@@ -152,7 +159,52 @@ public partial class MainShellWindow
             SelectionUnit = DataGridSelectionUnit.FullRow,
             HeadersVisibility = DataGridHeadersVisibility.Column,
             MinHeight = 220,
+            ColumnHeaderHeight = 36,
+            Background = new SolidColorBrush(Color.FromRgb(8, 14, 62)),
+            Foreground = Brushes.White,
+            RowBackground = new SolidColorBrush(Color.FromRgb(8, 29, 75)),
+            AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(13, 38, 93)),
+            AlternationCount = 2,
+            GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
+            HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(35, 62, 145)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0, 204, 255)),
+            BorderThickness = new Thickness(1),
         };
+
+        var resultCellStyle = new Style(typeof(DataGridCell));
+        resultCellStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
+        resultCellStyle.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+        resultCellStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 6, 9, 6)));
+        resultCellStyle.Setters.Add(new Setter(Control.VerticalContentAlignmentProperty, VerticalAlignment.Center));
+        resultCellStyle.Setters.Add(new Setter(DataGridCell.BorderThicknessProperty, new Thickness(0)));
+        var selectedCellTrigger = new Trigger
+        {
+            Property = DataGridCell.IsSelectedProperty,
+            Value = true,
+        };
+        selectedCellTrigger.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(25, 86, 170))));
+        selectedCellTrigger.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+        resultCellStyle.Triggers.Add(selectedCellTrigger);
+        _quizAiResultsGrid.CellStyle = resultCellStyle;
+
+        var resultHeaderStyle = new Style(typeof(DataGridColumnHeader));
+        resultHeaderStyle.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(13, 18, 78))));
+        resultHeaderStyle.Setters.Add(new Setter(
+            Control.ForegroundProperty,
+            new SolidColorBrush(Color.FromRgb(255, 202, 45))));
+        resultHeaderStyle.Setters.Add(new Setter(Control.FontWeightProperty, FontWeights.SemiBold));
+        resultHeaderStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 9, 9, 9)));
+        resultHeaderStyle.Setters.Add(new Setter(
+            DataGridColumnHeader.BorderBrushProperty,
+            new SolidColorBrush(Color.FromRgb(0, 204, 255))));
+        resultHeaderStyle.Setters.Add(new Setter(
+            DataGridColumnHeader.BorderThicknessProperty,
+            new Thickness(0, 0, 0, 1)));
+        _quizAiResultsGrid.ColumnHeaderStyle = resultHeaderStyle;
         _quizAiResultsGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Question",
@@ -194,7 +246,7 @@ public partial class MainShellWindow
         _quizAiStatusText = new TextBlock
         {
             Text = "Ready. OpenAI settings are read from Settings → AI.",
-            Foreground = QuizMutedBrush(),
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             TextWrapping = TextWrapping.Wrap,
         };
         statusPanel.Children.Add(_quizAiStatusText);
@@ -223,7 +275,7 @@ public partial class MainShellWindow
             MinWidth = 44,
             Margin = new Thickness(10, 0, 0, 0),
             FontWeight = FontWeights.SemiBold,
-            Foreground = QuizMutedBrush(),
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
         };
@@ -239,6 +291,7 @@ public partial class MainShellWindow
             Height = 36,
             Padding = new Thickness(14, 0, 14, 0),
         };
+        StyleStandaloneQuestionBankButton(addSelected, Color.FromRgb(0, 204, 255));
         addSelected.Click += (_, _) => AddGeneratedQuizQuestionsToBank(selectedOnly: true);
         actions.Children.Add(addSelected);
 
@@ -250,6 +303,7 @@ public partial class MainShellWindow
             Margin = new Thickness(8, 0, 0, 0),
             FontWeight = FontWeights.SemiBold,
         };
+        StyleStandaloneQuestionBankButton(addAll, Color.FromRgb(70, 235, 115));
         addAll.Click += (_, _) => AddGeneratedQuizQuestionsToBank(selectedOnly: false);
         actions.Children.Add(addAll);
         Grid.SetColumn(actions, 1);
@@ -381,7 +435,7 @@ public partial class MainShellWindow
         stack.Children.Add(new TextBlock
         {
             Text = label,
-            Foreground = QuizMutedBrush(),
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             FontSize = 10,
             FontWeight = FontWeights.SemiBold,
             Margin = new Thickness(0, 0, 0, 4),
