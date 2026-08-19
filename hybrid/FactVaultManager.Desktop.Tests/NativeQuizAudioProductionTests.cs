@@ -91,6 +91,12 @@ public sealed class NativeQuizAudioProductionTests
     }
 
     [Fact]
+    public void ExportedAudio_UsesFourDecibelGain()
+    {
+        Assert.Equal("4dB", QuizFcpXmlTimelineSynchronizer.AudioGainAmount);
+    }
+
+    [Fact]
     public void MusicFile_RejectsUnsupportedExtension()
     {
         var root = NewTempFolder();
