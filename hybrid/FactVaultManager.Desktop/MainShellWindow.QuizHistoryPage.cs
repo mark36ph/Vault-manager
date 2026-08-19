@@ -153,6 +153,13 @@ public partial class MainShellWindow
             SortMemberPath = nameof(QuizHistorySummary.Created),
             Width = new DataGridLength(104),
         });
+        _quizHistoryGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Type",
+            Binding = new Binding(nameof(QuizHistorySummary.VideoType)),
+            SortMemberPath = nameof(QuizHistorySummary.Format),
+            Width = new DataGridLength(72),
+        });
         _quizHistoryGrid.Columns.Add(new DataGridCheckBoxColumn
         {
             Header = "Published",
