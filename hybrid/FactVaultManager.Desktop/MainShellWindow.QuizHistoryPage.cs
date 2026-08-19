@@ -31,12 +31,12 @@ public partial class MainShellWindow
 
     private FrameworkElement BuildQuizHistoryPage()
     {
-        var root = new Grid { Margin = new Thickness(18, 16, 18, 18) };
+        var root = new Grid { Margin = new Thickness(22, 18, 22, 20) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        var header = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+        var header = new Grid { Margin = new Thickness(0, 0, 0, 14) };
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var heading = new StackPanel();
@@ -51,7 +51,7 @@ public partial class MainShellWindow
         {
             Text = "No quiz exports recorded yet.",
             Foreground = QuizMutedBrush(),
-            Margin = new Thickness(0, 3, 0, 0),
+            Margin = new Thickness(0, 4, 0, 0),
         };
         heading.Children.Add(_quizHistoryStatusText);
         header.Children.Add(heading);
@@ -59,6 +59,7 @@ public partial class MainShellWindow
         var refresh = new Button
         {
             Content = "Refresh",
+            MinWidth = 88,
             MinHeight = 34,
             Padding = new Thickness(12, 0, 12, 0),
             VerticalAlignment = VerticalAlignment.Bottom,
@@ -73,16 +74,31 @@ public partial class MainShellWindow
             AutoGenerateColumns = false,
             IsReadOnly = true,
             CanUserSortColumns = true,
+            CanUserResizeRows = false,
             SelectionMode = DataGridSelectionMode.Single,
             SelectionUnit = DataGridSelectionUnit.FullRow,
-            AlternationCount = 2,
-            AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
             HeadersVisibility = DataGridHeadersVisibility.Column,
+            GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
+            HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
+            RowHeaderWidth = 0,
+            MinRowHeight = 42,
+            BorderThickness = new Thickness(0),
+            Background = Brushes.White,
         };
+
         var historyCellStyle = new Style(typeof(DataGridCell));
         historyCellStyle.Setters.Add(new Setter(
             Control.BackgroundProperty,
-            new SolidColorBrush(Color.FromRgb(254, 226, 226))));
+            new SolidColorBrush(Color.FromRgb(254, 242, 242))));
+        historyCellStyle.Setters.Add(new Setter(
+            Control.PaddingProperty,
+            new Thickness(9, 6, 9, 6)));
+        historyCellStyle.Setters.Add(new Setter(
+            Control.VerticalContentAlignmentProperty,
+            VerticalAlignment.Center));
+        historyCellStyle.Setters.Add(new Setter(
+            DataGridCell.BorderThicknessProperty,
+            new Thickness(0)));
         var publishedCellTrigger = new DataTrigger
         {
             Binding = new Binding(nameof(QuizHistorySummary.PublishedOnYouTube)),
@@ -90,7 +106,7 @@ public partial class MainShellWindow
         };
         publishedCellTrigger.Setters.Add(new Setter(
             Control.BackgroundProperty,
-            new SolidColorBrush(Color.FromRgb(220, 252, 231))));
+            new SolidColorBrush(Color.FromRgb(240, 253, 244))));
         historyCellStyle.Triggers.Add(publishedCellTrigger);
         var selectedCellTrigger = new Trigger
         {
@@ -102,33 +118,61 @@ public partial class MainShellWindow
         historyCellStyle.Triggers.Add(selectedCellTrigger);
         _quizHistoryGrid.CellStyle = historyCellStyle;
 
+        var historyHeaderStyle = new Style(typeof(DataGridColumnHeader));
+        historyHeaderStyle.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(248, 250, 252))));
+        historyHeaderStyle.Setters.Add(new Setter(
+            Control.ForegroundProperty,
+            new SolidColorBrush(Color.FromRgb(71, 85, 105))));
+        historyHeaderStyle.Setters.Add(new Setter(
+            Control.FontWeightProperty,
+            FontWeights.SemiBold));
+        historyHeaderStyle.Setters.Add(new Setter(
+            Control.PaddingProperty,
+            new Thickness(9, 9, 9, 9)));
+        historyHeaderStyle.Setters.Add(new Setter(
+            DataGridColumnHeader.BorderBrushProperty,
+            new SolidColorBrush(Color.FromRgb(226, 232, 240))));
+        historyHeaderStyle.Setters.Add(new Setter(
+            DataGridColumnHeader.BorderThicknessProperty,
+            new Thickness(0, 0, 0, 1)));
+        _quizHistoryGrid.ColumnHeaderStyle = historyHeaderStyle;
+
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "No.",
             Binding = new Binding(nameof(QuizHistorySummary.Id)),
             SortMemberPath = nameof(QuizHistorySummary.Id),
-            Width = new DataGridLength(58),
+            Width = new DataGridLength(55),
         });
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
-            Header = "Created",
+            Header = "Date",
             Binding = new Binding(nameof(QuizHistorySummary.CreatedDisplay)),
             SortMemberPath = nameof(QuizHistorySummary.Created),
-            Width = new DataGridLength(140),
+            Width = new DataGridLength(104),
+        });
+        _quizHistoryGrid.Columns.Add(new DataGridCheckBoxColumn
+        {
+            Header = "Published",
+            Binding = new Binding(nameof(QuizHistorySummary.PublishedOnYouTube)),
+            SortMemberPath = nameof(QuizHistorySummary.PublishedOnYouTube),
+            Width = new DataGridLength(82),
         });
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Series",
             Binding = new Binding(nameof(QuizHistorySummary.SeriesName)),
             SortMemberPath = nameof(QuizHistorySummary.SeriesName),
-            Width = new DataGridLength(175),
+            Width = new DataGridLength(190),
         });
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Ep.",
             Binding = new Binding(nameof(QuizHistorySummary.EpisodeLabel)),
             SortMemberPath = nameof(QuizHistorySummary.EpisodeNumber),
-            Width = new DataGridLength(58),
+            Width = new DataGridLength(60),
         });
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
@@ -137,75 +181,74 @@ public partial class MainShellWindow
             SortMemberPath = nameof(QuizHistorySummary.YouTubeTitle),
             Width = new DataGridLength(1, DataGridLengthUnitType.Star),
         });
-        _quizHistoryGrid.Columns.Add(new DataGridCheckBoxColumn
-        {
-            Header = "Published",
-            Binding = new Binding(nameof(QuizHistorySummary.PublishedOnYouTube)),
-            SortMemberPath = nameof(QuizHistorySummary.PublishedOnYouTube),
-            Width = new DataGridLength(78),
-        });
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Questions",
             Binding = new Binding(nameof(QuizHistorySummary.QuestionCount)),
             SortMemberPath = nameof(QuizHistorySummary.QuestionCount),
-            Width = new DataGridLength(78),
+            Width = new DataGridLength(84),
         });
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Categories",
             Binding = new Binding(nameof(QuizHistorySummary.Categories)),
             SortMemberPath = nameof(QuizHistorySummary.Categories),
-            Width = new DataGridLength(180),
-        });
-        _quizHistoryGrid.Columns.Add(new DataGridTextColumn
-        {
-            Header = "Format",
-            Binding = new Binding(nameof(QuizHistorySummary.Format)),
-            SortMemberPath = nameof(QuizHistorySummary.Format),
-            Width = new DataGridLength(65),
-        });
-        _quizHistoryGrid.Columns.Add(new DataGridTextColumn
-        {
-            Header = "Seconds",
-            Binding = new Binding(nameof(QuizHistorySummary.QuestionSeconds)),
-            SortMemberPath = nameof(QuizHistorySummary.QuestionSeconds),
-            Width = new DataGridLength(68),
-        });
-        _quizHistoryGrid.Columns.Add(new DataGridCheckBoxColumn
-        {
-            Header = "Shuffled",
-            Binding = new Binding(nameof(QuizHistorySummary.ShuffleAnswers)),
-            SortMemberPath = nameof(QuizHistorySummary.ShuffleAnswers),
-            Width = new DataGridLength(72),
+            Width = new DataGridLength(175),
         });
         _quizHistoryGrid.MouseDoubleClick += QuizHistoryGrid_MouseDoubleClick;
-        Grid.SetRow(_quizHistoryGrid, 1);
-        root.Children.Add(_quizHistoryGrid);
+
+        var tableCard = new Border
+        {
+            Background = Brushes.White,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Child = _quizHistoryGrid,
+        };
+        Grid.SetRow(tableCard, 1);
+        root.Children.Add(tableCard);
+
+        var footer = new Grid { Margin = new Thickness(0, 12, 0, 0) };
+        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        footer.Children.Add(new TextBlock
+        {
+            Text = "Double-click a quiz to update its YouTube link and published status.",
+            Foreground = QuizMutedBrush(),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
 
         var actions = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Thickness(0, 10, 0, 0),
         };
-        var view = new Button { Content = "View questions", MinWidth = 110 };
+        var view = new Button { Content = "Questions", MinWidth = 92, ToolTip = "View the questions used in the selected quiz" };
         view.Click += (_, _) => ShowSelectedQuizHistoryQuestions();
         actions.Children.Add(view);
-        var publishing = new Button { Content = "View publishing", MinWidth = 110, Margin = new Thickness(8, 0, 0, 0) };
+        var publishing = new Button { Content = "Publishing", MinWidth = 92, Margin = new Thickness(8, 0, 0, 0), ToolTip = "View saved YouTube publishing metadata" };
         publishing.Click += (_, _) => ShowSelectedQuizPublishingMetadata();
         actions.Children.Add(publishing);
-        var youtube = new Button { Content = "YouTube status", MinWidth = 110, Margin = new Thickness(8, 0, 0, 0) };
+        var youtube = new Button { Content = "YouTube", MinWidth = 86, Margin = new Thickness(8, 0, 0, 0), ToolTip = "Update the YouTube link and published status" };
         youtube.Click += (_, _) => ShowSelectedQuizYouTubePublication();
         actions.Children.Add(youtube);
-        var openFolder = new Button { Content = "Open export folder", MinWidth = 125, Margin = new Thickness(8, 0, 0, 0) };
+        var openFolder = new Button { Content = "Folder", MinWidth = 78, Margin = new Thickness(8, 0, 0, 0), ToolTip = "Open the selected quiz export folder" };
         openFolder.Click += (_, _) => OpenSelectedQuizHistoryFolder();
         actions.Children.Add(openFolder);
-        var delete = new Button { Content = "Delete quiz", MinWidth = 100, Margin = new Thickness(8, 0, 0, 0) };
+        var delete = new Button
+        {
+            Content = "Delete",
+            MinWidth = 78,
+            Margin = new Thickness(8, 0, 0, 0),
+            Foreground = new SolidColorBrush(Color.FromRgb(185, 28, 28)),
+            ToolTip = "Delete the selected quiz-history entry",
+        };
         delete.Click += (_, _) => DeleteSelectedQuizHistory();
         actions.Children.Add(delete);
-        Grid.SetRow(actions, 2);
-        root.Children.Add(actions);
+        Grid.SetColumn(actions, 1);
+        footer.Children.Add(actions);
+        Grid.SetRow(footer, 2);
+        root.Children.Add(footer);
 
         return root;
     }
