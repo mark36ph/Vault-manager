@@ -20,6 +20,21 @@ public sealed class QuizHistoryPublicationTests
         Assert.Equal(expected, QuizHistoryVideoType.DisplayName(format));
     }
 
+    [Fact]
+    public void HistoryStatistics_CountsVideosShortsAndQuestionUses()
+    {
+        var statistics = QuizHistoryStatistics.Calculate(
+        [
+            History("16:9", 10),
+            History("9:16", 1),
+            History("9:16", 1),
+        ]);
+
+        Assert.Equal(1, statistics.Videos);
+        Assert.Equal(2, statistics.Shorts);
+        Assert.Equal(12, statistics.QuestionsUsed);
+    }
+
     [Theory]
     [InlineData("https://youtu.be/qJAMsHFhlDA")]
     [InlineData("https://www.youtube.com/watch?v=qJAMsHFhlDA")]
@@ -44,4 +59,24 @@ public sealed class QuizHistoryPublicationTests
     {
         Assert.Equal("", QuizYouTubePublication.NormalizeUrl("  "));
     }
+
+    private static QuizHistorySummary History(string format, int questionCount) => new(
+        1,
+        "Quiz",
+        "2026-08-19 12:00:00",
+        questionCount,
+        "Music",
+        format,
+        8,
+        false,
+        "",
+        "Music Quiz",
+        1,
+        "",
+        "",
+        "",
+        "",
+        false,
+        "");
+
 }
