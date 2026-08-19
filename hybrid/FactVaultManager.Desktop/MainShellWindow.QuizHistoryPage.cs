@@ -12,9 +12,9 @@ public partial class MainShellWindow
     private bool _quizHistoryPageInitialized;
     private int _quizHistoryTabIndex = -1;
     private DataGrid? _quizHistoryGrid;
-    private TextBlock? _quizHistoryStatusText;
     private TextBlock? _quizHistoryVideoCountText;
     private TextBlock? _quizHistoryShortCountText;
+    private TextBlock? _quizHistoryPublishedCountText;
     private TextBlock? _quizHistoryQuestionUseCountText;
 
     private void InitializeQuizHistoryPage()
@@ -43,22 +43,13 @@ public partial class MainShellWindow
         var header = new Grid { Margin = new Thickness(0, 0, 0, 12) };
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var heading = new StackPanel();
-        heading.Children.Add(new TextBlock
+        header.Children.Add(new TextBlock
         {
             Text = "Quiz History",
             FontFamily = new FontFamily("Segoe UI Variable Display"),
             FontSize = 28,
             FontWeight = FontWeights.SemiBold,
         });
-        _quizHistoryStatusText = new TextBlock
-        {
-            Text = "No quiz exports recorded yet.",
-            Foreground = QuizMutedBrush(),
-            Margin = new Thickness(0, 4, 0, 0),
-        };
-        heading.Children.Add(_quizHistoryStatusText);
-        header.Children.Add(heading);
 
         var refresh = new Button
         {
@@ -77,22 +68,29 @@ public partial class MainShellWindow
         stats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         stats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         stats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        stats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         var videos = BuildQuizHistoryStatCard("Videos", Color.FromRgb(37, 99, 235));
         _quizHistoryVideoCountText = videos.Value;
-        videos.Card.Margin = new Thickness(0, 0, 6, 0);
+        videos.Card.Margin = new Thickness(0, 0, 5, 0);
         stats.Children.Add(videos.Card);
 
         var shorts = BuildQuizHistoryStatCard("Shorts", Color.FromRgb(124, 58, 237));
         _quizHistoryShortCountText = shorts.Value;
-        shorts.Card.Margin = new Thickness(6, 0, 6, 0);
+        shorts.Card.Margin = new Thickness(5, 0, 5, 0);
         Grid.SetColumn(shorts.Card, 1);
         stats.Children.Add(shorts.Card);
 
+        var published = BuildQuizHistoryStatCard("Published", Color.FromRgb(217, 119, 6));
+        _quizHistoryPublishedCountText = published.Value;
+        published.Card.Margin = new Thickness(5, 0, 5, 0);
+        Grid.SetColumn(published.Card, 2);
+        stats.Children.Add(published.Card);
+
         var questionUses = BuildQuizHistoryStatCard("Questions used", Color.FromRgb(5, 150, 105));
         _quizHistoryQuestionUseCountText = questionUses.Value;
-        questionUses.Card.Margin = new Thickness(6, 0, 0, 0);
-        Grid.SetColumn(questionUses.Card, 2);
+        questionUses.Card.Margin = new Thickness(5, 0, 0, 0);
+        Grid.SetColumn(questionUses.Card, 3);
         stats.Children.Add(questionUses.Card);
 
         Grid.SetRow(stats, 1);
@@ -357,25 +355,14 @@ public partial class MainShellWindow
                 _quizHistoryVideoCountText.Text = statistics.Videos.ToString("N0");
             if (_quizHistoryShortCountText is not null)
                 _quizHistoryShortCountText.Text = statistics.Shorts.ToString("N0");
+            if (_quizHistoryPublishedCountText is not null)
+                _quizHistoryPublishedCountText.Text = statistics.Published.ToString("N0");
             if (_quizHistoryQuestionUseCountText is not null)
                 _quizHistoryQuestionUseCountText.Text = statistics.QuestionsUsed.ToString("N0");
-            if (_quizHistoryStatusText is not null)
-            {
-                var seriesCount = history
-                    .Select(item => item.SeriesName)
-                    .Where(name => !string.IsNullOrWhiteSpace(name))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .Count();
-                var publishedCount = history.Count(item => item.PublishedOnYouTube);
-                _quizHistoryStatusText.Text = history.Count == 0
-                    ? "No quiz exports recorded yet. New successful Resolve exports will appear here."
-                    : $"{history.Count:N0} exported quiz{(history.Count == 1 ? "" : "zes")} • {publishedCount:N0} on YouTube • {seriesCount:N0} series • newest first";
-            }
         }
         catch (Exception error)
         {
-            if (_quizHistoryStatusText is not null)
-                _quizHistoryStatusText.Text = $"Quiz history: {error.Message}";
+            Debug.WriteLine($"Quiz history: {error.Message}");
         }
     }
 
