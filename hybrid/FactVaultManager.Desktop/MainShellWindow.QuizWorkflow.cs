@@ -16,6 +16,9 @@ public partial class MainShellWindow
     private TextBox? _quizSecondsPerQuestionTextBox;
     private TextBox? _quizSearchTextBox;
     private TextBox? _quizImportTextBox;
+    private ComboBox? _quizPromptCategoryComboBox;
+    private ComboBox? _quizPromptCountComboBox;
+    private ComboBox? _quizPromptDifficultyComboBox;
     private ComboBox? _quizCategoryComboBox;
     private ComboBox? _quizDifficultyComboBox;
     private DataGrid? _quizBankGrid;
@@ -413,16 +416,69 @@ public partial class MainShellWindow
     {
         var root = new Grid { Margin = new Thickness(0, 12, 0, 0) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
+        var promptOptions = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+        promptOptions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(130) });
+        promptOptions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        promptOptions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(250) });
+        promptOptions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        promptOptions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) });
+        promptOptions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        _quizPromptCountComboBox = new ComboBox
+        {
+            IsEditable = true,
+            Text = "100",
+            Margin = new Thickness(0, 4, 0, 0),
+            ToolTip = "Number of questions to request, from 1 to 500",
+        };
+        foreach (var count in new[] { 10, 25, 50, 100, 200 })
+            _quizPromptCountComboBox.Items.Add(count.ToString());
+        var countStack = QuizLabeledControl("HOW MANY", _quizPromptCountComboBox);
+        Grid.SetColumn(countStack, 0);
+        promptOptions.Children.Add(countStack);
+
+        _quizPromptCategoryComboBox = new ComboBox
+        {
+            IsEditable = true,
+            Margin = new Thickness(0, 4, 0, 0),
+            ToolTip = "Choose an existing category or type a new category",
+        };
+        _quizPromptCategoryComboBox.Items.Add("All categories");
+        var promptCategories = QuizQuestionTopicCategorizer.Categories
+            .Concat(_data.GetQuizCategories())
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+        foreach (var category in promptCategories)
+            _quizPromptCategoryComboBox.Items.Add(category);
+        _quizPromptCategoryComboBox.SelectedItem = "All categories";
+        var categoryStack = QuizLabeledControl("CATEGORY", _quizPromptCategoryComboBox);
+        Grid.SetColumn(categoryStack, 2);
+        promptOptions.Children.Add(categoryStack);
+
+        _quizPromptDifficultyComboBox = new ComboBox
+        {
+            Margin = new Thickness(0, 4, 0, 0),
+            ToolTip = "Choose a difficulty or request a mixed batch",
+        };
+        foreach (var difficulty in new[] { "mixed", "easy", "medium", "hard" })
+            _quizPromptDifficultyComboBox.Items.Add(difficulty);
+        _quizPromptDifficultyComboBox.SelectedItem = "mixed";
+        var difficultyStack = QuizLabeledControl("DIFFICULTY", _quizPromptDifficultyComboBox);
+        Grid.SetColumn(difficultyStack, 4);
+        promptOptions.Children.Add(difficultyStack);
+        root.Children.Add(promptOptions);
+
         var instructions = new TextBlock
         {
-            Text = "Ask ChatGPT for a large JSON question bank, paste it below, then import it. Duplicate questions are skipped automatically.",
+            Text = "Choose the prompt options, copy the ChatGPT prompt, then paste the returned JSON below. Duplicate questions are skipped automatically.",
             Foreground = QuizMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 8),
         };
+        Grid.SetRow(instructions, 1);
         root.Children.Add(instructions);
 
         _quizImportTextBox = new TextBox
@@ -435,7 +491,7 @@ public partial class MainShellWindow
             FontFamily = new FontFamily("Consolas"),
             FontSize = 12,
         };
-        Grid.SetRow(_quizImportTextBox, 1);
+        Grid.SetRow(_quizImportTextBox, 2);
         root.Children.Add(_quizImportTextBox);
 
         var actions = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 10, 0, 0) };
@@ -455,7 +511,7 @@ public partial class MainShellWindow
         var prompt = new Button { Content = "Copy ChatGPT prompt", Margin = new Thickness(0) };
         prompt.Click += CopyQuizChatGptPrompt_Click;
         actions.Children.Add(prompt);
-        Grid.SetRow(actions, 2);
+        Grid.SetRow(actions, 3);
         root.Children.Add(actions);
 
         return root;
@@ -587,12 +643,18 @@ public partial class MainShellWindow
     {
         try
         {
-            var category = SelectedQuizCategory();
+            var countText = _quizPromptCountComboBox?.Text?.Trim() ?? "";
+            if (!int.TryParse(countText, out var count) || count is < 1 or > 500)
+                throw new ArgumentException("Prompt question count must be a whole number from 1 to 500.");
+
+            var category = _quizPromptCategoryComboBox?.Text?.Trim() ?? "";
             if (string.IsNullOrWhiteSpace(category))
-                category = "General Knowledge";
-            Clipboard.SetText(QuizQuestionImportParser.ChatGptPrompt(100, category));
+                category = "All categories";
+            var difficulty = _quizPromptDifficultyComboBox?.SelectedItem?.ToString() ?? "mixed";
+
+            Clipboard.SetText(QuizQuestionImportParser.ChatGptPrompt(count, category, difficulty));
             if (_quizPageStatusText is not null)
-                _quizPageStatusText.Text = "ChatGPT import prompt copied to clipboard";
+                _quizPageStatusText.Text = $"ChatGPT prompt copied: {count} question(s) • {category} • {difficulty}";
         }
         catch (Exception error)
         {
