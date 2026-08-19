@@ -7,6 +7,8 @@ public sealed class QuizCategoryNamingTests
     [InlineData("", "General Knowledge Quiz")]
     [InlineData("Science", "Science Quiz")]
     [InlineData("History", "History Quiz")]
+    [InlineData("Music", "Music Quiz")]
+    [InlineData("All categories", "All categories Quiz")]
     [InlineData("Geography Quiz", "Geography Quiz")]
     [InlineData("Movie Trivia", "Movie Trivia")]
     public void SuggestSeriesName_UsesSelectedCategory(string? category, string expected)
