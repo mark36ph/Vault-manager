@@ -71,4 +71,55 @@ public sealed class QuizOpeningSequenceTests
         Assert.Equal(spinPaths[^1], hold.Source);
         Assert.NotEqual("intro.png", hold.Source);
     }
+
+    [Fact]
+    public void Planner_SkipsOpeningCountdownForShortsAndKeepsAudioAligned()
+    {
+        var builder = new NativeTimelineBuilder("Short Quiz");
+        builder.Timeline.Width = 1080;
+        builder.Timeline.Height = 1920;
+        var introSeconds = QuizOpeningSequence.SpinFrameCount * QuizOpeningSequence.SpinFrameSeconds;
+        var intro = builder.AddClip(
+            "Quiz Cards",
+            NativeTimelineTrackKind.Video,
+            NativeTimelineClipKind.Image,
+            0,
+            introSeconds,
+            "intro.png",
+            "Quiz Intro");
+        intro.Metadata["quiz_card"] = "intro";
+        var question = builder.AddClip(
+            "Quiz Cards",
+            NativeTimelineTrackKind.Video,
+            NativeTimelineClipKind.Image,
+            introSeconds,
+            5,
+            "question.png",
+            "Question 1");
+        var narration = builder.AddClip(
+            "Quiz Narration",
+            NativeTimelineTrackKind.Audio,
+            NativeTimelineClipKind.Audio,
+            introSeconds,
+            1.5,
+            "question.mp3",
+            "Question 1 Narration");
+
+        var spinPaths = Enumerable.Range(0, QuizOpeningSequence.SpinFrameCount)
+            .Select(index => $"spin-{index}.png")
+            .ToArray();
+
+        QuizOpeningTimelinePlanner.Apply(
+            builder.Timeline,
+            spinPaths,
+            new Dictionary<int, string>(),
+            countdownSeconds: 0);
+
+        Assert.Equal(introSeconds, question.Start, precision: 6);
+        Assert.Equal(introSeconds, narration.Start, precision: 6);
+        Assert.DoesNotContain(
+            builder.Timeline.GetTrack("Quiz Cards")!.Clips,
+            clip => clip.Metadata.TryGetValue("quiz_card", out var value) &&
+                    string.Equals(Convert.ToString(value), "start_countdown", StringComparison.Ordinal));
+    }
 }
