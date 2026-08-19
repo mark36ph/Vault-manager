@@ -114,6 +114,13 @@ public partial class MainShellWindow
             SortMemberPath = nameof(QuizHistorySummary.YouTubeTitle),
             Width = new DataGridLength(1, DataGridLengthUnitType.Star),
         });
+        _quizHistoryGrid.Columns.Add(new DataGridCheckBoxColumn
+        {
+            Header = "Published",
+            Binding = new Binding(nameof(QuizHistorySummary.PublishedOnYouTube)),
+            SortMemberPath = nameof(QuizHistorySummary.PublishedOnYouTube),
+            Width = new DataGridLength(78),
+        });
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Questions",
@@ -165,6 +172,9 @@ public partial class MainShellWindow
         var publishing = new Button { Content = "View publishing", MinWidth = 110, Margin = new Thickness(8, 0, 0, 0) };
         publishing.Click += (_, _) => ShowSelectedQuizPublishingMetadata();
         actions.Children.Add(publishing);
+        var youtube = new Button { Content = "YouTube status", MinWidth = 110, Margin = new Thickness(8, 0, 0, 0) };
+        youtube.Click += (_, _) => ShowSelectedQuizYouTubePublication();
+        actions.Children.Add(youtube);
         var openFolder = new Button { Content = "Open export folder", MinWidth = 125, Margin = new Thickness(8, 0, 0, 0) };
         openFolder.Click += (_, _) => OpenSelectedQuizHistoryFolder();
         actions.Children.Add(openFolder);
@@ -215,9 +225,10 @@ public partial class MainShellWindow
                     .Where(name => !string.IsNullOrWhiteSpace(name))
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .Count();
+                var publishedCount = history.Count(item => item.PublishedOnYouTube);
                 _quizHistoryStatusText.Text = history.Count == 0
                     ? "No quiz exports recorded yet. New successful Resolve exports will appear here."
-                    : $"{history.Count:N0} exported quiz{(history.Count == 1 ? "" : "zes")} • {seriesCount:N0} series • {questions:N0} recorded question uses • newest first";
+                    : $"{history.Count:N0} exported quiz{(history.Count == 1 ? "" : "zes")} • {publishedCount:N0} on YouTube • {seriesCount:N0} series • {questions:N0} recorded question uses • newest first";
             }
         }
         catch (Exception error)
@@ -367,6 +378,113 @@ public partial class MainShellWindow
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             Height = height,
         });
+    }
+
+    private void ShowSelectedQuizYouTubePublication()
+    {
+        if (_quizHistoryGrid?.SelectedItem is not QuizHistorySummary history)
+            return;
+
+        var dialog = new Window
+        {
+            Title = $"YouTube — {history.SeriesName} {history.EpisodeLabel}",
+            Owner = this,
+            Width = 580,
+            Height = 290,
+            MinWidth = 500,
+            MinHeight = 260,
+            ResizeMode = ResizeMode.CanResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = Brushes.White,
+        };
+        var root = new Grid { Margin = new Thickness(18) };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        dialog.Content = root;
+
+        root.Children.Add(new TextBlock
+        {
+            Text = history.YouTubeTitle.Length > 0 ? history.YouTubeTitle : history.Title,
+            FontSize = 18,
+            FontWeight = FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 14),
+        });
+
+        var published = new CheckBox
+        {
+            Content = "Published on YouTube",
+            IsChecked = history.PublishedOnYouTube,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 14),
+        };
+        Grid.SetRow(published, 1);
+        root.Children.Add(published);
+
+        var label = new TextBlock
+        {
+            Text = "YouTube video link",
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 0, 0, 4),
+        };
+        Grid.SetRow(label, 2);
+        root.Children.Add(label);
+
+        var url = new TextBox
+        {
+            Text = history.YouTubeUrl,
+            MinHeight = 34,
+            VerticalContentAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetRow(url, 3);
+        root.Children.Add(url);
+
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 16, 0, 0),
+        };
+        var open = new Button { Content = "Open video", MinWidth = 95 };
+        open.Click += (_, _) =>
+        {
+            try
+            {
+                var videoUrl = QuizYouTubePublication.NormalizeUrl(url.Text);
+                if (videoUrl.Length == 0)
+                    throw new InvalidOperationException("Enter the YouTube video link first.");
+                Process.Start(new ProcessStartInfo(videoUrl) { UseShellExecute = true });
+            }
+            catch (Exception error)
+            {
+                MessageBox.Show(dialog, error.Message, "Open YouTube Video", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        };
+        actions.Children.Add(open);
+        var cancel = new Button { Content = "Cancel", MinWidth = 82, Margin = new Thickness(8, 0, 0, 0), IsCancel = true };
+        actions.Children.Add(cancel);
+        var save = new Button { Content = "Save", MinWidth = 82, Margin = new Thickness(8, 0, 0, 0), IsDefault = true };
+        save.Click += (_, _) =>
+        {
+            try
+            {
+                if (!_data.UpdateQuizHistoryYouTubePublication(history.Id, published.IsChecked == true, url.Text))
+                    throw new InvalidOperationException("The selected quiz-history entry no longer exists.");
+                dialog.DialogResult = true;
+                RefreshQuizHistory();
+            }
+            catch (Exception error)
+            {
+                MessageBox.Show(dialog, error.Message, "Save YouTube Status", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        };
+        actions.Children.Add(save);
+        Grid.SetRow(actions, 4);
+        root.Children.Add(actions);
+        dialog.ShowDialog();
     }
 
     private void OpenSelectedQuizHistoryFolder()
