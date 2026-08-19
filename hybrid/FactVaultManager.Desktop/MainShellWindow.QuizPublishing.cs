@@ -456,29 +456,41 @@ public partial class MainShellWindow
         IReadOnlyList<QuizQuestion> questions,
         bool vertical)
     {
-        var series = QuizPublishMetadataGenerator.NormalizeSeriesName(_quizSeriesComboBox?.Text);
+        var currentSeries = QuizPublishMetadataGenerator.NormalizeSeriesName(_quizSeriesComboBox?.Text);
+        var series = QuizPublishMetadataGenerator.SuggestSeriesNameForQuestions(questions);
+        var seriesChanged = !string.Equals(currentSeries, series, StringComparison.OrdinalIgnoreCase);
         var episodeText = (_quizEpisodeTextBox?.Text ?? "").Trim();
-        var episode = int.TryParse(episodeText, out var parsed)
+        var episode = !seriesChanged && int.TryParse(episodeText, out var parsed)
             ? parsed
             : _data.GetNextQuizSeriesEpisode(series);
+        var titleMatchesSeries = QuizPublishMetadataGenerator.TitleMatchesSeries(
+            _quizYouTubeTitleTextBox?.Text,
+            series);
 
-        if (string.IsNullOrWhiteSpace(_quizYouTubeTitleTextBox?.Text) ||
+        if (seriesChanged ||
+            !titleMatchesSeries ||
             string.IsNullOrWhiteSpace(_quizYouTubeDescriptionTextBox?.Text) ||
             string.IsNullOrWhiteSpace(_quizHashtagsTextBox?.Text) ||
             string.IsNullOrWhiteSpace(_quizPinnedCommentTextBox?.Text))
         {
             var generated = QuizPublishMetadataGenerator.Generate(series, episode, questions, vertical);
             ApplyQuizPublishingMetadata(generated);
+            if (_quizTitleTextBox is not null &&
+                !QuizPublishMetadataGenerator.TitleMatchesSeries(_quizTitleTextBox.Text, series))
+            {
+                _quizTitleTextBox.Text = $"{generated.SeriesName} {generated.EpisodeLabel}";
+            }
+            _quizAutoSeriesName = series;
             return generated;
         }
 
         return QuizPublishMetadataGenerator.Validate(new QuizPublishMetadata(
             series,
             episode,
-            _quizYouTubeTitleTextBox.Text,
-            _quizYouTubeDescriptionTextBox.Text,
-            _quizHashtagsTextBox.Text,
-            _quizPinnedCommentTextBox.Text));
+            _quizYouTubeTitleTextBox!.Text,
+            _quizYouTubeDescriptionTextBox!.Text,
+            _quizHashtagsTextBox!.Text,
+            _quizPinnedCommentTextBox!.Text));
     }
 
     private QuizThumbnailSettings CurrentQuizThumbnailSettings(QuizPublishMetadata metadata)
