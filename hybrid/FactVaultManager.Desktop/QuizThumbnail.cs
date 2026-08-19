@@ -33,6 +33,16 @@ public sealed record QuizThumbnailSettings(
 
 public static class QuizThumbnailDefaults
 {
+    public static bool ShouldReplaceSubtitle(string? currentSubtitle, string? previousAutoSubtitle)
+    {
+        var current = (currentSubtitle ?? "").Trim();
+        var previousAuto = (previousAutoSubtitle ?? "").Trim();
+        return current.Length == 0 ||
+               (previousAuto.Length > 0 &&
+                string.Equals(current, previousAuto, StringComparison.OrdinalIgnoreCase)) ||
+               string.Equals(current, "General Knowledge Quiz", StringComparison.OrdinalIgnoreCase);
+    }
+
     public static QuizThumbnailSettings Create(QuizPublishMetadata metadata, int questionCount)
     {
         metadata = QuizPublishMetadataGenerator.Validate(metadata);
