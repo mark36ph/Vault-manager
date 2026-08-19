@@ -112,7 +112,7 @@ public partial class MainShellWindow
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Created",
-            Binding = new Binding(nameof(QuizHistorySummary.Created)),
+            Binding = new Binding(nameof(QuizHistorySummary.CreatedDisplay)),
             SortMemberPath = nameof(QuizHistorySummary.Created),
             Width = new DataGridLength(140),
         });
@@ -275,29 +275,54 @@ public partial class MainShellWindow
         var questions = _data.GetQuizHistoryQuestions(history.Id);
         var dialog = new Window
         {
-            Title = $"Quiz History #{history.Id} — {history.Title}",
+            Title = $"Questions — {history.SeriesName} {history.EpisodeLabel}",
             Owner = this,
-            Width = 980,
-            Height = 650,
-            MinWidth = 720,
-            MinHeight = 450,
+            Width = 1080,
+            Height = 700,
+            MinWidth = 780,
+            MinHeight = 500,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Background = Brushes.White,
         };
-        var root = new Grid { Margin = new Thickness(16) };
+        var root = new Grid { Margin = new Thickness(20) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         dialog.Content = root;
 
         var series = string.IsNullOrWhiteSpace(history.SeriesName)
             ? "Unnumbered legacy export"
             : $"{history.SeriesName} {history.EpisodeLabel}";
-        root.Children.Add(new TextBlock
+        var summary = new StackPanel();
+        summary.Children.Add(new TextBlock
         {
-            Text = $"{series} • {history.Created} • {history.QuestionCount} questions • {history.Categories} • {history.Format} • {history.QuestionSeconds} sec/question",
+            Text = series,
+            FontFamily = new FontFamily("Segoe UI Variable Display"),
+            FontSize = 22,
+            FontWeight = FontWeights.SemiBold,
+        });
+        summary.Children.Add(new TextBlock
+        {
+            Text = $"{history.CreatedDisplay}  •  {history.QuestionCount} questions  •  {history.Format}  •  {history.QuestionSeconds} seconds per question",
             Foreground = QuizMutedBrush(),
+            Margin = new Thickness(0, 5, 0, 0),
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 0, 0, 10),
+        });
+        summary.Children.Add(new TextBlock
+        {
+            Text = $"Categories: {history.Categories}",
+            Foreground = QuizMutedBrush(),
+            Margin = new Thickness(0, 3, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+        });
+        root.Children.Add(new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(16, 13, 16, 13),
+            Child = summary,
         });
 
         var grid = new DataGrid
@@ -307,15 +332,65 @@ public partial class MainShellWindow
             CanUserSortColumns = true,
             AlternationCount = 2,
             AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
+            HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
+            MinRowHeight = 42,
+            Margin = new Thickness(0, 14, 0, 12),
             ItemsSource = questions,
         };
-        grid.Columns.Add(new DataGridTextColumn { Header = "#", Binding = new Binding(nameof(QuizHistoryQuestion.Position)), Width = new DataGridLength(48) });
-        grid.Columns.Add(new DataGridTextColumn { Header = "Bank No.", Binding = new Binding(nameof(QuizHistoryQuestion.QuestionId)), Width = new DataGridLength(72) });
-        grid.Columns.Add(new DataGridTextColumn { Header = "Category", Binding = new Binding(nameof(QuizHistoryQuestion.Category)), Width = new DataGridLength(130) });
-        grid.Columns.Add(new DataGridTextColumn { Header = "Level", Binding = new Binding(nameof(QuizHistoryQuestion.Difficulty)), Width = new DataGridLength(85) });
-        grid.Columns.Add(new DataGridTextColumn { Header = "Question", Binding = new Binding(nameof(QuizHistoryQuestion.Question)), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
+        var cellStyle = new Style(typeof(DataGridCell));
+        cellStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(8, 5, 8, 5)));
+        cellStyle.Setters.Add(new Setter(Control.VerticalContentAlignmentProperty, VerticalAlignment.Center));
+        grid.CellStyle = cellStyle;
+        var questionTextStyle = new Style(typeof(TextBlock));
+        questionTextStyle.Setters.Add(new Setter(TextBlock.TextWrappingProperty, TextWrapping.Wrap));
+        questionTextStyle.Setters.Add(new Setter(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center));
+
+        grid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "#",
+            Binding = new Binding(nameof(QuizHistoryQuestion.Position)),
+            Width = new DataGridLength(52),
+        });
+        grid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Bank No.",
+            Binding = new Binding(nameof(QuizHistoryQuestion.QuestionId)),
+            Width = new DataGridLength(82),
+        });
+        grid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Category",
+            Binding = new Binding(nameof(QuizHistoryQuestion.Category)),
+            Width = new DataGridLength(150),
+        });
+        grid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Level",
+            Binding = new Binding(nameof(QuizHistoryQuestion.Difficulty)),
+            Width = new DataGridLength(90),
+        });
+        grid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Question",
+            Binding = new Binding(nameof(QuizHistoryQuestion.Question)),
+            ElementStyle = questionTextStyle,
+            Width = new DataGridLength(1, DataGridLengthUnitType.Star),
+        });
         Grid.SetRow(grid, 1);
         root.Children.Add(grid);
+
+        var close = new Button
+        {
+            Content = "Close",
+            MinWidth = 90,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            IsCancel = true,
+        };
+        close.Click += (_, _) => dialog.Close();
+        Grid.SetRow(close, 2);
+        root.Children.Add(close);
         dialog.ShowDialog();
     }
 
