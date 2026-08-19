@@ -35,10 +35,14 @@ public static class QuizQuestionTopicCategorizer
             "music", "song", "album", "singer", "musician", "composer", "symphony", "opera",
             "piano", "violin", "guitar", "orchestra", "band", "beatles", "mozart", "beethoven",
         ]),
+        new("Film",
+        [
+            "film", "movie", "cinema", "oscar", "academy award", "best picture", "screenplay",
+            "box office", "film director",
+        ]),
         new("Entertainment",
         [
-            "film", "movie", "television", "actor", "actress", "director", "cinema", "oscar",
-            "academy award",
+            "television", "tv show", "series", "sitcom", "actor", "actress", "celebrity", "emmy",
         ]),
         new("Sports",
         [
