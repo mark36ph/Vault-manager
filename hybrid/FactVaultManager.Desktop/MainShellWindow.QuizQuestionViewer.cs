@@ -63,7 +63,7 @@ public partial class MainShellWindow
             Height = 6,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Stretch,
-            Background = new SolidColorBrush(Color.FromRgb(235, 238, 242)),
+            Background = new SolidColorBrush(Color.FromRgb(35, 62, 145)),
             ResizeDirection = GridResizeDirection.Rows,
             ResizeBehavior = GridResizeBehavior.PreviousAndNext,
         };
@@ -72,8 +72,8 @@ public partial class MainShellWindow
 
         var detailsBorder = new Border
         {
-            Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
+            Background = new SolidColorBrush(Color.FromRgb(13, 24, 72)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0, 204, 255)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
             Padding = new Thickness(14, 12, 14, 12),
@@ -96,6 +96,7 @@ public partial class MainShellWindow
             Text = "Selected question",
             FontSize = 15,
             FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(255, 202, 45)),
             VerticalAlignment = VerticalAlignment.Center,
         };
         header.Children.Add(_quizQuestionDetailHeading);
@@ -112,6 +113,7 @@ public partial class MainShellWindow
             Padding = new Thickness(10, 4, 10, 4),
             FontWeight = FontWeights.SemiBold,
         };
+        StyleStandaloneQuestionBankButton(editQuestion, Color.FromRgb(204, 70, 255));
         editQuestion.Click += (_, _) =>
         {
             if (_quizBankGrid?.SelectedItem is QuizQuestion question)
@@ -126,6 +128,7 @@ public partial class MainShellWindow
             Padding = new Thickness(10, 4, 10, 4),
             Margin = new Thickness(8, 0, 0, 0),
         };
+        StyleStandaloneQuestionBankButton(openFullView, Color.FromRgb(0, 204, 255));
         openFullView.Click += (_, _) =>
         {
             if (_quizBankGrid?.SelectedItem is QuizQuestion question)
@@ -139,7 +142,7 @@ public partial class MainShellWindow
         _quizQuestionDetailMeta = new TextBlock
         {
             Text = "Select a question above to see all answers and its explanation.",
-            Foreground = QuizMutedBrush(),
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             FontSize = 11,
             Margin = new Thickness(0, 3, 0, 6),
             TextWrapping = TextWrapping.Wrap,
@@ -162,6 +165,7 @@ public partial class MainShellWindow
             TextWrapping = TextWrapping.Wrap,
             FontSize = 14,
             FontWeight = FontWeights.SemiBold,
+            Foreground = Brushes.White,
             Margin = new Thickness(0, 0, 0, 8),
         };
         body.Children.Add(_quizQuestionDetailText);
@@ -170,6 +174,7 @@ public partial class MainShellWindow
             .Select(_ => new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap,
+                Foreground = new SolidColorBrush(Color.FromRgb(225, 235, 255)),
                 Margin = new Thickness(0, 2, 0, 2),
             })
             .ToArray();
@@ -179,7 +184,7 @@ public partial class MainShellWindow
         body.Children.Add(new TextBlock
         {
             Text = "EXPLANATION",
-            Foreground = QuizMutedBrush(),
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             FontSize = 10,
             FontWeight = FontWeights.SemiBold,
             Margin = new Thickness(0, 9, 0, 2),
@@ -187,6 +192,7 @@ public partial class MainShellWindow
         _quizQuestionExplanationText = new TextBlock
         {
             TextWrapping = TextWrapping.Wrap,
+            Foreground = new SolidColorBrush(Color.FromRgb(225, 235, 255)),
         };
         body.Children.Add(_quizQuestionExplanationText);
     }
@@ -246,8 +252,8 @@ public partial class MainShellWindow
             _quizQuestionAnswerTexts[index].Text = $"{(correct ? "✓ " : "")}{(char)('A' + index)}. {answers[index]}";
             _quizQuestionAnswerTexts[index].FontWeight = correct ? FontWeights.SemiBold : FontWeights.Normal;
             _quizQuestionAnswerTexts[index].Foreground = correct
-                ? new SolidColorBrush(Color.FromRgb(21, 128, 61))
-                : new SolidColorBrush(Color.FromRgb(31, 41, 55));
+                ? new SolidColorBrush(Color.FromRgb(70, 235, 115))
+                : new SolidColorBrush(Color.FromRgb(225, 235, 255));
         }
 
         _quizQuestionExplanationText.Text = string.IsNullOrWhiteSpace(question.Explanation)
