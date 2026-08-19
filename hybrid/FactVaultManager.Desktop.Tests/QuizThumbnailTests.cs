@@ -61,8 +61,20 @@ public sealed class QuizThumbnailTests
         Assert.Equal("Thumbnail.png", QuizThumbnailRenderer.FileName);
         Assert.Equal(1280, QuizThumbnailRenderer.Width);
         Assert.Equal(720, QuizThumbnailRenderer.Height);
+        Assert.Equal(1080, QuizThumbnailRenderer.ShortsWidth);
+        Assert.Equal(1920, QuizThumbnailRenderer.ShortsHeight);
+        Assert.Equal((1280, 720), QuizThumbnailRenderer.Dimensions(vertical: false));
+        Assert.Equal((1080, 1920), QuizThumbnailRenderer.Dimensions(vertical: true));
         Assert.Equal(70d, QuizThumbnailRenderer.LogoHeight);
         Assert.Equal(104d, QuizThumbnailRenderer.BottomRightLogoBottomMargin);
+    }
+
+    [Theory]
+    [InlineData(1, "1 QUESTION")]
+    [InlineData(10, "10 QUESTIONS")]
+    public void Renderer_UsesCorrectQuestionCountGrammar(int count, string expected)
+    {
+        Assert.Equal(expected, QuizThumbnailRenderer.QuestionCountLabel(count));
     }
 
     [Fact]
