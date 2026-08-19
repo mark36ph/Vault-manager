@@ -70,24 +70,24 @@ public partial class MainShellWindow
         stats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         stats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        var videos = BuildQuizHistoryStatCard("Videos", Color.FromRgb(37, 99, 235));
+        var videos = BuildQuizHistoryStatCard("Videos", Color.FromRgb(0, 204, 255));
         _quizHistoryVideoCountText = videos.Value;
         videos.Card.Margin = new Thickness(0, 0, 5, 0);
         stats.Children.Add(videos.Card);
 
-        var shorts = BuildQuizHistoryStatCard("Shorts", Color.FromRgb(124, 58, 237));
+        var shorts = BuildQuizHistoryStatCard("Shorts", Color.FromRgb(204, 70, 255));
         _quizHistoryShortCountText = shorts.Value;
         shorts.Card.Margin = new Thickness(5, 0, 5, 0);
         Grid.SetColumn(shorts.Card, 1);
         stats.Children.Add(shorts.Card);
 
-        var published = BuildQuizHistoryStatCard("Published", Color.FromRgb(217, 119, 6));
+        var published = BuildQuizHistoryStatCard("Published", Color.FromRgb(255, 202, 45));
         _quizHistoryPublishedCountText = published.Value;
         published.Card.Margin = new Thickness(5, 0, 5, 0);
         Grid.SetColumn(published.Card, 2);
         stats.Children.Add(published.Card);
 
-        var questionUses = BuildQuizHistoryStatCard("Questions used", Color.FromRgb(5, 150, 105));
+        var questionUses = BuildQuizHistoryStatCard("Questions used", Color.FromRgb(70, 235, 115));
         _quizHistoryQuestionUseCountText = questionUses.Value;
         questionUses.Card.Margin = new Thickness(5, 0, 0, 0);
         Grid.SetColumn(questionUses.Card, 3);
@@ -295,7 +295,7 @@ public partial class MainShellWindow
             FontFamily = new FontFamily("Segoe UI Variable Display"),
             FontSize = 28,
             FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(accent),
+            Foreground = Brushes.White,
         };
         var content = new StackPanel();
         content.Children.Add(value);
@@ -304,17 +304,24 @@ public partial class MainShellWindow
             Text = label,
             FontSize = 13,
             FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(Color.FromRgb(71, 85, 105)),
+            Foreground = new SolidColorBrush(accent),
             Margin = new Thickness(0, 2, 0, 0),
         });
         return (
             new Border
             {
-                Background = Brushes.White,
-                BorderBrush = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(8),
+                Background = new SolidColorBrush(Color.FromRgb(13, 18, 78)),
+                BorderBrush = new SolidColorBrush(accent),
+                BorderThickness = new Thickness(3),
+                CornerRadius = new CornerRadius(18),
                 Padding = new Thickness(16, 12, 16, 12),
+                Effect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    Color = accent,
+                    BlurRadius = 22,
+                    ShadowDepth = 0,
+                    Opacity = 0.58,
+                },
                 Child = content,
             },
             value);
