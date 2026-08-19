@@ -28,7 +28,7 @@ public sealed class NativeQuizVideoBuilderTests
             QuestionSeconds: 8,
             AnswerSeconds: 3);
 
-        Assert.Equal(114, options.EstimatedDuration(10));
+        Assert.Equal(117, options.EstimatedDuration(10));
     }
 
     [Fact]
@@ -36,7 +36,15 @@ public sealed class NativeQuizVideoBuilderTests
     {
         var options = new QuizVideoBuildOptions("Quiz", QuestionSeconds: 8, AnswerSeconds: 3);
 
-        Assert.Equal(20.25, options.EstimatedDuration(1, narrationSeconds: 5.25));
+        Assert.Equal(23.25, options.EstimatedDuration(1, narrationSeconds: 5.25));
+    }
+
+    [Fact]
+    public void Outro_HoldsCallToActionForFiveSeconds()
+    {
+        var options = new QuizVideoBuildOptions("Quiz");
+
+        Assert.Equal(5, options.OutroSeconds);
     }
 
     [Fact]
@@ -61,7 +69,7 @@ public sealed class NativeQuizVideoBuilderTests
         var options = new QuizVideoBuildOptions("Quiz", QuestionSeconds: 8, ShowCountdown: false);
 
         Assert.Equal(0, options.CountdownSeconds);
-        Assert.Equal(15, options.EstimatedDuration(1));
+        Assert.Equal(18, options.EstimatedDuration(1));
     }
 
     [Fact]
