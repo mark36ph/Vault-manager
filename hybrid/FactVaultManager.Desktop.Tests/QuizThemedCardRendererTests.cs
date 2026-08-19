@@ -11,7 +11,7 @@ public sealed class QuizThemedCardRendererTests
         Exception? renderError = null;
         double naturalHeight = 0;
         double viewportHeight = 0;
-        System.Windows.Media.StretchDirection stretchDirection = default;
+        System.Windows.Controls.StretchDirection stretchDirection = default;
 
         var thread = new Thread(() =>
         {
@@ -44,7 +44,7 @@ public sealed class QuizThemedCardRendererTests
 
         Assert.True(naturalHeight > viewportHeight);
         Assert.Equal(142.0, viewportHeight);
-        Assert.Equal(System.Windows.Media.StretchDirection.DownOnly, stretchDirection);
+        Assert.Equal(System.Windows.Controls.StretchDirection.DownOnly, stretchDirection);
     }
 
     [Fact]
