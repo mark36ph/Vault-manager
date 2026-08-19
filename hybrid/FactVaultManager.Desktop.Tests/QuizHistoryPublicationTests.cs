@@ -3,6 +3,15 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class QuizHistoryPublicationTests
 {
     [Theory]
+    [InlineData("2026-08-19 10:36:35", "19-08-2026")]
+    [InlineData("2026-08-19 10:36", "19-08-2026")]
+    [InlineData("2026-08-19", "19-08-2026")]
+    public void HistoryDate_UsesDayMonthYearDisplay(string stored, string expected)
+    {
+        Assert.Equal(expected, QuizHistoryDate.Format(stored));
+    }
+
+    [Theory]
     [InlineData("https://youtu.be/qJAMsHFhlDA")]
     [InlineData("https://www.youtube.com/watch?v=qJAMsHFhlDA")]
     [InlineData("https://m.youtube.com/watch?v=qJAMsHFhlDA")]
