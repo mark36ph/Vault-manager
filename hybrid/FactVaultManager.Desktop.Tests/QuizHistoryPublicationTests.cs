@@ -25,13 +25,14 @@ public sealed class QuizHistoryPublicationTests
     {
         var statistics = QuizHistoryStatistics.Calculate(
         [
-            History("16:9", 10),
+            History("16:9", 10, published: true),
             History("9:16", 1),
             History("9:16", 1),
         ]);
 
         Assert.Equal(1, statistics.Videos);
         Assert.Equal(2, statistics.Shorts);
+        Assert.Equal(1, statistics.Published);
         Assert.Equal(12, statistics.QuestionsUsed);
     }
 
@@ -60,7 +61,7 @@ public sealed class QuizHistoryPublicationTests
         Assert.Equal("", QuizYouTubePublication.NormalizeUrl("  "));
     }
 
-    private static QuizHistorySummary History(string format, int questionCount) => new(
+    private static QuizHistorySummary History(string format, int questionCount, bool published = false) => new(
         1,
         "Quiz",
         "2026-08-19 12:00:00",
@@ -76,7 +77,7 @@ public sealed class QuizHistoryPublicationTests
         "",
         "",
         "",
-        false,
+        published,
         "");
 
 }
