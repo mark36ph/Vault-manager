@@ -72,6 +72,7 @@ public partial class MainShellWindow
         {
             EnsureQuizCategoriesTab(_quizBankTabs);
             EnsureQuizDuplicatesTab(_quizBankTabs);
+            StyleStandaloneQuestionBankTabs(_quizBankTabs);
         }
 
         var questionBankTab = new TabItem { Content = BuildStandaloneQuestionBankPage(bankCard) };
@@ -145,11 +146,19 @@ public partial class MainShellWindow
             FontFamily = new FontFamily("Segoe UI Variable Display"),
             FontSize = 28,
             FontWeight = FontWeights.SemiBold,
+            Foreground = Brushes.White,
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = Color.FromRgb(0, 204, 255),
+                BlurRadius = 16,
+                ShadowDepth = 0,
+                Opacity = 0.55,
+            },
         });
         heading.Children.Add(new TextBlock
         {
             Text = "Search, review, and manage the reusable question bank.",
-            Foreground = QuizMutedBrush(),
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             Margin = new Thickness(0, 2, 0, 0),
         });
         header.Children.Add(heading);
@@ -161,6 +170,7 @@ public partial class MainShellWindow
             Padding = new Thickness(12, 0, 12, 0),
             VerticalAlignment = VerticalAlignment.Center,
         };
+        StyleStandaloneQuestionBankButton(backToQuizzes, Color.FromRgb(0, 204, 255));
         backToQuizzes.Click += (_, _) =>
         {
             MainTabs.SelectedIndex = _quizTabIndex;
@@ -175,7 +185,48 @@ public partial class MainShellWindow
         Grid.SetRow(bankCard, 1);
         root.Children.Add(bankCard);
 
-        return root;
+        return new Border
+        {
+            Background = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new(Color.FromRgb(7, 13, 57), 0),
+                    new(Color.FromRgb(18, 34, 115), 0.58),
+                    new(Color.FromRgb(80, 30, 145), 1),
+                },
+                new Point(0, 0),
+                new Point(1, 1)),
+            Child = root,
+        };
+    }
+
+    private static void StyleStandaloneQuestionBankButton(Button button, Color accent)
+    {
+        button.Background = new SolidColorBrush(Color.FromRgb(13, 18, 78));
+        button.BorderBrush = new SolidColorBrush(accent);
+        button.BorderThickness = new Thickness(2);
+        button.Foreground = Brushes.White;
+        button.FontWeight = FontWeights.SemiBold;
+        button.Padding = new Thickness(12, 6, 12, 6);
+        button.Effect = new System.Windows.Media.Effects.DropShadowEffect
+        {
+            Color = accent,
+            BlurRadius = 14,
+            ShadowDepth = 0,
+            Opacity = 0.4,
+        };
+    }
+
+    private static void StyleStandaloneQuestionBankTabs(TabControl tabs)
+    {
+        tabs.Background = Brushes.Transparent;
+        tabs.BorderThickness = new Thickness(0);
+        foreach (var tab in tabs.Items.OfType<TabItem>())
+        {
+            tab.Foreground = new SolidColorBrush(Color.FromRgb(255, 202, 45));
+            tab.Background = new SolidColorBrush(Color.FromRgb(13, 18, 78));
+            tab.FontWeight = FontWeights.SemiBold;
+        }
     }
 
     private void AddQuestionBankNavigationButton(int tabIndex)
