@@ -38,7 +38,10 @@ public partial class MainShellWindow
         MainTabs.Items.Add(tab);
         _quizTabIndex = MainTabs.Items.Count - 1;
         AddQuizNavigationButton(_quizTabIndex);
+        var musicMigration = _data.AutoCategorizeLegacyMusicQuestions();
         RefreshQuizBank();
+        if (musicMigration.Updated > 0 && _quizPageStatusText is not null)
+            _quizPageStatusText.Text = $"{musicMigration.Updated:N0} existing music question(s) moved from Entertainment to Music";
     }
 
     private FrameworkElement BuildQuizPage()
