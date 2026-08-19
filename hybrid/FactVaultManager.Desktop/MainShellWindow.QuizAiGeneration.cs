@@ -111,8 +111,8 @@ public partial class MainShellWindow
         _quizAiCategoryComboBox.Items.Add("General Knowledge");
         foreach (var category in QuizQuestionTopicCategorizer.Categories)
             _quizAiCategoryComboBox.Items.Add(category);
-        _quizAiCategoryComboBox.Background = new SolidColorBrush(Color.FromRgb(210, 220, 240));
-        _quizAiCategoryComboBox.Foreground = new SolidColorBrush(Color.FromRgb(20, 32, 72));
+        _quizAiCategoryComboBox.Background = new SolidColorBrush(Color.FromRgb(20, 32, 72));
+        _quizAiCategoryComboBox.Foreground = new SolidColorBrush(Color.FromRgb(225, 235, 255));
         _quizAiCategoryComboBox.BorderBrush = new SolidColorBrush(Color.FromRgb(70, 105, 180));
         _quizAiCategoryComboBox.SelectedIndex = 0;
         AddQuizAiField(form, 2, "CATEGORY", _quizAiCategoryComboBox);
@@ -120,8 +120,8 @@ public partial class MainShellWindow
         _quizAiDifficultyComboBox = new ComboBox { MinHeight = 34 };
         foreach (var difficulty in new[] { "mixed", "easy", "medium", "hard" })
             _quizAiDifficultyComboBox.Items.Add(difficulty);
-        _quizAiDifficultyComboBox.Background = new SolidColorBrush(Color.FromRgb(210, 220, 240));
-        _quizAiDifficultyComboBox.Foreground = new SolidColorBrush(Color.FromRgb(20, 32, 72));
+        _quizAiDifficultyComboBox.Background = new SolidColorBrush(Color.FromRgb(20, 32, 72));
+        _quizAiDifficultyComboBox.Foreground = new SolidColorBrush(Color.FromRgb(225, 235, 255));
         _quizAiDifficultyComboBox.BorderBrush = new SolidColorBrush(Color.FromRgb(70, 105, 180));
         _quizAiDifficultyComboBox.SelectedIndex = 0;
         AddQuizAiField(form, 4, "DIFFICULTY", _quizAiDifficultyComboBox);
