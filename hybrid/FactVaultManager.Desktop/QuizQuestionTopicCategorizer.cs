@@ -30,11 +30,15 @@ public static class QuizQuestionTopicCategorizer
             "hamlet", "pride and prejudice", "book", "author", "painted", "painting", "artist",
             "mona lisa", "starry night", "sculpture", "michelangelo", "guernica", "the scream", "museum",
         ]),
+        new("Music",
+        [
+            "music", "song", "album", "singer", "musician", "composer", "symphony", "opera",
+            "piano", "violin", "guitar", "orchestra", "band", "beatles", "mozart", "beethoven",
+        ]),
         new("Entertainment",
         [
-            "piano", "violin", "beatles", "mozart", "beethoven", "symphony", "composer",
-            "music", "song", "album", "film", "movie", "television", "actor", "actress",
-            "director", "cinema", "oscar", "academy award",
+            "film", "movie", "television", "actor", "actress", "director", "cinema", "oscar",
+            "academy award",
         ]),
         new("Sports",
         [
