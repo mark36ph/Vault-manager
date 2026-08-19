@@ -35,6 +35,27 @@ public static class QuizPublishMetadataGenerator
         return NormalizeSeriesName($"{category} Quiz");
     }
 
+    public static string SuggestSeriesNameForQuestions(IReadOnlyList<QuizQuestion> questions)
+    {
+        ArgumentNullException.ThrowIfNull(questions);
+        var categories = questions
+            .Select(question => (question.Category ?? "").Trim())
+            .Where(category => category.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(2)
+            .ToArray();
+        return categories.Length == 1
+            ? SuggestSeriesName(categories[0])
+            : "General Knowledge Quiz";
+    }
+
+    public static bool TitleMatchesSeries(string? title, string? seriesName)
+    {
+        var titleText = (title ?? "").Trim();
+        var series = NormalizeSeriesName(seriesName);
+        return titleText.Contains(series, StringComparison.OrdinalIgnoreCase);
+    }
+
     public static QuizPublishMetadata Generate(
         string? seriesName,
         int episodeNumber,
