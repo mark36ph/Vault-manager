@@ -12,6 +12,15 @@ public sealed class QuizHistoryPublicationTests
     }
 
     [Theory]
+    [InlineData("9:16", "Short")]
+    [InlineData("16:9", "Video")]
+    [InlineData("", "Video")]
+    public void HistoryVideoType_UsesFriendlyLabels(string format, string expected)
+    {
+        Assert.Equal(expected, QuizHistoryVideoType.DisplayName(format));
+    }
+
+    [Theory]
     [InlineData("https://youtu.be/qJAMsHFhlDA")]
     [InlineData("https://www.youtube.com/watch?v=qJAMsHFhlDA")]
     [InlineData("https://m.youtube.com/watch?v=qJAMsHFhlDA")]
