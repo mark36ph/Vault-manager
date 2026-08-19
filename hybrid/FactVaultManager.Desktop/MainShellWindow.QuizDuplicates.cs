@@ -50,11 +50,12 @@ public partial class MainShellWindow
             Text = "Duplicate review",
             FontSize = 16,
             FontWeight = FontWeights.SemiBold,
+            Foreground = Brushes.White,
         });
         _quizDuplicatesStatusText = new TextBlock
         {
             Text = "Open this tab to scan the question bank for likely duplicates.",
-            Foreground = QuizMutedBrush(),
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             FontSize = 11,
             Margin = new Thickness(0, 3, 0, 0),
         };
@@ -68,6 +69,7 @@ public partial class MainShellWindow
             Padding = new Thickness(12, 0, 12, 0),
             VerticalAlignment = VerticalAlignment.Center,
         };
+        StyleStandaloneQuestionBankButton(refresh, Color.FromRgb(0, 204, 255));
         refresh.Click += (_, _) => RefreshQuizDuplicateSection();
         Grid.SetColumn(refresh, 1);
         header.Children.Add(refresh);
@@ -83,12 +85,52 @@ public partial class MainShellWindow
             SelectionMode = DataGridSelectionMode.Single,
             HeadersVisibility = DataGridHeadersVisibility.Column,
             RowHeight = 34,
-            RowBackground = Brushes.White,
-            AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(245, 248, 252)),
+            ColumnHeaderHeight = 36,
+            Background = new SolidColorBrush(Color.FromRgb(8, 14, 62)),
+            Foreground = Brushes.White,
+            RowBackground = new SolidColorBrush(Color.FromRgb(8, 29, 75)),
+            AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(13, 38, 93)),
             AlternationCount = 2,
             GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
-            HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(230, 234, 240)),
+            HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(35, 62, 145)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0, 204, 255)),
+            BorderThickness = new Thickness(1),
         };
+
+        var duplicateCellStyle = new Style(typeof(DataGridCell));
+        duplicateCellStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
+        duplicateCellStyle.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+        duplicateCellStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 6, 9, 6)));
+        duplicateCellStyle.Setters.Add(new Setter(Control.VerticalContentAlignmentProperty, VerticalAlignment.Center));
+        duplicateCellStyle.Setters.Add(new Setter(DataGridCell.BorderThicknessProperty, new Thickness(0)));
+        var selectedCellTrigger = new Trigger
+        {
+            Property = DataGridCell.IsSelectedProperty,
+            Value = true,
+        };
+        selectedCellTrigger.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(25, 86, 170))));
+        selectedCellTrigger.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+        duplicateCellStyle.Triggers.Add(selectedCellTrigger);
+        _quizDuplicatesGrid.CellStyle = duplicateCellStyle;
+
+        var duplicateHeaderStyle = new Style(typeof(DataGridColumnHeader));
+        duplicateHeaderStyle.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(13, 18, 78))));
+        duplicateHeaderStyle.Setters.Add(new Setter(
+            Control.ForegroundProperty,
+            new SolidColorBrush(Color.FromRgb(255, 202, 45))));
+        duplicateHeaderStyle.Setters.Add(new Setter(Control.FontWeightProperty, FontWeights.SemiBold));
+        duplicateHeaderStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 9, 9, 9)));
+        duplicateHeaderStyle.Setters.Add(new Setter(
+            DataGridColumnHeader.BorderBrushProperty,
+            new SolidColorBrush(Color.FromRgb(0, 204, 255))));
+        duplicateHeaderStyle.Setters.Add(new Setter(
+            DataGridColumnHeader.BorderThicknessProperty,
+            new Thickness(0, 0, 0, 1)));
+        _quizDuplicatesGrid.ColumnHeaderStyle = duplicateHeaderStyle;
         _quizDuplicatesGrid.Columns.Add(new DataGridCheckBoxColumn
         {
             Header = "Delete",
@@ -156,6 +198,7 @@ public partial class MainShellWindow
             Padding = new Thickness(12, 0, 12, 0),
             ToolTip = "Tick every duplicate candidate currently shown.",
         };
+        StyleStandaloneQuestionBankButton(selectAll, Color.FromRgb(0, 204, 255));
         selectAll.Click += (_, _) => SetAllQuizDuplicateSelections(true);
         actions.Children.Add(selectAll);
 
@@ -166,6 +209,7 @@ public partial class MainShellWindow
             Padding = new Thickness(12, 0, 12, 0),
             ToolTip = "Untick every duplicate candidate.",
         };
+        StyleStandaloneQuestionBankButton(clearAll, Color.FromRgb(204, 70, 255));
         clearAll.Click += (_, _) => SetAllQuizDuplicateSelections(false);
         actions.Children.Add(clearAll);
 
@@ -180,12 +224,13 @@ public partial class MainShellWindow
             FontWeight = FontWeights.SemiBold,
             ToolTip = "Deletes every checked duplicate while keeping the earlier question shown in the Keep column.",
         };
+        StyleStandaloneQuestionBankButton(delete, Color.FromRgb(248, 90, 105));
         delete.Click += DeleteSelectedQuizDuplicates_Click;
         actions.Children.Add(delete);
         actions.Children.Add(new TextBlock
         {
             Text = "Tick the duplicates you want removed. The Keep questions are never deleted by this action.",
-            Foreground = QuizMutedBrush(),
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             FontSize = 11,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(12, 0, 0, 0),
