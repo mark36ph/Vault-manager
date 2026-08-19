@@ -321,18 +321,7 @@ public sealed class QuizThemedCardRenderer
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             Effect = Glow(NeonBlue, 30, 0.62),
-            Child = new TextBlock
-            {
-                Text = question.Question,
-                Foreground = Brushes.White,
-                FontSize = 54,
-                FontWeight = FontWeights.Bold,
-                TextWrapping = TextWrapping.Wrap,
-                TextAlignment = TextAlignment.Center,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                MaxWidth = 1090,
-            },
+            Child = BuildFittedQuestionText(question.Question, 54, 1090),
         };
         Grid.SetRow(questionPanel, 3);
         stage.Children.Add(questionPanel);
@@ -371,6 +360,29 @@ public sealed class QuizThemedCardRenderer
 
         root.Child = stage;
         return root;
+    }
+
+    internal static Viewbox BuildFittedQuestionText(string text, double fontSize, double maxWidth)
+    {
+        return new Viewbox
+        {
+            Stretch = Stretch.Uniform,
+            StretchDirection = StretchDirection.DownOnly,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Child = new TextBlock
+            {
+                Text = text,
+                Foreground = Brushes.White,
+                FontSize = fontSize,
+                FontWeight = FontWeights.Bold,
+                TextWrapping = TextWrapping.Wrap,
+                TextAlignment = TextAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                MaxWidth = maxWidth,
+            },
+        };
     }
 
     private static Border BuildGameShowAnswer(string answer, int index, bool correct, bool emphasized)
@@ -650,16 +662,10 @@ public sealed class QuizThemedCardRenderer
             Padding = new Thickness(38, 26, 38, 26),
             Margin = new Thickness(0, 10, 0, 24),
             Effect = Glow(NeonBlue, 24, 0.55),
-            Child = new TextBlock
-            {
-                Text = question.Question,
-                Foreground = Brushes.White,
-                FontSize = 48,
-                FontWeight = FontWeights.Bold,
-                TextWrapping = TextWrapping.Wrap,
-                TextAlignment = TextAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-            },
+            Child = BuildFittedQuestionText(
+                question.Question,
+                48,
+                Math.Max(1, options.Width - 204)),
         };
         Grid.SetRow(questionPanel, 3);
         page.Children.Add(questionPanel);
