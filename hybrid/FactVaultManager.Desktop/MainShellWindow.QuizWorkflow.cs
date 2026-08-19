@@ -103,7 +103,11 @@ public partial class MainShellWindow
         _quizCategoryComboBox.SelectionChanged += (_, _) =>
         {
             if (!_quizRefreshing)
+            {
+                SyncQuizCategorySeriesName();
+                SuggestNextQuizEpisode();
                 RefreshQuizBank();
+            }
         };
 
         _quizDifficultyComboBox = new ComboBox { Margin = new Thickness(0, 4, 0, 0), MinHeight = 34 };
@@ -405,7 +409,10 @@ public partial class MainShellWindow
         {
             _quizRefreshing = true;
             var selectedCategory = SelectedQuizCategory();
-            var categories = _data.GetQuizCategories();
+            var categories = QuizQuestionTopicCategorizer.Categories
+                .Concat(_data.GetQuizCategories())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
             _quizCategoryComboBox.Items.Clear();
             _quizCategoryComboBox.Items.Add("All categories");
             foreach (var category in categories)
