@@ -43,7 +43,7 @@ public sealed class QuizThemedCardRendererTests
             ExceptionDispatchInfo.Capture(renderError).Throw();
 
         Assert.True(naturalHeight > viewportHeight);
-        Assert.Equal(142, viewportHeight);
+        Assert.Equal(142.0, viewportHeight);
         Assert.Equal(System.Windows.Media.StretchDirection.DownOnly, stretchDirection);
     }
 
