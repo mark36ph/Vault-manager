@@ -230,6 +230,24 @@ public partial class MainShellWindow
         tabStyle.Setters.Add(new Setter(Control.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(35, 62, 145))));
         tabStyle.Setters.Add(new Setter(Control.FontWeightProperty, FontWeights.SemiBold));
 
+        var tabBorder = new FrameworkElementFactory(typeof(Border));
+        tabBorder.SetValue(Border.BackgroundProperty, new TemplateBindingExtension(Control.BackgroundProperty));
+        tabBorder.SetValue(Border.BorderBrushProperty, new TemplateBindingExtension(Control.BorderBrushProperty));
+        tabBorder.SetValue(Border.BorderThicknessProperty, new Thickness(1));
+        tabBorder.SetValue(Border.CornerRadiusProperty, new CornerRadius(6, 6, 0, 0));
+
+        var tabHeader = new FrameworkElementFactory(typeof(ContentPresenter));
+        tabHeader.SetValue(ContentPresenter.ContentSourceProperty, "Header");
+        tabHeader.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+        tabHeader.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+        tabHeader.SetValue(FrameworkElement.MarginProperty, new Thickness(15, 0, 15, 0));
+        tabHeader.SetValue(ContentPresenter.RecognizesAccessKeyProperty, true);
+        tabBorder.AppendChild(tabHeader);
+
+        tabStyle.Setters.Add(new Setter(
+            Control.TemplateProperty,
+            new ControlTemplate(typeof(TabItem)) { VisualTree = tabBorder }));
+
         var hoverTrigger = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
         hoverTrigger.Setters.Add(new Setter(
             Control.BackgroundProperty,
