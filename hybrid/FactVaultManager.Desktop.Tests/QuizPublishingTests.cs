@@ -5,6 +5,35 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class QuizPublishingTests
 {
     [Fact]
+    public void SuggestSeriesNameForQuestions_UsesSingleDraftCategory()
+    {
+        var series = QuizPublishMetadataGenerator.SuggestSeriesNameForQuestions(
+            [Question(1, "History"), Question(2, "History")]);
+
+        Assert.Equal("History Quiz", series);
+    }
+
+    [Fact]
+    public void SuggestSeriesNameForQuestions_UsesGeneralKnowledgeForMixedDraft()
+    {
+        var series = QuizPublishMetadataGenerator.SuggestSeriesNameForQuestions(
+            [Question(1, "History"), Question(2, "Science")]);
+
+        Assert.Equal("General Knowledge Quiz", series);
+    }
+
+    [Theory]
+    [InlineData("Can You Get 10/10? | History Quiz #001", "History Quiz", true)]
+    [InlineData("Can You Get 10/10? | General Knowledge Quiz #003", "History Quiz", false)]
+    public void TitleMatchesSeries_DetectsStaleCategoryMetadata(
+        string title,
+        string series,
+        bool expected)
+    {
+        Assert.Equal(expected, QuizPublishMetadataGenerator.TitleMatchesSeries(title, series));
+    }
+
+    [Fact]
     public void Generate_BuildsViewerFocusedSeriesEpisodeAndShortsMetadata()
     {
         var metadata = QuizPublishMetadataGenerator.Generate(
