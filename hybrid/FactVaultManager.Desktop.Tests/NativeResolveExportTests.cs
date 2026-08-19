@@ -158,7 +158,11 @@ public sealed class NativeResolveExportTests
             Assert.Equal("0s", parent.Attribute("offset")?.Value);
             Assert.Equal(2, clips.Count);
             Assert.Equal("1", clips.Single(clip => clip.Attribute("name")?.Value == "Question Card").Attribute("lane")?.Value);
-            Assert.Equal("-1", clips.Single(clip => clip.Attribute("name")?.Value == "Question Narration").Attribute("lane")?.Value);
+            var narrationClip = clips.Single(clip => clip.Attribute("name")?.Value == "Question Narration");
+            Assert.Equal("-1", narrationClip.Attribute("lane")?.Value);
+            Assert.Equal("1", narrationClip.Attribute("enabled")?.Value);
+            Assert.Equal("dialogue", narrationClip.Attribute("audioRole")?.Value);
+            Assert.Equal("4dB", narrationClip.Element("adjust-volume")?.Attribute("amount")?.Value);
             Assert.All(clips, clip => Assert.Equal("60/30s", clip.Attribute("offset")?.Value));
         }
         finally
