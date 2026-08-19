@@ -19,6 +19,7 @@ public partial class MainShellWindow
     private TextBlock? _quizPublishingStatusText;
     private bool _quizThumbnailPreviewCurrent;
     private string _quizAutoSeriesName = "General Knowledge Quiz";
+    private string _quizAutoThumbnailSubtitle = "GENERAL KNOWLEDGE QUIZ";
     private string _lastQuizExportFolder = "";
     private string _lastQuizThumbnailPath = "";
     private string _lastQuizResolveExportPath = "";
@@ -513,8 +514,14 @@ public partial class MainShellWindow
         var suggested = QuizThumbnailDefaults.Create(metadata, _quizDraftQuestions.Count);
         if (_quizThumbnailHeadlineTextBox is not null && string.IsNullOrWhiteSpace(_quizThumbnailHeadlineTextBox.Text))
             _quizThumbnailHeadlineTextBox.Text = suggested.Headline;
-        if (_quizThumbnailSubtitleTextBox is not null && string.IsNullOrWhiteSpace(_quizThumbnailSubtitleTextBox.Text))
+        if (_quizThumbnailSubtitleTextBox is not null &&
+            QuizThumbnailDefaults.ShouldReplaceSubtitle(
+                _quizThumbnailSubtitleTextBox.Text,
+                _quizAutoThumbnailSubtitle))
+        {
             _quizThumbnailSubtitleTextBox.Text = suggested.Subtitle;
+        }
+        _quizAutoThumbnailSubtitle = suggested.Subtitle;
     }
 
     private void ApplySuggestedQuizThumbnailText()
@@ -529,6 +536,7 @@ public partial class MainShellWindow
                 _quizThumbnailHeadlineTextBox.Text = suggested.Headline;
             if (_quizThumbnailSubtitleTextBox is not null)
                 _quizThumbnailSubtitleTextBox.Text = suggested.Subtitle;
+            _quizAutoThumbnailSubtitle = suggested.Subtitle;
             GenerateQuizThumbnailPreview();
         }
         catch (Exception error)
