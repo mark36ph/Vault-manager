@@ -53,11 +53,12 @@ public partial class MainShellWindow
             Text = "Categories",
             FontSize = 16,
             FontWeight = FontWeights.SemiBold,
+            Foreground = Brushes.White,
         });
         _quizCategoriesStatusText = new TextBlock
         {
             Text = "Category totals",
-            Foreground = QuizMutedBrush(),
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             FontSize = 11,
             Margin = new Thickness(0, 3, 0, 0),
             TextWrapping = TextWrapping.Wrap,
@@ -71,6 +72,7 @@ public partial class MainShellWindow
             Padding = new Thickness(10, 4, 10, 4),
             VerticalAlignment = VerticalAlignment.Center,
         };
+        StyleStandaloneQuestionBankButton(refresh, Color.FromRgb(0, 204, 255));
         refresh.Click += (_, _) => RefreshQuizCategorySection();
         Grid.SetColumn(refresh, 1);
         header.Children.Add(refresh);
@@ -83,13 +85,53 @@ public partial class MainShellWindow
             CanUserSortColumns = true,
             SelectionMode = DataGridSelectionMode.Single,
             HeadersVisibility = DataGridHeadersVisibility.Column,
-            RowHeight = 31,
-            RowBackground = Brushes.White,
-            AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(245, 248, 252)),
+            RowHeight = 34,
+            ColumnHeaderHeight = 36,
+            Background = new SolidColorBrush(Color.FromRgb(8, 14, 62)),
+            Foreground = Brushes.White,
+            RowBackground = new SolidColorBrush(Color.FromRgb(8, 29, 75)),
+            AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(13, 38, 93)),
             AlternationCount = 2,
             GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
-            HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(230, 234, 240)),
+            HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(35, 62, 145)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0, 204, 255)),
+            BorderThickness = new Thickness(1),
         };
+
+        var categoryCellStyle = new Style(typeof(DataGridCell));
+        categoryCellStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
+        categoryCellStyle.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+        categoryCellStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 6, 9, 6)));
+        categoryCellStyle.Setters.Add(new Setter(Control.VerticalContentAlignmentProperty, VerticalAlignment.Center));
+        categoryCellStyle.Setters.Add(new Setter(DataGridCell.BorderThicknessProperty, new Thickness(0)));
+        var selectedCellTrigger = new Trigger
+        {
+            Property = DataGridCell.IsSelectedProperty,
+            Value = true,
+        };
+        selectedCellTrigger.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(25, 86, 170))));
+        selectedCellTrigger.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+        categoryCellStyle.Triggers.Add(selectedCellTrigger);
+        _quizCategoriesGrid.CellStyle = categoryCellStyle;
+
+        var categoryHeaderStyle = new Style(typeof(DataGridColumnHeader));
+        categoryHeaderStyle.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(13, 18, 78))));
+        categoryHeaderStyle.Setters.Add(new Setter(
+            Control.ForegroundProperty,
+            new SolidColorBrush(Color.FromRgb(255, 202, 45))));
+        categoryHeaderStyle.Setters.Add(new Setter(Control.FontWeightProperty, FontWeights.SemiBold));
+        categoryHeaderStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 9, 9, 9)));
+        categoryHeaderStyle.Setters.Add(new Setter(
+            DataGridColumnHeader.BorderBrushProperty,
+            new SolidColorBrush(Color.FromRgb(0, 204, 255))));
+        categoryHeaderStyle.Setters.Add(new Setter(
+            DataGridColumnHeader.BorderThicknessProperty,
+            new Thickness(0, 0, 0, 1)));
+        _quizCategoriesGrid.ColumnHeaderStyle = categoryHeaderStyle;
         _quizCategoriesGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Category",
@@ -147,6 +189,7 @@ public partial class MainShellWindow
             Padding = new Thickness(12, 0, 12, 0),
             FontWeight = FontWeights.SemiBold,
         };
+        StyleStandaloneQuestionBankButton(autoCategorize, Color.FromRgb(204, 70, 255));
         autoCategorize.Click += (sender, eventArgs) =>
         {
             AutoCategorizeQuizQuestions_Click(sender, eventArgs);
@@ -160,6 +203,7 @@ public partial class MainShellWindow
             Height = 34,
             Padding = new Thickness(12, 0, 12, 0),
         };
+        StyleStandaloneQuestionBankButton(view, Color.FromRgb(0, 204, 255));
         view.Click += (_, _) => ViewSelectedQuizCategory();
         Grid.SetColumn(view, 2);
         actions.Children.Add(view);
@@ -171,6 +215,10 @@ public partial class MainShellWindow
         };
         foreach (var category in QuizQuestionTopicCategorizer.Categories)
             _quizAssignCategoryComboBox.Items.Add(category);
+        _quizAssignCategoryComboBox.Background = new SolidColorBrush(Color.FromRgb(20, 32, 72));
+        _quizAssignCategoryComboBox.Foreground = new SolidColorBrush(Color.FromRgb(225, 235, 255));
+        _quizAssignCategoryComboBox.BorderBrush = new SolidColorBrush(Color.FromRgb(70, 105, 180));
+        _quizAssignCategoryComboBox.BorderThickness = new Thickness(1);
         _quizAssignCategoryComboBox.SelectedItem = "General Knowledge";
         Grid.SetColumn(_quizAssignCategoryComboBox, 4);
         actions.Children.Add(_quizAssignCategoryComboBox);
@@ -182,6 +230,7 @@ public partial class MainShellWindow
             Height = 34,
             Padding = new Thickness(12, 0, 12, 0),
         };
+        StyleStandaloneQuestionBankButton(assign, Color.FromRgb(70, 235, 115));
         assign.Click += AssignSelectedQuizQuestionCategory_Click;
         Grid.SetColumn(assign, 6);
         actions.Children.Add(assign);
@@ -189,7 +238,7 @@ public partial class MainShellWindow
         var hint = new TextBlock
         {
             Text = "Tip: select a question on Questions first if you want to move it manually.",
-            Foreground = QuizMutedBrush(),
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             FontSize = 11,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(12, 0, 0, 0),
