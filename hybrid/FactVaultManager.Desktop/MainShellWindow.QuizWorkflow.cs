@@ -174,12 +174,21 @@ public partial class MainShellWindow
         };
         var toggleSelected = new Button
         {
-            Content = "Enable / disable selected",
+            Content = "Enable / disable",
+            MinWidth = 112,
             ToolTip = "Disabled questions stay in the bank but are excluded from random quiz selection.",
         };
         toggleSelected.Click += ToggleSelectedQuizQuestion_Click;
         bankActions.Children.Add(toggleSelected);
-        var deleteSelected = new Button { Content = "Delete selected", VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0) };
+        var deleteSelected = new Button
+        {
+            Content = "Delete",
+            MinWidth = 76,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(8, 0, 0, 0),
+            Foreground = new SolidColorBrush(Color.FromRgb(185, 28, 28)),
+            ToolTip = "Delete the selected question from the bank",
+        };
         deleteSelected.Click += DeleteSelectedQuizQuestion_Click;
         bankActions.Children.Add(deleteSelected);
         Grid.SetColumn(bankActions, 1);
@@ -256,23 +265,43 @@ public partial class MainShellWindow
 
     private FrameworkElement BuildQuizBankBrowse()
     {
-        var root = new Grid { Margin = new Thickness(0, 10, 0, 0) };
+        var root = new Grid { Margin = new Thickness(0, 12, 0, 0) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
 
-        var search = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+        var search = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+        search.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         search.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         search.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        _quizSearchTextBox = new TextBox { ToolTip = "Search question text or category" };
+        search.Children.Add(new TextBlock
+        {
+            Text = "Search",
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(71, 85, 105)),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 10, 0),
+        });
+        _quizSearchTextBox = new TextBox
+        {
+            ToolTip = "Search question text, category, answer, or explanation",
+            MinWidth = 260,
+            VerticalContentAlignment = VerticalAlignment.Center,
+        };
         _quizSearchTextBox.TextChanged += (_, _) =>
         {
             if (!_quizRefreshing)
                 RefreshQuizBank();
         };
+        Grid.SetColumn(_quizSearchTextBox, 1);
         search.Children.Add(_quizSearchTextBox);
-        var refresh = new Button { Content = "Refresh", Margin = new Thickness(8, 0, 0, 0) };
+        var refresh = new Button
+        {
+            Content = "Refresh",
+            MinWidth = 82,
+            Margin = new Thickness(8, 0, 0, 0),
+        };
         refresh.Click += (_, _) => RefreshQuizBank();
-        Grid.SetColumn(refresh, 1);
+        Grid.SetColumn(refresh, 2);
         search.Children.Add(refresh);
         root.Children.Add(search);
 
@@ -281,20 +310,69 @@ public partial class MainShellWindow
             AutoGenerateColumns = false,
             IsReadOnly = true,
             CanUserSortColumns = true,
+            CanUserResizeRows = false,
+            SelectionMode = DataGridSelectionMode.Single,
+            SelectionUnit = DataGridSelectionUnit.FullRow,
             HeadersVisibility = DataGridHeadersVisibility.Column,
+            GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
+            HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
+            AlternationCount = 2,
+            AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+            MinRowHeight = 44,
+            BorderBrush = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
+            BorderThickness = new Thickness(1),
+            Background = Brushes.White,
         };
+
+        var bankCellStyle = new Style(typeof(DataGridCell));
+        bankCellStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 6, 9, 6)));
+        bankCellStyle.Setters.Add(new Setter(Control.VerticalContentAlignmentProperty, VerticalAlignment.Center));
+        bankCellStyle.Setters.Add(new Setter(DataGridCell.BorderThicknessProperty, new Thickness(0)));
+        _quizBankGrid.CellStyle = bankCellStyle;
+
+        var bankHeaderStyle = new Style(typeof(DataGridColumnHeader));
+        bankHeaderStyle.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(248, 250, 252))));
+        bankHeaderStyle.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(71, 85, 105))));
+        bankHeaderStyle.Setters.Add(new Setter(Control.FontWeightProperty, FontWeights.SemiBold));
+        bankHeaderStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 9, 9, 9)));
+        bankHeaderStyle.Setters.Add(new Setter(DataGridColumnHeader.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(226, 232, 240))));
+        bankHeaderStyle.Setters.Add(new Setter(DataGridColumnHeader.BorderThicknessProperty, new Thickness(0, 0, 0, 1)));
+        _quizBankGrid.ColumnHeaderStyle = bankHeaderStyle;
+
+        var bankRowStyle = new Style(typeof(DataGridRow));
+        var disabledTrigger = new DataTrigger
+        {
+            Binding = new Binding(nameof(QuizQuestion.IsEnabled)),
+            Value = false,
+        };
+        disabledTrigger.Setters.Add(new Setter(UIElement.OpacityProperty, 0.58));
+        bankRowStyle.Triggers.Add(disabledTrigger);
+        _quizBankGrid.RowStyle = bankRowStyle;
+
+        var wrappedTextStyle = new Style(typeof(TextBlock));
+        wrappedTextStyle.Setters.Add(new Setter(TextBlock.TextWrappingProperty, TextWrapping.Wrap));
+        wrappedTextStyle.Setters.Add(new Setter(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center));
+
+        _quizBankGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "No.",
+            Binding = new Binding(nameof(QuizQuestion.Id)),
+            SortMemberPath = nameof(QuizQuestion.Id),
+            Width = new DataGridLength(62),
+        });
         _quizBankGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Category",
             Binding = new Binding(nameof(QuizQuestion.Category)),
             SortMemberPath = nameof(QuizQuestion.Category),
-            Width = new DataGridLength(125),
+            Width = new DataGridLength(145),
         });
         _quizBankGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Question",
             Binding = new Binding(nameof(QuizQuestion.Question)),
             SortMemberPath = nameof(QuizQuestion.Question),
+            ElementStyle = wrappedTextStyle,
             Width = new DataGridLength(1, DataGridLengthUnitType.Star),
         });
         _quizBankGrid.Columns.Add(new DataGridTextColumn
@@ -302,28 +380,29 @@ public partial class MainShellWindow
             Header = "Level",
             Binding = new Binding(nameof(QuizQuestion.Difficulty)),
             SortMemberPath = nameof(QuizQuestion.Difficulty),
-            Width = new DataGridLength(75),
+            Width = new DataGridLength(82),
         });
         _quizBankGrid.Columns.Add(new DataGridTextColumn
         {
-            Header = "Correct",
+            Header = "Correct answer",
             Binding = new Binding(nameof(QuizQuestion.CorrectAnswer)),
             SortMemberPath = nameof(QuizQuestion.CorrectAnswer),
-            Width = new DataGridLength(130),
+            ElementStyle = wrappedTextStyle,
+            Width = new DataGridLength(175),
         });
         _quizBankGrid.Columns.Add(new DataGridTextColumn
         {
-            Header = "Times used",
+            Header = "Used",
             Binding = new Binding(nameof(QuizQuestion.TimesUsed)),
             SortMemberPath = nameof(QuizQuestion.TimesUsed),
-            Width = new DataGridLength(82),
+            Width = new DataGridLength(68),
         });
         _quizBankGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Status",
             Binding = new Binding(nameof(QuizQuestion.Availability)),
             SortMemberPath = nameof(QuizQuestion.IsEnabled),
-            Width = new DataGridLength(82),
+            Width = new DataGridLength(86),
         });
         Grid.SetRow(_quizBankGrid, 1);
         root.Children.Add(_quizBankGrid);
