@@ -10,6 +10,7 @@
     <AssemblyTitle>Content Vault Manager</AssemblyTitle>
     <Product>Content Vault Manager</Product>
     <StartupObject>FactVaultManager.Desktop.Program</StartupObject>
+    <ApplicationIcon>Assets\FactVaultManager.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,5 +21,6 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="FactVaultManager.Desktop.Tests" />
+    <Resource Include="Assets\FactVaultManager.ico" />
   </ItemGroup>
 </Project>
