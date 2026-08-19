@@ -12,6 +12,7 @@ public sealed class QuizImportCategoryPromptTests
         Assert.Contains("History", prompt);
         Assert.Contains("Geography", prompt);
         Assert.Contains("Music", prompt);
+        Assert.Contains("Film", prompt);
         Assert.Contains("specific broad category", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("do not label most questions as General Knowledge", prompt, StringComparison.OrdinalIgnoreCase);
     }
