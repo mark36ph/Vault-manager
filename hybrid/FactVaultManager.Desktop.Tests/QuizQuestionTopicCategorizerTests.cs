@@ -36,6 +36,16 @@ public sealed class QuizQuestionTopicCategorizerTests
         Assert.DoesNotContain("Miscellaneous", QuizQuestionTopicCategorizer.Categories);
     }
 
+    [Theory]
+    [InlineData("film", "Film")]
+    [InlineData("movies", "Film")]
+    [InlineData("cinema", "Film")]
+    [InlineData("film & tv", "Entertainment")]
+    public void CategoryNormalizer_SeparatesFilmFromTelevision(string value, string expected)
+    {
+        Assert.Equal(expected, QuizQuestionCategoryNormalizer.Normalize(value));
+    }
+
     [Fact]
     public void Categorize_UsesAnswersAndExplanationWhenHelpful()
     {
