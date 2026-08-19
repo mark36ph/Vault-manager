@@ -79,6 +79,21 @@ public partial class MainShellWindow
             AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
             HeadersVisibility = DataGridHeadersVisibility.Column,
         };
+        var historyRowStyle = new Style(typeof(DataGridRow));
+        historyRowStyle.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(254, 226, 226))));
+        var publishedRowTrigger = new DataTrigger
+        {
+            Binding = new Binding(nameof(QuizHistorySummary.PublishedOnYouTube)),
+            Value = true,
+        };
+        publishedRowTrigger.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(220, 252, 231))));
+        historyRowStyle.Triggers.Add(publishedRowTrigger);
+        _quizHistoryGrid.RowStyle = historyRowStyle;
+
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "No.",
@@ -241,7 +256,7 @@ public partial class MainShellWindow
     private void QuizHistoryGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton == MouseButton.Left)
-            ShowSelectedQuizHistoryQuestions();
+            ShowSelectedQuizYouTubePublication();
     }
 
     private void ShowSelectedQuizHistoryQuestions()
