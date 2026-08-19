@@ -200,8 +200,8 @@ public static class QuizQuestionImportParser
             ? "- Mix easy, medium, and hard difficulty."
             : $"- Set the difficulty field to '{difficulty}' for every question.";
 
-        return $"""
-Create {{count}} accurate multiple-choice quiz questions {{subjectLine}}.
+        var prompt = """
+Create __COUNT__ accurate multiple-choice quiz questions __SUBJECT_LINE__.
 Return JSON only, with no Markdown and no commentary.
 Use exactly this shape:
 {
@@ -211,22 +211,30 @@ Use exactly this shape:
       "answers": ["Answer A", "Answer B", "Answer C", "Answer D"],
       "correct_answer": "A",
       "explanation": "One short factual explanation.",
-      "category": "{{categoryExample}}",
-      "difficulty": "{{difficultyExample}}"
+      "category": "__CATEGORY_EXAMPLE__",
+      "difficulty": "__DIFFICULTY_EXAMPLE__"
     }
   ]
 }
 Rules:
 - Exactly four distinct answer choices per question.
 - correct_answer must be A, B, C, or D.
-{{difficultyRule}}
-{{categoryRules}}- Avoid trick questions, ambiguous wording, duplicate questions, semantically repeated questions, and opinion-based answers.
+__DIFFICULTY_RULE__
+__CATEGORY_RULES__- Avoid trick questions, ambiguous wording, duplicate questions, semantically repeated questions, and opinion-based answers.
 - Do not ask the same fact again with slightly different wording.
 - Keep questions suitable for a YouTube quiz.
 - Verify factual accuracy before including each question.
 - Do not include citations, source links, URLs, footnotes, references, Markdown, or source lists anywhere in the JSON.
 - Do not write anything before the opening { or after the final }.
 """;
+
+        return prompt
+            .Replace("__COUNT__", count.ToString(), StringComparison.Ordinal)
+            .Replace("__SUBJECT_LINE__", subjectLine, StringComparison.Ordinal)
+            .Replace("__CATEGORY_EXAMPLE__", categoryExample, StringComparison.Ordinal)
+            .Replace("__DIFFICULTY_EXAMPLE__", difficultyExample, StringComparison.Ordinal)
+            .Replace("__DIFFICULTY_RULE__", difficultyRule, StringComparison.Ordinal)
+            .Replace("__CATEGORY_RULES__", categoryRules, StringComparison.Ordinal);
     }
 
     private static JsonElement QuestionArray(JsonElement root)
