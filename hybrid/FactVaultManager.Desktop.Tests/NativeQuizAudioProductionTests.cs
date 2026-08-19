@@ -91,9 +91,10 @@ public sealed class NativeQuizAudioProductionTests
     }
 
     [Fact]
-    public void ExportedAudio_UsesFourDecibelGain()
+    public void ExportedAudio_UsesFormatSpecificGain()
     {
-        Assert.Equal("4dB", QuizFcpXmlTimelineSynchronizer.AudioGainAmount);
+        Assert.Equal("4dB", QuizFcpXmlTimelineSynchronizer.AudioGainAmountFor(vertical: false));
+        Assert.Equal("8dB", QuizFcpXmlTimelineSynchronizer.AudioGainAmountFor(vertical: true));
     }
 
     [Fact]
