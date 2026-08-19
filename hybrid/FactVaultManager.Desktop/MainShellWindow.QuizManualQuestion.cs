@@ -33,6 +33,7 @@ public partial class MainShellWindow
         };
 
         var textBoxStyle = new Style(typeof(TextBox));
+        textBoxStyle.Setters.Add(new Setter(FrameworkElement.MinHeightProperty, 34d));
         textBoxStyle.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(20, 32, 72))));
         textBoxStyle.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(225, 235, 255))));
         textBoxStyle.Setters.Add(new Setter(Control.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(70, 105, 180))));
@@ -42,6 +43,7 @@ public partial class MainShellWindow
         bankCard.Resources[typeof(TextBox)] = textBoxStyle;
 
         var comboBoxStyle = new Style(typeof(ComboBox));
+        comboBoxStyle.Setters.Add(new Setter(FrameworkElement.MinHeightProperty, 34d));
         comboBoxStyle.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(20, 32, 72))));
         comboBoxStyle.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(225, 235, 255))));
         comboBoxStyle.Setters.Add(new Setter(Control.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(70, 105, 180))));
