@@ -22,6 +22,30 @@ public sealed record QuizHistorySummary(
     string YouTubeUrl)
 {
     public string EpisodeLabel => EpisodeNumber > 0 ? $"#{EpisodeNumber:000}" : "";
+    public string CreatedDisplay => QuizHistoryDate.Format(Created);
+}
+
+public static class QuizHistoryDate
+{
+    private static readonly string[] StoredFormats =
+    [
+        "yyyy-MM-dd HH:mm:ss",
+        "yyyy-MM-dd HH:mm",
+        "yyyy-MM-dd",
+    ];
+
+    public static string Format(string? value)
+    {
+        var text = (value ?? "").Trim();
+        return DateTime.TryParseExact(
+            text,
+            StoredFormats,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out var created)
+            ? created.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
+            : text;
+    }
 }
 
 public static class QuizYouTubePublication
