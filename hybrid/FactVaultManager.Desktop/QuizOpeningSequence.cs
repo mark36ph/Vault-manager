@@ -47,7 +47,7 @@ public static class QuizOpeningSequence
 
         var countdownStyle = $"opening-large-v2|{theme.Accent}|{theme.Countdown}|{theme.AccentSoft}|{theme.Text}";
         var countdownPaths = new Dictionary<int, string>();
-        for (var value = StartCountdownSeconds; value >= 1; value--)
+        for (var value = options.OpeningCountdownSeconds; value >= 1; value--)
         {
             var path = Path.Combine(cardsFolder, $"000_start_{value}.png");
             var cachePath = QuizSharedAssetCache.OpeningCountdownPath(
@@ -63,10 +63,10 @@ public static class QuizOpeningSequence
             countdownPaths[value] = path;
         }
 
-        QuizOpeningTimelinePlanner.Apply(timeline, spinPaths, countdownPaths);
+        QuizOpeningTimelinePlanner.Apply(timeline, spinPaths, countdownPaths, options.OpeningCountdownSeconds);
         QuizOutroSequence.RenderAndApply(timeline, projectFolder, options);
         timeline.Metadata["opening_sequence_applied"] = true;
-        timeline.Metadata["opening_countdown_seconds"] = StartCountdownSeconds;
+        timeline.Metadata["opening_countdown_seconds"] = options.OpeningCountdownSeconds;
         timeline.Metadata["opening_spin_frames"] = SpinFrameCount;
         timeline.Validate();
     }
@@ -298,15 +298,18 @@ public static class QuizOpeningTimelinePlanner
     public static void Apply(
         NativeTimeline timeline,
         IReadOnlyList<string> spinFramePaths,
-        IReadOnlyDictionary<int, string> countdownPaths)
+        IReadOnlyDictionary<int, string> countdownPaths,
+        int countdownSeconds = QuizOpeningSequence.StartCountdownSeconds)
     {
         ArgumentNullException.ThrowIfNull(timeline);
         ArgumentNullException.ThrowIfNull(spinFramePaths);
         ArgumentNullException.ThrowIfNull(countdownPaths);
         timeline.Validate();
+        if (countdownSeconds is < 0 or > QuizOpeningSequence.StartCountdownSeconds)
+            throw new ArgumentOutOfRangeException(nameof(countdownSeconds));
         if (spinFramePaths.Count != QuizOpeningSequence.SpinFrameCount)
             throw new ArgumentException($"Expected {QuizOpeningSequence.SpinFrameCount} intro spin frames.", nameof(spinFramePaths));
-        for (var value = QuizOpeningSequence.StartCountdownSeconds; value >= 1; value--)
+        for (var value = countdownSeconds; value >= 1; value--)
         {
             if (!countdownPaths.ContainsKey(value))
                 throw new ArgumentException($"Missing opening countdown card {value}.", nameof(countdownPaths));
@@ -324,7 +327,7 @@ public static class QuizOpeningTimelinePlanner
 
         var introStart = intro.Start;
         var introEnd = intro.End;
-        var addedSeconds = QuizOpeningSequence.StartCountdownSeconds;
+        var addedSeconds = countdownSeconds;
         foreach (var track in timeline.Tracks)
         {
             foreach (var clip in track.Clips.Where(clip => !ReferenceEquals(clip, intro) && clip.Start >= introEnd - 0.0001))
@@ -364,7 +367,7 @@ public static class QuizOpeningTimelinePlanner
         }
         cursor = introEnd;
 
-        for (var value = QuizOpeningSequence.StartCountdownSeconds; value >= 1; value--)
+        for (var value = countdownSeconds; value >= 1; value--)
         {
             videoTrack.AddClip(new NativeTimelineClip
             {
