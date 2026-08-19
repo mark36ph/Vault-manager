@@ -23,6 +23,7 @@ public sealed record QuizHistorySummary(
 {
     public string EpisodeLabel => EpisodeNumber > 0 ? $"#{EpisodeNumber:000}" : "";
     public string CreatedDisplay => QuizHistoryDate.Format(Created);
+    public string VideoType => QuizHistoryVideoType.DisplayName(Format);
 }
 
 public static class QuizHistoryDate
@@ -46,6 +47,14 @@ public static class QuizHistoryDate
             ? created.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture)
             : text;
     }
+}
+
+public static class QuizHistoryVideoType
+{
+    public static string DisplayName(string? format) =>
+        string.Equals((format ?? "").Trim(), "9:16", StringComparison.OrdinalIgnoreCase)
+            ? "Short"
+            : "Video";
 }
 
 public static class QuizYouTubePublication
