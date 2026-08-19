@@ -513,9 +513,7 @@ public sealed class QuizThemedCardRenderer
         {
             footer.Children.Add(new TextBlock
             {
-                Text = emphasizeReveal || string.IsNullOrWhiteSpace(question.Explanation)
-                    ? $"{question.CorrectLetter}. {question.CorrectAnswer}"
-                    : question.Explanation,
+                Text = $"{question.CorrectLetter}. {question.CorrectAnswer}",
                 Foreground = Brush(NeonGreen),
                 FontSize = emphasizeReveal ? 28 : 22,
                 FontWeight = FontWeights.SemiBold,
