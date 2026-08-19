@@ -7,7 +7,8 @@ public sealed class QuizQuestionImportCleanupTests
     [InlineData("Nature", "Nature & Animals")]
     [InlineData("Literature", "Arts & Literature")]
     [InlineData("Art & Culture", "Arts & Literature")]
-    [InlineData("Music", "Entertainment")]
+    [InlineData("Music", "Music")]
+    [InlineData("Classical Music", "Music")]
     [InlineData("Film & TV", "Entertainment")]
     [InlineData("Miscellaneous", "General Knowledge")]
     public void CategoryNormalizer_MergesLegacyAliases(string input, string expected)
