@@ -14,7 +14,8 @@ public sealed class QuizQuestionTopicCategorizerTests
     [InlineData("What is the square root of 144?", "Mathematics")]
     [InlineData("Which gas is released during photosynthesis?", "Science")]
     [InlineData("Which composer wrote Symphony No. 5?", "Music")]
-    [InlineData("Which film won the Academy Award for Best Picture?", "Entertainment")]
+    [InlineData("Which film won the Academy Award for Best Picture?", "Film")]
+    [InlineData("Which television sitcom features the Bluth family?", "Entertainment")]
     [InlineData("The Great Fire of London occurred in which year?", "History")]
     public void Categorize_AssignsExpectedTopic(string question, string expected)
     {
@@ -28,6 +29,7 @@ public sealed class QuizQuestionTopicCategorizerTests
         Assert.Contains("Nature & Animals", QuizQuestionTopicCategorizer.Categories);
         Assert.Contains("Arts & Literature", QuizQuestionTopicCategorizer.Categories);
         Assert.Contains("Music", QuizQuestionTopicCategorizer.Categories);
+        Assert.Contains("Film", QuizQuestionTopicCategorizer.Categories);
         Assert.Contains("Sports", QuizQuestionTopicCategorizer.Categories);
         Assert.Contains("Entertainment", QuizQuestionTopicCategorizer.Categories);
         Assert.DoesNotContain("Sport", QuizQuestionTopicCategorizer.Categories);
