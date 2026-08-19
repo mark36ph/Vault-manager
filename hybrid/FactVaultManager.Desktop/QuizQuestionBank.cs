@@ -188,7 +188,7 @@ public static class QuizQuestionImportParser
         var categoryRules = mixedCategories
             ? """
 - Assign every question one specific broad category that matches its subject.
-- Use a balanced mix from these stable category names: Science, History, Geography, Space, Nature & Animals, Technology, Arts & Literature, Music, Sports, Entertainment, Mathematics, and General Knowledge.
+- Use a balanced mix from these stable category names: Science, History, Geography, Space, Nature & Animals, Technology, Arts & Literature, Music, Film, Sports, Entertainment, Mathematics, and General Knowledge.
 - Spread the batch across as many of those categories as practical; do not label most questions as General Knowledge when a more specific category applies.
 """
             : $"- Set the category field to '{category}' for every question.\n";
