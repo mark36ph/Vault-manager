@@ -378,7 +378,6 @@ public partial class MainShellWindow
              string.Equals(currentSeries, "General Knowledge Quiz", StringComparison.OrdinalIgnoreCase)))
         {
             _quizSeriesComboBox.Text = suggested;
-            _quizAutoSeriesName = suggested;
         }
 
         if (_quizTitleTextBox is not null)
@@ -392,6 +391,8 @@ public partial class MainShellWindow
                 _quizTitleTextBox.Text = suggested;
             }
         }
+
+        _quizAutoSeriesName = suggested;
     }
 
     private void SuggestNextQuizEpisode()
