@@ -26,6 +26,25 @@ public sealed record QuizHistorySummary(
     public string VideoType => QuizHistoryVideoType.DisplayName(Format);
 }
 
+public sealed record QuizHistoryStats(
+    int Videos,
+    int Shorts,
+    int QuestionsUsed);
+
+public static class QuizHistoryStatistics
+{
+    public static QuizHistoryStats Calculate(IReadOnlyList<QuizHistorySummary> history)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        var shorts = history.Count(item =>
+            string.Equals(item.Format.Trim(), "9:16", StringComparison.OrdinalIgnoreCase));
+        return new QuizHistoryStats(
+            Videos: history.Count - shorts,
+            Shorts: shorts,
+            QuestionsUsed: history.Sum(item => Math.Max(0, item.QuestionCount)));
+    }
+}
+
 public static class QuizHistoryDate
 {
     private static readonly string[] StoredFormats =
