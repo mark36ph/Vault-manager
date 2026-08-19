@@ -32,6 +32,22 @@ public partial class MainShellWindow
             Opacity = 0.4,
         };
 
+        var textBoxStyle = new Style(typeof(TextBox));
+        textBoxStyle.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(20, 32, 72))));
+        textBoxStyle.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(225, 235, 255))));
+        textBoxStyle.Setters.Add(new Setter(Control.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(70, 105, 180))));
+        textBoxStyle.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(1)));
+        textBoxStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 5, 9, 5)));
+        textBoxStyle.Setters.Add(new Setter(TextBox.CaretBrushProperty, new SolidColorBrush(Color.FromRgb(0, 204, 255))));
+        bankCard.Resources[typeof(TextBox)] = textBoxStyle;
+
+        var comboBoxStyle = new Style(typeof(ComboBox));
+        comboBoxStyle.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(20, 32, 72))));
+        comboBoxStyle.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(225, 235, 255))));
+        comboBoxStyle.Setters.Add(new Setter(Control.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(70, 105, 180))));
+        comboBoxStyle.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(1)));
+        bankCard.Resources[typeof(ComboBox)] = comboBoxStyle;
+
         if (_quizBankGrid is not null)
         {
             _quizBankGrid.RowHeight = 34;
@@ -144,6 +160,19 @@ public partial class MainShellWindow
             text.Foreground = Brushes.White;
         if (_quizBankStatusText is not null)
             _quizBankStatusText.Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255));
+
+        foreach (var button in FindVisualChildren<Button>(bankCard))
+        {
+            var label = button.Content?.ToString() ?? string.Empty;
+            var accent = label.Contains("Delete", StringComparison.OrdinalIgnoreCase)
+                ? Color.FromRgb(248, 90, 105)
+                : label.Contains("categor", StringComparison.OrdinalIgnoreCase)
+                    ? Color.FromRgb(204, 70, 255)
+                    : label.Contains("Enable", StringComparison.OrdinalIgnoreCase)
+                        ? Color.FromRgb(70, 235, 115)
+                        : Color.FromRgb(0, 204, 255);
+            StyleStandaloneQuestionBankButton(button, accent);
+        }
 
         var tabs = bank.Children.OfType<TabControl>().FirstOrDefault();
         if (tabs is null)
