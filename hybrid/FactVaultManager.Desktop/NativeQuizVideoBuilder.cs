@@ -21,6 +21,7 @@ public sealed record QuizVideoBuildOptions(
     public int Height => Vertical ? 1920 : 1080;
     public int CountdownSeconds => ShowCountdown ? Math.Min(3, QuestionSeconds) : 0;
     public double RevealEmphasisSeconds => AnimateAnswerReveal ? Math.Min(0.5, AnswerSeconds / 2.0) : 0.0;
+    public double OutroSeconds => 5.0;
 
     public void Validate()
     {
@@ -36,7 +37,7 @@ public sealed record QuizVideoBuildOptions(
     }
 
     public double EstimatedDuration(int questionCount, double narrationSeconds = 0) =>
-        2.0 + (Math.Max(0, questionCount) * (QuestionSeconds + AnswerSeconds)) + Math.Max(0, narrationSeconds) + 2.0;
+        2.0 + (Math.Max(0, questionCount) * (QuestionSeconds + AnswerSeconds)) + Math.Max(0, narrationSeconds) + OutroSeconds;
 }
 
 public sealed record QuizVideoBuildResult(
@@ -323,7 +324,7 @@ public sealed class NativeQuizVideoBuilder
         {
             Kind = NativeTimelineClipKind.Image,
             Start = cursor,
-            Duration = 2,
+            Duration = options.OutroSeconds,
             Source = outroPath,
             Name = "Quiz Outro",
             Metadata = new() { ["quiz_card"] = "outro" },
