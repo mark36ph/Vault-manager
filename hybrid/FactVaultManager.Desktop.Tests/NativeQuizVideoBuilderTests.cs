@@ -21,6 +21,21 @@ public sealed class NativeQuizVideoBuilderTests
     }
 
     [Fact]
+    public void VerticalFormat_UsesShortsPacing()
+    {
+        var options = new QuizVideoBuildOptions(
+            "Quick Quiz",
+            QuestionSeconds: 8,
+            AnswerSeconds: 3,
+            Vertical: true);
+
+        Assert.Equal(1.2, options.IntroSeconds, precision: 6);
+        Assert.Equal(0, options.OpeningCountdownSeconds);
+        Assert.Equal(3, options.OutroSeconds);
+        Assert.Equal(15.2, options.EstimatedDuration(1), precision: 6);
+    }
+
+    [Fact]
     public void EstimatedDuration_IncludesQuestionAndAnswerTime()
     {
         var options = new QuizVideoBuildOptions(
