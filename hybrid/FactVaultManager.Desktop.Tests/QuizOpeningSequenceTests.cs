@@ -76,8 +76,6 @@ public sealed class QuizOpeningSequenceTests
     public void Planner_SkipsOpeningCountdownForShortsAndKeepsAudioAligned()
     {
         var builder = new NativeTimelineBuilder("Short Quiz");
-        builder.Timeline.Width = 1080;
-        builder.Timeline.Height = 1920;
         var introSeconds = QuizOpeningSequence.SpinFrameCount * QuizOpeningSequence.SpinFrameSeconds;
         var intro = builder.AddClip(
             "Quiz Cards",
