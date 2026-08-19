@@ -68,7 +68,7 @@ public static class QuizAudioTimelinePlanner
         options.Validate();
 
         var windows = new List<QuizNarrationWindow>();
-        var cursor = 2.0;
+        var cursor = options.IntroSeconds;
         foreach (var question in questions)
         {
             if (narrationByQuestion.TryGetValue(question.Id, out var narration))
