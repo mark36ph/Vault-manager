@@ -20,8 +20,12 @@ public sealed record QuizVideoBuildOptions(
     public int Width => Vertical ? 1080 : 1920;
     public int Height => Vertical ? 1920 : 1080;
     public int CountdownSeconds => ShowCountdown ? Math.Min(3, QuestionSeconds) : 0;
+    public int OpeningCountdownSeconds => Vertical ? 0 : QuizOpeningSequence.StartCountdownSeconds;
+    public double IntroSeconds => Vertical
+        ? QuizOpeningSequence.SpinFrameCount * QuizOpeningSequence.SpinFrameSeconds
+        : QuizOpeningSequence.IntroSeconds;
     public double RevealEmphasisSeconds => AnimateAnswerReveal ? Math.Min(0.5, AnswerSeconds / 2.0) : 0.0;
-    public double OutroSeconds => 5.0;
+    public double OutroSeconds => Vertical ? 3.0 : 5.0;
 
     public void Validate()
     {
@@ -37,7 +41,7 @@ public sealed record QuizVideoBuildOptions(
     }
 
     public double EstimatedDuration(int questionCount, double narrationSeconds = 0) =>
-        2.0 + (Math.Max(0, questionCount) * (QuestionSeconds + AnswerSeconds)) + Math.Max(0, narrationSeconds) + OutroSeconds;
+        IntroSeconds + (Math.Max(0, questionCount) * (QuestionSeconds + AnswerSeconds)) + Math.Max(0, narrationSeconds) + OutroSeconds;
 }
 
 public sealed record QuizVideoBuildResult(
@@ -128,12 +132,12 @@ public sealed class NativeQuizVideoBuilder
         {
             Kind = NativeTimelineClipKind.Image,
             Start = cursor,
-            Duration = 2,
+            Duration = options.IntroSeconds,
             Source = introPath,
             Name = "Quiz Intro",
             Metadata = new() { ["quiz_card"] = "intro" },
         });
-        cursor += 2;
+        cursor += options.IntroSeconds;
 
         for (var index = 0; index < questions.Count; index++)
         {
