@@ -63,6 +63,8 @@ public static class QuizVisualExportRewriter
 
 public static class QuizFcpXmlTimelineSynchronizer
 {
+    public const string AudioGainAmount = "4dB";
+
     public static void AlignToTimeline(NativeResolveFreeExportResult resolve, NativeTimeline timeline)
     {
         ArgumentNullException.ThrowIfNull(resolve);
@@ -150,13 +152,19 @@ public static class QuizFcpXmlTimelineSynchronizer
         if (!assetIds.TryGetValue(copied, out var assetId))
             throw new NativeResolveExportException($"Quiz FCPXML asset was not found for: {copied}");
 
-        return new XElement("asset-clip",
+        var connectedClip = new XElement("asset-clip",
             new XAttribute("name", string.IsNullOrWhiteSpace(clip.Name) ? Path.GetFileName(original) : clip.Name),
             new XAttribute("ref", assetId),
             new XAttribute("offset", Time(clip.Start, frameRate)),
             new XAttribute("start", Time(clip.SourceIn, frameRate)),
             new XAttribute("duration", Time(clip.Duration, frameRate)),
             new XAttribute("lane", lane));
+        if (clip.Kind == NativeTimelineClipKind.Audio)
+        {
+            connectedClip.Add(new XElement("adjust-volume",
+                new XAttribute("amount", AudioGainAmount)));
+        }
+        return connectedClip;
     }
 
     private static string Time(double seconds, double frameRate)
