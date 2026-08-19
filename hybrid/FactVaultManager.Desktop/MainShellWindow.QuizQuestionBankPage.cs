@@ -219,14 +219,32 @@ public partial class MainShellWindow
 
     private static void StyleStandaloneQuestionBankTabs(TabControl tabs)
     {
-        tabs.Background = Brushes.Transparent;
+        tabs.Background = new SolidColorBrush(Color.FromRgb(8, 14, 62));
         tabs.BorderThickness = new Thickness(0);
+
+        var tabStyle = new Style(typeof(TabItem));
+        tabStyle.Setters.Add(new Setter(FrameworkElement.HeightProperty, 38d));
+        tabStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(15, 0, 15, 0)));
+        tabStyle.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(13, 18, 78))));
+        tabStyle.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(255, 202, 45))));
+        tabStyle.Setters.Add(new Setter(Control.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(35, 62, 145))));
+        tabStyle.Setters.Add(new Setter(Control.FontWeightProperty, FontWeights.SemiBold));
+
+        var hoverTrigger = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
+        hoverTrigger.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(22, 55, 120))));
+        tabStyle.Triggers.Add(hoverTrigger);
+
+        var selectedTrigger = new Trigger { Property = TabItem.IsSelectedProperty, Value = true };
+        selectedTrigger.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(25, 86, 170))));
+        selectedTrigger.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+        tabStyle.Triggers.Add(selectedTrigger);
+
         foreach (var tab in tabs.Items.OfType<TabItem>())
-        {
-            tab.Foreground = new SolidColorBrush(Color.FromRgb(255, 202, 45));
-            tab.Background = new SolidColorBrush(Color.FromRgb(13, 18, 78));
-            tab.FontWeight = FontWeights.SemiBold;
-        }
+            tab.Style = tabStyle;
     }
 
     private void AddQuestionBankNavigationButton(int tabIndex)
