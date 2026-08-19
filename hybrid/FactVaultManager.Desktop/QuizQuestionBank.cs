@@ -175,10 +175,13 @@ public static class QuizQuestionImportParser
         }
     }
 
-    public static string ChatGptPrompt(int count = 100, string category = "General Knowledge")
+    public static string ChatGptPrompt(int count = 100, string category = "General Knowledge", string difficulty = "mixed")
     {
         count = Math.Clamp(count, 1, 500);
         category = string.IsNullOrWhiteSpace(category) ? "General Knowledge" : category.Trim();
+        difficulty = difficulty?.Trim().ToLowerInvariant() ?? "mixed";
+        if (difficulty is not ("easy" or "medium" or "hard"))
+            difficulty = "mixed";
         var mixedCategories = string.Equals(category, "General Knowledge", StringComparison.OrdinalIgnoreCase) ||
                               string.Equals(category, "All categories", StringComparison.OrdinalIgnoreCase);
         var subjectLine = mixedCategories
@@ -192,8 +195,12 @@ public static class QuizQuestionImportParser
 - Spread the batch across as many of those categories as practical; do not label most questions as General Knowledge when a more specific category applies.
 """
             : $"- Set the category field to '{category}' for every question.\n";
+        var difficultyExample = difficulty == "mixed" ? "easy" : difficulty;
+        var difficultyRule = difficulty == "mixed"
+            ? "- Mix easy, medium, and hard difficulty."
+            : $"- Set the difficulty field to '{difficulty}' for every question.";
 
-        return $$"""
+        return $"""
 Create {{count}} accurate multiple-choice quiz questions {{subjectLine}}.
 Return JSON only, with no Markdown and no commentary.
 Use exactly this shape:
@@ -205,14 +212,14 @@ Use exactly this shape:
       "correct_answer": "A",
       "explanation": "One short factual explanation.",
       "category": "{{categoryExample}}",
-      "difficulty": "easy"
+      "difficulty": "{{difficultyExample}}"
     }
   ]
 }
 Rules:
 - Exactly four distinct answer choices per question.
 - correct_answer must be A, B, C, or D.
-- Mix easy, medium, and hard difficulty.
+{{difficultyRule}}
 {{categoryRules}}- Avoid trick questions, ambiguous wording, duplicate questions, semantically repeated questions, and opinion-based answers.
 - Do not ask the same fact again with slightly different wording.
 - Keep questions suitable for a YouTube quiz.
