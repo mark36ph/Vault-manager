@@ -68,6 +68,7 @@ public partial class MainShellWindow
             tab.Style = sectionStyle;
 
         tabs.Items.Add(tab);
+        StyleStandaloneQuestionBankTabs(tabs);
     }
 
     private FrameworkElement BuildQuizAiGenerationPanel()
