@@ -561,12 +561,15 @@ public partial class MainShellWindow
                 _quizDraftQuestions,
                 thumbnail,
                 visual,
-                logoPath);
+                logoPath,
+                vertical);
             if (_quizThumbnailPreviewImage is not null)
                 _quizThumbnailPreviewImage.Source = bitmap;
             _quizThumbnailPreviewCurrent = true;
             if (_quizPublishingStatusText is not null)
-                _quizPublishingStatusText.Text = "Thumbnail preview ready • 1280×720 PNG will be written during a successful Resolve export.";
+                _quizPublishingStatusText.Text = vertical
+                    ? "Thumbnail preview ready • 1080×1920 Shorts PNG will be written during a successful Resolve export."
+                    : "Thumbnail preview ready • 1280×720 PNG will be written during a successful Resolve export.";
         }
         catch (Exception error)
         {
