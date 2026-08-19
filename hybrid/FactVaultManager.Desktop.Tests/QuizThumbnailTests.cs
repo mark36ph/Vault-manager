@@ -17,6 +17,35 @@ public sealed class QuizThumbnailTests
         Assert.Equal("SCIENCE CHALLENGE", thumbnail.Subtitle);
     }
 
+    [Theory]
+    [InlineData("", "GENERAL KNOWLEDGE QUIZ", true)]
+    [InlineData("GENERAL KNOWLEDGE QUIZ", "GENERAL KNOWLEDGE QUIZ", true)]
+    [InlineData("SCIENCE QUIZ", "SCIENCE QUIZ", true)]
+    [InlineData("THE PAST AWAITS", "GENERAL KNOWLEDGE QUIZ", false)]
+    public void Defaults_ReplacesOnlyBlankOrPreviouslyAutomaticSubtitle(
+        string current,
+        string previousAuto,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            QuizThumbnailDefaults.ShouldReplaceSubtitle(current, previousAuto));
+    }
+
+    [Fact]
+    public void Defaults_HistoryMetadataBuildsHistorySubtitle()
+    {
+        var metadata = QuizPublishMetadataGenerator.Generate(
+            "History Quiz",
+            1,
+            [Question(1), Question(2)],
+            vertical: false);
+
+        var thumbnail = QuizThumbnailDefaults.Create(metadata, 2);
+
+        Assert.Equal("HISTORY QUIZ", thumbnail.Subtitle);
+    }
+
     [Fact]
     public void Settings_NormalizeRejectsMissingOrOverlongCopy()
     {
