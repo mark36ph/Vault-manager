@@ -19,17 +19,67 @@ public partial class MainShellWindow
 
     private void ConfigureStandaloneQuestionBank(Border bankCard)
     {
-        bankCard.Padding = new Thickness(10);
+        bankCard.Padding = new Thickness(12);
+        bankCard.Background = new SolidColorBrush(Color.FromRgb(8, 14, 62));
+        bankCard.BorderBrush = new SolidColorBrush(Color.FromRgb(0, 204, 255));
+        bankCard.BorderThickness = new Thickness(2);
+        bankCard.CornerRadius = new CornerRadius(14);
+        bankCard.Effect = new System.Windows.Media.Effects.DropShadowEffect
+        {
+            Color = Color.FromRgb(0, 204, 255),
+            BlurRadius = 20,
+            ShadowDepth = 0,
+            Opacity = 0.4,
+        };
 
         if (_quizBankGrid is not null)
         {
-            _quizBankGrid.RowHeight = 30;
-            _quizBankGrid.ColumnHeaderHeight = 34;
-            _quizBankGrid.RowBackground = Brushes.White;
-            _quizBankGrid.AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(245, 248, 252));
+            _quizBankGrid.RowHeight = 34;
+            _quizBankGrid.ColumnHeaderHeight = 36;
+            _quizBankGrid.Background = new SolidColorBrush(Color.FromRgb(8, 14, 62));
+            _quizBankGrid.Foreground = Brushes.White;
+            _quizBankGrid.RowBackground = new SolidColorBrush(Color.FromRgb(8, 29, 75));
+            _quizBankGrid.AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(13, 38, 93));
             _quizBankGrid.AlternationCount = 2;
             _quizBankGrid.GridLinesVisibility = DataGridGridLinesVisibility.Horizontal;
-            _quizBankGrid.HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(230, 234, 240));
+            _quizBankGrid.HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(35, 62, 145));
+            _quizBankGrid.BorderBrush = new SolidColorBrush(Color.FromRgb(0, 204, 255));
+            _quizBankGrid.BorderThickness = new Thickness(1);
+
+            var cellStyle = new Style(typeof(DataGridCell));
+            cellStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
+            cellStyle.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+            cellStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 6, 9, 6)));
+            cellStyle.Setters.Add(new Setter(Control.VerticalContentAlignmentProperty, VerticalAlignment.Center));
+            cellStyle.Setters.Add(new Setter(DataGridCell.BorderThicknessProperty, new Thickness(0)));
+            var selectedCellTrigger = new Trigger
+            {
+                Property = DataGridCell.IsSelectedProperty,
+                Value = true,
+            };
+            selectedCellTrigger.Setters.Add(new Setter(
+                Control.BackgroundProperty,
+                new SolidColorBrush(Color.FromRgb(25, 86, 170))));
+            selectedCellTrigger.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+            cellStyle.Triggers.Add(selectedCellTrigger);
+            _quizBankGrid.CellStyle = cellStyle;
+
+            var headerStyle = new Style(typeof(DataGridColumnHeader));
+            headerStyle.Setters.Add(new Setter(
+                Control.BackgroundProperty,
+                new SolidColorBrush(Color.FromRgb(13, 18, 78))));
+            headerStyle.Setters.Add(new Setter(
+                Control.ForegroundProperty,
+                new SolidColorBrush(Color.FromRgb(255, 202, 45))));
+            headerStyle.Setters.Add(new Setter(Control.FontWeightProperty, FontWeights.SemiBold));
+            headerStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 9, 9, 9)));
+            headerStyle.Setters.Add(new Setter(
+                DataGridColumnHeader.BorderBrushProperty,
+                new SolidColorBrush(Color.FromRgb(0, 204, 255))));
+            headerStyle.Setters.Add(new Setter(
+                DataGridColumnHeader.BorderThicknessProperty,
+                new Thickness(0, 0, 0, 1)));
+            _quizBankGrid.ColumnHeaderStyle = headerStyle;
 
             if (!_quizBankGrid.Columns.Any(column =>
                     string.Equals(column.SortMemberPath, nameof(QuizQuestion.Id), StringComparison.Ordinal)))
@@ -74,7 +124,26 @@ public partial class MainShellWindow
         }
 
         if (bankActions is not null)
+        {
             ConfigureQuizBulkActions(bankActions);
+            foreach (var button in bankActions.Children.OfType<Button>())
+            {
+                var label = button.Content?.ToString() ?? string.Empty;
+                var accent = label.Contains("Delete", StringComparison.OrdinalIgnoreCase)
+                    ? Color.FromRgb(248, 90, 105)
+                    : label.Contains("categor", StringComparison.OrdinalIgnoreCase)
+                        ? Color.FromRgb(204, 70, 255)
+                        : label.Contains("Enable", StringComparison.OrdinalIgnoreCase)
+                            ? Color.FromRgb(70, 235, 115)
+                            : Color.FromRgb(0, 204, 255);
+                StyleStandaloneQuestionBankButton(button, accent);
+            }
+        }
+
+        foreach (var text in FindVisualChildren<TextBlock>(bankCard))
+            text.Foreground = Brushes.White;
+        if (_quizBankStatusText is not null)
+            _quizBankStatusText.Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255));
 
         var tabs = bank.Children.OfType<TabControl>().FirstOrDefault();
         if (tabs is null)
