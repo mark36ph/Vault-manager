@@ -56,7 +56,7 @@ public partial class MainShellWindow
             return;
 
         browseRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(6) });
-        browseRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(155) });
+        browseRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(190) });
 
         var splitter = new GridSplitter
         {
@@ -73,10 +73,10 @@ public partial class MainShellWindow
         var detailsBorder = new Border
         {
             Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
-            BorderBrush = new SolidColorBrush(Color.FromRgb(228, 231, 236)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(10),
+            CornerRadius = new CornerRadius(8),
+            Padding = new Thickness(14, 12, 14, 12),
             Margin = new Thickness(0, 5, 0, 0),
         };
         Grid.SetRow(detailsBorder, 3);
@@ -107,7 +107,8 @@ public partial class MainShellWindow
         };
         var editQuestion = new Button
         {
-            Content = "Edit question",
+            Content = "Edit",
+            MinWidth = 72,
             Padding = new Thickness(10, 4, 10, 4),
             FontWeight = FontWeights.SemiBold,
         };
@@ -120,7 +121,8 @@ public partial class MainShellWindow
 
         var openFullView = new Button
         {
-            Content = "Open full view",
+            Content = "Open",
+            MinWidth = 72,
             Padding = new Thickness(10, 4, 10, 4),
             Margin = new Thickness(8, 0, 0, 0),
         };
@@ -158,9 +160,9 @@ public partial class MainShellWindow
         _quizQuestionDetailText = new TextBlock
         {
             TextWrapping = TextWrapping.Wrap,
-            FontSize = 13,
+            FontSize = 14,
             FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 0, 0, 6),
+            Margin = new Thickness(0, 0, 0, 8),
         };
         body.Children.Add(_quizQuestionDetailText);
 
@@ -168,7 +170,7 @@ public partial class MainShellWindow
             .Select(_ => new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 1, 0, 1),
+                Margin = new Thickness(0, 2, 0, 2),
             })
             .ToArray();
         foreach (var answerText in _quizQuestionAnswerTexts)
@@ -176,11 +178,11 @@ public partial class MainShellWindow
 
         body.Children.Add(new TextBlock
         {
-            Text = "Explanation",
+            Text = "EXPLANATION",
             Foreground = QuizMutedBrush(),
             FontSize = 10,
             FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 7, 0, 2),
+            Margin = new Thickness(0, 9, 0, 2),
         });
         _quizQuestionExplanationText = new TextBlock
         {
@@ -243,6 +245,9 @@ public partial class MainShellWindow
             var correct = index == question.CorrectIndex;
             _quizQuestionAnswerTexts[index].Text = $"{(correct ? "✓ " : "")}{(char)('A' + index)}. {answers[index]}";
             _quizQuestionAnswerTexts[index].FontWeight = correct ? FontWeights.SemiBold : FontWeights.Normal;
+            _quizQuestionAnswerTexts[index].Foreground = correct
+                ? new SolidColorBrush(Color.FromRgb(21, 128, 61))
+                : new SolidColorBrush(Color.FromRgb(31, 41, 55));
         }
 
         _quizQuestionExplanationText.Text = string.IsNullOrWhiteSpace(question.Explanation)
