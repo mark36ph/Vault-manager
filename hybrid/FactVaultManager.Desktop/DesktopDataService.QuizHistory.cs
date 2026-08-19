@@ -17,9 +17,34 @@ public sealed record QuizHistorySummary(
     string YouTubeTitle,
     string YouTubeDescription,
     string Hashtags,
-    string PinnedComment)
+    string PinnedComment,
+    bool PublishedOnYouTube,
+    string YouTubeUrl)
 {
     public string EpisodeLabel => EpisodeNumber > 0 ? $"#{EpisodeNumber:000}" : "";
+}
+
+public static class QuizYouTubePublication
+{
+    public static string NormalizeUrl(string? value)
+    {
+        var text = (value ?? "").Trim();
+        if (text.Length == 0)
+            return "";
+        if (!Uri.TryCreate(text, UriKind.Absolute, out var uri) ||
+            !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("Enter a complete HTTPS YouTube video link.");
+        }
+
+        var host = uri.Host.TrimEnd('.');
+        var isYouTube = string.Equals(host, "youtube.com", StringComparison.OrdinalIgnoreCase) ||
+                        host.EndsWith(".youtube.com", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(host, "youtu.be", StringComparison.OrdinalIgnoreCase);
+        if (!isYouTube)
+            throw new ArgumentException("The video link must use youtube.com or youtu.be.");
+        return uri.AbsoluteUri;
+    }
 }
 
 public sealed record QuizHistoryQuestion(
@@ -221,7 +246,7 @@ public sealed partial class DesktopDataService
             SELECT id, title, created, question_count, categories, format,
                    question_seconds, shuffle_answers, project_folder,
                    series_name, episode_number, youtube_title, youtube_description,
-                   youtube_hashtags, pinned_comment
+                   youtube_hashtags, pinned_comment, published_on_youtube, youtube_url
             FROM quiz_history
             ORDER BY id DESC
             LIMIT $limit
@@ -247,9 +272,32 @@ public sealed partial class DesktopDataService
                 reader.GetString(11),
                 reader.GetString(12),
                 reader.GetString(13),
-                reader.GetString(14)));
+                reader.GetString(14),
+                reader.GetInt32(15) != 0,
+                reader.GetString(16)));
         }
         return results;
+    }
+
+    public bool UpdateQuizHistoryYouTubePublication(int historyId, bool published, string? youtubeUrl)
+    {
+        if (historyId <= 0)
+            throw new ArgumentOutOfRangeException(nameof(historyId));
+
+        var normalizedUrl = QuizYouTubePublication.NormalizeUrl(youtubeUrl);
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE quiz_history
+            SET published_on_youtube = $published,
+                youtube_url = $youtubeUrl
+            WHERE id = $historyId
+            """;
+        command.Parameters.AddWithValue("$published", published ? 1 : 0);
+        command.Parameters.AddWithValue("$youtubeUrl", normalizedUrl);
+        command.Parameters.AddWithValue("$historyId", historyId);
+        return command.ExecuteNonQuery() == 1;
     }
 
     public IReadOnlyList<QuizHistoryQuestion> GetQuizHistoryQuestions(int historyId)
@@ -303,7 +351,9 @@ public sealed partial class DesktopDataService
                     youtube_title TEXT NOT NULL DEFAULT '',
                     youtube_description TEXT NOT NULL DEFAULT '',
                     youtube_hashtags TEXT NOT NULL DEFAULT '',
-                    pinned_comment TEXT NOT NULL DEFAULT ''
+                    pinned_comment TEXT NOT NULL DEFAULT '',
+                    published_on_youtube INTEGER NOT NULL DEFAULT 0,
+                    youtube_url TEXT NOT NULL DEFAULT ''
                 );
 
                 CREATE TABLE IF NOT EXISTS quiz_history_questions (
@@ -331,6 +381,8 @@ public sealed partial class DesktopDataService
         EnsureQuizHistoryColumn(connection, "youtube_description", "TEXT NOT NULL DEFAULT ''");
         EnsureQuizHistoryColumn(connection, "youtube_hashtags", "TEXT NOT NULL DEFAULT ''");
         EnsureQuizHistoryColumn(connection, "pinned_comment", "TEXT NOT NULL DEFAULT ''");
+        EnsureQuizHistoryColumn(connection, "published_on_youtube", "INTEGER NOT NULL DEFAULT 0");
+        EnsureQuizHistoryColumn(connection, "youtube_url", "TEXT NOT NULL DEFAULT ''");
         using var seriesIndex = connection.CreateCommand();
         seriesIndex.CommandText = """
             CREATE INDEX IF NOT EXISTS ix_quiz_history_series_episode
