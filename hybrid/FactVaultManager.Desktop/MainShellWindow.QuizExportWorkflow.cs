@@ -578,7 +578,8 @@ public partial class MainShellWindow
                 exportQuestions,
                 thumbnail,
                 visual,
-                logoPath);
+                logoPath,
+                vertical);
             QuizPublishMetadataFiles.Write(result.ProjectFolder, publishing);
 
             var historyId = _data.RecordQuizExport(
