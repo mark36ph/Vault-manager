@@ -49,6 +49,14 @@ public partial class MainShellWindow
             FontFamily = new FontFamily("Segoe UI Variable Display"),
             FontSize = 28,
             FontWeight = FontWeights.SemiBold,
+            Foreground = Brushes.White,
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = Color.FromRgb(0, 204, 255),
+                BlurRadius = 16,
+                ShadowDepth = 0,
+                Opacity = 0.55,
+            },
         });
 
         var refresh = new Button
@@ -59,6 +67,7 @@ public partial class MainShellWindow
             Padding = new Thickness(12, 0, 12, 0),
             VerticalAlignment = VerticalAlignment.Bottom,
         };
+        StyleQuizHistoryButton(refresh, Color.FromRgb(0, 204, 255));
         refresh.Click += (_, _) => RefreshQuizHistory();
         Grid.SetColumn(refresh, 1);
         header.Children.Add(refresh);
@@ -106,17 +115,22 @@ public partial class MainShellWindow
             SelectionUnit = DataGridSelectionUnit.FullRow,
             HeadersVisibility = DataGridHeadersVisibility.Column,
             GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
-            HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
+            HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(35, 62, 145)),
             RowHeaderWidth = 0,
             MinRowHeight = 42,
             BorderThickness = new Thickness(0),
-            Background = Brushes.White,
+            Background = new SolidColorBrush(Color.FromRgb(8, 14, 62)),
+            Foreground = Brushes.White,
+            RowBackground = new SolidColorBrush(Color.FromRgb(62, 20, 37)),
         };
 
         var historyCellStyle = new Style(typeof(DataGridCell));
         historyCellStyle.Setters.Add(new Setter(
             Control.BackgroundProperty,
-            new SolidColorBrush(Color.FromRgb(254, 242, 242))));
+            new SolidColorBrush(Color.FromRgb(62, 20, 37))));
+        historyCellStyle.Setters.Add(new Setter(
+            Control.ForegroundProperty,
+            Brushes.White));
         historyCellStyle.Setters.Add(new Setter(
             Control.PaddingProperty,
             new Thickness(9, 6, 9, 6)));
@@ -133,25 +147,27 @@ public partial class MainShellWindow
         };
         publishedCellTrigger.Setters.Add(new Setter(
             Control.BackgroundProperty,
-            new SolidColorBrush(Color.FromRgb(240, 253, 244))));
+            new SolidColorBrush(Color.FromRgb(8, 68, 52))));
         historyCellStyle.Triggers.Add(publishedCellTrigger);
         var selectedCellTrigger = new Trigger
         {
             Property = DataGridCell.IsSelectedProperty,
             Value = true,
         };
-        selectedCellTrigger.Setters.Add(new Setter(Control.BackgroundProperty, SystemColors.HighlightBrush));
-        selectedCellTrigger.Setters.Add(new Setter(Control.ForegroundProperty, SystemColors.HighlightTextBrush));
+        selectedCellTrigger.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(25, 86, 170))));
+        selectedCellTrigger.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
         historyCellStyle.Triggers.Add(selectedCellTrigger);
         _quizHistoryGrid.CellStyle = historyCellStyle;
 
         var historyHeaderStyle = new Style(typeof(DataGridColumnHeader));
         historyHeaderStyle.Setters.Add(new Setter(
             Control.BackgroundProperty,
-            new SolidColorBrush(Color.FromRgb(248, 250, 252))));
+            new SolidColorBrush(Color.FromRgb(13, 18, 78))));
         historyHeaderStyle.Setters.Add(new Setter(
             Control.ForegroundProperty,
-            new SolidColorBrush(Color.FromRgb(71, 85, 105))));
+            new SolidColorBrush(Color.FromRgb(255, 202, 45))));
         historyHeaderStyle.Setters.Add(new Setter(
             Control.FontWeightProperty,
             FontWeights.SemiBold));
@@ -160,7 +176,7 @@ public partial class MainShellWindow
             new Thickness(9, 9, 9, 9)));
         historyHeaderStyle.Setters.Add(new Setter(
             DataGridColumnHeader.BorderBrushProperty,
-            new SolidColorBrush(Color.FromRgb(226, 232, 240))));
+            new SolidColorBrush(Color.FromRgb(0, 204, 255))));
         historyHeaderStyle.Setters.Add(new Setter(
             DataGridColumnHeader.BorderThicknessProperty,
             new Thickness(0, 0, 0, 1)));
@@ -233,10 +249,17 @@ public partial class MainShellWindow
 
         var tableCard = new Border
         {
-            Background = Brushes.White,
-            BorderBrush = new SolidColorBrush(Color.FromRgb(226, 232, 240)),
-            BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(8),
+            Background = new SolidColorBrush(Color.FromRgb(8, 14, 62)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(0, 204, 255)),
+            BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(14),
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = Color.FromRgb(0, 204, 255),
+                BlurRadius = 20,
+                ShadowDepth = 0,
+                Opacity = 0.4,
+            },
             Child = _quizHistoryGrid,
         };
         Grid.SetRow(tableCard, 2);
@@ -248,7 +271,7 @@ public partial class MainShellWindow
         footer.Children.Add(new TextBlock
         {
             Text = "Double-click a quiz to update its YouTube link and published status.",
-            Foreground = QuizMutedBrush(),
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             VerticalAlignment = VerticalAlignment.Center,
         });
 
@@ -258,15 +281,19 @@ public partial class MainShellWindow
             HorizontalAlignment = HorizontalAlignment.Right,
         };
         var view = new Button { Content = "Questions", MinWidth = 92, ToolTip = "View the questions used in the selected quiz" };
+        StyleQuizHistoryButton(view, Color.FromRgb(0, 204, 255));
         view.Click += (_, _) => ShowSelectedQuizHistoryQuestions();
         actions.Children.Add(view);
         var publishing = new Button { Content = "Publishing", MinWidth = 92, Margin = new Thickness(8, 0, 0, 0), ToolTip = "View saved YouTube publishing metadata" };
+        StyleQuizHistoryButton(publishing, Color.FromRgb(204, 70, 255));
         publishing.Click += (_, _) => ShowSelectedQuizPublishingMetadata();
         actions.Children.Add(publishing);
         var youtube = new Button { Content = "YouTube", MinWidth = 86, Margin = new Thickness(8, 0, 0, 0), ToolTip = "Update the YouTube link and published status" };
+        StyleQuizHistoryButton(youtube, Color.FromRgb(255, 202, 45));
         youtube.Click += (_, _) => ShowSelectedQuizYouTubePublication();
         actions.Children.Add(youtube);
         var openFolder = new Button { Content = "Folder", MinWidth = 78, Margin = new Thickness(8, 0, 0, 0), ToolTip = "Open the selected quiz export folder" };
+        StyleQuizHistoryButton(openFolder, Color.FromRgb(70, 235, 115));
         openFolder.Click += (_, _) => OpenSelectedQuizHistoryFolder();
         actions.Children.Add(openFolder);
         var delete = new Button
@@ -277,6 +304,7 @@ public partial class MainShellWindow
             Foreground = new SolidColorBrush(Color.FromRgb(185, 28, 28)),
             ToolTip = "Delete the selected quiz-history entry",
         };
+        StyleQuizHistoryButton(delete, Color.FromRgb(248, 90, 105));
         delete.Click += (_, _) => DeleteSelectedQuizHistory();
         actions.Children.Add(delete);
         Grid.SetColumn(actions, 1);
@@ -284,7 +312,36 @@ public partial class MainShellWindow
         Grid.SetRow(footer, 3);
         root.Children.Add(footer);
 
-        return root;
+        return new Border
+        {
+            Background = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new(Color.FromRgb(7, 13, 57), 0),
+                    new(Color.FromRgb(18, 34, 115), 0.58),
+                    new(Color.FromRgb(80, 30, 145), 1),
+                },
+                new Point(0, 0),
+                new Point(1, 1)),
+            Child = root,
+        };
+    }
+
+    private static void StyleQuizHistoryButton(Button button, Color accent)
+    {
+        button.Background = new SolidColorBrush(Color.FromRgb(13, 18, 78));
+        button.BorderBrush = new SolidColorBrush(accent);
+        button.BorderThickness = new Thickness(2);
+        button.Foreground = Brushes.White;
+        button.FontWeight = FontWeights.SemiBold;
+        button.Padding = new Thickness(12, 6, 12, 6);
+        button.Effect = new System.Windows.Media.Effects.DropShadowEffect
+        {
+            Color = accent,
+            BlurRadius = 14,
+            ShadowDepth = 0,
+            Opacity = 0.4,
+        };
     }
 
     private static (Border Card, TextBlock Value) BuildQuizHistoryStatCard(string label, Color accent)
