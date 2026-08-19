@@ -79,20 +79,28 @@ public partial class MainShellWindow
             AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
             HeadersVisibility = DataGridHeadersVisibility.Column,
         };
-        var historyRowStyle = new Style(typeof(DataGridRow));
-        historyRowStyle.Setters.Add(new Setter(
+        var historyCellStyle = new Style(typeof(DataGridCell));
+        historyCellStyle.Setters.Add(new Setter(
             Control.BackgroundProperty,
             new SolidColorBrush(Color.FromRgb(254, 226, 226))));
-        var publishedRowTrigger = new DataTrigger
+        var publishedCellTrigger = new DataTrigger
         {
             Binding = new Binding(nameof(QuizHistorySummary.PublishedOnYouTube)),
             Value = true,
         };
-        publishedRowTrigger.Setters.Add(new Setter(
+        publishedCellTrigger.Setters.Add(new Setter(
             Control.BackgroundProperty,
             new SolidColorBrush(Color.FromRgb(220, 252, 231))));
-        historyRowStyle.Triggers.Add(publishedRowTrigger);
-        _quizHistoryGrid.RowStyle = historyRowStyle;
+        historyCellStyle.Triggers.Add(publishedCellTrigger);
+        var selectedCellTrigger = new Trigger
+        {
+            Property = DataGridCell.IsSelectedProperty,
+            Value = true,
+        };
+        selectedCellTrigger.Setters.Add(new Setter(Control.BackgroundProperty, SystemColors.HighlightBrush));
+        selectedCellTrigger.Setters.Add(new Setter(Control.ForegroundProperty, SystemColors.HighlightTextBrush));
+        historyCellStyle.Triggers.Add(selectedCellTrigger);
+        _quizHistoryGrid.CellStyle = historyCellStyle;
 
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
