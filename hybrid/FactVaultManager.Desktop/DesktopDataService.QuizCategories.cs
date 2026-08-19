@@ -59,6 +59,40 @@ public sealed partial class DesktopDataService
             throw new InvalidOperationException("The selected quiz question no longer exists.");
     }
 
+    public QuizQuestionCategorizationResult AutoCategorizeLegacyMusicQuestions()
+    {
+        var questions = GetQuizQuestions(category: "Entertainment", limit: 10_000)
+            .Where(question => string.Equals(
+                QuizQuestionTopicCategorizer.Categorize(question),
+                "Music",
+                StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (questions.Length == 0)
+            return new QuizQuestionCategorizationResult(0, 0);
+
+        EnsureQuizSchema();
+        using var connection = OpenConnection();
+        using var transaction = connection.BeginTransaction();
+        var updated = 0;
+
+        foreach (var question in questions)
+        {
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                UPDATE quiz_questions
+                SET category = 'Music'
+                WHERE id = $id
+                  AND category = 'Entertainment' COLLATE NOCASE
+                """;
+            command.Parameters.AddWithValue("$id", question.Id);
+            updated += command.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+        return new QuizQuestionCategorizationResult(questions.Length, updated);
+    }
+
     public QuizQuestionCategorizationResult AutoCategorizeGeneralKnowledgeQuestions()
     {
         var questions = GetQuizQuestions(category: "General Knowledge", limit: 10_000);
