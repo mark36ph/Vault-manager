@@ -64,6 +64,9 @@ public static class QuizVisualExportRewriter
 public static class QuizFcpXmlTimelineSynchronizer
 {
     public const string AudioGainAmount = "4dB";
+    public const string ShortsAudioGainAmount = "8dB";
+
+    public static string AudioGainAmountFor(bool vertical) => vertical ? ShortsAudioGainAmount : AudioGainAmount;
 
     public static void AlignToTimeline(NativeResolveFreeExportResult resolve, NativeTimeline timeline)
     {
@@ -101,6 +104,7 @@ public static class QuizFcpXmlTimelineSynchronizer
             new XAttribute("start", "0s"),
             new XAttribute("duration", Time(timeline.Duration, timeline.FrameRate)));
 
+        var audioGainAmount = AudioGainAmountFor(timeline.Height > timeline.Width);
         var videoLane = 1;
         foreach (var track in timeline.Tracks.Where(track => track.Kind == NativeTimelineTrackKind.Video))
         {
@@ -108,7 +112,7 @@ public static class QuizFcpXmlTimelineSynchronizer
                          .Where(clip => clip.Kind is NativeTimelineClipKind.Image or NativeTimelineClipKind.Video)
                          .OrderBy(clip => clip.Start))
             {
-                parent.Add(BuildConnectedClip(resolve, clip, assetIds, timeline.FrameRate, videoLane));
+                parent.Add(BuildConnectedClip(resolve, clip, assetIds, timeline.FrameRate, videoLane, audioGainAmount));
             }
             videoLane++;
         }
@@ -120,7 +124,7 @@ public static class QuizFcpXmlTimelineSynchronizer
                          .Where(clip => clip.Kind == NativeTimelineClipKind.Audio)
                          .OrderBy(clip => clip.Start))
             {
-                parent.Add(BuildConnectedClip(resolve, clip, assetIds, timeline.FrameRate, audioLane));
+                parent.Add(BuildConnectedClip(resolve, clip, assetIds, timeline.FrameRate, audioLane, audioGainAmount));
             }
             audioLane--;
         }
@@ -140,7 +144,8 @@ public static class QuizFcpXmlTimelineSynchronizer
         NativeTimelineClip clip,
         IReadOnlyDictionary<string, string> assetIds,
         double frameRate,
-        int lane)
+        int lane,
+        string audioGainAmount)
     {
         if (string.IsNullOrWhiteSpace(clip.Source))
             throw new NativeResolveExportException($"Quiz clip has no source: {clip.Id}");
@@ -161,8 +166,10 @@ public static class QuizFcpXmlTimelineSynchronizer
             new XAttribute("lane", lane));
         if (clip.Kind == NativeTimelineClipKind.Audio)
         {
+            connectedClip.SetAttributeValue("enabled", "1");
+            connectedClip.SetAttributeValue("audioRole", "dialogue");
             connectedClip.Add(new XElement("adjust-volume",
-                new XAttribute("amount", AudioGainAmount)));
+                new XAttribute("amount", audioGainAmount)));
         }
         return connectedClip;
     }
