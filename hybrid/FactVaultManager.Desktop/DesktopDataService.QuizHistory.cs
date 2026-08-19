@@ -29,6 +29,7 @@ public sealed record QuizHistorySummary(
 public sealed record QuizHistoryStats(
     int Videos,
     int Shorts,
+    int Published,
     int QuestionsUsed);
 
 public static class QuizHistoryStatistics
@@ -41,6 +42,7 @@ public static class QuizHistoryStatistics
         return new QuizHistoryStats(
             Videos: history.Count - shorts,
             Shorts: shorts,
+            Published: history.Count(item => item.PublishedOnYouTube),
             QuestionsUsed: history.Sum(item => Math.Max(0, item.QuestionCount)));
     }
 }
