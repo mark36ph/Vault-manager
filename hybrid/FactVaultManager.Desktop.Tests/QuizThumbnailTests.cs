@@ -61,8 +61,8 @@ public sealed class QuizThumbnailTests
         Assert.Equal("Thumbnail.png", QuizThumbnailRenderer.FileName);
         Assert.Equal(1280, QuizThumbnailRenderer.Width);
         Assert.Equal(720, QuizThumbnailRenderer.Height);
-        Assert.Equal(70, QuizThumbnailRenderer.LogoHeight);
-        Assert.Equal(104, QuizThumbnailRenderer.BottomRightLogoBottomMargin);
+        Assert.Equal(70d, QuizThumbnailRenderer.LogoHeight);
+        Assert.Equal(104d, QuizThumbnailRenderer.BottomRightLogoBottomMargin);
     }
 
     [Fact]
