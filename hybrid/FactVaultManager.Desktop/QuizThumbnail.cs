@@ -60,6 +60,8 @@ public sealed class QuizThumbnailRenderer
     public const int Width = 1280;
     public const int Height = 720;
     public const string FileName = "Thumbnail.png";
+    public const double LogoHeight = 70;
+    public const double BottomRightLogoBottomMargin = 104;
 
     public BitmapSource RenderPreview(
         QuizPublishMetadata metadata,
@@ -288,29 +290,9 @@ public sealed class QuizThumbnailRenderer
         Grid.SetColumn(challenge, 1);
         middle.Children.Add(challenge);
 
-        var categories = questions
-            .Select(question => (question.Category ?? "").Trim())
-            .Where(category => category.Length > 0)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(4)
-            .ToArray();
-        var categoryText = categories.Length == 0
-            ? "GENERAL KNOWLEDGE"
-            : string.Join("  •  ", categories.Select(value => value.ToUpperInvariant()));
-
         var footer = new Grid();
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        footer.Children.Add(new TextBlock
-        {
-            Text = categoryText,
-            Foreground = Brushes.White,
-            Opacity = 0.82,
-            FontSize = 21,
-            FontWeight = FontWeights.SemiBold,
-            VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-        });
         var countBadge = new Border
         {
             Background = Brush(theme.Accent),
@@ -353,6 +335,10 @@ public sealed class QuizThumbnailRenderer
         var position = QuizLogoPositionCatalog.Normalize(visual.LogoPosition);
         var top = position.StartsWith("Top", StringComparison.OrdinalIgnoreCase);
         var left = position.EndsWith("left", StringComparison.OrdinalIgnoreCase);
+        var bottomRight = !top && !left;
+        var margin = bottomRight
+            ? new Thickness(34, 34, 34, BottomRightLogoBottomMargin)
+            : new Thickness(34);
         var layout = new Grid();
         layout.Children.Add(content);
         layout.Children.Add(new Image
@@ -361,9 +347,9 @@ public sealed class QuizThumbnailRenderer
             Stretch = Stretch.Uniform,
             HorizontalAlignment = left ? HorizontalAlignment.Left : HorizontalAlignment.Right,
             VerticalAlignment = top ? VerticalAlignment.Top : VerticalAlignment.Bottom,
-            Height = 82 * visual.LogoScale,
-            MaxWidth = 300 * visual.LogoScale,
-            Margin = new Thickness(34),
+            Height = LogoHeight * visual.LogoScale,
+            MaxWidth = 250 * visual.LogoScale,
+            Margin = margin,
             SnapsToDevicePixels = true,
             Effect = Glow(Colors.White, 10, 0.35),
         });
