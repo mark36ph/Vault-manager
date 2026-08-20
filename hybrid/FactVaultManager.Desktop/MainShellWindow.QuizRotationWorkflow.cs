@@ -116,7 +116,8 @@ public partial class MainShellWindow
                 category: SelectedQuizCategory(),
                 difficulty: SelectedQuizDifficulty(),
                 limit: 10_000,
-                enabledOnly: true);
+                enabledOnly: true,
+                imageOnly: IsLogoQuizSelected());
             var recentIds = avoidRecent
                 ? _data.GetRecentQuizQuestionIds(recentQuizCount)
                 : new HashSet<int>();
@@ -142,7 +143,7 @@ public partial class MainShellWindow
             {
                 var thinkingSeconds = count * seconds;
                 _quizDraftStatusText.Text =
-                    $"{count} enabled questions • {selectionMode} • {recentStatus} • {seconds} sec/question • {thinkingSeconds / 60}:{thinkingSeconds % 60:00} answer time.";
+                    $"{count} enabled {(IsLogoQuizSelected() ? "logo " : "")}questions • {selectionMode} • {recentStatus} • {seconds} sec/question • {thinkingSeconds / 60}:{thinkingSeconds % 60:00} answer time.";
             }
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Quiz draft built with rotation rules";

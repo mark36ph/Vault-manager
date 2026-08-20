@@ -103,4 +103,86 @@ public sealed class QuizThemedCardRendererTests
         Assert.Equal(1920, pixelWidth);
         Assert.Equal(1080, pixelHeight);
     }
+
+    [Fact]
+    public void LogoQuizPreflight_RequiresAnImageWithoutChangingStandardQuizRules()
+    {
+        var question = Question(imagePath: "");
+        var options = new QuizVideoBuildOptions("Logo Quiz");
+
+        Assert.Empty(QuizPreflight.Analyze([question], options, QuizTypeCatalog.Standard));
+        Assert.Contains(
+            QuizPreflight.Analyze([question], options, QuizTypeCatalog.Logo),
+            issue => issue.Severity == QuizPreflightSeverity.Error && issue.QuestionId == question.Id);
+    }
+
+    [Fact]
+    public void LogoQuestionPreview_RendersImageAtVerticalShortsSize()
+    {
+        var imagePath = Path.Combine(Path.GetTempPath(), $"factvault-logo-{Guid.NewGuid():N}.png");
+        File.WriteAllBytes(imagePath, Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z2S8AAAAASUVORK5CYII="));
+
+        try
+        {
+            var question = Question(imagePath);
+            var options = new QuizVideoBuildOptions(
+                "Logo Quiz",
+                QuestionSeconds: 8,
+                AnswerSeconds: 3,
+                Vertical: true,
+                QuizLogoPath: "");
+            Exception? renderError = null;
+            var pixelWidth = 0;
+            var pixelHeight = 0;
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    var bitmap = new QuizThemedCardRenderer().RenderPreviewBitmap(
+                        question,
+                        options,
+                        new QuizVisualRenderSettings(QuizType: QuizTypeCatalog.Logo),
+                        QuizPreviewCardKind.Question,
+                        number: 1,
+                        total: 10);
+                    pixelWidth = bitmap.PixelWidth;
+                    pixelHeight = bitmap.PixelHeight;
+                }
+                catch (Exception error)
+                {
+                    renderError = error;
+                }
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+
+            if (renderError is not null)
+                ExceptionDispatchInfo.Capture(renderError).Throw();
+
+            Assert.Equal(1080, pixelWidth);
+            Assert.Equal(1920, pixelHeight);
+        }
+        finally
+        {
+            File.Delete(imagePath);
+        }
+    }
+
+    private static QuizQuestion Question(string imagePath) => new(
+        42,
+        "Which company uses this logo?",
+        "Company A",
+        "Company B",
+        "Company C",
+        "Company D",
+        1,
+        "Company B uses this logo.",
+        "Technology",
+        "easy",
+        "Test",
+        0,
+        true,
+        imagePath);
 }

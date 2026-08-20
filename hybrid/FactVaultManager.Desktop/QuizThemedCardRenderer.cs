@@ -21,7 +21,8 @@ public enum QuizPreviewCardKind
 public sealed record QuizVisualRenderSettings(
     string ThemeKey = "dark",
     string LogoPosition = "Bottom right",
-    double LogoScale = 1.0)
+    double LogoScale = 1.0,
+    string QuizType = QuizTypeCatalog.Standard)
 {
     public QuizVisualRenderSettings Normalize()
     {
@@ -33,6 +34,7 @@ public sealed record QuizVisualRenderSettings(
             ThemeKey = QuizVisualThemeCatalog.Normalize(ThemeKey),
             LogoPosition = QuizLogoPositionCatalog.Normalize(LogoPosition),
             LogoScale = Math.Clamp(LogoScale, 0.5, 2.0),
+            QuizType = QuizTypeCatalog.Normalize(QuizType),
         };
     }
 }
@@ -183,9 +185,172 @@ public sealed class QuizThemedCardRenderer
         bool narrating)
     {
         var theme = QuizVisualThemeCatalog.Resolve(visual.ThemeKey);
+        if (visual.QuizType == QuizTypeCatalog.Logo)
+            return BuildLogoQuestionCard(question, number, total, options, theme, revealAnswer, countdownValue, emphasizeReveal, narrating);
+
         return options.Vertical
             ? BuildVerticalQuestionCard(question, number, total, options, theme, revealAnswer, countdownValue, emphasizeReveal, narrating)
             : BuildLandscapeGameShowCard(question, number, total, options, theme, revealAnswer, countdownValue, emphasizeReveal, narrating);
+    }
+
+    private static FrameworkElement BuildLogoQuestionCard(
+        QuizQuestion question,
+        int number,
+        int total,
+        QuizVideoBuildOptions options,
+        QuizVisualTheme theme,
+        bool revealAnswer,
+        int? countdownValue,
+        bool emphasizeReveal,
+        bool narrating)
+    {
+        var imagePath = QuizQuestionImage.ValidatePath(question.ImagePath, allowEmpty: false);
+        var root = CardRoot(options, theme, transparent: true);
+        var page = new Grid
+        {
+            Margin = options.Vertical
+                ? new Thickness(54, 38, 54, 46)
+                : new Thickness(62, 24, 62, 28),
+        };
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(options.Vertical ? 118 : 94) });
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(options.Vertical ? 94 : 78) });
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(options.Vertical ? 560 : 360) });
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(options.Vertical ? 230 : 148) });
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(options.Vertical ? 58 : 42) });
+
+        var heading = new TextBlock
+        {
+            Text = options.Title.ToUpperInvariant(),
+            Foreground = Brushes.White,
+            FontSize = options.Vertical ? 46 : 38,
+            FontWeight = FontWeights.Bold,
+            TextAlignment = TextAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center,
+            Effect = Glow(NeonBlue, 20, 0.5),
+        };
+        Grid.SetRow(heading, 0);
+        page.Children.Add(heading);
+
+        var status = new Grid();
+        status.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        status.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        status.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        status.Children.Add(new Border
+        {
+            Background = Brush(Color.FromArgb(242, DeepPanel.R, DeepPanel.G, DeepPanel.B)),
+            BorderBrush = Brush(NeonBlue),
+            BorderThickness = new Thickness(3),
+            CornerRadius = new CornerRadius(22),
+            Padding = new Thickness(24, 8, 24, 8),
+            Child = new TextBlock
+            {
+                Text = $"LOGO {number} / {total}",
+                Foreground = Brushes.White,
+                FontSize = options.Vertical ? 28 : 24,
+                FontWeight = FontWeights.Bold,
+            },
+        });
+        var phaseText = revealAnswer
+            ? "✓"
+            : countdownValue is int remaining
+                ? remaining.ToString()
+                : narrating
+                    ? "LISTEN"
+                    : options.ShowCountdown ? "" : options.QuestionSeconds.ToString();
+        var phaseColor = revealAnswer ? NeonGreen : countdownValue.HasValue ? NeonGold : narrating ? NeonPurple : NeonBlue;
+        var phase = BuildCountdownRing(phaseText, phaseColor, countdownValue.HasValue, narrating);
+        phase.Width = options.Vertical ? 82 : 72;
+        phase.Height = options.Vertical ? 82 : 72;
+        Grid.SetColumn(phase, 2);
+        status.Children.Add(phase);
+        Grid.SetRow(status, 1);
+        page.Children.Add(status);
+
+        var image = new Image
+        {
+            Source = LoadBitmap(imagePath),
+            Stretch = Stretch.Uniform,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            Margin = new Thickness(18),
+        };
+        var imagePanel = new Border
+        {
+            Background = Brush(Color.FromArgb(242, 245, 247, 255)),
+            BorderBrush = Brush(NeonGold),
+            BorderThickness = new Thickness(options.Vertical ? 5 : 4),
+            CornerRadius = new CornerRadius(34),
+            Margin = new Thickness(options.Vertical ? 26 : 170, 8, options.Vertical ? 26 : 170, 8),
+            Effect = Glow(NeonGold, 28, 0.55),
+            Child = image,
+        };
+        Grid.SetRow(imagePanel, 2);
+        page.Children.Add(imagePanel);
+
+        var questionPanel = new Border
+        {
+            Background = Brush(Color.FromArgb(248, DeepPanel.R, DeepPanel.G, DeepPanel.B)),
+            BorderBrush = Brush(NeonBlue),
+            BorderThickness = new Thickness(4),
+            CornerRadius = new CornerRadius(30),
+            Padding = new Thickness(options.Vertical ? 34 : 54, 20, options.Vertical ? 34 : 54, 20),
+            Margin = new Thickness(0, 8, 0, 8),
+            Effect = Glow(NeonBlue, 24, 0.55),
+            Child = BuildFittedQuestionText(
+                question.Question,
+                options.Vertical ? 48 : 44,
+                options.Vertical ? 850 : 1320),
+        };
+        Grid.SetRow(questionPanel, 3);
+        page.Children.Add(questionPanel);
+
+        var answers = new Grid { Margin = new Thickness(0, 4, 0, 4) };
+        if (options.Vertical)
+        {
+            for (var row = 0; row < 4; row++)
+                answers.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        }
+        else
+        {
+            answers.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            answers.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
+            answers.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            answers.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            answers.RowDefinitions.Add(new RowDefinition { Height = new GridLength(18) });
+            answers.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        }
+
+        for (var index = 0; index < 4; index++)
+        {
+            var answer = BuildGameShowAnswer(
+                question.Answers[index],
+                index,
+                revealAnswer && index == question.CorrectIndex,
+                emphasizeReveal && index == question.CorrectIndex);
+            if (options.Vertical)
+            {
+                answer.Margin = new Thickness(0, 5, 0, 5);
+                Grid.SetRow(answer, index);
+            }
+            else
+            {
+                Grid.SetColumn(answer, index % 2 == 0 ? 0 : 2);
+                Grid.SetRow(answer, index < 2 ? 0 : 2);
+            }
+            answers.Children.Add(answer);
+        }
+        Grid.SetRow(answers, 4);
+        page.Children.Add(answers);
+
+        var footer = BuildFooter(question, options, revealAnswer, emphasizeReveal, narrating, countdownValue);
+        footer.Width = double.NaN;
+        Grid.SetRow(footer, 5);
+        page.Children.Add(footer);
+
+        root.Child = page;
+        return root;
     }
 
     private static FrameworkElement BuildLandscapeGameShowCard(
@@ -912,6 +1077,7 @@ public sealed class QuizThemedCardRenderer
             root["theme"] = visual.ThemeKey;
             root["logo_position"] = visual.LogoPosition;
             root["logo_scale"] = visual.LogoScale;
+            root["quiz_type"] = visual.QuizType;
 
             var temporary = path + ".tmp";
             File.WriteAllText(temporary, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));

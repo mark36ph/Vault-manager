@@ -336,6 +336,8 @@ public partial class MainShellWindow
             _quizSafeAreaCheckBox.Unchecked += (_, _) => UpdateQuizSafeAreaOverlay();
         if (_quizFormatComboBox is not null)
             _quizFormatComboBox.SelectionChanged += (_, _) => RefreshQuizPreview();
+        if (_quizTypeComboBox is not null)
+            _quizTypeComboBox.SelectionChanged += (_, _) => RefreshQuizPreview();
         if (_quizTitleTextBox is not null)
             _quizTitleTextBox.TextChanged += (_, _) => RefreshQuizPreview();
         if (_quizSecondsPerQuestionTextBox is not null)
@@ -423,7 +425,7 @@ public partial class MainShellWindow
 
         var title = (_quizTitleTextBox?.Text ?? "").Trim();
         var options = previewOptions with { Title = title.Length == 0 ? "Quiz Preview" : title };
-        var issues = QuizPreflight.Analyze(_quizDraftQuestions, options);
+        var issues = QuizPreflight.Analyze(_quizDraftQuestions, options, CurrentQuizVisualSettings().QuizType);
         var lines = new List<string> { QuizPreflight.Summary(issues) };
         foreach (var issue in issues.Take(6))
             lines.Add($"• {issue.Message}");
@@ -458,7 +460,8 @@ public partial class MainShellWindow
         new QuizVisualRenderSettings(
                 QuizVisualThemeCatalog.Normalize(Convert.ToString(_quizThemeComboBox?.SelectedItem) ?? "dark"),
                 QuizLogoPositionCatalog.Normalize(Convert.ToString(_quizLogoPositionComboBox?.SelectedItem) ?? "Bottom right"),
-                _quizLogoScaleSlider?.Value ?? 1.0)
+                _quizLogoScaleSlider?.Value ?? 1.0,
+                QuizTypeCatalog.Normalize(Convert.ToString(_quizTypeComboBox?.SelectedItem)))
             .Normalize();
 
     private void RefreshQuizPreviewQuestionChoices()

@@ -372,6 +372,13 @@ public partial class MainShellWindow
         });
         _quizBankGrid.Columns.Add(new DataGridTextColumn
         {
+            Header = "Type",
+            Binding = new Binding(nameof(QuizQuestion.QuizType)),
+            SortMemberPath = nameof(QuizQuestion.QuizType),
+            Width = new DataGridLength(86),
+        });
+        _quizBankGrid.Columns.Add(new DataGridTextColumn
+        {
             Header = "Question",
             Binding = new Binding(nameof(QuizQuestion.Question)),
             SortMemberPath = nameof(QuizQuestion.Question),
@@ -673,14 +680,19 @@ public partial class MainShellWindow
             if (!int.TryParse(_quizSecondsPerQuestionTextBox.Text.Trim(), out var seconds) || seconds is < 2 or > 60)
                 throw new ArgumentException("Seconds per question must be a whole number from 2 to 60.");
 
-            _quizDraftQuestions = _data.GetRandomQuizQuestions(count, SelectedQuizCategory(), SelectedQuizDifficulty()).ToList();
+            var logoQuiz = QuizTypeCatalog.Normalize(Convert.ToString(_quizTypeComboBox?.SelectedItem)) == QuizTypeCatalog.Logo;
+            _quizDraftQuestions = _data.GetRandomQuizQuestions(
+                count,
+                SelectedQuizCategory(),
+                SelectedQuizDifficulty(),
+                imageOnly: logoQuiz).ToList();
             _quizSecondsPerQuestion = seconds;
             _quizDraftGrid.ItemsSource = QuizDraftRows(_quizDraftQuestions);
 
             if (_quizDraftStatusText is not null)
             {
                 var thinkingSeconds = count * seconds;
-                _quizDraftStatusText.Text = $"{count} random enabled questions • {seconds} seconds per question • {thinkingSeconds / 60}:{thinkingSeconds % 60:00} total answer time. Pick again for a different random set.";
+                _quizDraftStatusText.Text = $"{count} random enabled {(logoQuiz ? "logo " : "")}questions • {seconds} seconds per question • {thinkingSeconds / 60}:{thinkingSeconds % 60:00} total answer time. Pick again for a different random set.";
             }
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Random quiz draft created";

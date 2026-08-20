@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Windows;
 
 namespace FactVaultManager.Desktop;
@@ -65,6 +66,8 @@ public partial class MainShellWindow
                 _quizTitleTextBox.Text = history.Title;
             if (_quizFormatComboBox is not null)
                 _quizFormatComboBox.SelectedIndex = string.Equals(history.Format, "9:16", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+            if (_quizTypeComboBox is not null)
+                _quizTypeComboBox.SelectedItem = LoadQuizTypeFromExport(history.ProjectFolder);
             if (_quizShuffleAnswersCheckBox is not null)
                 _quizShuffleAnswersCheckBox.IsChecked = history.ShuffleAnswers;
 
@@ -83,6 +86,25 @@ public partial class MainShellWindow
         catch (Exception error)
         {
             MessageBox.Show(this, error.Message, "Reopen Quiz", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private static string LoadQuizTypeFromExport(string projectFolder)
+    {
+        try
+        {
+            var path = Path.Combine(Path.GetFullPath(projectFolder), "quiz.json");
+            if (!File.Exists(path))
+                return QuizTypeCatalog.Standard;
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            return document.RootElement.TryGetProperty("quiz_type", out var element)
+                ? QuizTypeCatalog.Normalize(element.GetString())
+                : QuizTypeCatalog.Standard;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or ArgumentException)
+        {
+            System.Diagnostics.Debug.WriteLine($"Could not restore quiz type: {error.Message}");
+            return QuizTypeCatalog.Standard;
         }
     }
 }

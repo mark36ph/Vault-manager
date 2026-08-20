@@ -17,7 +17,8 @@ public sealed record QuizQuestion(
     string Difficulty,
     string Source,
     int TimesUsed,
-    bool IsEnabled = true)
+    bool IsEnabled = true,
+    string ImagePath = "")
 {
     public IReadOnlyList<string> Answers => [OptionA, OptionB, OptionC, OptionD];
 
@@ -35,6 +36,47 @@ public sealed record QuizQuestion(
         : "";
 
     public string Availability => IsEnabled ? "Enabled" : "Disabled";
+
+    public bool HasImage => !string.IsNullOrWhiteSpace(ImagePath);
+
+    public string QuizType => HasImage ? QuizTypeCatalog.Logo : QuizTypeCatalog.Standard;
+}
+
+public static class QuizTypeCatalog
+{
+    public const string Standard = "Standard";
+    public const string Logo = "Logo";
+
+    public static string Normalize(string? value) =>
+        string.Equals((value ?? "").Trim(), Logo, StringComparison.OrdinalIgnoreCase)
+            ? Logo
+            : Standard;
+}
+
+public static class QuizQuestionImage
+{
+    private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".png", ".jpg", ".jpeg", ".bmp",
+    };
+
+    public static string ValidatePath(string? value, bool allowEmpty = true)
+    {
+        var path = (value ?? "").Trim();
+        if (path.Length == 0)
+        {
+            if (allowEmpty)
+                return "";
+            throw new InvalidDataException("Choose a logo image for this question.");
+        }
+
+        path = Path.GetFullPath(path);
+        if (!File.Exists(path))
+            throw new FileNotFoundException("The question logo image could not be found.", path);
+        if (!SupportedExtensions.Contains(Path.GetExtension(path)))
+            throw new InvalidDataException("Question logo images must be PNG, JPG, JPEG, or BMP files.");
+        return path;
+    }
 }
 
 public sealed record QuizQuestionImportItem(

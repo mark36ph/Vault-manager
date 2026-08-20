@@ -27,7 +27,8 @@ public sealed partial class DesktopDataService
                 category = $category,
                 difficulty = $difficulty,
                 fingerprint = $fingerprint,
-                enabled = $enabled
+                enabled = $enabled,
+                image_path = $imagePath
             WHERE id = $id
             """;
         command.Parameters.AddWithValue("$question", edited.Question);
@@ -41,6 +42,7 @@ public sealed partial class DesktopDataService
         command.Parameters.AddWithValue("$difficulty", edited.Difficulty);
         command.Parameters.AddWithValue("$fingerprint", fingerprint);
         command.Parameters.AddWithValue("$enabled", edited.IsEnabled ? 1 : 0);
+        command.Parameters.AddWithValue("$imagePath", edited.ImagePath);
         command.Parameters.AddWithValue("$id", id);
 
         int affected;
@@ -61,7 +63,7 @@ public sealed partial class DesktopDataService
         using var select = connection.CreateCommand();
         select.CommandText = """
             SELECT id, question, option_a, option_b, option_c, option_d,
-                   correct_index, explanation, category, difficulty, source, times_used, enabled
+                   correct_index, explanation, category, difficulty, source, times_used, enabled, image_path
             FROM quiz_questions
             WHERE id = $id
             """;
@@ -83,7 +85,8 @@ public sealed record QuizQuestionEditRequest(
     string Explanation,
     string Category,
     string Difficulty,
-    bool IsEnabled)
+    bool IsEnabled,
+    string ImagePath = "")
 {
     public IReadOnlyList<string> Answers => [OptionA, OptionB, OptionC, OptionD];
 }
@@ -126,7 +129,8 @@ public static class QuizQuestionEditValidator
             explanation,
             category,
             difficulty,
-            request.IsEnabled);
+            request.IsEnabled,
+            QuizQuestionImage.ValidatePath(request.ImagePath));
     }
 
     private static string Required(string? value, string field, int maximumLength)

@@ -91,7 +91,8 @@ public sealed partial class DesktopDataService
         string? category = null,
         string? difficulty = null,
         int limit = 2_000,
-        bool enabledOnly = false)
+        bool enabledOnly = false,
+        bool imageOnly = false)
     {
         EnsureQuizSchema();
         limit = Math.Clamp(limit, 1, 10_000);
@@ -103,12 +104,13 @@ public sealed partial class DesktopDataService
         using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT id, question, option_a, option_b, option_c, option_d,
-                   correct_index, explanation, category, difficulty, source, times_used, enabled
+                   correct_index, explanation, category, difficulty, source, times_used, enabled, image_path
             FROM quiz_questions
             WHERE ($search = '' OR question LIKE $searchLike OR category LIKE $searchLike)
               AND ($category = '' OR category = $category COLLATE NOCASE)
               AND ($difficulty = '' OR difficulty = $difficulty COLLATE NOCASE)
               AND ($enabledOnly = 0 OR enabled <> 0)
+              AND ($imageOnly = 0 OR TRIM(image_path) <> '')
             ORDER BY id ASC
             LIMIT $limit
             """;
@@ -117,6 +119,7 @@ public sealed partial class DesktopDataService
         command.Parameters.AddWithValue("$category", category);
         command.Parameters.AddWithValue("$difficulty", difficulty);
         command.Parameters.AddWithValue("$enabledOnly", enabledOnly ? 1 : 0);
+        command.Parameters.AddWithValue("$imageOnly", imageOnly ? 1 : 0);
         command.Parameters.AddWithValue("$limit", limit);
 
         using var reader = command.ExecuteReader();
@@ -132,7 +135,8 @@ public sealed partial class DesktopDataService
         int count,
         string? category = null,
         string? difficulty = null,
-        Random? random = null)
+        Random? random = null,
+        bool imageOnly = false)
     {
         if (count is < 1 or > 100)
             throw new ArgumentOutOfRangeException(nameof(count), "Choose between 1 and 100 questions per quiz.");
@@ -141,7 +145,8 @@ public sealed partial class DesktopDataService
             category: category,
             difficulty: difficulty,
             limit: 10_000,
-            enabledOnly: true);
+            enabledOnly: true,
+            imageOnly: imageOnly);
         return QuizQuestionSelector.SelectRandom(matching, count, random);
     }
 
@@ -259,7 +264,8 @@ public sealed partial class DesktopDataService
                     created TEXT NOT NULL,
                     times_used INTEGER NOT NULL DEFAULT 0,
                     last_used TEXT NULL,
-                    enabled INTEGER NOT NULL DEFAULT 1
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    image_path TEXT NOT NULL DEFAULT ''
                 );
                 CREATE INDEX IF NOT EXISTS ix_quiz_questions_category
                     ON quiz_questions(category COLLATE NOCASE);
@@ -272,6 +278,7 @@ public sealed partial class DesktopDataService
         }
 
         EnsureQuizColumn(connection, "enabled", "INTEGER NOT NULL DEFAULT 1");
+        EnsureQuizColumn(connection, "image_path", "TEXT NOT NULL DEFAULT ''");
         using var enabledIndex = connection.CreateCommand();
         enabledIndex.CommandText = """
             CREATE INDEX IF NOT EXISTS ix_quiz_questions_enabled
@@ -337,7 +344,8 @@ public sealed partial class DesktopDataService
         reader.GetString(9),
         reader.GetString(10),
         reader.GetInt32(11),
-        reader.GetInt32(12) != 0);
+        reader.GetInt32(12) != 0,
+        reader.IsDBNull(13) ? "" : reader.GetString(13));
 
     private static string NormalizeQuizFilter(string? value)
     {

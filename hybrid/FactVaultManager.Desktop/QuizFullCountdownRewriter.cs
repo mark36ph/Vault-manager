@@ -136,7 +136,10 @@ public static class QuizFullCountdownRewriter
             var logoScale = root.TryGetProperty("logo_scale", out var scaleElement) && scaleElement.TryGetDouble(out var parsedScale)
                 ? parsedScale
                 : 1.0;
-            return new QuizVisualRenderSettings(theme, logoPosition, logoScale).Normalize();
+            var quizType = root.TryGetProperty("quiz_type", out var quizTypeElement)
+                ? quizTypeElement.GetString() ?? QuizTypeCatalog.Standard
+                : QuizTypeCatalog.Standard;
+            return new QuizVisualRenderSettings(theme, logoPosition, logoScale, quizType).Normalize();
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException or ArgumentOutOfRangeException)
         {

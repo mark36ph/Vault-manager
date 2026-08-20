@@ -15,10 +15,12 @@ public static class QuizPreflight
 {
     public static IReadOnlyList<QuizPreflightIssue> Analyze(
         IReadOnlyList<QuizQuestion> questions,
-        QuizVideoBuildOptions options)
+        QuizVideoBuildOptions options,
+        string quizType = QuizTypeCatalog.Standard)
     {
         ArgumentNullException.ThrowIfNull(questions);
         ArgumentNullException.ThrowIfNull(options);
+        quizType = QuizTypeCatalog.Normalize(quizType);
 
         var issues = new List<QuizPreflightIssue>();
         try
@@ -65,6 +67,21 @@ public static class QuizPreflight
 
         foreach (var question in questions)
         {
+            if (quizType == QuizTypeCatalog.Logo)
+            {
+                try
+                {
+                    QuizQuestionImage.ValidatePath(question.ImagePath, allowEmpty: false);
+                }
+                catch (Exception error) when (error is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
+                {
+                    issues.Add(new QuizPreflightIssue(
+                        QuizPreflightSeverity.Error,
+                        $"Question #{question.Id} needs a valid logo image: {error.Message}",
+                        question.Id));
+                }
+            }
+
             if (question.Question.Trim().Length > questionLimit)
             {
                 issues.Add(new QuizPreflightIssue(

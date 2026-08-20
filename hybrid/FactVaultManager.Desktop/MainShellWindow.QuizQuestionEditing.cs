@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using Microsoft.Win32;
 
 namespace FactVaultManager.Desktop;
 
@@ -50,6 +51,31 @@ public partial class MainShellWindow
             .FirstOrDefault(value => string.Equals(value, question.Difficulty, StringComparison.OrdinalIgnoreCase)) ?? "medium";
 
         var explanation = EditQuizTextBox(question.Explanation, multiline: true);
+        var imagePath = EditQuizTextBox(question.ImagePath);
+        imagePath.IsReadOnly = true;
+        var imageControls = new Grid();
+        imageControls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        imageControls.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        imageControls.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        imageControls.Children.Add(imagePath);
+        var browseImage = new Button { Content = "Browse...", MinWidth = 86, Margin = new Thickness(8, 0, 0, 0) };
+        browseImage.Click += (_, _) =>
+        {
+            var picker = new OpenFileDialog
+            {
+                Title = "Choose question logo image",
+                Filter = "Image files (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp",
+                CheckFileExists = true,
+            };
+            if (picker.ShowDialog(this) == true)
+                imagePath.Text = picker.FileName;
+        };
+        Grid.SetColumn(browseImage, 1);
+        imageControls.Children.Add(browseImage);
+        var clearImage = new Button { Content = "Clear", MinWidth = 72, Margin = new Thickness(8, 0, 0, 0) };
+        clearImage.Click += (_, _) => imagePath.Text = "";
+        Grid.SetColumn(clearImage, 2);
+        imageControls.Children.Add(clearImage);
         var enabled = new CheckBox
         {
             Content = "Enabled for future random quiz selection",
@@ -59,7 +85,7 @@ public partial class MainShellWindow
         };
 
         var form = new Grid { Margin = new Thickness(22) };
-        for (var row = 0; row < 9; row++)
+        for (var row = 0; row < 10; row++)
             form.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         form.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         form.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
@@ -84,8 +110,9 @@ public partial class MainShellWindow
         AddEditQuizField(form, 4, 2, 1, "DIFFICULTY", difficulty);
         AddEditQuizField(form, 5, 0, 3, "CATEGORY", category);
         AddEditQuizField(form, 6, 0, 3, "EXPLANATION", explanation);
+        AddEditQuizField(form, 7, 0, 3, "LOGO IMAGE (OPTIONAL — USED ONLY IN LOGO QUIZZES)", imageControls);
 
-        Grid.SetRow(enabled, 7);
+        Grid.SetRow(enabled, 8);
         Grid.SetColumnSpan(enabled, 3);
         form.Children.Add(enabled);
 
@@ -141,7 +168,7 @@ public partial class MainShellWindow
         buttons.Children.Add(cancel);
         buttons.Children.Add(save);
         buttons.Children.Add(saveAndNext);
-        Grid.SetRow(buttons, 8);
+        Grid.SetRow(buttons, 9);
         Grid.SetColumnSpan(buttons, 3);
         form.Children.Add(buttons);
 
@@ -188,7 +215,8 @@ public partial class MainShellWindow
                     explanation.Text,
                     category.Text,
                     difficulty.SelectedItem?.ToString() ?? "medium",
-                    enabled.IsChecked == true);
+                    enabled.IsChecked == true,
+                    imagePath.Text);
 
                 var updated = _data.UpdateQuizQuestion(question.Id, request);
                 navigateToId = continueToNext ? nextId : null;

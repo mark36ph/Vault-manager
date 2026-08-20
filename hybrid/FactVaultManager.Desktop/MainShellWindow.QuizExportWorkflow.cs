@@ -9,6 +9,7 @@ public partial class MainShellWindow
 {
     private bool _quizExportWorkflowInitialized;
     private TextBox? _quizTitleTextBox;
+    private ComboBox? _quizTypeComboBox;
     private ComboBox? _quizFormatComboBox;
     private TextBox? _quizLogoPathTextBox;
     private CheckBox? _quizCountdownCheckBox;
@@ -20,6 +21,9 @@ public partial class MainShellWindow
     private CheckBox? _quizAnswerRevealSfxCheckBox;
     private CheckBox? _quizBackgroundMusicCheckBox;
     private TextBox? _quizBackgroundMusicPathTextBox;
+
+    private bool IsLogoQuizSelected() =>
+        QuizTypeCatalog.Normalize(Convert.ToString(_quizTypeComboBox?.SelectedItem)) == QuizTypeCatalog.Logo;
 
     private void InitializeQuizExportWorkflow()
     {
@@ -44,6 +48,8 @@ public partial class MainShellWindow
         var controls = new Grid { Margin = new Thickness(0, 8, 0, 0) };
         controls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         controls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
+        controls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(130) });
+        controls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
         controls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(190) });
         controls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(8) });
         controls.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -63,6 +69,22 @@ public partial class MainShellWindow
         };
         controls.Children.Add(_quizTitleTextBox);
 
+        _quizTypeComboBox = new ComboBox
+        {
+            MinHeight = 34,
+            ToolTip = "Standard keeps the current text-only layout. Logo uses only questions with an attached image.",
+        };
+        _quizTypeComboBox.Items.Add(QuizTypeCatalog.Standard);
+        _quizTypeComboBox.Items.Add(QuizTypeCatalog.Logo);
+        _quizTypeComboBox.SelectedIndex = 0;
+        _quizTypeComboBox.SelectionChanged += (_, _) =>
+        {
+            RefreshQuizPreview();
+            UpdateQuizPublishingChecklist();
+        };
+        Grid.SetColumn(_quizTypeComboBox, 2);
+        controls.Children.Add(_quizTypeComboBox);
+
         _quizFormatComboBox = new ComboBox { MinHeight = 34 };
         _quizFormatComboBox.Items.Add("YouTube 16:9 (1920x1080)");
         _quizFormatComboBox.Items.Add("Shorts 9:16 (1080x1920)");
@@ -73,7 +95,7 @@ public partial class MainShellWindow
             InvalidateQuizPublishingExportCompletion();
             UpdateQuizPublishingChecklist();
         };
-        Grid.SetColumn(_quizFormatComboBox, 2);
+        Grid.SetColumn(_quizFormatComboBox, 4);
         controls.Children.Add(_quizFormatComboBox);
 
         var exportButton = new Button
@@ -88,7 +110,7 @@ public partial class MainShellWindow
             Margin = new Thickness(0),
         };
         exportButton.Click += ExportQuizToResolve_Click;
-        Grid.SetColumn(exportButton, 4);
+        Grid.SetColumn(exportButton, 6);
         controls.Children.Add(exportButton);
 
         var branding = new Grid { Margin = new Thickness(0, 9, 0, 0) };
@@ -461,7 +483,7 @@ public partial class MainShellWindow
             var publishing = CurrentQuizPublishMetadata(exportQuestions, vertical);
             var thumbnail = CurrentQuizThumbnailSettings(publishing);
 
-            var preflight = QuizPreflight.Analyze(exportQuestions, options);
+            var preflight = QuizPreflight.Analyze(exportQuestions, options, visual.QuizType);
             var preflightErrors = preflight.Where(issue => issue.Severity == QuizPreflightSeverity.Error).ToList();
             if (preflightErrors.Count > 0)
             {
