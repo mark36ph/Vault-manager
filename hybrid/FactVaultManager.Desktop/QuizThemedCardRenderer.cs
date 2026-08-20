@@ -212,26 +212,16 @@ public sealed class QuizThemedCardRenderer
                 ? new Thickness(54, 38, 54, 46)
                 : new Thickness(62, 24, 62, 28),
         };
-        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(options.Vertical ? 118 : 94) });
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(options.Vertical ? 118 : 150) });
         page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(options.Vertical ? 94 : 78) });
-        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(options.Vertical ? 560 : 360) });
+        page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(options.Vertical ? 540 : 304) });
         page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(options.Vertical ? 230 : 148) });
         page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         page.RowDefinitions.Add(new RowDefinition { Height = new GridLength(options.Vertical ? 58 : 42) });
 
-        var heading = new TextBlock
-        {
-            Text = options.Title.ToUpperInvariant(),
-            Foreground = Brushes.White,
-            FontSize = options.Vertical ? 46 : 38,
-            FontWeight = FontWeights.Bold,
-            TextAlignment = TextAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            VerticalAlignment = VerticalAlignment.Center,
-            Effect = Glow(NeonBlue, 20, 0.5),
-        };
-        Grid.SetRow(heading, 0);
-        page.Children.Add(heading);
+        var brandLogo = BuildHeroLogo(options, theme);
+        Grid.SetRow(brandLogo, 0);
+        page.Children.Add(brandLogo);
 
         var status = new Grid();
         status.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -252,6 +242,21 @@ public sealed class QuizThemedCardRenderer
                 FontWeight = FontWeights.Bold,
             },
         });
+        var heading = new TextBlock
+        {
+            Text = options.Title.ToUpperInvariant(),
+            Foreground = Brushes.White,
+            FontSize = options.Vertical ? 30 : 28,
+            FontWeight = FontWeights.Bold,
+            TextAlignment = TextAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(18, 0, 18, 0),
+            Effect = Glow(NeonBlue, 16, 0.45),
+        };
+        Grid.SetColumn(heading, 1);
+        status.Children.Add(heading);
         var phaseText = revealAnswer
             ? "✓"
             : countdownValue is int remaining

@@ -117,21 +117,24 @@ public sealed class QuizThemedCardRendererTests
     }
 
     [Fact]
-    public void LogoQuestionPreview_RendersImageAtVerticalShortsSize()
+    public void LogoQuestionPreview_RendersFeaturedImageAndBrandLogoAtVerticalShortsSize()
     {
-        var imagePath = Path.Combine(Path.GetTempPath(), $"factvault-logo-{Guid.NewGuid():N}.png");
-        File.WriteAllBytes(imagePath, Convert.FromBase64String(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z2S8AAAAASUVORK5CYII="));
+        var featuredImagePath = Path.Combine(Path.GetTempPath(), $"factvault-featured-logo-{Guid.NewGuid():N}.png");
+        var brandLogoPath = Path.Combine(Path.GetTempPath(), $"factvault-brand-logo-{Guid.NewGuid():N}.png");
+        var imageBytes = Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z2S8AAAAASUVORK5CYII=");
+        File.WriteAllBytes(featuredImagePath, imageBytes);
+        File.WriteAllBytes(brandLogoPath, imageBytes);
 
         try
         {
-            var question = Question(imagePath);
+            var question = Question(featuredImagePath);
             var options = new QuizVideoBuildOptions(
                 "Logo Quiz",
                 QuestionSeconds: 8,
                 AnswerSeconds: 3,
                 Vertical: true,
-                QuizLogoPath: "");
+                QuizLogoPath: brandLogoPath);
             Exception? renderError = null;
             var pixelWidth = 0;
             var pixelHeight = 0;
@@ -166,7 +169,8 @@ public sealed class QuizThemedCardRendererTests
         }
         finally
         {
-            File.Delete(imagePath);
+            File.Delete(featuredImagePath);
+            File.Delete(brandLogoPath);
         }
     }
 
