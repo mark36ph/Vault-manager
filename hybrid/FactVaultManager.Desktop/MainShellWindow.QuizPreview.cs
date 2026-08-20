@@ -336,8 +336,6 @@ public partial class MainShellWindow
             _quizSafeAreaCheckBox.Unchecked += (_, _) => UpdateQuizSafeAreaOverlay();
         if (_quizFormatComboBox is not null)
             _quizFormatComboBox.SelectionChanged += (_, _) => RefreshQuizPreview();
-        if (_quizTypeComboBox is not null)
-            _quizTypeComboBox.SelectionChanged += (_, _) => RefreshQuizPreview();
         if (_quizTitleTextBox is not null)
             _quizTitleTextBox.TextChanged += (_, _) => RefreshQuizPreview();
         if (_quizSecondsPerQuestionTextBox is not null)
@@ -461,7 +459,7 @@ public partial class MainShellWindow
                 QuizVisualThemeCatalog.Normalize(Convert.ToString(_quizThemeComboBox?.SelectedItem) ?? "dark"),
                 QuizLogoPositionCatalog.Normalize(Convert.ToString(_quizLogoPositionComboBox?.SelectedItem) ?? "Bottom right"),
                 _quizLogoScaleSlider?.Value ?? 1.0,
-                QuizTypeCatalog.Normalize(Convert.ToString(_quizTypeComboBox?.SelectedItem)))
+                IsLogoQuizSelected() ? QuizTypeCatalog.Logo : QuizTypeCatalog.Standard)
             .Normalize();
 
     private void RefreshQuizPreviewQuestionChoices()

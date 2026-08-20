@@ -10,6 +10,7 @@ public sealed partial class DesktopDataService
             throw new ArgumentOutOfRangeException(nameof(id), "Quiz question ID must be greater than zero.");
 
         var edited = QuizQuestionEditValidator.Validate(request);
+        edited = edited with { ImagePath = ManageQuizQuestionImage(edited.ImagePath) };
         var fingerprint = QuizQuestionFingerprint.Create(edited.Question, edited.Answers);
         EnsureQuizSchema();
 

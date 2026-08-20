@@ -113,6 +113,8 @@ public partial class MainShellWindow
                 SyncQuizCategorySeriesName();
                 SuggestNextQuizEpisode();
                 RefreshQuizBank();
+                RefreshQuizPreview();
+                UpdateQuizPublishingChecklist();
             }
         };
 
@@ -680,7 +682,7 @@ public partial class MainShellWindow
             if (!int.TryParse(_quizSecondsPerQuestionTextBox.Text.Trim(), out var seconds) || seconds is < 2 or > 60)
                 throw new ArgumentException("Seconds per question must be a whole number from 2 to 60.");
 
-            var logoQuiz = QuizTypeCatalog.Normalize(Convert.ToString(_quizTypeComboBox?.SelectedItem)) == QuizTypeCatalog.Logo;
+            var logoQuiz = IsLogoQuizSelected();
             _quizDraftQuestions = _data.GetRandomQuizQuestions(
                 count,
                 SelectedQuizCategory(),

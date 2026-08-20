@@ -117,7 +117,8 @@ public partial class MainShellWindow
                 difficulty: SelectedQuizDifficulty(),
                 limit: 10_000,
                 enabledOnly: true,
-                imageOnly: IsLogoQuizSelected());
+                imageOnly: IsLogoQuizSelected(),
+                excludeCategory: QuizTypeCatalog.ExcludedRandomCategory(SelectedQuizCategory()));
             var recentIds = avoidRecent
                 ? _data.GetRecentQuizQuestionIds(recentQuizCount)
                 : new HashSet<int>();

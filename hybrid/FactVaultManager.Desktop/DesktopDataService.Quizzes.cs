@@ -36,6 +36,7 @@ public sealed partial class DesktopDataService
             var question = parsedQuestion with
             {
                 Category = QuizQuestionCategoryNormalizer.Normalize(parsedQuestion.Category),
+                ImagePath = ManageQuizQuestionImage(parsedQuestion.ImagePath),
             };
             var duplicateKey = QuizQuestionDuplicateKey.Create(question.Question);
             var correctAnswer = question.Answers[question.CorrectIndex];
@@ -93,13 +94,15 @@ public sealed partial class DesktopDataService
         string? difficulty = null,
         int limit = 2_000,
         bool enabledOnly = false,
-        bool imageOnly = false)
+        bool imageOnly = false,
+        string? excludeCategory = null)
     {
         EnsureQuizSchema();
         limit = Math.Clamp(limit, 1, 10_000);
         search = (search ?? "").Trim();
         category = NormalizeQuizFilter(category);
         difficulty = NormalizeQuizFilter(difficulty);
+        excludeCategory = NormalizeQuizFilter(excludeCategory);
 
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
@@ -112,6 +115,7 @@ public sealed partial class DesktopDataService
               AND ($difficulty = '' OR difficulty = $difficulty COLLATE NOCASE)
               AND ($enabledOnly = 0 OR enabled <> 0)
               AND ($imageOnly = 0 OR TRIM(image_path) <> '')
+              AND ($excludeCategory = '' OR category <> $excludeCategory COLLATE NOCASE)
             ORDER BY id ASC
             LIMIT $limit
             """;
@@ -121,6 +125,7 @@ public sealed partial class DesktopDataService
         command.Parameters.AddWithValue("$difficulty", difficulty);
         command.Parameters.AddWithValue("$enabledOnly", enabledOnly ? 1 : 0);
         command.Parameters.AddWithValue("$imageOnly", imageOnly ? 1 : 0);
+        command.Parameters.AddWithValue("$excludeCategory", excludeCategory);
         command.Parameters.AddWithValue("$limit", limit);
 
         using var reader = command.ExecuteReader();
@@ -142,12 +147,14 @@ public sealed partial class DesktopDataService
         if (count is < 1 or > 100)
             throw new ArgumentOutOfRangeException(nameof(count), "Choose between 1 and 100 questions per quiz.");
 
+        var logoQuiz = QuizTypeCatalog.FromCategory(category) == QuizTypeCatalog.Logo;
         var matching = GetQuizQuestions(
             category: category,
             difficulty: difficulty,
             limit: 10_000,
             enabledOnly: true,
-            imageOnly: imageOnly);
+            imageOnly: imageOnly || logoQuiz,
+            excludeCategory: QuizTypeCatalog.ExcludedRandomCategory(category));
         return QuizQuestionSelector.SelectRandom(matching, count, random);
     }
 
@@ -287,6 +294,45 @@ public sealed partial class DesktopDataService
             """;
         enabledIndex.ExecuteNonQuery();
         NormalizeStoredQuizCategories(connection);
+        MigrateStoredQuizQuestionImages(connection);
+    }
+
+    private string ManageQuizQuestionImage(string? imagePath) =>
+        string.IsNullOrWhiteSpace(imagePath)
+            ? ""
+            : QuizQuestionImage.Import(imagePath, _dataRoot);
+
+    private void MigrateStoredQuizQuestionImages(SqliteConnection connection)
+    {
+        var storedImages = new List<(int Id, string Path)>();
+        using (var read = connection.CreateCommand())
+        {
+            read.CommandText = "SELECT id, image_path FROM quiz_questions WHERE TRIM(image_path) <> ''";
+            using var reader = read.ExecuteReader();
+            while (reader.Read())
+                storedImages.Add((reader.GetInt32(0), reader.GetString(1)));
+        }
+
+        foreach (var stored in storedImages)
+        {
+            if (QuizQuestionImage.IsManagedPath(stored.Path, _dataRoot))
+                continue;
+
+            try
+            {
+                var managedPath = ManageQuizQuestionImage(stored.Path);
+                using var update = connection.CreateCommand();
+                update.CommandText = "UPDATE quiz_questions SET image_path = $path WHERE id = $id";
+                update.Parameters.AddWithValue("$path", managedPath);
+                update.Parameters.AddWithValue("$id", stored.Id);
+                update.ExecuteNonQuery();
+            }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or InvalidDataException or ArgumentException)
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    $"Could not migrate the image for quiz question #{stored.Id}: {error.Message}");
+            }
+        }
     }
 
     private static void NormalizeStoredQuizCategories(SqliteConnection connection)

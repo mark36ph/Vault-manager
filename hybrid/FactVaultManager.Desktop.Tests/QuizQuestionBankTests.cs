@@ -126,6 +126,36 @@ public sealed class QuizQuestionBankTests
     }
 
     [Fact]
+    public void ImportQuestionImage_CopiesIntoManagedStorage_AndSurvivesSourceDeletion()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "FactVaultManagerTests", Guid.NewGuid().ToString("N"));
+        var dataRoot = Path.Combine(root, "app-data");
+        var sourcePath = Path.Combine(root, "downloads", "company-logo.png");
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllBytes(sourcePath, Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z2S8AAAAASUVORK5CYII="));
+
+            var managedPath = QuizQuestionImage.Import(sourcePath, dataRoot);
+
+            Assert.True(QuizQuestionImage.IsManagedPath(managedPath, dataRoot));
+            Assert.True(File.Exists(managedPath));
+            Assert.Equal(File.ReadAllBytes(sourcePath), File.ReadAllBytes(managedPath));
+
+            File.Delete(sourcePath);
+
+            Assert.Equal(managedPath, QuizQuestionImage.ValidatePath(managedPath, allowEmpty: false));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Fingerprint_NormalizesCaseAndWhitespace()
     {
         var first = QuizQuestionFingerprint.Create("  Biggest   planet? ", ["Earth", "Mars", "Jupiter", "Venus"]);
@@ -183,6 +213,24 @@ public sealed class QuizQuestionBankTests
     {
         Assert.Equal("Enabled", Question(1).Availability);
         Assert.Equal("Disabled", (Question(1) with { IsEnabled = false }).Availability);
+    }
+
+    [Theory]
+    [InlineData("Icons", QuizTypeCatalog.Logo)]
+    [InlineData("icons", QuizTypeCatalog.Logo)]
+    [InlineData("History", QuizTypeCatalog.Standard)]
+    [InlineData("", QuizTypeCatalog.Standard)]
+    public void QuizType_IsChosenFromSelectedCategory(string category, string expected)
+    {
+        Assert.Equal(expected, QuizTypeCatalog.FromCategory(category));
+    }
+
+    [Fact]
+    public void StandardRandomPool_ExcludesIcons_ButIconsPoolDoesNot()
+    {
+        Assert.Equal("Icons", QuizTypeCatalog.ExcludedRandomCategory("All categories"));
+        Assert.Equal("Icons", QuizTypeCatalog.ExcludedRandomCategory("History"));
+        Assert.Equal("", QuizTypeCatalog.ExcludedRandomCategory("Icons"));
     }
 
     [Fact]

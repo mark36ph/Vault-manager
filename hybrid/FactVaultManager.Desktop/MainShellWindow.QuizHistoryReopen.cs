@@ -66,8 +66,16 @@ public partial class MainShellWindow
                 _quizTitleTextBox.Text = history.Title;
             if (_quizFormatComboBox is not null)
                 _quizFormatComboBox.SelectedIndex = string.Equals(history.Format, "9:16", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-            if (_quizTypeComboBox is not null)
-                _quizTypeComboBox.SelectedItem = LoadQuizTypeFromExport(history.ProjectFolder);
+            var restoredCategories = restored.Questions
+                .Select(question => question.Category)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            var restoredCategory = restoredCategories.Length == 1
+                ? restoredCategories[0]
+                : LoadQuizTypeFromExport(history.ProjectFolder) == QuizTypeCatalog.Logo
+                    ? "Icons"
+                    : "All categories";
+            SelectQuizComboValue(_quizCategoryComboBox, restoredCategory, "All categories");
             if (_quizShuffleAnswersCheckBox is not null)
                 _quizShuffleAnswersCheckBox.IsChecked = history.ShuffleAnswers;
 

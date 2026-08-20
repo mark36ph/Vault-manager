@@ -245,7 +245,8 @@ public partial class MainShellWindow
                     difficulty: SelectedQuizDifficulty(),
                     limit: 10_000,
                     enabledOnly: true,
-                    imageOnly: IsLogoQuizSelected())
+                    imageOnly: IsLogoQuizSelected(),
+                    excludeCategory: QuizTypeCatalog.ExcludedRandomCategory(SelectedQuizCategory()))
                 .Where(question => !usedIds.Contains(question.Id))
                 .ToList();
             if (candidates.Count == 0)
@@ -289,7 +290,8 @@ public partial class MainShellWindow
                 difficulty: SelectedQuizDifficulty(),
                 limit: 10_000,
                 enabledOnly: true,
-                imageOnly: IsLogoQuizSelected())
+                imageOnly: IsLogoQuizSelected(),
+                excludeCategory: QuizTypeCatalog.ExcludedRandomCategory(SelectedQuizCategory()))
             .Where(question => !existingIds.Contains(question.Id))
             .ToList();
         if (candidates.Count == 0)

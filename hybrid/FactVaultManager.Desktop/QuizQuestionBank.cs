@@ -51,6 +51,14 @@ public static class QuizTypeCatalog
         string.Equals((value ?? "").Trim(), Logo, StringComparison.OrdinalIgnoreCase)
             ? Logo
             : Standard;
+
+    public static string FromCategory(string? category) =>
+        string.Equals((category ?? "").Trim(), "Icons", StringComparison.OrdinalIgnoreCase)
+            ? Logo
+            : Standard;
+
+    public static string ExcludedRandomCategory(string? selectedCategory) =>
+        FromCategory(selectedCategory) == Logo ? "" : "Icons";
 }
 
 public static class QuizQuestionImage
@@ -77,6 +85,65 @@ public static class QuizQuestionImage
             throw new InvalidDataException("Question logo images must be PNG, JPG, JPEG, or BMP files.");
         return path;
     }
+
+    public static string Import(string sourcePath, string dataRoot)
+    {
+        var source = ValidatePath(sourcePath, allowEmpty: false);
+        if (string.IsNullOrWhiteSpace(dataRoot))
+            throw new ArgumentException("App data folder is required.", nameof(dataRoot));
+
+        var managedDirectory = ManagedDirectory(dataRoot);
+        Directory.CreateDirectory(managedDirectory);
+        if (IsManagedPath(source, dataRoot))
+            return source;
+
+        string hash;
+        using (var stream = File.OpenRead(source))
+            hash = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
+
+        var extension = Path.GetExtension(source).ToLowerInvariant();
+        var destination = Path.Combine(managedDirectory, hash + extension);
+        if (File.Exists(destination))
+            return destination;
+
+        var temporary = Path.Combine(managedDirectory, $".{hash}_{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.Copy(source, temporary, overwrite: false);
+            try
+            {
+                File.Move(temporary, destination, overwrite: false);
+            }
+            catch (IOException) when (File.Exists(destination))
+            {
+                // Another import of the same image completed first.
+            }
+        }
+        finally
+        {
+            if (File.Exists(temporary))
+                File.Delete(temporary);
+        }
+
+        return destination;
+    }
+
+    public static bool IsManagedPath(string? path, string dataRoot)
+    {
+        if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(dataRoot))
+            return false;
+
+        var fullPath = Path.GetFullPath(path.Trim());
+        var managedPrefix = ManagedDirectory(dataRoot)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var comparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        return fullPath.StartsWith(managedPrefix, comparison);
+    }
+
+    private static string ManagedDirectory(string dataRoot) =>
+        Path.GetFullPath(Path.Combine(dataRoot, "data", "quiz", "question-images"));
 }
 
 public sealed record QuizQuestionImportItem(
