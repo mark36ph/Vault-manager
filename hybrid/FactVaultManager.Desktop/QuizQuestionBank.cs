@@ -89,7 +89,8 @@ public sealed record QuizQuestionImportItem(
     string Explanation,
     string Category,
     string Difficulty,
-    string Source)
+    string Source,
+    string ImagePath = "")
 {
     public IReadOnlyList<string> Answers => [OptionA, OptionB, OptionC, OptionD];
 
@@ -192,6 +193,8 @@ public static class QuizQuestionImportParser
                 var explanation = OptionalText(element, ["explanation", "reason"], 2_000);
                 var category = OptionalText(element, ["category", "topic"], 100);
                 var difficulty = NormalizeDifficulty(OptionalText(element, ["difficulty", "level"], 50));
+                var imagePath = QuizQuestionImage.ValidatePath(
+                    OptionalText(element, ["image_path", "image", "logo_path"], 2_000));
                 var source = OptionalText(element, ["source"], 200);
                 if (source.Length == 0)
                     source = defaultSource.Trim();
@@ -205,7 +208,8 @@ public static class QuizQuestionImportParser
                     explanation,
                     category.Length == 0 ? "General Knowledge" : category,
                     difficulty,
-                    source);
+                    source,
+                    imagePath);
 
                 if (seenQuestions.Add(QuizQuestionDuplicateKey.Create(item.Question)))
                     results.Add(item);
@@ -233,7 +237,7 @@ public static class QuizQuestionImportParser
         var categoryRules = mixedCategories
             ? """
 - Assign every question one specific broad category that matches its subject.
-- Use a balanced mix from these stable category names: Science, History, Geography, Space, Nature & Animals, Technology, Arts & Literature, Music, Film, Sports, Entertainment, Mathematics, and General Knowledge.
+- Use a balanced mix from these stable category names: Science, History, Geography, Space, Nature & Animals, Technology, Arts & Literature, Music, Film, Icons, Sports, Entertainment, Mathematics, and General Knowledge.
 - Spread the batch across as many of those categories as practical; do not label most questions as General Knowledge when a more specific category applies.
 """
             : $"- Set the category field to '{category}' for every question.\n";

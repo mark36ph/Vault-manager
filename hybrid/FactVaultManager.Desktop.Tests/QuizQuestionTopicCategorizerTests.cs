@@ -15,6 +15,7 @@ public sealed class QuizQuestionTopicCategorizerTests
     [InlineData("Which gas is released during photosynthesis?", "Science")]
     [InlineData("Which composer wrote Symphony No. 5?", "Music")]
     [InlineData("Which film won the Academy Award for Best Picture?", "Film")]
+    [InlineData("Which company uses this logo?", "Icons")]
     [InlineData("Which television sitcom features the Bluth family?", "Entertainment")]
     [InlineData("The Great Fire of London occurred in which year?", "History")]
     public void Categorize_AssignsExpectedTopic(string question, string expected)
@@ -30,6 +31,7 @@ public sealed class QuizQuestionTopicCategorizerTests
         Assert.Contains("Arts & Literature", QuizQuestionTopicCategorizer.Categories);
         Assert.Contains("Music", QuizQuestionTopicCategorizer.Categories);
         Assert.Contains("Film", QuizQuestionTopicCategorizer.Categories);
+        Assert.Contains("Icons", QuizQuestionTopicCategorizer.Categories);
         Assert.Contains("Sports", QuizQuestionTopicCategorizer.Categories);
         Assert.Contains("Entertainment", QuizQuestionTopicCategorizer.Categories);
         Assert.DoesNotContain("Sport", QuizQuestionTopicCategorizer.Categories);
@@ -41,6 +43,8 @@ public sealed class QuizQuestionTopicCategorizerTests
     [InlineData("movies", "Film")]
     [InlineData("cinema", "Film")]
     [InlineData("film & tv", "Entertainment")]
+    [InlineData("logo", "Icons")]
+    [InlineData("icons", "Icons")]
     public void CategoryNormalizer_SeparatesFilmFromTelevision(string value, string expected)
     {
         Assert.Equal(expected, QuizQuestionCategoryNormalizer.Normalize(value));

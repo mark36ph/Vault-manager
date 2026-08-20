@@ -55,11 +55,11 @@ public sealed partial class DesktopDataService
                 INSERT OR IGNORE INTO quiz_questions(
                     question, option_a, option_b, option_c, option_d,
                     correct_index, explanation, category, difficulty,
-                    source, fingerprint, created, times_used)
+                    source, fingerprint, created, times_used, image_path)
                 VALUES(
                     $question, $a, $b, $c, $d,
                     $correct, $explanation, $category, $difficulty,
-                    $source, $fingerprint, $created, 0)
+                    $source, $fingerprint, $created, 0, $imagePath)
                 """;
             command.Parameters.AddWithValue("$question", question.Question);
             command.Parameters.AddWithValue("$a", question.OptionA);
@@ -73,6 +73,7 @@ public sealed partial class DesktopDataService
             command.Parameters.AddWithValue("$source", question.Source);
             command.Parameters.AddWithValue("$fingerprint", question.Fingerprint);
             command.Parameters.AddWithValue("$created", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
+            command.Parameters.AddWithValue("$imagePath", question.ImagePath);
             var added = command.ExecuteNonQuery();
             inserted += added;
             if (added > 0)

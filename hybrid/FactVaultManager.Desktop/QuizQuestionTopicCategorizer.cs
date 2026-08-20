@@ -6,6 +6,10 @@ public static class QuizQuestionTopicCategorizer
 
     private static readonly TopicRule[] Rules =
     [
+        new("Icons",
+        [
+            "logo", "logos", "icon", "icons", "brand logo", "company logo", "app icon",
+        ]),
         new("Space",
         [
             "solar system", "planet", "sun", "moon", "galaxy", "astronaut", "apollo",

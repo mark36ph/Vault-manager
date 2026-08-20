@@ -63,7 +63,7 @@ public partial class MainShellWindow
         {
             var picker = new OpenFileDialog
             {
-                Title = "Choose question logo image",
+                Title = "Choose question logo or icon image",
                 Filter = "Image files (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp",
                 CheckFileExists = true,
             };
@@ -110,7 +110,7 @@ public partial class MainShellWindow
         AddEditQuizField(form, 4, 2, 1, "DIFFICULTY", difficulty);
         AddEditQuizField(form, 5, 0, 3, "CATEGORY", category);
         AddEditQuizField(form, 6, 0, 3, "EXPLANATION", explanation);
-        AddEditQuizField(form, 7, 0, 3, "LOGO IMAGE (OPTIONAL — USED ONLY IN LOGO QUIZZES)", imageControls);
+        AddEditQuizField(form, 7, 0, 3, "LOGO / ICON IMAGE (OPTIONAL — USED ONLY IN LOGO QUIZZES)", imageControls);
 
         Grid.SetRow(enabled, 8);
         Grid.SetColumnSpan(enabled, 3);

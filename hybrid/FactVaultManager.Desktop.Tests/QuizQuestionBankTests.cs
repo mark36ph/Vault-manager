@@ -91,6 +91,41 @@ public sealed class QuizQuestionBankTests
     }
 
     [Fact]
+    public void Parse_PreservesQuestionLogoOrIconImagePath()
+    {
+        var imagePath = Path.Combine(Path.GetTempPath(), $"factvault-question-icon-{Guid.NewGuid():N}.png");
+        File.WriteAllBytes(imagePath, Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z2S8AAAAASUVORK5CYII="));
+
+        try
+        {
+            var json = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                questions = new[]
+                {
+                    new
+                    {
+                        question = "Which company uses this icon?",
+                        answers = new[] { "Company A", "Company B", "Company C", "Company D" },
+                        correct_answer = "B",
+                        category = "Icons",
+                        image_path = imagePath,
+                    },
+                },
+            });
+
+            var question = Assert.Single(QuizQuestionImportParser.Parse(json, "Manual entry"));
+
+            Assert.Equal(Path.GetFullPath(imagePath), question.ImagePath);
+            Assert.Equal("Icons", question.Category);
+        }
+        finally
+        {
+            File.Delete(imagePath);
+        }
+    }
+
+    [Fact]
     public void Fingerprint_NormalizesCaseAndWhitespace()
     {
         var first = QuizQuestionFingerprint.Create("  Biggest   planet? ", ["Earth", "Mars", "Jupiter", "Venus"]);

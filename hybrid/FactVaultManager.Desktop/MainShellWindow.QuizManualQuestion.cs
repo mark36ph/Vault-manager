@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
+using Microsoft.Win32;
 
 namespace FactVaultManager.Desktop;
 
@@ -14,6 +15,7 @@ public partial class MainShellWindow
     private TextBox? _manualQuizExplanationTextBox;
     private ComboBox? _manualQuizCategoryComboBox;
     private ComboBox? _manualQuizDifficultyComboBox;
+    private TextBox? _manualQuizImagePathTextBox;
     private bool _quizCategoryImportHooked;
     private bool _quizCategoryImportHadText;
 
@@ -200,7 +202,7 @@ public partial class MainShellWindow
         };
 
         var form = new Grid { MaxWidth = 900, HorizontalAlignment = HorizontalAlignment.Left };
-        for (var i = 0; i < 8; i++)
+        for (var i = 0; i < 9; i++)
             form.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         form.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         form.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
@@ -238,20 +240,67 @@ public partial class MainShellWindow
         };
         foreach (var category in QuizQuestionTopicCategorizer.Categories)
             _manualQuizCategoryComboBox.Items.Add(category);
-        _manualQuizCategoryComboBox.SelectedItem = "Miscellaneous";
+        _manualQuizCategoryComboBox.SelectedItem = "General Knowledge";
         AddManualQuizField(form, 4, 0, 3, "CATEGORY", _manualQuizCategoryComboBox);
 
         _manualQuizExplanationTextBox = ManualQuizTextBox(multiline: true);
         AddManualQuizField(form, 5, 0, 3, "EXPLANATION", _manualQuizExplanationTextBox);
 
+        var imagePathTextBox = ManualQuizTextBox();
+        imagePathTextBox.IsReadOnly = true;
+        _manualQuizImagePathTextBox = imagePathTextBox;
+        var imageControls = new Grid();
+        imageControls.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        imageControls.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        imageControls.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        imageControls.Children.Add(imagePathTextBox);
+
+        var browseImage = new Button
+        {
+            Content = "Browse...",
+            MinWidth = 86,
+            Margin = new Thickness(8, 0, 0, 0),
+        };
+        browseImage.Click += (_, _) =>
+        {
+            var picker = new OpenFileDialog
+            {
+                Title = "Choose question logo or icon image",
+                Filter = "Image files (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp",
+                CheckFileExists = true,
+            };
+            if (picker.ShowDialog(this) != true)
+                return;
+
+            imagePathTextBox.Text = picker.FileName;
+            if (string.IsNullOrWhiteSpace(_manualQuizCategoryComboBox.Text) ||
+                string.Equals(_manualQuizCategoryComboBox.Text, "General Knowledge", StringComparison.OrdinalIgnoreCase))
+            {
+                _manualQuizCategoryComboBox.SelectedItem = "Icons";
+            }
+        };
+        Grid.SetColumn(browseImage, 1);
+        imageControls.Children.Add(browseImage);
+
+        var clearImage = new Button
+        {
+            Content = "Clear",
+            MinWidth = 72,
+            Margin = new Thickness(8, 0, 0, 0),
+        };
+        clearImage.Click += (_, _) => imagePathTextBox.Clear();
+        Grid.SetColumn(clearImage, 2);
+        imageControls.Children.Add(clearImage);
+        AddManualQuizField(form, 6, 0, 3, "LOGO / ICON IMAGE (OPTIONAL)", imageControls);
+
         var help = new TextBlock
         {
-            Text = "Choose a topic category or leave it blank to categorize automatically. All four answers must be different. New questions start enabled with Times used = 0.",
+            Text = "Attach a logo or icon image to this question when needed. The permanent Factburst quiz logo is configured separately. All four answers must be different. New questions start enabled with Times used = 0.",
             Foreground = QuizMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 12),
         };
-        Grid.SetRow(help, 6);
+        Grid.SetRow(help, 7);
         Grid.SetColumnSpan(help, 3);
         form.Children.Add(help);
 
@@ -275,7 +324,7 @@ public partial class MainShellWindow
         };
         clear.Click += (_, _) => ClearManualQuizQuestionForm();
         actions.Children.Add(clear);
-        Grid.SetRow(actions, 7);
+        Grid.SetRow(actions, 8);
         Grid.SetColumnSpan(actions, 3);
         form.Children.Add(actions);
 
@@ -288,7 +337,8 @@ public partial class MainShellWindow
             _manualQuizCorrectAnswerComboBox is null ||
             _manualQuizExplanationTextBox is null ||
             _manualQuizCategoryComboBox is null ||
-            _manualQuizDifficultyComboBox is null)
+            _manualQuizDifficultyComboBox is null ||
+            _manualQuizImagePathTextBox is null)
             return;
 
         try
@@ -312,6 +362,7 @@ public partial class MainShellWindow
                         explanation,
                         category,
                         difficulty = _manualQuizDifficultyComboBox.SelectedItem?.ToString() ?? "medium",
+                        image_path = _manualQuizImagePathTextBox.Text.Trim(),
                     },
                 },
             });
@@ -416,9 +467,10 @@ public partial class MainShellWindow
         if (_manualQuizExplanationTextBox is not null)
             _manualQuizExplanationTextBox.Clear();
         if (_manualQuizCategoryComboBox is not null)
-            _manualQuizCategoryComboBox.SelectedItem = "Miscellaneous";
+            _manualQuizCategoryComboBox.SelectedItem = "General Knowledge";
         if (_manualQuizDifficultyComboBox is not null)
             _manualQuizDifficultyComboBox.SelectedIndex = 1;
+        _manualQuizImagePathTextBox?.Clear();
         _manualQuizQuestionTextBox?.Focus();
     }
 
