@@ -73,7 +73,7 @@ public static class QuizPreflight
                 {
                     QuizQuestionImage.ValidatePath(question.ImagePath, allowEmpty: false);
                 }
-                catch (Exception error) when (error is IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
+                catch (Exception error) when (error is InvalidDataException or IOException or UnauthorizedAccessException or NotSupportedException or ArgumentException)
                 {
                     issues.Add(new QuizPreflightIssue(
                         QuizPreflightSeverity.Error,
