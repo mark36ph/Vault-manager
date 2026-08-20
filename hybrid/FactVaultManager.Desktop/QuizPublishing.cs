@@ -20,6 +20,8 @@ public static class QuizPublishMetadataGenerator
     public const int MaxDescriptionLength = 5_000;
     public const int MaxHashtagsLength = 500;
     public const int MaxPinnedCommentLength = 10_000;
+    public const string LogoQuizDisclaimer =
+        "Company logos shown in this quiz remain the property of their respective owners and are used solely for identification and educational quiz purposes. Factburst Quiz is not affiliated with or endorsed by the featured companies.";
 
     public static string SuggestSeriesName(string? selectedCategory)
     {
@@ -56,11 +58,18 @@ public static class QuizPublishMetadataGenerator
         return titleText.Contains(series, StringComparison.OrdinalIgnoreCase);
     }
 
+    public static bool DescriptionMatchesQuizType(string? description, bool logoQuiz)
+    {
+        var hasLogoDisclaimer = (description ?? "").Contains(LogoQuizDisclaimer, StringComparison.Ordinal);
+        return hasLogoDisclaimer == logoQuiz;
+    }
+
     public static QuizPublishMetadata Generate(
         string? seriesName,
         int episodeNumber,
         IReadOnlyList<QuizQuestion> questions,
-        bool vertical)
+        bool vertical,
+        bool logoQuiz = false)
     {
         ArgumentNullException.ThrowIfNull(questions);
         if (questions.Count == 0)
@@ -81,10 +90,12 @@ public static class QuizPublishMetadataGenerator
         var title = Limit($"Can You Get {perfectScore}? | {series} {episode}", MaxTitleLength);
 
         var hashtags = BuildHashtags(series, categories, vertical);
+        var logoDisclaimer = logoQuiz ? LogoQuizDisclaimer + "\n\n" : "";
         var description = Limit(
             $"Test your knowledge with {questions.Count} questions in {series} {episode}.\n\n" +
             "Keep track of your score as you go, then share your result in the comments.\n\n" +
             $"Can you get {perfectScore}?\n\n" +
+            logoDisclaimer +
             hashtags,
             MaxDescriptionLength);
         var pinned = Limit(

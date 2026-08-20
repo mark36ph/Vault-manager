@@ -428,7 +428,12 @@ public partial class MainShellWindow
             if (!int.TryParse((_quizEpisodeTextBox?.Text ?? "").Trim(), out var episode))
                 throw new ArgumentException("Episode number must be a whole number from 1 to 9999.");
             var vertical = _quizFormatComboBox?.SelectedIndex == 1;
-            var metadata = QuizPublishMetadataGenerator.Generate(series, episode, _quizDraftQuestions, vertical);
+            var metadata = QuizPublishMetadataGenerator.Generate(
+                series,
+                episode,
+                _quizDraftQuestions,
+                vertical,
+                logoQuiz: IsLogoQuizSelected());
             var previousResolveTitle = (_quizTitleTextBox?.Text ?? "").Trim();
             ApplyQuizPublishingMetadata(metadata);
             if (_quizTitleTextBox is not null &&
@@ -471,10 +476,18 @@ public partial class MainShellWindow
         if (seriesChanged ||
             !titleMatchesSeries ||
             string.IsNullOrWhiteSpace(_quizYouTubeDescriptionTextBox?.Text) ||
+            !QuizPublishMetadataGenerator.DescriptionMatchesQuizType(
+                _quizYouTubeDescriptionTextBox?.Text,
+                IsLogoQuizSelected()) ||
             string.IsNullOrWhiteSpace(_quizHashtagsTextBox?.Text) ||
             string.IsNullOrWhiteSpace(_quizPinnedCommentTextBox?.Text))
         {
-            var generated = QuizPublishMetadataGenerator.Generate(series, episode, questions, vertical);
+            var generated = QuizPublishMetadataGenerator.Generate(
+                series,
+                episode,
+                questions,
+                vertical,
+                logoQuiz: IsLogoQuizSelected());
             ApplyQuizPublishingMetadata(generated);
             if (_quizTitleTextBox is not null &&
                 !QuizPublishMetadataGenerator.TitleMatchesSeries(_quizTitleTextBox.Text, series))

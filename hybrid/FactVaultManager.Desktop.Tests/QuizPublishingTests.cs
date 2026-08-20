@@ -67,6 +67,25 @@ public sealed class QuizPublishingTests
         Assert.Equal("#Quiz #Trivia #GeneralKnowledge", metadata.Hashtags);
         Assert.DoesNotContain("Categories:", metadata.Description);
         Assert.EndsWith("#Quiz #Trivia #GeneralKnowledge", metadata.Description);
+        Assert.DoesNotContain(QuizPublishMetadataGenerator.LogoQuizDisclaimer, metadata.Description);
+    }
+
+    [Fact]
+    public void Generate_LogoQuizAddsRightsNoticeBeforeHashtags()
+    {
+        var metadata = QuizPublishMetadataGenerator.Generate(
+            "Logo Quiz",
+            1,
+            [Question(1, "General Knowledge")],
+            vertical: false,
+            logoQuiz: true);
+
+        Assert.Contains(QuizPublishMetadataGenerator.LogoQuizDisclaimer, metadata.Description);
+        Assert.True(
+            metadata.Description.IndexOf(QuizPublishMetadataGenerator.LogoQuizDisclaimer, StringComparison.Ordinal) <
+            metadata.Description.IndexOf(metadata.Hashtags, StringComparison.Ordinal));
+        Assert.True(QuizPublishMetadataGenerator.DescriptionMatchesQuizType(metadata.Description, logoQuiz: true));
+        Assert.False(QuizPublishMetadataGenerator.DescriptionMatchesQuizType(metadata.Description, logoQuiz: false));
     }
 
     [Fact]
