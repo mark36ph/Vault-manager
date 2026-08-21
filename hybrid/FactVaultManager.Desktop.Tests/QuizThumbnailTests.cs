@@ -78,6 +78,13 @@ public sealed class QuizThumbnailTests
     }
 
     [Fact]
+    public void Renderer_BrandLabelDoesNotIncludeEpisodeNumber()
+    {
+        Assert.Equal("FACTBURST QUIZ", QuizThumbnailRenderer.BrandLabel());
+        Assert.DoesNotContain("#", QuizThumbnailRenderer.BrandLabel());
+    }
+
+    [Fact]
     public void Checklist_ShowsRequestedPublishingItemsAndPostExportStates()
     {
         var beforeExport = QuizPublishChecklist.Evaluate(
