@@ -289,7 +289,7 @@ public partial class MainShellWindow
         });
         _quizSearchTextBox = new TextBox
         {
-            ToolTip = "Search question text, category, answer, or explanation",
+            ToolTip = "Search by question number, question text, or category",
             MinWidth = 260,
             VerticalContentAlignment = VerticalAlignment.Center,
         };

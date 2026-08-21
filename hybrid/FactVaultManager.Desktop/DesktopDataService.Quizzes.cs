@@ -100,6 +100,7 @@ public sealed partial class DesktopDataService
         EnsureQuizSchema();
         limit = Math.Clamp(limit, 1, 10_000);
         search = (search ?? "").Trim();
+        var searchId = QuizQuestionSearch.ExactId(search) ?? -1;
         category = NormalizeQuizFilter(category);
         difficulty = NormalizeQuizFilter(difficulty);
         excludeCategory = NormalizeQuizFilter(excludeCategory);
@@ -110,7 +111,7 @@ public sealed partial class DesktopDataService
             SELECT id, question, option_a, option_b, option_c, option_d,
                    correct_index, explanation, category, difficulty, source, times_used, enabled, image_path
             FROM quiz_questions
-            WHERE ($search = '' OR question LIKE $searchLike OR category LIKE $searchLike)
+            WHERE ($search = '' OR id = $searchId OR question LIKE $searchLike OR category LIKE $searchLike)
               AND ($category = '' OR category = $category COLLATE NOCASE)
               AND ($difficulty = '' OR difficulty = $difficulty COLLATE NOCASE)
               AND ($enabledOnly = 0 OR enabled <> 0)
@@ -120,6 +121,7 @@ public sealed partial class DesktopDataService
             LIMIT $limit
             """;
         command.Parameters.AddWithValue("$search", search);
+        command.Parameters.AddWithValue("$searchId", searchId);
         command.Parameters.AddWithValue("$searchLike", $"%{EscapeLike(search)}%");
         command.Parameters.AddWithValue("$category", category);
         command.Parameters.AddWithValue("$difficulty", difficulty);
@@ -404,4 +406,18 @@ public sealed partial class DesktopDataService
         .Replace("[", "[[]", StringComparison.Ordinal)
         .Replace("%", "[%]", StringComparison.Ordinal)
         .Replace("_", "[_]", StringComparison.Ordinal);
+}
+
+internal static class QuizQuestionSearch
+{
+    public static int? ExactId(string? search)
+    {
+        var value = (search ?? "").Trim();
+        if (value.StartsWith("#", StringComparison.Ordinal))
+            value = value[1..].Trim();
+        else if (value.StartsWith("No.", StringComparison.OrdinalIgnoreCase))
+            value = value[3..].Trim();
+
+        return int.TryParse(value, out var id) && id > 0 ? id : null;
+    }
 }

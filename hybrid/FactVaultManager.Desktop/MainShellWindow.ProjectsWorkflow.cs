@@ -33,6 +33,7 @@ public partial class MainShellWindow
         InitializeQuizWorkflow();
         InitializeQuizQuestionBankPage();
         InitializeQuizHistoryPage();
+        InitializeQuizNotesPage();
         InitializeQuizDraftEditor();
         InitializeQuizRotationWorkflow();
         InitializeQuizExportWorkflow();
