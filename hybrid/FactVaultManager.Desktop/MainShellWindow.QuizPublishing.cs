@@ -8,6 +8,7 @@ public partial class MainShellWindow
 {
     private ComboBox? _quizSeriesComboBox;
     private TextBox? _quizEpisodeTextBox;
+    private ComboBox? _quizPublishingFormatComboBox;
     private TextBox? _quizYouTubeTitleTextBox;
     private TextBox? _quizFullYouTubeUrlTextBox;
     private TextBox? _quizYouTubeDescriptionTextBox;
@@ -129,6 +130,26 @@ public partial class MainShellWindow
             Margin = new Thickness(0, 3, 0, 10),
             TextWrapping = TextWrapping.Wrap,
         });
+
+        metadataStack.Children.Add(PublishingLabel("VIDEO FORMAT"));
+        var publishingFormatComboBox = new ComboBox { MinHeight = 34 };
+        publishingFormatComboBox.Items.Add("YouTube 16:9 (1920x1080)");
+        publishingFormatComboBox.Items.Add("Shorts 9:16 (1080x1920)");
+        publishingFormatComboBox.SelectedIndex = _quizFormatComboBox?.SelectedIndex == 1 ? 1 : 0;
+        publishingFormatComboBox.SelectionChanged += (_, _) =>
+        {
+            if (_quizFormatComboBox is not null &&
+                _quizFormatComboBox.SelectedIndex != publishingFormatComboBox.SelectedIndex)
+            {
+                _quizFormatComboBox.SelectedIndex = publishingFormatComboBox.SelectedIndex;
+            }
+
+            InvalidateQuizThumbnailPreview();
+            InvalidateQuizPublishingExportCompletion();
+            UpdateQuizPublishingChecklist();
+        };
+        _quizPublishingFormatComboBox = publishingFormatComboBox;
+        metadataStack.Children.Add(publishingFormatComboBox);
 
         metadataStack.Children.Add(PublishingLabel("YOUTUBE TITLE"));
         _quizYouTubeTitleTextBox = new TextBox { MinHeight = 34 };
@@ -337,6 +358,13 @@ public partial class MainShellWindow
 
     private void RefreshQuizPublishingPage()
     {
+        if (_quizPublishingFormatComboBox is not null)
+        {
+            var formatIndex = _quizFormatComboBox?.SelectedIndex == 1 ? 1 : 0;
+            if (_quizPublishingFormatComboBox.SelectedIndex != formatIndex)
+                _quizPublishingFormatComboBox.SelectedIndex = formatIndex;
+        }
+
         RefreshQuizPublishingSeries();
         SyncQuizCategorySeriesName();
         _quizThumbnailPreviewCurrent = false;
