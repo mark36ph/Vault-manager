@@ -6,6 +6,20 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class QuizThemedCardRendererTests
 {
     [Fact]
+    public void QuestionCounter_HasComfortablePaddingInBothLayouts()
+    {
+        var vertical = QuizThemedCardRenderer.QuestionBadgeLayout(vertical: true);
+        var landscape = QuizThemedCardRenderer.QuestionBadgeLayout(vertical: false);
+
+        Assert.Equal(220, vertical.Width);
+        Assert.Equal(80, vertical.Height);
+        Assert.Equal(new System.Windows.Thickness(24, 10, 24, 10), vertical.Padding);
+        Assert.Equal(210, landscape.Width);
+        Assert.Equal(90, landscape.Height);
+        Assert.Equal(new System.Windows.Thickness(18, 6, 18, 6), landscape.Padding);
+    }
+
+    [Fact]
     public void LongQuestionText_ScalesDownToFitLandscapePanel()
     {
         Exception? renderError = null;
