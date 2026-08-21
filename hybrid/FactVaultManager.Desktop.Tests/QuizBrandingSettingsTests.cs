@@ -142,4 +142,84 @@ public sealed class QuizBrandingSettingsTests
                 Directory.Delete(root, recursive: true);
         }
     }
+    [Fact]
+    public void LoadManagedLogoPath_RecoversImportedLogoWhenSettingIsBlank()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "FactVaultManagerTests", Guid.NewGuid().ToString("N"));
+        var settingsPath = Path.Combine(root, "data", "settings.json");
+        var managedPath = Path.Combine(root, "data", "quiz", "branding", "quiz_logo.png");
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(managedPath)!);
+            File.WriteAllBytes(managedPath, [0x89, 0x50, 0x4E, 0x47]);
+            Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
+            File.WriteAllText(settingsPath, "{\"quiz\":{\"logo_path\":\"\"}}");
+
+            var loaded = QuizBranding.LoadManagedLogoPath(settingsPath, root, root);
+
+            Assert.Equal(Path.GetFullPath(managedPath), loaded);
+            var settings = JsonNode.Parse(File.ReadAllText(settingsPath)) as JsonObject;
+            Assert.Equal(
+                Path.GetFullPath(managedPath),
+                settings?["quiz"]?["logo_path"]?.GetValue<string>());
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void LoadManagedLogoPath_ImportsExternalLogoAndSurvivesSourceDeletion()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "FactVaultManagerTests", Guid.NewGuid().ToString("N"));
+        var settingsPath = Path.Combine(root, "data", "settings.json");
+        var sourcePath = Path.Combine(root, "source", "factburst.png");
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(sourcePath)!);
+            File.WriteAllBytes(sourcePath, [0x89, 0x50, 0x4E, 0x47]);
+            QuizBranding.SaveLogoPath(settingsPath, sourcePath);
+
+            var managedPath = QuizBranding.LoadManagedLogoPath(settingsPath, root, root);
+            File.Delete(sourcePath);
+
+            Assert.True(File.Exists(managedPath));
+            Assert.Equal(
+                Path.GetFullPath(Path.Combine(root, "data", "quiz", "branding", "quiz_logo.png")),
+                managedPath);
+            Assert.Equal(managedPath, QuizBranding.LoadManagedLogoPath(settingsPath, root, root));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void DeleteManagedLogos_RemovesStoredAppCopy()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "FactVaultManagerTests", Guid.NewGuid().ToString("N"));
+        var managedPath = Path.Combine(root, "data", "quiz", "branding", "quiz_logo.png");
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(managedPath)!);
+            File.WriteAllBytes(managedPath, [0x89, 0x50, 0x4E, 0x47]);
+
+            QuizBranding.DeleteManagedLogos(root);
+
+            Assert.False(File.Exists(managedPath));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
 }
