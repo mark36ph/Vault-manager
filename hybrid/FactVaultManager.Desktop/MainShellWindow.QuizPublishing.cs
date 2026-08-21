@@ -9,6 +9,7 @@ public partial class MainShellWindow
     private ComboBox? _quizSeriesComboBox;
     private TextBox? _quizEpisodeTextBox;
     private TextBox? _quizYouTubeTitleTextBox;
+    private TextBox? _quizFullYouTubeUrlTextBox;
     private TextBox? _quizYouTubeDescriptionTextBox;
     private TextBox? _quizHashtagsTextBox;
     private TextBox? _quizPinnedCommentTextBox;
@@ -132,6 +133,14 @@ public partial class MainShellWindow
         metadataStack.Children.Add(PublishingLabel("YOUTUBE TITLE"));
         _quizYouTubeTitleTextBox = new TextBox { MinHeight = 34 };
         metadataStack.Children.Add(_quizYouTubeTitleTextBox);
+
+        metadataStack.Children.Add(PublishingLabel("FULL QUIZ YOUTUBE URL (SHORTS ONLY)"));
+        _quizFullYouTubeUrlTextBox = new TextBox
+        {
+            MinHeight = 34,
+            ToolTip = "For Shorts, paste the matching full quiz YouTube video URL",
+        };
+        metadataStack.Children.Add(_quizFullYouTubeUrlTextBox);
 
         metadataStack.Children.Add(PublishingLabel("DESCRIPTION"));
         _quizYouTubeDescriptionTextBox = PublishingMultilineBox(150);
@@ -433,7 +442,8 @@ public partial class MainShellWindow
                 episode,
                 _quizDraftQuestions,
                 vertical,
-                logoQuiz: IsLogoQuizSelected());
+                logoQuiz: IsLogoQuizSelected(),
+                fullQuizUrl: _quizFullYouTubeUrlTextBox?.Text);
             var previousResolveTitle = (_quizTitleTextBox?.Text ?? "").Trim();
             ApplyQuizPublishingMetadata(metadata);
             if (_quizTitleTextBox is not null &&
@@ -479,6 +489,10 @@ public partial class MainShellWindow
             !QuizPublishMetadataGenerator.DescriptionMatchesQuizType(
                 _quizYouTubeDescriptionTextBox?.Text,
                 IsLogoQuizSelected()) ||
+            !QuizPublishMetadataGenerator.DescriptionMatchesFormat(
+                _quizYouTubeDescriptionTextBox?.Text,
+                vertical,
+                _quizFullYouTubeUrlTextBox?.Text) ||
             string.IsNullOrWhiteSpace(_quizHashtagsTextBox?.Text) ||
             string.IsNullOrWhiteSpace(_quizPinnedCommentTextBox?.Text))
         {
@@ -487,7 +501,8 @@ public partial class MainShellWindow
                 episode,
                 questions,
                 vertical,
-                logoQuiz: IsLogoQuizSelected());
+                logoQuiz: IsLogoQuizSelected(),
+                fullQuizUrl: _quizFullYouTubeUrlTextBox?.Text);
             ApplyQuizPublishingMetadata(generated);
             if (_quizTitleTextBox is not null &&
                 !QuizPublishMetadataGenerator.TitleMatchesSeries(_quizTitleTextBox.Text, series))
