@@ -365,9 +365,9 @@ public partial class MainShellWindow
         try
         {
             var path = QuizBranding.ValidateLogoPath(dialog.FileName);
-            _data.SaveQuizLogoPath(path);
+            var managedPath = _data.ImportQuizLogo(path);
             if (_quizLogoPathTextBox is not null)
-                _quizLogoPathTextBox.Text = path;
+                _quizLogoPathTextBox.Text = managedPath;
             InvalidateQuizThumbnailPreview();
             InvalidateQuizPublishingExportCompletion();
             UpdateQuizPublishingChecklist();
