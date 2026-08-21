@@ -49,6 +49,15 @@ public partial class MainShellWindow
             .OrderBy(Grid.GetRow)
             .ToArray();
 
+        if (appendedCards.Length < 2 && oldWorkspace is not null)
+        {
+            appendedCards = oldWorkspace.Children
+                .OfType<Border>()
+                .Where(card => !ReferenceEquals(card, draftCard))
+                .OrderBy(Grid.GetRow)
+                .ToArray();
+        }
+
         if (settingsCard is null || oldWorkspace is null || appendedCards.Length < 2)
             return;
 
