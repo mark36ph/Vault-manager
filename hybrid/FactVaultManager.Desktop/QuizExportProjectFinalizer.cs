@@ -5,6 +5,17 @@ namespace FactVaultManager.Desktop;
 
 public sealed record QuizFinalizedProject(string ProjectFolder, string QuizJson);
 
+public static class QuizExportFolderNaming
+{
+    public static string BaseName(string title, bool vertical)
+    {
+        var name = (title ?? "").Trim();
+        if (name.Length == 0)
+            throw new ArgumentException("Quiz title is required.", nameof(title));
+        return vertical ? $"{name} - Short" : name;
+    }
+}
+
 public static class QuizExportProjectFinalizer
 {
     public static QuizFinalizedProject Prepare(QuizVideoBuildResult build)

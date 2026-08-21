@@ -2,6 +2,33 @@ namespace FactVaultManager.Desktop.Tests;
 
 public sealed class QuizExportProjectFinalizerTests
 {
+    [Theory]
+    [InlineData(false, "History Quiz")]
+    [InlineData(true, "History Quiz - Short")]
+    public void ExportFolderName_LabelsShortsWithoutChangingVideoNames(bool vertical, string expected)
+    {
+        Assert.Equal(expected, QuizExportFolderNaming.BaseName("History Quiz", vertical));
+    }
+
+    [Fact]
+    public void Prepare_KeepsShortLabelInFinalNumberedFolder()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"quiz-finalize-{Guid.NewGuid():N}");
+        try
+        {
+            var folderName = QuizExportFolderNaming.BaseName("History Quiz", vertical: true);
+
+            var finalized = QuizExportProjectFinalizer.Prepare(CreateBuild(root, folderName));
+
+            Assert.EndsWith("History Quiz - Short - 001", finalized.ProjectFolder, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact]
     public void Prepare_MovesExportToUniqueFolderAndRenamesStillsWithoutFrameNumbers()
     {

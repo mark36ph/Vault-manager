@@ -77,12 +77,13 @@ public sealed class NativeQuizVideoBuilder
         projectsRoot = Path.GetFullPath(projectsRoot.Trim());
         Directory.CreateDirectory(projectsRoot);
         var safeTitle = ProjectPathSecurity.ValidateSegment(options.Title, "Quiz title");
+        var exportFolderName = QuizExportFolderNaming.BaseName(safeTitle, options.Vertical);
         var quizRoot = ProjectPathSecurity.CombineContained(projectsRoot, "Quizzes");
-        var projectFolder = ProjectPathSecurity.CombineContained(projectsRoot, "Quizzes", safeTitle);
+        var projectFolder = ProjectPathSecurity.CombineContained(projectsRoot, "Quizzes", exportFolderName);
         Directory.CreateDirectory(quizRoot);
         Directory.CreateDirectory(projectFolder);
 
-        var cardsFolder = ProjectPathSecurity.CombineContained(projectsRoot, "Quizzes", safeTitle, "Cards");
+        var cardsFolder = ProjectPathSecurity.CombineContained(projectsRoot, "Quizzes", exportFolderName, "Cards");
         if (Directory.Exists(cardsFolder))
             Directory.Delete(cardsFolder, recursive: true);
         Directory.CreateDirectory(cardsFolder);

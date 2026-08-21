@@ -488,9 +488,10 @@ public partial class MainShellWindow
                     return;
             }
 
-            var quizFolder = ProjectPathSecurity.CombineContained(settings.ProjectsFolder, "Quizzes", title);
-            var voiceFolder = ProjectPathSecurity.CombineContained(settings.ProjectsFolder, "Quizzes", title, "Voice");
-            var audioFolder = ProjectPathSecurity.CombineContained(settings.ProjectsFolder, "Quizzes", title, "Audio");
+            var exportFolderName = QuizExportFolderNaming.BaseName(title, vertical);
+            var quizFolder = ProjectPathSecurity.CombineContained(settings.ProjectsFolder, "Quizzes", exportFolderName);
+            var voiceFolder = ProjectPathSecurity.CombineContained(settings.ProjectsFolder, "Quizzes", exportFolderName, "Voice");
+            var audioFolder = ProjectPathSecurity.CombineContained(settings.ProjectsFolder, "Quizzes", exportFolderName, "Audio");
             Directory.CreateDirectory(quizFolder);
 
             IReadOnlyDictionary<int, QuizNarrationAsset> narrationByQuestion = new Dictionary<int, QuizNarrationAsset>();
