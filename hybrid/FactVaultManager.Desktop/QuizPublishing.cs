@@ -20,6 +20,7 @@ public static class QuizPublishMetadataGenerator
     public const int MaxDescriptionLength = 5_000;
     public const int MaxHashtagsLength = 500;
     public const int MaxPinnedCommentLength = 10_000;
+    public const string FullQuizLinkPrompt = "To try the full quiz, go to this URL:";
     public const string LogoQuizDisclaimer =
         "Company logos shown in this quiz remain the property of their respective owners and are used solely for identification and educational quiz purposes. Factburst Quiz is not affiliated with or endorsed by the featured companies.";
 
@@ -64,12 +65,23 @@ public static class QuizPublishMetadataGenerator
         return hasLogoDisclaimer == logoQuiz;
     }
 
+    public static bool DescriptionMatchesFormat(string? description, bool vertical, string? fullQuizUrl)
+    {
+        var text = description ?? "";
+        if (!vertical)
+            return !text.Contains(FullQuizLinkPrompt, StringComparison.Ordinal);
+
+        var url = NormalizeFullQuizUrl(fullQuizUrl);
+        return text.Contains($"{FullQuizLinkPrompt} {url}", StringComparison.Ordinal);
+    }
+
     public static QuizPublishMetadata Generate(
         string? seriesName,
         int episodeNumber,
         IReadOnlyList<QuizQuestion> questions,
         bool vertical,
-        bool logoQuiz = false)
+        bool logoQuiz = false,
+        string? fullQuizUrl = null)
     {
         ArgumentNullException.ThrowIfNull(questions);
         if (questions.Count == 0)
@@ -90,11 +102,15 @@ public static class QuizPublishMetadataGenerator
         var title = Limit($"Can You Get {perfectScore}? | {series} {episode}", MaxTitleLength);
 
         var hashtags = BuildHashtags(series, categories, vertical);
+        var fullQuizLink = vertical
+            ? $"{FullQuizLinkPrompt} {NormalizeFullQuizUrl(fullQuizUrl)}\n\n"
+            : "";
         var logoDisclaimer = logoQuiz ? LogoQuizDisclaimer + "\n\n" : "";
         var description = Limit(
             $"Test your knowledge with {questions.Count} questions in {series} {episode}.\n\n" +
             "Keep track of your score as you go, then share your result in the comments.\n\n" +
             $"Can you get {perfectScore}?\n\n" +
+            fullQuizLink +
             logoDisclaimer +
             hashtags,
             MaxDescriptionLength);
@@ -129,6 +145,14 @@ public static class QuizPublishMetadataGenerator
         if (text.Length > 100)
             throw new ArgumentException("Quiz series name must be 100 characters or fewer.", nameof(value));
         return text;
+    }
+
+    public static string NormalizeFullQuizUrl(string? value)
+    {
+        var url = QuizYouTubePublication.NormalizeUrl(value);
+        if (url.Length == 0)
+            throw new ArgumentException("Enter the full quiz YouTube URL for this Short.", nameof(value));
+        return url;
     }
 
     private static void ValidateEpisode(int episodeNumber)
