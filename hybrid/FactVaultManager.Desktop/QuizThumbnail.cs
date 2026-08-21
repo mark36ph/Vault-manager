@@ -71,6 +71,8 @@ public sealed class QuizThumbnailRenderer
     public static string QuestionCountLabel(int count) =>
         $"{count} {(count == 1 ? "QUESTION" : "QUESTIONS")}";
 
+    public static string BrandLabel() => "FACTBURST QUIZ";
+
     public BitmapSource RenderPreview(
         QuizPublishMetadata metadata,
         IReadOnlyList<QuizQuestion> questions,
@@ -206,7 +208,7 @@ public sealed class QuizThumbnailRenderer
         };
         eyebrow.Child = new TextBlock
         {
-            Text = $"FACTBURST QUIZ  •  {metadata.EpisodeLabel}",
+            Text = BrandLabel(),
             Foreground = Brushes.White,
             FontSize = 25,
             FontWeight = FontWeights.Bold,
@@ -410,7 +412,7 @@ public sealed class QuizThumbnailRenderer
             Effect = Glow(theme.Accent, 22, 0.7),
             Child = new TextBlock
             {
-                Text = $"FACTBURST QUIZ  •  {metadata.EpisodeLabel}",
+                Text = BrandLabel(),
                 Foreground = Brushes.White,
                 FontSize = 34,
                 FontWeight = FontWeights.Bold,
