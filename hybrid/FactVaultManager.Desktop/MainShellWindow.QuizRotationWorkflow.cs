@@ -156,6 +156,7 @@ public partial class MainShellWindow
             }
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Quiz draft built with rotation rules";
+            SelectQuizWorkspacePage("draft");
         }
         catch (Exception error)
         {
