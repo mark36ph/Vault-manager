@@ -133,15 +133,18 @@ public partial class MainShellWindow
             "Draft",
             "Review the selected questions, change their order, replace or remove questions, and control answer shuffling.",
             draftCard,
-            draftControlsCard);
+            draftControlsCard,
+            BuildQuizWorkflowContinueButton("preview", "Continue to Preview"));
         _quizWorkspacePages["preview"] = BuildQuizWorkspacePage(
             "Preview",
             "Preview the actual quiz cards, choose a visual theme, position the logo, save presets, and run layout preflight checks.",
-            BuildQuizPreviewPanel());
+            BuildQuizPreviewPanel(),
+            BuildQuizWorkflowContinueButton("publish", "Continue to Publish"));
         _quizWorkspacePages["publish"] = BuildQuizWorkspacePage(
             "Publish",
             "Manage quiz series and episode numbering, then prepare editable YouTube title, description, hashtags, and pinned-comment metadata.",
-            BuildQuizPublishingPanel());
+            BuildQuizPublishingPanel(),
+            BuildQuizWorkflowContinueButton("export", "Continue to Export"));
         _quizWorkspacePages["export"] = BuildQuizWorkspacePage(
             "Export",
             "Configure Resolve format, quiz branding, presentation, narration, sound effects, and background music.",
@@ -192,6 +195,58 @@ public partial class MainShellWindow
             RefreshQuizPreview();
         else if (string.Equals(key, "publish", StringComparison.OrdinalIgnoreCase))
             RefreshQuizPublishingPage();
+    }
+
+    private FrameworkElement BuildQuizWorkflowContinueButton(string nextPageKey, string label)
+    {
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 14, 0, 0),
+        };
+        var next = new Button
+        {
+            Content = label,
+            MinHeight = 36,
+            Padding = new Thickness(16, 0, 16, 0),
+            Background = new SolidColorBrush(Color.FromRgb(15, 108, 189)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(15, 108, 189)),
+            Foreground = Brushes.White,
+            FontWeight = FontWeights.SemiBold,
+        };
+        next.Click += (_, _) => ContinueQuizWorkflow(nextPageKey);
+        actions.Children.Add(next);
+        return actions;
+    }
+
+    private void ContinueQuizWorkflow(string nextPageKey)
+    {
+        if (_quizDraftQuestions.Count == 0)
+        {
+            MessageBox.Show(
+                this,
+                "Build a quiz draft before continuing.",
+                "Quiz Workflow",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            SelectQuizWorkspacePage("builder");
+            return;
+        }
+
+        if (string.Equals(nextPageKey, "export", StringComparison.OrdinalIgnoreCase) &&
+            !TryValidateCurrentQuizPublishingMetadata())
+        {
+            MessageBox.Show(
+                this,
+                "Generate valid publishing metadata before continuing to Export.",
+                "Quiz Workflow",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        SelectQuizWorkspacePage(nextPageKey);
     }
 
     private static FrameworkElement BuildQuizWorkspacePage(
