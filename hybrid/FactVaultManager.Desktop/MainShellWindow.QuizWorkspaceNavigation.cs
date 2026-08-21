@@ -24,8 +24,14 @@ public partial class MainShellWindow
         if (_quizWorkspaceNavigationInitialized ||
             _quizTabIndex < 0 ||
             _quizTabIndex >= MainTabs.Items.Count ||
-            MainTabs.Items[_quizTabIndex] is not TabItem quizTab ||
-            quizTab.Content is not Grid root ||
+            MainTabs.Items[_quizTabIndex] is not TabItem quizTab)
+        {
+            return;
+        }
+
+        var outerScrollViewer = quizTab.Content as ScrollViewer;
+        var root = quizTab.Content as Grid ?? outerScrollViewer?.Content as Grid;
+        if (root is null ||
             _quizDraftGrid?.Parent is not Grid draft ||
             draft.Parent is not Border draftCard)
         {
@@ -45,6 +51,13 @@ public partial class MainShellWindow
 
         if (settingsCard is null || oldWorkspace is null || appendedCards.Length < 2)
             return;
+
+        if (outerScrollViewer is not null)
+        {
+            outerScrollViewer.Content = null;
+            quizTab.Content = null;
+            quizTab.Content = root;
+        }
 
         var draftControlsCard = appendedCards[0];
         var exportCard = appendedCards[^1];
