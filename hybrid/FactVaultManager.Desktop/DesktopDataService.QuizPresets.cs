@@ -78,6 +78,18 @@ public sealed record QuizPreset
     }
 }
 
+internal static class QuizPresetBranding
+{
+    public static string ResolveLogoPath(string? currentLogoPath, string? presetLogoPath)
+    {
+        var current = (currentLogoPath ?? "").Trim();
+        var preset = (presetLogoPath ?? "").Trim();
+        return preset.Length > 0 && File.Exists(preset)
+            ? Path.GetFullPath(preset)
+            : current;
+    }
+}
+
 public sealed partial class DesktopDataService
 {
     public IReadOnlyList<QuizPreset> LoadQuizPresets()
