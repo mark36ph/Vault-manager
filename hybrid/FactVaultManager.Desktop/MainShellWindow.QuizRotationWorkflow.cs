@@ -21,6 +21,14 @@ public partial class MainShellWindow
         if (pickButton?.Parent is not Grid settings)
             return;
 
+        InitializeQuizRotationWorkflow(settings, pickButton);
+    }
+
+    private void InitializeQuizRotationWorkflow(Grid settings, Button pickButton)
+    {
+        if (_quizRotationWorkflowInitialized)
+            return;
+
         _quizRotationWorkflowInitialized = true;
         pickButton.Click -= PickRandomQuizQuestions_Click;
         pickButton.Click += PickSmartQuizQuestions_Click;

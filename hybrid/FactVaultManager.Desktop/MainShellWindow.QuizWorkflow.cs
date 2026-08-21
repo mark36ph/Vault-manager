@@ -148,6 +148,7 @@ public partial class MainShellWindow
         pickRandom.Click += PickRandomQuizQuestions_Click;
         Grid.SetColumn(pickRandom, 8);
         settings.Children.Add(pickRandom);
+        InitializeQuizRotationWorkflow(settings, pickRandom);
 
         var workspace = new Grid();
         workspace.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(3, GridUnitType.Star) });
