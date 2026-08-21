@@ -9,7 +9,7 @@ public sealed record QuizResolveExportPreferences(
     bool AnimateReveal = true,
     bool Narrate = true,
     bool NarrateAnswers = false,
-    string Voice = "alloy",
+    string Voice = QuizVoiceCatalog.DefaultVoice,
     bool CountdownTicks = true,
     bool AnswerRevealSfx = true,
     bool UseBackgroundMusic = false,
@@ -19,7 +19,7 @@ public sealed record QuizResolveExportPreferences(
     {
         var voice = QuizVoiceCatalog.BuiltInVoices.Contains(Voice, StringComparer.OrdinalIgnoreCase)
             ? Voice.Trim().ToLowerInvariant()
-            : "alloy";
+            : QuizVoiceCatalog.DefaultVoice;
         var musicPath = (BackgroundMusicPath ?? "").Trim();
         return this with
         {
@@ -60,7 +60,7 @@ public static class QuizResolveExportPreferenceStore
                 AnimateReveal: ReadBool(node, "animate_reveal", true),
                 Narrate: ReadBool(node, "narrate", true),
                 NarrateAnswers: ReadBool(node, "narrate_answers", false),
-                Voice: ReadString(node, "voice", "alloy"),
+                Voice: ReadString(node, "voice", QuizVoiceCatalog.DefaultVoice),
                 CountdownTicks: ReadBool(node, "countdown_ticks", true),
                 AnswerRevealSfx: ReadBool(node, "answer_reveal_sfx", true),
                 UseBackgroundMusic: ReadBool(node, "use_background_music", false),

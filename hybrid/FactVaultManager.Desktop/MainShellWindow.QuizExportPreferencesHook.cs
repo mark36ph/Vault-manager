@@ -136,7 +136,7 @@ public partial class MainShellWindow
             AnimateReveal: _quizRevealAnimationCheckBox?.IsChecked != false,
             Narrate: _quizNarrationCheckBox?.IsChecked == true,
             NarrateAnswers: _quizNarrateAnswersCheckBox?.IsChecked == true,
-            Voice: Convert.ToString(_quizVoiceComboBox?.SelectedItem) ?? "alloy",
+            Voice: Convert.ToString(_quizVoiceComboBox?.SelectedItem) ?? QuizVoiceCatalog.DefaultVoice,
             CountdownTicks: _quizCountdownTickCheckBox?.IsChecked == true,
             AnswerRevealSfx: _quizAnswerRevealSfxCheckBox?.IsChecked == true,
             UseBackgroundMusic: _quizBackgroundMusicCheckBox?.IsChecked == true,

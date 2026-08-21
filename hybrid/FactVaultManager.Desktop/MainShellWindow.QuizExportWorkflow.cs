@@ -198,7 +198,7 @@ public partial class MainShellWindow
         _quizNarrationCheckBox = new CheckBox
         {
             Content = "OpenAI narration",
-            IsChecked = false,
+            IsChecked = true,
             VerticalAlignment = VerticalAlignment.Center,
             ToolTip = "Use the OpenAI API key saved in Settings to narrate each question. Narration is cached in the quiz Voice folder.",
             Margin = new Thickness(0, 0, 18, 0),
@@ -217,8 +217,8 @@ public partial class MainShellWindow
             Width = 112,
             MinHeight = 30,
             ItemsSource = QuizVoiceCatalog.BuiltInVoices,
-            SelectedItem = "alloy",
-            IsEnabled = false,
+            SelectedItem = QuizVoiceCatalog.DefaultVoice,
+            IsEnabled = true,
             ToolTip = "OpenAI voice used for quiz narration.",
             Margin = new Thickness(0, 0, 18, 0),
         };
@@ -227,8 +227,8 @@ public partial class MainShellWindow
         _quizNarrateAnswersCheckBox = new CheckBox
         {
             Content = "Read A/B/C/D choices",
-            IsChecked = true,
-            IsEnabled = false,
+            IsChecked = false,
+            IsEnabled = true,
             VerticalAlignment = VerticalAlignment.Center,
             ToolTip = "When narration is enabled, read all four answer choices after the question.",
         };
@@ -443,7 +443,7 @@ public partial class MainShellWindow
             var animateReveal = _quizRevealAnimationCheckBox?.IsChecked != false;
             var narrate = _quizNarrationCheckBox?.IsChecked == true;
             var narrateAnswers = narrate && _quizNarrateAnswersCheckBox?.IsChecked == true;
-            var selectedVoice = QuizVoiceCatalog.Validate(Convert.ToString(_quizVoiceComboBox?.SelectedItem) ?? "alloy");
+            var selectedVoice = QuizVoiceCatalog.Validate(Convert.ToString(_quizVoiceComboBox?.SelectedItem) ?? QuizVoiceCatalog.DefaultVoice);
             var countdownTicks = showCountdown && _quizCountdownTickCheckBox?.IsChecked == true;
             var answerRevealSfx = _quizAnswerRevealSfxCheckBox?.IsChecked == true;
             var useBackgroundMusic = _quizBackgroundMusicCheckBox?.IsChecked == true;

@@ -17,6 +17,12 @@ public sealed class QuizResolveExportPreferencesTests
 
         Assert.True(preferences.Narrate);
         Assert.False(preferences.NarrateAnswers);
+        Assert.Equal("fable", preferences.Voice);
+
+        var preset = new QuizPreset();
+        Assert.True(preset.Narrate);
+        Assert.False(preset.NarrateAnswers);
+        Assert.Equal("fable", preset.Voice);
     }
 
     [Fact]

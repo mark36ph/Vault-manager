@@ -604,7 +604,7 @@ public partial class MainShellWindow
         AnimateAnswerReveal = _quizRevealAnimationCheckBox?.IsChecked != false,
         Narrate = _quizNarrationCheckBox?.IsChecked == true,
         NarrateAnswers = _quizNarrateAnswersCheckBox?.IsChecked == true,
-        Voice = Convert.ToString(_quizVoiceComboBox?.SelectedItem) ?? "alloy",
+        Voice = Convert.ToString(_quizVoiceComboBox?.SelectedItem) ?? QuizVoiceCatalog.DefaultVoice,
         CountdownTicks = _quizCountdownTickCheckBox?.IsChecked == true,
         AnswerRevealSfx = _quizAnswerRevealSfxCheckBox?.IsChecked == true,
         UseBackgroundMusic = _quizBackgroundMusicCheckBox?.IsChecked == true,
@@ -650,7 +650,7 @@ public partial class MainShellWindow
             _quizNarrationCheckBox.IsChecked = preset.Narrate;
         if (_quizNarrateAnswersCheckBox is not null)
             _quizNarrateAnswersCheckBox.IsChecked = preset.NarrateAnswers;
-        SelectQuizComboValue(_quizVoiceComboBox, preset.Voice, "alloy");
+        SelectQuizComboValue(_quizVoiceComboBox, preset.Voice, QuizVoiceCatalog.DefaultVoice);
         if (_quizCountdownTickCheckBox is not null)
             _quizCountdownTickCheckBox.IsChecked = preset.CountdownTicks;
         if (_quizAnswerRevealSfxCheckBox is not null)

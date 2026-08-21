@@ -42,7 +42,7 @@ public sealed class NativeQuizSpeechProvider : IDisposable
     public NativeQuizSpeechProvider(
         string apiKey,
         string model = "gpt-4o-mini-tts",
-        string voice = "alloy",
+        string voice = QuizVoiceCatalog.DefaultVoice,
         HttpClient? client = null)
     {
         _apiKey = Required(apiKey, "OpenAI API key");

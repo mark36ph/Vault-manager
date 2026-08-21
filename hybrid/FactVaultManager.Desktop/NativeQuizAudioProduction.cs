@@ -25,6 +25,8 @@ public sealed record QuizNarrationWindow(double Start, double End)
 
 public static class QuizVoiceCatalog
 {
+    public const string DefaultVoice = "fable";
+
     private static readonly string[] Voices =
     [
         "alloy",

@@ -21,9 +21,9 @@ public sealed record QuizPreset
     public bool ShuffleAnswers { get; init; } = true;
     public bool ShowCountdown { get; init; } = true;
     public bool AnimateAnswerReveal { get; init; } = true;
-    public bool Narrate { get; init; }
-    public bool NarrateAnswers { get; init; } = true;
-    public string Voice { get; init; } = "alloy";
+    public bool Narrate { get; init; } = true;
+    public bool NarrateAnswers { get; init; }
+    public string Voice { get; init; } = QuizVoiceCatalog.DefaultVoice;
     public bool CountdownTicks { get; init; } = true;
     public bool AnswerRevealSfx { get; init; } = true;
     public bool UseBackgroundMusic { get; init; }
@@ -52,11 +52,11 @@ public sealed record QuizPreset
         string voice;
         try
         {
-            voice = QuizVoiceCatalog.Validate(Voice ?? "alloy");
+            voice = QuizVoiceCatalog.Validate(Voice ?? QuizVoiceCatalog.DefaultVoice);
         }
         catch
         {
-            voice = "alloy";
+            voice = QuizVoiceCatalog.DefaultVoice;
         }
 
         return this with
