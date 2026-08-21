@@ -40,7 +40,8 @@ public sealed class QuizPublishingTests
             "World Knowledge",
             12,
             [Question(1, "Geography"), Question(2, "Science")],
-            vertical: true);
+            vertical: true,
+            fullQuizUrl: "https://youtu.be/abc123");
 
         Assert.Equal("World Knowledge", metadata.SeriesName);
         Assert.Equal(12, metadata.EpisodeNumber);
@@ -48,10 +49,45 @@ public sealed class QuizPublishingTests
         Assert.Equal("Can You Get 2/2? | World Knowledge #012", metadata.YouTubeTitle);
         Assert.Contains("Test your knowledge with 2 questions in World Knowledge #012.", metadata.Description);
         Assert.Contains("Can you get 2/2?", metadata.Description);
+        Assert.Contains(
+            "To try the full quiz, go to this URL: https://youtu.be/abc123",
+            metadata.Description);
         Assert.Equal("#Quiz #Trivia #WorldKnowledge #Shorts", metadata.Hashtags);
         Assert.Contains("How did you score?", metadata.PinnedComment);
         Assert.Contains("Share your score out of 2", metadata.PinnedComment);
         Assert.Contains("Can anyone get 2/2?", metadata.PinnedComment);
+    }
+
+    [Fact]
+    public void Generate_ShortRequiresAYouTubeFullQuizUrl()
+    {
+        Assert.Throws<ArgumentException>(() => QuizPublishMetadataGenerator.Generate(
+            "Science Quiz",
+            1,
+            [Question(1, "Science")],
+            vertical: true));
+        Assert.Throws<ArgumentException>(() => QuizPublishMetadataGenerator.Generate(
+            "Science Quiz",
+            1,
+            [Question(1, "Science")],
+            vertical: true,
+            fullQuizUrl: "https://example.com/full-quiz"));
+    }
+
+    [Fact]
+    public void Generate_FullVideoDoesNotAddOrRequireAFullQuizLink()
+    {
+        var metadata = QuizPublishMetadataGenerator.Generate(
+            "Science Quiz",
+            1,
+            [Question(1, "Science")],
+            vertical: false);
+
+        Assert.DoesNotContain(QuizPublishMetadataGenerator.FullQuizLinkPrompt, metadata.Description);
+        Assert.True(QuizPublishMetadataGenerator.DescriptionMatchesFormat(
+            metadata.Description,
+            vertical: false,
+            fullQuizUrl: null));
     }
 
     [Fact]
