@@ -637,8 +637,14 @@ public partial class MainShellWindow
             _quizLogoScaleSlider.Value = preset.LogoScale;
         if (_quizLogoPathTextBox is not null)
         {
-            _quizLogoPathTextBox.Text = File.Exists(preset.LogoPath) ? preset.LogoPath : "";
-            _data.SaveQuizLogoPath(_quizLogoPathTextBox.Text);
+            var resolvedLogoPath = QuizPresetBranding.ResolveLogoPath(
+                _quizLogoPathTextBox.Text,
+                preset.LogoPath);
+            if (!string.Equals(_quizLogoPathTextBox.Text, resolvedLogoPath, StringComparison.OrdinalIgnoreCase))
+            {
+                _quizLogoPathTextBox.Text = resolvedLogoPath;
+                _data.SaveQuizLogoPath(resolvedLogoPath);
+            }
         }
         if (_quizShuffleAnswersCheckBox is not null)
             _quizShuffleAnswersCheckBox.IsChecked = preset.ShuffleAnswers;
