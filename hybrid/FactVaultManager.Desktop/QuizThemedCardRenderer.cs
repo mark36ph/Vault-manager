@@ -48,6 +48,11 @@ public sealed class QuizThemedCardRenderer
     private static readonly Color DeepPanel = Color.FromRgb(8, 14, 62);
     private static readonly Color DeepPanel2 = Color.FromRgb(13, 18, 78);
 
+    internal static (double Width, double Height, Thickness Padding) QuestionBadgeLayout(bool vertical) =>
+        vertical
+            ? (220, 80, new Thickness(24, 10, 24, 10))
+            : (210, 90, new Thickness(18, 6, 18, 6));
+
     public void OverwriteCards(
         string projectFolder,
         IReadOnlyList<QuizQuestion> questions,
@@ -418,10 +423,12 @@ public sealed class QuizThemedCardRenderer
         statusLayer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         statusLayer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(210) });
 
+        var questionBadgeLayout = QuestionBadgeLayout(vertical: false);
         var questionBadge = new Border
         {
-            Width = 182,
-            Height = 82,
+            Width = questionBadgeLayout.Width,
+            Height = questionBadgeLayout.Height,
+            Padding = questionBadgeLayout.Padding,
             Background = Brush(Color.FromArgb(246, DeepPanel.R, DeepPanel.G, DeepPanel.B)),
             BorderBrush = Brush(NeonBlue),
             BorderThickness = new Thickness(3),
@@ -792,10 +799,12 @@ public sealed class QuizThemedCardRenderer
         status.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         status.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
+        var questionBadgeLayout = QuestionBadgeLayout(vertical: true);
         var badge = new Border
         {
-            Width = 170,
-            Height = 72,
+            Width = questionBadgeLayout.Width,
+            Height = questionBadgeLayout.Height,
+            Padding = questionBadgeLayout.Padding,
             Background = Brush(DeepPanel),
             BorderBrush = Brush(NeonBlue),
             BorderThickness = new Thickness(3),
