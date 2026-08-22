@@ -2,6 +2,22 @@ namespace FactVaultManager.Desktop.Tests;
 
 public sealed class FacebookAnalyticsTests
 {
+    [Fact]
+    public async Task PageDiscovery_UsesVideoReelsEdge()
+    {
+        var handler = new FacebookGraphHandler();
+        var service = new FacebookReelAnalyticsService(new HttpClient(handler));
+
+        var page = await service.ListPageVideosAsync("page-token");
+
+        Assert.Equal("123", page.PageId);
+        Assert.Equal("Quiz Page", page.PageName);
+        Assert.Single(page.Videos);
+        Assert.Equal("456", page.Videos[0].VideoId);
+        Assert.Contains(handler.Paths, path => path.Contains("/123/video_reels", StringComparison.Ordinal));
+        Assert.DoesNotContain(handler.Paths, path => path.Contains("/123/videos", StringComparison.Ordinal));
+    }
+
     [Theory]
     [InlineData("https://www.facebook.com/reel/123456789", "123456789")]
     [InlineData("https://facebook.com/reels/123456789/", "123456789")]
@@ -104,4 +120,24 @@ public sealed class FacebookAnalyticsTests
         1, "Quiz", "2026-08-22 12:00:00", 1, categories, "9:16", 8, false, "",
         series, 1, "", "", "", "", false, "", 0, 0, "",
         publishedOnFacebook, "https://www.facebook.com/reel/123456789");
+
+    private sealed class FacebookGraphHandler : HttpMessageHandler
+    {
+        public List<string> Paths { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri?.AbsolutePath ?? "";
+            Paths.Add(path);
+            var json = path.EndsWith("/me", StringComparison.Ordinal)
+                ? """{"id":"123","name":"Quiz Page"}"""
+                : """{"data":[{"id":"456","title":"Science Quiz","description":"Can You Get 1/1?","permalink_url":"https://www.facebook.com/reel/456","created_time":"2026-08-22T09:30:00+0000"}]}""";
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(json),
+            });
+        }
+    }
 }

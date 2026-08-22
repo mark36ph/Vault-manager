@@ -68,13 +68,26 @@ public sealed class FacebookReelAnalyticsService
             throw new InvalidOperationException("The saved token did not identify a Facebook Page. Use the Page access token returned by /me/accounts.");
 
         var pageName = ReadString(page.RootElement, "name");
+        var videos = await ListVideoEdgeAsync(pageId, token, "video_reels", cancellationToken);
+        if (videos.Count == 0)
+            videos = await ListVideoEdgeAsync(pageId, token, "videos", cancellationToken);
+
+        return new FacebookPageVideos(pageId, pageName, videos);
+    }
+
+    private async Task<List<FacebookPageVideo>> ListVideoEdgeAsync(
+        string pageId,
+        string escapedToken,
+        string edge,
+        CancellationToken cancellationToken)
+    {
         var videos = new List<FacebookPageVideo>();
         string? after = null;
         do
         {
             var fields = "id,title,description,permalink_url,created_time";
-            var url = $"{GraphRoot}/{Uri.EscapeDataString(pageId)}/videos" +
-                      $"?fields={Uri.EscapeDataString(fields)}&limit=100&access_token={token}";
+            var url = $"{GraphRoot}/{Uri.EscapeDataString(pageId)}/{edge}" +
+                      $"?fields={Uri.EscapeDataString(fields)}&limit=100&access_token={escapedToken}";
             if (!string.IsNullOrWhiteSpace(after))
                 url += $"&after={Uri.EscapeDataString(after)}";
 
@@ -96,8 +109,7 @@ public sealed class FacebookReelAnalyticsService
             }
             after = ReadAfterCursor(document.RootElement);
         } while (!string.IsNullOrWhiteSpace(after));
-
-        return new FacebookPageVideos(pageId, pageName, videos);
+        return videos;
     }
 
     public async Task<FacebookReelAnalytics> FetchAsync(
