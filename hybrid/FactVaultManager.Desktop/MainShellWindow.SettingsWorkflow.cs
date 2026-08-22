@@ -39,6 +39,7 @@ public partial class MainShellWindow
             ProjectsFolderTextBox, CheckUpdatesCheckBox,
             OpenAiKeyPasswordBox, OpenAiModelTextBox,
             PexelsKeyPasswordBox, PixabayKeyPasswordBox,
+            YouTubeApiKeyPasswordBox,
             ResolvePathTextBox, TimelineWidthTextBox, TimelineHeightTextBox, FrameRateTextBox,
             SettingsStatusText,
         })
@@ -91,6 +92,7 @@ public partial class MainShellWindow
         AddSettingsNav(sidebarStack, "images", "Images");
         AddSettingsNav(sidebarStack, "resolve", "DaVinci Resolve");
         AddSettingsNav(sidebarStack, "ai", "AI");
+        AddSettingsNav(sidebarStack, "youtube", "YouTube");
         AddSettingsNav(sidebarStack, "about", "About");
 
         var contentBorder = SettingsCard(new Thickness(18));
@@ -104,6 +106,7 @@ public partial class MainShellWindow
         _settingsPages["images"] = BuildImagesSettingsPage();
         _settingsPages["resolve"] = BuildResolveSettingsPage();
         _settingsPages["ai"] = BuildAiSettingsPage();
+        _settingsPages["youtube"] = BuildYouTubeSettingsPage();
         _settingsPages["about"] = BuildAboutSettingsPage();
 
         tab.Content = root;
@@ -309,6 +312,40 @@ public partial class MainShellWindow
         return SettingsScrollable(page);
     }
 
+    private FrameworkElement BuildYouTubeSettingsPage()
+    {
+        var page = SettingsPageStack(
+            "YouTube",
+            "Connect the public YouTube Data API so Quiz History can update video views, likes and publication dates automatically.");
+
+        var credentials = SettingsSection("YouTube Data API v3");
+        page.Children.Add(credentials);
+        var credentialsStack = (StackPanel)credentials.Child;
+        credentialsStack.Children.Add(SettingsFieldLabel("API key"));
+        YouTubeApiKeyPasswordBox.Margin = new Thickness(0, 5, 0, 0);
+        credentialsStack.Children.Add(YouTubeApiKeyPasswordBox);
+        credentialsStack.Children.Add(new TextBlock
+        {
+            Text = "Create the key in Google Cloud, enable YouTube Data API v3, then restrict the key to that API.",
+            Foreground = SettingsMutedBrush(),
+            Margin = new Thickness(0, 7, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+        });
+
+        var behaviour = SettingsSection("Automatic updates");
+        page.Children.Add(behaviour);
+        ((StackPanel)behaviour.Child).Children.Add(new TextBlock
+        {
+            Text = "Published quizzes with a saved YouTube video link update whenever Quiz History opens or you click Refresh.",
+            Foreground = SettingsMutedBrush(),
+            Margin = new Thickness(0, 6, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+        });
+
+        page.Children.Add(SettingsFooter("Save YouTube settings", SaveAllSettings));
+        return SettingsScrollable(page);
+    }
+
     private FrameworkElement BuildIntegritySettingsPage()
     {
         var page = SettingsPageStack("Project Integrity", "Check the database and project folders for missing or inconsistent project data.");
@@ -397,6 +434,7 @@ public partial class MainShellWindow
                 OpenAiModel = string.IsNullOrWhiteSpace(OpenAiModelTextBox.Text) ? "gpt-5-mini" : OpenAiModelTextBox.Text.Trim(),
                 PexelsKey = PexelsKeyPasswordBox.Password.Trim(),
                 PixabayKey = PixabayKeyPasswordBox.Password.Trim(),
+                YouTubeApiKey = YouTubeApiKeyPasswordBox.Password.Trim(),
                 ResolvePath = ResolvePathTextBox.Text.Trim(),
                 TimelineWidth = width,
                 TimelineHeight = height,
