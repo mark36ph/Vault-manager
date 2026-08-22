@@ -29,7 +29,7 @@ public static class YouTubeCommentInbox
         bool needsReply,
         ISet<string>? handledCommentIds = null) =>
         comments
-            .Where(comment => !comment.IsOwnComment)
+            .Where(comment => !needsReply || !comment.IsOwnComment)
             .Where(comment => !needsReply ||
                 comment.ReplyCount == 0 &&
                 !(handledCommentIds?.Contains(comment.Id) ?? false))
