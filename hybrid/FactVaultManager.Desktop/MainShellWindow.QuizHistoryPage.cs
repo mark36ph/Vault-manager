@@ -30,7 +30,11 @@ public partial class MainShellWindow
 
         _quizHistoryPageInitialized = true;
         var tab = new TabItem { Content = BuildQuizHistoryPage() };
-        tab.Selected += async (_, _) => await RefreshQuizYouTubeAnalyticsAsync(false);
+        MainTabs.SelectionChanged += async (_, eventArgs) =>
+        {
+            if (ReferenceEquals(eventArgs.OriginalSource, MainTabs) && ReferenceEquals(MainTabs.SelectedItem, tab))
+                await RefreshQuizYouTubeAnalyticsAsync(false);
+        };
         if (FindResource("HiddenPageTabStyle") is Style hiddenStyle)
             tab.Style = hiddenStyle;
         MainTabs.Items.Add(tab);
