@@ -99,6 +99,7 @@ public static class QuizPublishMetadataGenerator
 
         var episode = $"#{episodeNumber:000}";
         var perfectScore = $"{questions.Count}/{questions.Count}";
+        var questionLabel = questions.Count == 1 ? "question" : "questions";
         var title = Limit($"Can You Get {perfectScore}? | {series} {episode}", MaxTitleLength);
 
         var hashtags = BuildHashtags(series, categories, vertical);
@@ -107,7 +108,7 @@ public static class QuizPublishMetadataGenerator
             : "";
         var logoDisclaimer = logoQuiz ? LogoQuizDisclaimer + "\n\n" : "";
         var description = Limit(
-            $"Test your knowledge with {questions.Count} questions in {series} {episode}.\n\n" +
+            $"Test your knowledge with {questions.Count} {questionLabel} in {series} {episode}.\n\n" +
             "Keep track of your score as you go, then share your result in the comments.\n\n" +
             $"Can you get {perfectScore}?\n\n" +
             fullQuizLink +
