@@ -415,7 +415,7 @@ public partial class MainShellWindow
         page.Children.Add(behaviour);
         ((StackPanel)behaviour.Child).Children.Add(new TextBlock
         {
-            Text = "Link each exported Short to its Facebook Reel in Facebook Manager. Views, reactions, comments and shares then update when you click Refresh from Facebook.",
+            Text = "Facebook Manager finds Page videos automatically and matches them to quiz Shorts by title when you click Refresh from Facebook. You can still link or correct a Reel manually.",
             Foreground = SettingsMutedBrush(),
             Margin = new Thickness(0, 6, 0, 0),
             TextWrapping = TextWrapping.Wrap,

@@ -13,6 +13,18 @@ public sealed record FacebookReelAnalytics(
     long Comments,
     long Shares);
 
+public sealed record FacebookPageVideo(
+    string VideoId,
+    string Title,
+    string Description,
+    string PermalinkUrl,
+    DateTime? PublishedAt);
+
+public sealed record FacebookPageVideos(
+    string PageId,
+    string PageName,
+    IReadOnlyList<FacebookPageVideo> Videos);
+
 public sealed class FacebookReelAnalyticsService
 {
     private const string GraphRoot = "https://graph.facebook.com/v26.0";
@@ -38,6 +50,54 @@ public sealed class FacebookReelAnalyticsService
                 return parts[index + 1].All(char.IsDigit) ? parts[index + 1] : null;
         }
         return null;
+    }
+
+    public async Task<FacebookPageVideos> ListPageVideosAsync(
+        string pageAccessToken,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(pageAccessToken))
+            throw new InvalidOperationException("Add the Facebook Page access token in Settings first.");
+
+        var token = Uri.EscapeDataString(pageAccessToken.Trim());
+        using var pageResponse = await _client.GetAsync(
+            $"{GraphRoot}/me?fields=id%2Cname&access_token={token}", cancellationToken);
+        using var page = await ReadDocumentAsync(pageResponse, cancellationToken);
+        var pageId = ReadString(page.RootElement, "id");
+        if (pageId.Length == 0 || !pageId.All(char.IsDigit))
+            throw new InvalidOperationException("The saved token did not identify a Facebook Page. Use the Page access token returned by /me/accounts.");
+
+        var pageName = ReadString(page.RootElement, "name");
+        var videos = new List<FacebookPageVideo>();
+        string? after = null;
+        do
+        {
+            var fields = "id,title,description,permalink_url,created_time";
+            var url = $"{GraphRoot}/{Uri.EscapeDataString(pageId)}/videos" +
+                      $"?fields={Uri.EscapeDataString(fields)}&limit=100&access_token={token}";
+            if (!string.IsNullOrWhiteSpace(after))
+                url += $"&after={Uri.EscapeDataString(after)}";
+
+            using var response = await _client.GetAsync(url, cancellationToken);
+            using var document = await ReadDocumentAsync(response, cancellationToken);
+            if (document.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var item in data.EnumerateArray())
+                {
+                    var id = ReadString(item, "id");
+                    if (id.Length == 0) continue;
+                    videos.Add(new FacebookPageVideo(
+                        id,
+                        ReadString(item, "title"),
+                        ReadString(item, "description"),
+                        ReadString(item, "permalink_url"),
+                        ReadDate(item, "created_time")));
+                }
+            }
+            after = ReadAfterCursor(document.RootElement);
+        } while (!string.IsNullOrWhiteSpace(after));
+
+        return new FacebookPageVideos(pageId, pageName, videos);
     }
 
     public async Task<FacebookReelAnalytics> FetchAsync(
@@ -120,6 +180,14 @@ public sealed class FacebookReelAnalyticsService
             if (number.ValueKind == JsonValueKind.Number && number.TryGetInt64(out var result)) return result;
         }
         return 0;
+    }
+
+    private static string? ReadAfterCursor(JsonElement root)
+    {
+        if (!root.TryGetProperty("paging", out var paging) ||
+            !paging.TryGetProperty("cursors", out var cursors)) return null;
+        var after = ReadString(cursors, "after");
+        return after.Length == 0 ? null : after;
     }
 
     private static string ReadString(JsonElement element, string property) =>
