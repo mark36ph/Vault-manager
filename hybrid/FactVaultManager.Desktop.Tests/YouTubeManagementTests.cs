@@ -115,7 +115,7 @@ public sealed class YouTubeManagementTests
         var result = Assert.Single(YouTubeCommentInbox.Filter(
             comments,
             needsReply: true,
-            new HashSet<string>(StringComparer.Ordinal) { "handled" }));
+            handledCommentIds: new HashSet<string>(StringComparer.Ordinal) { "handled" }));
 
         Assert.Equal("viewer", result.Id);
     }
