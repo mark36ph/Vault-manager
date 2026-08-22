@@ -484,13 +484,18 @@ public partial class MainShellWindow
 
         var actionRow = new Grid { Margin = new Thickness(0, 10, 0, 0) };
         actionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        for (var i = 0; i < 4; i++) actionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        for (var i = 0; i < 5; i++) actionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _youtubeReplyText = new TextBox { MinHeight = 36, Margin = new Thickness(0, 0, 8, 0), VerticalContentAlignment = VerticalAlignment.Center };
         actionRow.Children.Add(_youtubeReplyText);
-        AddCommentAction(actionRow, 1, "Reply", Color.FromRgb(0, 204, 255), () => ReplyToSelectedCommentAsync());
-        AddCommentAction(actionRow, 2, "Approve", Color.FromRgb(70, 235, 115), () => ModerateSelectedCommentAsync("published"));
-        AddCommentAction(actionRow, 3, "Hold", Color.FromRgb(255, 202, 45), () => ModerateSelectedCommentAsync("heldForReview"));
-        AddCommentAction(actionRow, 4, "Reject", Color.FromRgb(248, 90, 105), () => ModerateSelectedCommentAsync("rejected"));
+        AddCommentAction(actionRow, 1, "Open to like", Color.FromRgb(204, 70, 255), () =>
+        {
+            OpenSelectedYouTubeComment();
+            return Task.CompletedTask;
+        });
+        AddCommentAction(actionRow, 2, "Reply", Color.FromRgb(0, 204, 255), () => ReplyToSelectedCommentAsync());
+        AddCommentAction(actionRow, 3, "Approve", Color.FromRgb(70, 235, 115), () => ModerateSelectedCommentAsync("published"));
+        AddCommentAction(actionRow, 4, "Hold", Color.FromRgb(255, 202, 45), () => ModerateSelectedCommentAsync("heldForReview"));
+        AddCommentAction(actionRow, 5, "Reject", Color.FromRgb(248, 90, 105), () => ModerateSelectedCommentAsync("rejected"));
         Grid.SetRow(actionRow, 2);
         root.Children.Add(actionRow);
 
@@ -663,6 +668,18 @@ public partial class MainShellWindow
             SetYouTubeCommentsStatus(error.Message);
             if (showErrors) MessageBox.Show(this, error.Message, "YouTube Comments", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private void OpenSelectedYouTubeComment()
+    {
+        if (_youtubeCommentsGrid?.SelectedItem is not YouTubeCommentItem comment)
+        {
+            MessageBox.Show(this, "Select a comment first.", "YouTube Comments", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var url = YouTubeManagementService.BuildCommentUrl(comment.VideoId, comment.Id);
+        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 
     private async Task ReplyToSelectedCommentAsync()
