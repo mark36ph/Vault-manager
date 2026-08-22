@@ -157,7 +157,7 @@ public sealed class FacebookReelAnalyticsService
         var shares = await FetchOptionalEdgeCountAsync(pageAccessToken, videoId, "sharedposts", cancellationToken);
 
         var insightsUrl = $"{GraphRoot}/{Uri.EscapeDataString(videoId)}/video_insights" +
-                          $"?metric=total_video_views&access_token={Uri.EscapeDataString(pageAccessToken.Trim())}";
+                          $"?metric=blue_reels_play_count&access_token={Uri.EscapeDataString(pageAccessToken.Trim())}";
         using var insightsResponse = await _client.GetAsync(insightsUrl, cancellationToken);
         using var insights = await ReadDocumentAsync(insightsResponse, cancellationToken);
 
@@ -183,7 +183,7 @@ public sealed class FacebookReelAnalyticsService
             ReadString(details, "description"),
             ReadString(details, "permalink_url"),
             ReadDate(details, "created_time"),
-            ReadInsight(insights, "total_video_views"),
+            ReadInsight(insights, "blue_reels_play_count"),
             0,
             0,
             0);
