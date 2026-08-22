@@ -16,9 +16,6 @@ public partial class MainShellWindow
     private TextBlock? _quizHistoryShortCountText;
     private TextBlock? _quizHistoryPublishedCountText;
     private TextBlock? _quizHistoryQuestionUseCountText;
-    private TextBlock? _quizHistoryViewCountText;
-    private TextBlock? _quizHistoryLikeCountText;
-    private TextBlock? _quizHistoryTopCategoryText;
     private TextBlock? _quizHistoryAnalyticsStatusText;
     private readonly YouTubeVideoAnalyticsService _youtubeVideoAnalytics = new();
     private bool _quizHistoryAnalyticsRefreshing;
@@ -46,7 +43,6 @@ public partial class MainShellWindow
     private FrameworkElement BuildQuizHistoryPage()
     {
         var root = new Grid { Margin = new Thickness(22, 18, 22, 20) };
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -131,32 +127,6 @@ public partial class MainShellWindow
 
         Grid.SetRow(stats, 1);
         root.Children.Add(stats);
-
-        var analyticsStats = new Grid { Margin = new Thickness(0, 0, 0, 14) };
-        analyticsStats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        analyticsStats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        analyticsStats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-        var views = BuildQuizHistoryStatCard("YouTube views", Color.FromRgb(0, 204, 255));
-        _quizHistoryViewCountText = views.Value;
-        views.Card.Margin = new Thickness(0, 0, 5, 0);
-        analyticsStats.Children.Add(views.Card);
-
-        var likes = BuildQuizHistoryStatCard("YouTube likes", Color.FromRgb(248, 90, 105));
-        _quizHistoryLikeCountText = likes.Value;
-        likes.Card.Margin = new Thickness(5, 0, 5, 0);
-        Grid.SetColumn(likes.Card, 1);
-        analyticsStats.Children.Add(likes.Card);
-
-        var topCategory = BuildQuizHistoryStatCard("Top category by views", Color.FromRgb(70, 235, 115));
-        _quizHistoryTopCategoryText = topCategory.Value;
-        _quizHistoryTopCategoryText.FontSize = 20;
-        topCategory.Card.Margin = new Thickness(5, 0, 0, 0);
-        Grid.SetColumn(topCategory.Card, 2);
-        analyticsStats.Children.Add(topCategory.Card);
-
-        Grid.SetRow(analyticsStats, 2);
-        root.Children.Add(analyticsStats);
 
         _quizHistoryGrid = new DataGrid
         {
@@ -336,7 +306,7 @@ public partial class MainShellWindow
             },
             Child = _quizHistoryGrid,
         };
-        Grid.SetRow(tableCard, 3);
+        Grid.SetRow(tableCard, 2);
         root.Children.Add(tableCard);
 
         var footer = new Grid { Margin = new Thickness(0, 12, 0, 0) };
@@ -383,7 +353,7 @@ public partial class MainShellWindow
         actions.Children.Add(delete);
         Grid.SetColumn(actions, 1);
         footer.Children.Add(actions);
-        Grid.SetRow(footer, 4);
+        Grid.SetRow(footer, 3);
         root.Children.Add(footer);
 
         return new Border
@@ -497,12 +467,6 @@ public partial class MainShellWindow
                 _quizHistoryPublishedCountText.Text = statistics.Published.ToString("N0");
             if (_quizHistoryQuestionUseCountText is not null)
                 _quizHistoryQuestionUseCountText.Text = statistics.QuestionsUsed.ToString("N0");
-            if (_quizHistoryViewCountText is not null)
-                _quizHistoryViewCountText.Text = statistics.Views.ToString("N0");
-            if (_quizHistoryLikeCountText is not null)
-                _quizHistoryLikeCountText.Text = statistics.Likes.ToString("N0");
-            if (_quizHistoryTopCategoryText is not null)
-                _quizHistoryTopCategoryText.Text = statistics.TopCategory;
         }
         catch (Exception error)
         {
