@@ -511,8 +511,10 @@ public partial class MainShellWindow
             {
                 if (!analytics.TryGetValue(item.VideoId!, out var video))
                     continue;
+                var views = YouTubeAnalyticsMetrics.PreserveHighest(item.History.YouTubeViews, video.Views);
+                var likes = YouTubeAnalyticsMetrics.PreserveHighest(item.History.YouTubeLikes, video.Likes);
                 if (_data.UpdateQuizHistoryYouTubeMetrics(
-                        item.History.Id, video.Views, video.Likes, video.PublishedAt))
+                        item.History.Id, views, likes, video.PublishedAt))
                     updated++;
             }
 
