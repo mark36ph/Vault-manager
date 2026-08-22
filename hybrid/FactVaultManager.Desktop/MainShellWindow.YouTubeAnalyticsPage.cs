@@ -43,6 +43,7 @@ public partial class MainShellWindow
     private TextBlock? _youtubeTrackedViewsText;
     private TextBlock? _youtubeTrackedLikesText;
     private TextBlock? _youtubeTrackedCommentsText;
+    private TextBlock? _youtubeTopCategoryText;
     private TextBlock? _youtubeAnalyticsPageStatus;
     private TextBlock? _youtubeChannelNameText;
     private readonly YouTubeManagementService _youtubeManagement = new();
@@ -158,7 +159,7 @@ public partial class MainShellWindow
         root.Children.Add(header);
 
         var stats = new Grid { Margin = new Thickness(0, 0, 0, 14) };
-        for (var index = 0; index < 4; index++)
+        for (var index = 0; index < 5; index++)
             stats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         var videos = BuildQuizHistoryStatCard("Tracked videos", Color.FromRgb(248, 90, 105));
@@ -166,23 +167,36 @@ public partial class MainShellWindow
         videos.Card.Margin = new Thickness(0, 0, 5, 0);
         stats.Children.Add(videos.Card);
 
-        var views = BuildQuizHistoryStatCard("Tracked views", Color.FromRgb(0, 204, 255));
+        var views = BuildQuizHistoryStatCard("YouTube views", Color.FromRgb(0, 204, 255));
         _youtubeTrackedViewsText = views.Value;
         views.Card.Margin = new Thickness(5, 0, 5, 0);
         Grid.SetColumn(views.Card, 1);
         stats.Children.Add(views.Card);
 
-        var likes = BuildQuizHistoryStatCard("Tracked likes", Color.FromRgb(204, 70, 255));
+        var likes = BuildQuizHistoryStatCard("YouTube likes", Color.FromRgb(248, 90, 105));
         _youtubeTrackedLikesText = likes.Value;
         likes.Card.Margin = new Thickness(5, 0, 5, 0);
         Grid.SetColumn(likes.Card, 2);
         stats.Children.Add(likes.Card);
 
-        var comments = BuildQuizHistoryStatCard("Tracked comments", Color.FromRgb(70, 235, 115));
+        var comments = BuildQuizHistoryStatCard("Tracked comments", Color.FromRgb(204, 70, 255));
         _youtubeTrackedCommentsText = comments.Value;
-        comments.Card.Margin = new Thickness(5, 0, 0, 0);
+        comments.Card.Margin = new Thickness(5, 0, 5, 0);
         Grid.SetColumn(comments.Card, 3);
         stats.Children.Add(comments.Card);
+
+        var topCategory = BuildQuizHistoryStatCard("Top category by views", Color.FromRgb(70, 235, 115));
+        _youtubeTopCategoryText = topCategory.Value;
+        _youtubeTopCategoryText.FontSize = 20;
+        topCategory.Card.Margin = new Thickness(5, 0, 0, 0);
+        Grid.SetColumn(topCategory.Card, 4);
+        stats.Children.Add(topCategory.Card);
+
+        var savedStatistics = QuizHistoryStatistics.Calculate(_data.GetQuizHistory());
+        _youtubeTrackedViewsText.Text = savedStatistics.Views.ToString("N0");
+        _youtubeTrackedLikesText.Text = savedStatistics.Likes.ToString("N0");
+        _youtubeTopCategoryText.Text = savedStatistics.TopCategory;
+
         Grid.SetRow(stats, 1);
         root.Children.Add(stats);
 
@@ -964,6 +978,7 @@ public partial class MainShellWindow
             _youtubeTrackedViewsText!.Text = totalViews.ToString("N0");
             _youtubeTrackedLikesText!.Text = totalLikes.ToString("N0");
             _youtubeTrackedCommentsText!.Text = totalComments.ToString("N0");
+            _youtubeTopCategoryText!.Text = QuizHistoryStatistics.Calculate(_data.GetQuizHistory()).TopCategory;
             RefreshQuizHistory();
             SetYouTubeAnalyticsStatus("YouTube analytics updated.");
         }
