@@ -153,6 +153,8 @@ public partial class MainShellWindow
     private DataGrid? _youtubeCommentsGrid;
     private ComboBox? _youtubeCommentStatus;
     private TextBox? _youtubeReplyText;
+    private TextBlock? _youtubeNeedsReplyCountText;
+    private readonly HashSet<string> _youtubeHandledCommentIds = new(StringComparer.Ordinal);
     private TextBlock? _youtubeCommentsStatus;
     private DataGrid? _youtubePlaylistsGrid;
     private DataGrid? _youtubePlaylistVideosGrid;
@@ -577,21 +579,59 @@ public partial class MainShellWindow
         toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var title = new StackPanel();
         title.Children.Add(new TextBlock { Text = "Comments", FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)) });
         title.Children.Add(new TextBlock { Text = "Reply to viewers and review comments held by YouTube.", Foreground = QuizMutedBrush() });
         toolbar.Children.Add(title);
+        _youtubeNeedsReplyCountText = new TextBlock
+        {
+            Text = "0",
+            FontSize = 20,
+            FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(Color.FromRgb(255, 202, 45)),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var needsReplyBadge = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(13, 18, 78)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(255, 202, 45)),
+            BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(12, 5, 12, 5),
+            Margin = new Thickness(8, 0, 0, 0),
+            Child = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = "Needs reply  ",
+                        Foreground = Brushes.White,
+                        FontWeight = FontWeights.SemiBold,
+                        VerticalAlignment = VerticalAlignment.Center,
+                    },
+                    _youtubeNeedsReplyCountText,
+                },
+            },
+        };
+        Grid.SetColumn(needsReplyBadge, 1);
+        toolbar.Children.Add(needsReplyBadge);
+
         _youtubeCommentStatus = new ComboBox { Width = 150, Height = 34, Margin = new Thickness(8, 0, 8, 0) };
+        _youtubeCommentStatus.Items.Add("Needs reply");
         _youtubeCommentStatus.Items.Add("Published");
         _youtubeCommentStatus.Items.Add("Held for review");
         _youtubeCommentStatus.Items.Add("Likely spam");
         _youtubeCommentStatus.SelectedIndex = 0;
-        Grid.SetColumn(_youtubeCommentStatus, 1);
+        _youtubeCommentStatus.SelectionChanged += async (_, _) => await RefreshYouTubeCommentsAsync(false);
+        Grid.SetColumn(_youtubeCommentStatus, 2);
         toolbar.Children.Add(_youtubeCommentStatus);
         var refresh = new Button { Content = "Refresh comments", MinWidth = 132, MinHeight = 34 };
         StyleQuizHistoryButton(refresh, Color.FromRgb(0, 204, 255));
         refresh.Click += async (_, _) => await RefreshYouTubeCommentsAsync(true);
-        Grid.SetColumn(refresh, 2);
+        Grid.SetColumn(refresh, 3);
         toolbar.Children.Add(refresh);
         root.Children.Add(toolbar);
 
@@ -787,15 +827,33 @@ public partial class MainShellWindow
             SetYouTubeCommentsStatus("Loading comments...");
             var token = await GetYouTubeManagementAccessTokenAsync();
             var channel = await _youtubeManagement.GetMyChannelAsync(token);
-            var status = (_youtubeCommentStatus?.SelectedItem?.ToString()) switch
+            var selection = _youtubeCommentStatus?.SelectedItem?.ToString() ?? "Needs reply";
+
+            var published = await _youtubeManagement.ListCommentsAsync(token, channel.Id, "published");
+            var needsReply = YouTubeCommentInbox.Filter(published, needsReply: true, _youtubeHandledCommentIds);
+            if (_youtubeNeedsReplyCountText is not null)
+                _youtubeNeedsReplyCountText.Text = needsReply.Count.ToString("N0");
+
+            IReadOnlyList<YouTubeCommentItem> comments;
+            if (selection == "Needs reply")
             {
-                "Held for review" => "heldForReview",
-                "Likely spam" => "likelySpam",
-                _ => "published",
-            };
-            var comments = await _youtubeManagement.ListCommentsAsync(token, channel.Id, status);
+                comments = needsReply;
+            }
+            else if (selection == "Published")
+            {
+                comments = YouTubeCommentInbox.Filter(published, needsReply: false);
+            }
+            else
+            {
+                var status = selection == "Held for review" ? "heldForReview" : "likelySpam";
+                var moderated = await _youtubeManagement.ListCommentsAsync(token, channel.Id, status);
+                comments = YouTubeCommentInbox.Filter(moderated, needsReply: false);
+            }
+
             _youtubeCommentsGrid.ItemsSource = comments;
-            SetYouTubeCommentsStatus($"{channel.Title} • {comments.Count:N0} {(_youtubeCommentStatus?.SelectedItem?.ToString() ?? "published").ToLowerInvariant()} comments");
+            SetYouTubeCommentsStatus(selection == "Needs reply"
+                ? $"{channel.Title} • {comments.Count:N0} viewer comments need a reply"
+                : $"{channel.Title} • {comments.Count:N0} {selection.ToLowerInvariant()} viewer comments");
         }
         catch (Exception error)
         {
@@ -828,6 +886,7 @@ public partial class MainShellWindow
         {
             var token = await GetYouTubeManagementAccessTokenAsync();
             await _youtubeManagement.ReplyAsync(token, comment.Id, reply);
+            _youtubeHandledCommentIds.Add(comment.Id);
             if (_youtubeReplyText is not null) _youtubeReplyText.Clear();
             await RefreshYouTubeCommentsAsync(true);
         }
