@@ -36,6 +36,101 @@ public static class YouTubeAnalyticsMetrics
         Math.Max(0, Math.Max(stored, fetched));
 }
 
+public sealed record YouTubeNextQuizRecommendation(string Category, string VideoType, string Reason)
+{
+    public string Display => $"{Category} Quiz — {VideoType}";
+}
+
+public static class YouTubeNextQuizPlanner
+{
+    public static YouTubeNextQuizRecommendation Recommend(
+        IReadOnlyList<QuizHistorySummary> history,
+        IEnumerable<string> availableCategories)
+    {
+        var categories = availableCategories
+            .Where(category => !string.IsNullOrWhiteSpace(category))
+            .Select(category => category.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (categories.Count == 0)
+            categories.Add("General Knowledge");
+
+        var published = history.Where(item => item.PublishedOnYouTube).ToList();
+        if (published.Count == 0)
+        {
+            var first = categories.FirstOrDefault(category =>
+                string.Equals(category, "General Knowledge", StringComparison.OrdinalIgnoreCase))
+                ?? categories[0];
+            return new YouTubeNextQuizRecommendation(
+                first,
+                "Video",
+                $"{first} does not yet have a published full quiz.");
+        }
+
+        var videoCount = published.Count(item => item.VideoType == "Video");
+        var shortCount = published.Count(item => item.VideoType == "Short");
+        var videoType = videoCount == shortCount
+            ? (published[0].VideoType == "Video" ? "Short" : "Video")
+            : videoCount < shortCount ? "Video" : "Short";
+
+        var recentCategory = FindCategory(published[0], categories);
+        var candidates = categories
+            .Select((category, order) => new
+            {
+                Category = category,
+                Order = order,
+                TypeCount = published.Count(item =>
+                    item.VideoType == videoType &&
+                    string.Equals(FindCategory(item, categories), category, StringComparison.OrdinalIgnoreCase)),
+                TotalCount = published.Count(item =>
+                    string.Equals(FindCategory(item, categories), category, StringComparison.OrdinalIgnoreCase)),
+                Views = published
+                    .Where(item => string.Equals(FindCategory(item, categories), category, StringComparison.OrdinalIgnoreCase))
+                    .Sum(item => item.YouTubeViews),
+            })
+            .ToList();
+
+        var minimum = candidates.Min(item => item.TypeCount);
+        var leastUsed = candidates.Where(item => item.TypeCount == minimum).ToList();
+        if (leastUsed.Count > 1)
+        {
+            var alternatives = leastUsed
+                .Where(item => !string.Equals(item.Category, recentCategory, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (alternatives.Count > 0)
+                leastUsed = alternatives;
+        }
+
+        var choice = leastUsed
+            .OrderBy(item => item.TotalCount)
+            .ThenByDescending(item => item.Views)
+            .ThenBy(item => item.Order)
+            .First();
+        var typeLabel = videoType == "Short" ? "Short" : "full video";
+        var reason = choice.TypeCount == 0
+            ? $"{choice.Category} does not yet have a published {typeLabel}."
+            : $"{choice.Category} has the fewest published {typeLabel}s ({choice.TypeCount:N0}).";
+        return new YouTubeNextQuizRecommendation(choice.Category, videoType, reason);
+    }
+
+    private static string FindCategory(QuizHistorySummary item, IReadOnlyList<string> categories)
+    {
+        var series = item.SeriesName.Trim();
+        if (series.EndsWith(" Quiz", StringComparison.OrdinalIgnoreCase))
+            series = series[..^5].Trim();
+        var seriesMatch = categories.FirstOrDefault(category =>
+            string.Equals(category, series, StringComparison.OrdinalIgnoreCase));
+        if (seriesMatch is not null)
+            return seriesMatch;
+
+        var stored = item.Categories
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return categories.FirstOrDefault(category =>
+                   stored.Any(value => string.Equals(value, category, StringComparison.OrdinalIgnoreCase)))
+               ?? "General Knowledge";
+    }
+}
+
 public partial class MainShellWindow
 {
     private bool _youtubeAnalyticsPageInitialized;
@@ -47,6 +142,8 @@ public partial class MainShellWindow
     private TextBlock? _youtubeTrackedLikesText;
     private TextBlock? _youtubeTrackedCommentsText;
     private TextBlock? _youtubeTopCategoryText;
+    private TextBlock? _youtubeNextQuizText;
+    private TextBlock? _youtubeNextQuizReasonText;
     private TextBlock? _youtubeAnalyticsPageStatus;
     private TextBlock? _youtubeChannelNameText;
     private readonly YouTubeManagementService _youtubeManagement = new();
@@ -122,6 +219,7 @@ public partial class MainShellWindow
     private FrameworkElement BuildYouTubeAnalyticsSection()
     {
         var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -203,6 +301,25 @@ public partial class MainShellWindow
         Grid.SetRow(stats, 1);
         root.Children.Add(stats);
 
+        var nextQuiz = BuildQuizHistoryStatCard("Next quiz to create", Color.FromRgb(255, 202, 45));
+        _youtubeNextQuizText = nextQuiz.Value;
+        _youtubeNextQuizText.FontSize = 22;
+        if (nextQuiz.Card.Child is StackPanel nextQuizContent)
+        {
+            _youtubeNextQuizReasonText = new TextBlock
+            {
+                Foreground = new SolidColorBrush(Color.FromRgb(184, 201, 235)),
+                FontSize = 12,
+                Margin = new Thickness(0, 5, 0, 0),
+                TextWrapping = TextWrapping.Wrap,
+            };
+            nextQuizContent.Children.Add(_youtubeNextQuizReasonText);
+        }
+        nextQuiz.Card.Margin = new Thickness(0, 0, 0, 14);
+        Grid.SetRow(nextQuiz.Card, 2);
+        root.Children.Add(nextQuiz.Card);
+        RefreshYouTubeRecommendation();
+
         _youtubeAnalyticsGrid = BuildYouTubeAnalyticsGrid();
         var tableCard = new Border
         {
@@ -219,7 +336,7 @@ public partial class MainShellWindow
             },
             Child = _youtubeAnalyticsGrid,
         };
-        Grid.SetRow(tableCard, 2);
+        Grid.SetRow(tableCard, 3);
         root.Children.Add(tableCard);
 
         var footer = new Grid { Margin = new Thickness(0, 12, 0, 0) };
@@ -237,7 +354,7 @@ public partial class MainShellWindow
         open.Click += (_, _) => OpenSelectedYouTubeAnalyticsVideo();
         Grid.SetColumn(open, 1);
         footer.Children.Add(open);
-        Grid.SetRow(footer, 3);
+        Grid.SetRow(footer, 4);
         root.Children.Add(footer);
 
         return root;
@@ -984,6 +1101,7 @@ public partial class MainShellWindow
             _youtubeTrackedLikesText!.Text = totalLikes.ToString("N0");
             _youtubeTrackedCommentsText!.Text = totalComments.ToString("N0");
             _youtubeTopCategoryText!.Text = QuizHistoryStatistics.Calculate(_data.GetQuizHistory()).TopCategory;
+            RefreshYouTubeRecommendation();
             RefreshQuizHistory();
             SetYouTubeAnalyticsStatus("YouTube analytics updated.");
         }
@@ -997,6 +1115,28 @@ public partial class MainShellWindow
         finally
         {
             _youtubeAnalyticsPageRefreshing = false;
+        }
+    }
+
+    private void RefreshYouTubeRecommendation()
+    {
+        if (_youtubeNextQuizText is null || _youtubeNextQuizReasonText is null)
+            return;
+
+        try
+        {
+            var categories = _data.GetQuizCategorySummaries()
+                .Where(category => category.EnabledCount > 0)
+                .Select(category => category.Category);
+            var recommendation = YouTubeNextQuizPlanner.Recommend(_data.GetQuizHistory(), categories);
+            _youtubeNextQuizText.Text = recommendation.Display;
+            _youtubeNextQuizReasonText.Text = recommendation.Reason;
+        }
+        catch (Exception error)
+        {
+            Debug.WriteLine($"YouTube recommendation: {error.Message}");
+            _youtubeNextQuizText.Text = "Recommendation unavailable";
+            _youtubeNextQuizReasonText.Text = "Refresh after checking the question bank.";
         }
     }
 
