@@ -260,6 +260,7 @@ public sealed partial class DesktopDataService
         var openAiStored = node["ai"]?["api_key"]?.GetValue<string>() ?? "";
         var pexelsStored = node["images"]?["pexels_api_key"]?.GetValue<string>() ?? "";
         var pixabayStored = node["images"]?["pixabay_api_key"]?.GetValue<string>() ?? "";
+        var youtubeStored = node["youtube"]?["api_key"]?.GetValue<string>() ?? "";
 
         var settings = new AppSettingsModel
         {
@@ -269,6 +270,7 @@ public sealed partial class DesktopDataService
             OpenAiModel = node["ai"]?["model"]?.GetValue<string>() ?? "",
             PexelsKey = LocalSecretProtector.Unprotect(pexelsStored),
             PixabayKey = LocalSecretProtector.Unprotect(pixabayStored),
+            YouTubeApiKey = LocalSecretProtector.Unprotect(youtubeStored),
             ResolvePath = node["resolve"]?["application_path"]?.GetValue<string>() ?? "",
             TimelineWidth = node["resolve"]?["timeline_width"]?.GetValue<int>() ?? 1080,
             TimelineHeight = node["resolve"]?["timeline_height"]?.GetValue<int>() ?? 1920,
@@ -290,7 +292,8 @@ public sealed partial class DesktopDataService
         var ai = node["ai"] as JsonObject ?? new JsonObject();
         var images = node["images"] as JsonObject ?? new JsonObject();
         var resolve = node["resolve"] as JsonObject ?? new JsonObject();
-        node["general"] = general; node["ai"] = ai; node["images"] = images; node["resolve"] = resolve;
+        var youtube = node["youtube"] as JsonObject ?? new JsonObject();
+        node["general"] = general; node["ai"] = ai; node["images"] = images; node["resolve"] = resolve; node["youtube"] = youtube;
         general["projects_folder"] = settings.ProjectsFolder;
         general["theme"] = settings.Theme;
         general["check_updates"] = settings.CheckUpdates;
@@ -298,6 +301,7 @@ public sealed partial class DesktopDataService
         ai["model"] = settings.OpenAiModel;
         images["pexels_api_key"] = LocalSecretProtector.Protect(settings.PexelsKey);
         images["pixabay_api_key"] = LocalSecretProtector.Protect(settings.PixabayKey);
+        youtube["api_key"] = LocalSecretProtector.Protect(settings.YouTubeApiKey);
         resolve["application_path"] = settings.ResolvePath;
         resolve["timeline_width"] = settings.TimelineWidth;
         resolve["timeline_height"] = settings.TimelineHeight;
@@ -426,6 +430,7 @@ public sealed class AppSettingsModel
     public string OpenAiModel { get; set; } = "";
     public string PexelsKey { get; set; } = "";
     public string PixabayKey { get; set; } = "";
+    public string YouTubeApiKey { get; set; } = "";
     public string ResolvePath { get; set; } = "";
     public int TimelineWidth { get; set; } = 1080;
     public int TimelineHeight { get; set; } = 1920;

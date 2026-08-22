@@ -19,6 +19,9 @@ public partial class MainShellWindow
     private TextBlock? _quizHistoryViewCountText;
     private TextBlock? _quizHistoryLikeCountText;
     private TextBlock? _quizHistoryTopCategoryText;
+    private TextBlock? _quizHistoryAnalyticsStatusText;
+    private readonly YouTubeVideoAnalyticsService _youtubeVideoAnalytics = new();
+    private bool _quizHistoryAnalyticsRefreshing;
 
     private void InitializeQuizHistoryPage()
     {
@@ -27,6 +30,7 @@ public partial class MainShellWindow
 
         _quizHistoryPageInitialized = true;
         var tab = new TabItem { Content = BuildQuizHistoryPage() };
+        tab.Selected += async (_, _) => await RefreshQuizYouTubeAnalyticsAsync(false);
         if (FindResource("HiddenPageTabStyle") is Style hiddenStyle)
             tab.Style = hiddenStyle;
         MainTabs.Items.Add(tab);
@@ -46,6 +50,7 @@ public partial class MainShellWindow
 
         var header = new Grid { Margin = new Thickness(0, 0, 0, 12) };
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.Children.Add(new TextBlock
         {
@@ -72,9 +77,23 @@ public partial class MainShellWindow
             VerticalAlignment = VerticalAlignment.Bottom,
         };
         StyleQuizHistoryButton(refresh, Color.FromRgb(0, 204, 255));
-        refresh.Click += (_, _) => RefreshQuizHistory();
-        Grid.SetColumn(refresh, 1);
+        refresh.Click += async (_, _) =>
+        {
+            RefreshQuizHistory();
+            await RefreshQuizYouTubeAnalyticsAsync(true);
+        };
+        Grid.SetColumn(refresh, 2);
         header.Children.Add(refresh);
+
+        _quizHistoryAnalyticsStatusText = new TextBlock
+        {
+            Text = "YouTube analytics: waiting",
+            Foreground = new SolidColorBrush(Color.FromRgb(184, 201, 235)),
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(0, 0, 14, 8),
+        };
+        Grid.SetColumn(_quizHistoryAnalyticsStatusText, 1);
+        header.Children.Add(_quizHistoryAnalyticsStatusText);
         root.Children.Add(header);
 
         var stats = new Grid { Margin = new Thickness(0, 0, 0, 14) };
@@ -487,6 +506,66 @@ public partial class MainShellWindow
         }
     }
 
+    private async Task RefreshQuizYouTubeAnalyticsAsync(bool showErrors)
+    {
+        if (_quizHistoryAnalyticsRefreshing)
+            return;
+
+        var apiKey = _data.LoadSettings().YouTubeApiKey.Trim();
+        if (apiKey.Length == 0)
+        {
+            if (_quizHistoryAnalyticsStatusText is not null)
+                _quizHistoryAnalyticsStatusText.Text = "YouTube analytics: add API key in Settings";
+            return;
+        }
+
+        var history = _data.GetQuizHistory()
+            .Where(item => item.PublishedOnYouTube && !string.IsNullOrWhiteSpace(item.YouTubeUrl))
+            .Select(item => new { History = item, VideoId = YouTubeVideoAnalyticsService.TryGetVideoId(item.YouTubeUrl) })
+            .Where(item => item.VideoId is not null)
+            .ToList();
+        if (history.Count == 0)
+        {
+            if (_quizHistoryAnalyticsStatusText is not null)
+                _quizHistoryAnalyticsStatusText.Text = "YouTube analytics: no linked videos";
+            return;
+        }
+
+        try
+        {
+            _quizHistoryAnalyticsRefreshing = true;
+            if (_quizHistoryAnalyticsStatusText is not null)
+                _quizHistoryAnalyticsStatusText.Text = "Updating YouTube analytics...";
+
+            var analytics = await _youtubeVideoAnalytics.FetchAsync(apiKey, history.Select(item => item.VideoId!));
+            var updated = 0;
+            foreach (var item in history)
+            {
+                if (!analytics.TryGetValue(item.VideoId!, out var video))
+                    continue;
+                if (_data.UpdateQuizHistoryYouTubeMetrics(
+                        item.History.Id, video.Views, video.Likes, video.PublishedAt))
+                    updated++;
+            }
+
+            RefreshQuizHistory();
+            if (_quizHistoryAnalyticsStatusText is not null)
+                _quizHistoryAnalyticsStatusText.Text = $"YouTube analytics: updated {updated:N0}";
+        }
+        catch (Exception error)
+        {
+            Debug.WriteLine($"YouTube analytics: {error.Message}");
+            if (_quizHistoryAnalyticsStatusText is not null)
+                _quizHistoryAnalyticsStatusText.Text = "YouTube analytics: update failed";
+            if (showErrors)
+                MessageBox.Show(this, error.Message, "YouTube Analytics", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            _quizHistoryAnalyticsRefreshing = false;
+        }
+    }
+
     private void QuizHistoryGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
     {
         if (e.ChangedButton == MouseButton.Left)
@@ -814,7 +893,7 @@ public partial class MainShellWindow
 
         var hint = new TextBlock
         {
-            Text = "Update these numbers from YouTube Studio whenever you want to track performance.",
+            Text = "These figures update automatically from YouTube when an API key is saved. You can still correct them manually.",
             Foreground = QuizMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 10, 0, 0),

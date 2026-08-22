@@ -286,6 +286,7 @@ public partial class MainShellWindow : Window
             OpenAiModelTextBox.Text = settings.OpenAiModel;
             PexelsKeyPasswordBox.Password = settings.PexelsKey;
             PixabayKeyPasswordBox.Password = settings.PixabayKey;
+            YouTubeApiKeyPasswordBox.Password = settings.YouTubeApiKey;
             ResolvePathTextBox.Text = settings.ResolvePath;
             TimelineWidthTextBox.Text = settings.TimelineWidth.ToString();
             TimelineHeightTextBox.Text = settings.TimelineHeight.ToString();
@@ -316,6 +317,7 @@ public partial class MainShellWindow : Window
                 OpenAiModel = OpenAiModelTextBox.Text.Trim(),
                 PexelsKey = PexelsKeyPasswordBox.Password.Trim(),
                 PixabayKey = PixabayKeyPasswordBox.Password.Trim(),
+                YouTubeApiKey = YouTubeApiKeyPasswordBox.Password.Trim(),
                 ResolvePath = ResolvePathTextBox.Text.Trim(),
                 TimelineWidth = width,
                 TimelineHeight = height,

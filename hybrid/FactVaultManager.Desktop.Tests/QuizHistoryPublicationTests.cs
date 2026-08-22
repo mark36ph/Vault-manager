@@ -90,6 +90,39 @@ public sealed class QuizHistoryPublicationTests
         Assert.Equal("22-08-2026", QuizYouTubeAnalytics.FormatUploadDate("2026-08-22"));
     }
 
+    [Theory]
+    [InlineData("https://youtu.be/qJAMsHFhlDA", "qJAMsHFhlDA")]
+    [InlineData("https://www.youtube.com/watch?v=qJAMsHFhlDA&t=15", "qJAMsHFhlDA")]
+    [InlineData("https://youtube.com/shorts/qJAMsHFhlDA", "qJAMsHFhlDA")]
+    [InlineData("https://www.youtube.com/embed/qJAMsHFhlDA", "qJAMsHFhlDA")]
+    public void AnalyticsVideoId_SupportsCommonYouTubeLinks(string url, string expected)
+    {
+        Assert.Equal(expected, YouTubeVideoAnalyticsService.TryGetVideoId(url));
+    }
+
+    [Theory]
+    [InlineData("https://vimeo.com/qJAMsHFhlDA")]
+    [InlineData("https://youtube.com.evil.example/watch?v=qJAMsHFhlDA")]
+    [InlineData("not a link")]
+    public void AnalyticsVideoId_RejectsInvalidLinks(string url)
+    {
+        Assert.Null(YouTubeVideoAnalyticsService.TryGetVideoId(url));
+    }
+
+    [Fact]
+    public void AnalyticsResponse_ParsesPublicStatisticsAndPublishDate()
+    {
+        const string json = """
+            {"items":[{"id":"qJAMsHFhlDA","snippet":{"publishedAt":"2026-08-22T09:30:00Z"},"statistics":{"viewCount":"1234","likeCount":"56"}}]}
+            """;
+
+        var result = Assert.Single(YouTubeVideoAnalyticsService.ParseResponse(json));
+        Assert.Equal("qJAMsHFhlDA", result.VideoId);
+        Assert.Equal(1234, result.Views);
+        Assert.Equal(56, result.Likes);
+        Assert.Equal(new DateTime(2026, 8, 22, 9, 30, 0, DateTimeKind.Utc), result.PublishedAt);
+    }
+
     private static QuizHistorySummary History(
         string format,
         int questionCount,

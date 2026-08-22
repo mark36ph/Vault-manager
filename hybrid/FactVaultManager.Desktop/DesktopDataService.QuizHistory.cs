@@ -463,6 +463,29 @@ public sealed partial class DesktopDataService
         return command.ExecuteNonQuery() == 1;
     }
 
+    public bool UpdateQuizHistoryYouTubeMetrics(int historyId, long views, long likes, DateTime? uploadDate)
+    {
+        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
+        if (views < 0) throw new ArgumentOutOfRangeException(nameof(views));
+        if (likes < 0) throw new ArgumentOutOfRangeException(nameof(likes));
+
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE quiz_history
+            SET youtube_views = $views,
+                youtube_likes = $likes,
+                youtube_upload_date = $uploadDate
+            WHERE id = $historyId
+            """;
+        command.Parameters.AddWithValue("$views", views);
+        command.Parameters.AddWithValue("$likes", likes);
+        command.Parameters.AddWithValue("$uploadDate", QuizYouTubeAnalytics.NormalizeUploadDate(uploadDate));
+        command.Parameters.AddWithValue("$historyId", historyId);
+        return command.ExecuteNonQuery() == 1;
+    }
+
     public IReadOnlyList<QuizHistoryQuestion> GetQuizHistoryQuestions(int historyId)
     {
         if (historyId <= 0)
