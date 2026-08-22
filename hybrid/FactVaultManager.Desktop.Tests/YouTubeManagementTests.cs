@@ -112,11 +112,14 @@ public sealed class YouTubeManagementTests
         ],
         "owner-channel");
 
+        var published = YouTubeCommentInbox.Filter(comments, needsReply: false);
         var result = Assert.Single(YouTubeCommentInbox.Filter(
             comments,
             needsReply: true,
             handledCommentIds: new HashSet<string>(StringComparer.Ordinal) { "handled" }));
 
+        Assert.Contains(published, comment => comment.Id == "own");
+        Assert.Equal(4, published.Count);
         Assert.Equal("viewer", result.Id);
     }
 
