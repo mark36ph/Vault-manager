@@ -27,6 +27,7 @@ public partial class MainShellWindow
     private PasswordBox? _settingsYouTubeClientSecret;
     private TextBlock? _settingsYouTubeConnectionStatus;
     private Button? _settingsYouTubeConnectButton;
+    private PasswordBox? _settingsFacebookPageAccessToken;
     private readonly YouTubeOAuthService _youtubeOAuth = new();
     private string _settingsSelectedPage = "general";
 
@@ -98,6 +99,7 @@ public partial class MainShellWindow
         AddSettingsNav(sidebarStack, "resolve", "DaVinci Resolve");
         AddSettingsNav(sidebarStack, "ai", "AI");
         AddSettingsNav(sidebarStack, "youtube", "YouTube");
+        AddSettingsNav(sidebarStack, "facebook", "Facebook");
         AddSettingsNav(sidebarStack, "about", "About");
 
         var contentBorder = SettingsCard(new Thickness(18));
@@ -112,6 +114,7 @@ public partial class MainShellWindow
         _settingsPages["resolve"] = BuildResolveSettingsPage();
         _settingsPages["ai"] = BuildAiSettingsPage();
         _settingsPages["youtube"] = BuildYouTubeSettingsPage();
+        _settingsPages["facebook"] = BuildFacebookSettingsPage();
         _settingsPages["about"] = BuildAboutSettingsPage();
 
         tab.Content = root;
@@ -388,6 +391,40 @@ public partial class MainShellWindow
         return SettingsScrollable(page);
     }
 
+    private FrameworkElement BuildFacebookSettingsPage()
+    {
+        var page = SettingsPageStack(
+            "Facebook",
+            "Connect the Factburst Quiz Page so Facebook Reel figures can update automatically.");
+
+        var credentials = SettingsSection("Meta Graph API");
+        page.Children.Add(credentials);
+        var stack = (StackPanel)credentials.Child;
+        stack.Children.Add(SettingsFieldLabel("Page access token"));
+        _settingsFacebookPageAccessToken = new PasswordBox { Margin = new Thickness(0, 5, 0, 0) };
+        stack.Children.Add(_settingsFacebookPageAccessToken);
+        stack.Children.Add(new TextBlock
+        {
+            Text = "Use a Page access token with permission to read Page engagement and insights. The token is encrypted on this PC.",
+            Foreground = SettingsMutedBrush(),
+            Margin = new Thickness(0, 7, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+        });
+
+        var behaviour = SettingsSection("Automatic updates");
+        page.Children.Add(behaviour);
+        ((StackPanel)behaviour.Child).Children.Add(new TextBlock
+        {
+            Text = "Link each exported Short to its Facebook Reel in Facebook Manager. Views, reactions, comments and shares then update when you click Refresh from Facebook.",
+            Foreground = SettingsMutedBrush(),
+            Margin = new Thickness(0, 6, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+        });
+
+        page.Children.Add(SettingsFooter("Save Facebook settings", SaveAllSettings));
+        return SettingsScrollable(page);
+    }
+
     private FrameworkElement BuildIntegritySettingsPage()
     {
         var page = SettingsPageStack("Project Integrity", "Check the database and project folders for missing or inconsistent project data.");
@@ -453,6 +490,7 @@ public partial class MainShellWindow
             var settings = _data.LoadSettings();
             if (_settingsYouTubeClientId is not null) _settingsYouTubeClientId.Text = settings.YouTubeOAuthClientId;
             if (_settingsYouTubeClientSecret is not null) _settingsYouTubeClientSecret.Password = settings.YouTubeOAuthClientSecret;
+            if (_settingsFacebookPageAccessToken is not null) _settingsFacebookPageAccessToken.Password = settings.FacebookPageAccessToken;
             SetYouTubeConnectionStatus(settings.YouTubeOAuthRefreshToken.Length > 0 ? "Connected to Google" : "Not connected");
         }
         catch (Exception error)
@@ -487,6 +525,7 @@ public partial class MainShellWindow
                 YouTubeOAuthClientId = _settingsYouTubeClientId?.Text.Trim() ?? existingSettings.YouTubeOAuthClientId,
                 YouTubeOAuthClientSecret = _settingsYouTubeClientSecret?.Password.Trim() ?? existingSettings.YouTubeOAuthClientSecret,
                 YouTubeOAuthRefreshToken = refreshTokenOverride ?? existingSettings.YouTubeOAuthRefreshToken,
+                FacebookPageAccessToken = _settingsFacebookPageAccessToken?.Password.Trim() ?? existingSettings.FacebookPageAccessToken,
                 ResolvePath = ResolvePathTextBox.Text.Trim(),
                 TimelineWidth = width,
                 TimelineHeight = height,
