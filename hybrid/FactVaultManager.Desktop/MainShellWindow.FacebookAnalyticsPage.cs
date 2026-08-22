@@ -64,6 +64,81 @@ public static class FacebookNextShortPlanner
     }
 }
 
+public static class FacebookShortMatcher
+{
+    public static IReadOnlyDictionary<int, FacebookPageVideo> Match(
+        IReadOnlyList<QuizHistorySummary> history,
+        IReadOnlyList<FacebookPageVideo> videos)
+    {
+        var shorts = history.Where(item => item.VideoType == "Short").ToList();
+        var available = videos.ToDictionary(item => item.VideoId, StringComparer.Ordinal);
+        var matches = new Dictionary<int, FacebookPageVideo>();
+
+        foreach (var item in shorts.Where(item => item.FacebookUrl.Length > 0))
+        {
+            var videoId = FacebookReelAnalyticsService.TryGetReelId(item.FacebookUrl);
+            if (videoId is not null && available.Remove(videoId, out var video))
+                matches[item.Id] = video;
+        }
+
+        foreach (var item in shorts.Where(item => !matches.ContainsKey(item.Id)))
+        {
+            var ranked = available.Values
+                .Select(video => new { Video = video, Score = Score(item, video) })
+                .Where(candidate => candidate.Score >= 80)
+                .OrderByDescending(candidate => candidate.Score)
+                .ThenByDescending(candidate => candidate.Video.PublishedAt)
+                .ToList();
+            if (ranked.Count == 0 || (ranked.Count > 1 && ranked[0].Score == ranked[1].Score)) continue;
+            matches[item.Id] = ranked[0].Video;
+            available.Remove(ranked[0].Video.VideoId);
+        }
+        return matches;
+    }
+
+    private static int Score(QuizHistorySummary history, FacebookPageVideo video)
+    {
+        var source = Normalize($"{video.Title} {video.Description}");
+        if (source.Length == 0) return 0;
+        var candidates = new[]
+        {
+            history.YouTubeTitle,
+            history.Title,
+            $"{history.SeriesName} {history.EpisodeLabel}",
+        };
+
+        var best = 0;
+        foreach (var candidateValue in candidates)
+        {
+            var candidate = Normalize(candidateValue);
+            if (candidate.Length < 6) continue;
+            if (source == candidate) best = Math.Max(best, 100);
+            else if (source.Contains(candidate, StringComparison.Ordinal)) best = Math.Max(best, 95);
+            else
+            {
+                var words = candidate.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Where(word => word.Length >= 3)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToList();
+                if (words.Count < 3) continue;
+                var sourceWords = source.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.Ordinal);
+                var matched = words.Count(sourceWords.Contains);
+                if (matched >= 3 && matched * 100 / words.Count >= 75)
+                    best = Math.Max(best, 80 + matched);
+            }
+        }
+        return best;
+    }
+
+    private static string Normalize(string? value)
+    {
+        var characters = (value ?? "").ToLowerInvariant()
+            .Select(character => char.IsLetterOrDigit(character) ? character : ' ')
+            .ToArray();
+        return string.Join(' ', new string(characters).Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+}
+
 public partial class MainShellWindow
 {
     private bool _facebookAnalyticsPageInitialized;
@@ -199,7 +274,7 @@ public partial class MainShellWindow
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        _facebookAnalyticsStatus = new TextBlock { Text = "Double-click a Short to link its Facebook Reel.", Foreground = QuizMutedBrush(), VerticalAlignment = VerticalAlignment.Center };
+        _facebookAnalyticsStatus = new TextBlock { Text = "Refresh to find Facebook Reels automatically.", Foreground = QuizMutedBrush(), VerticalAlignment = VerticalAlignment.Center };
         footer.Children.Add(_facebookAnalyticsStatus);
         var edit = new Button { Content = "Edit selected Short", MinWidth = 138, MinHeight = 36 };
         StyleQuizHistoryButton(edit, Color.FromRgb(204, 70, 255));
@@ -288,29 +363,22 @@ public partial class MainShellWindow
             return;
         }
 
-        var linked = _data.GetQuizHistory()
-            .Where(item => item.VideoType == "Short" && item.PublishedOnFacebook && item.FacebookUrl.Length > 0)
-            .ToList();
-        if (linked.Count == 0)
-        {
-            RefreshFacebookRows();
-            SetFacebookStatus("Double-click a Short and paste its Facebook Reel link first.");
-            return;
-        }
-
         try
         {
             _facebookAnalyticsPageRefreshing = true;
-            SetFacebookStatus("Updating Facebook Reel analytics...");
+            SetFacebookStatus("Finding Facebook Reels and updating analytics...");
+            var history = _data.GetQuizHistory().Where(item => item.VideoType == "Short").ToList();
+            var page = await _facebookAnalytics.ListPageVideosAsync(token);
+            var matches = FacebookShortMatcher.Match(history, page.Videos);
             var updated = 0;
-            var skipped = 0;
-            foreach (var item in linked)
+            foreach (var item in history)
             {
-                var id = FacebookReelAnalyticsService.TryGetReelId(item.FacebookUrl);
-                if (id is null) { skipped++; continue; }
-                var reel = await _facebookAnalytics.FetchAsync(token, id);
-                _data.UpdateQuizHistoryFacebookMetrics(
+                if (!matches.TryGetValue(item.Id, out var discovered)) continue;
+                var reel = await _facebookAnalytics.FetchAsync(token, discovered.VideoId);
+                _data.UpdateQuizHistoryFacebookAnalytics(
                     item.Id,
+                    true,
+                    reel.PermalinkUrl.Length > 0 ? reel.PermalinkUrl : discovered.PermalinkUrl,
                     YouTubeAnalyticsMetrics.PreserveHighest(item.FacebookViews, reel.Views),
                     YouTubeAnalyticsMetrics.PreserveHighest(item.FacebookReactions, reel.Reactions),
                     YouTubeAnalyticsMetrics.PreserveHighest(item.FacebookComments, reel.Comments),
@@ -319,9 +387,13 @@ public partial class MainShellWindow
                 updated++;
             }
             RefreshFacebookRows();
-            SetFacebookStatus(skipped == 0
-                ? $"Updated {updated:N0} Facebook Reels."
-                : $"Updated {updated:N0} Reels; {skipped:N0} link(s) need a canonical facebook.com/reel/ID URL.");
+            var unmatched = Math.Max(0, page.Videos.Count - matches.Count);
+            var pageLabel = page.PageName.Length > 0 ? page.PageName : "Facebook Page";
+            SetFacebookStatus(matches.Count == 0
+                ? $"Found {page.Videos.Count:N0} video(s) on {pageLabel}, but none matched a quiz Short by title."
+                : unmatched == 0
+                    ? $"Found and updated {updated:N0} Facebook Reels from {pageLabel}."
+                    : $"Updated {updated:N0} matched Reels from {pageLabel}; {unmatched:N0} Page video(s) were not matched.");
         }
         catch (Exception error)
         {
