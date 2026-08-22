@@ -149,6 +149,15 @@ public sealed class QuizHistoryPublicationTests
         Assert.Equal(expected, YouTubeAnalyticsMetrics.EngagementRate(views, likes, comments), 6);
     }
 
+    [Theory]
+    [InlineData(720, 715, 720)]
+    [InlineData(720, 725, 725)]
+    [InlineData(-1, -5, 0)]
+    public void AnalyticsRefresh_PreservesTheHighestKnownMetric(long stored, long fetched, long expected)
+    {
+        Assert.Equal(expected, YouTubeAnalyticsMetrics.PreserveHighest(stored, fetched));
+    }
+
     private static QuizHistorySummary History(
         string format,
         int questionCount,
