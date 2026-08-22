@@ -38,7 +38,7 @@ public sealed class YouTubeManagementTests
     public void CommentsResponse_ParsesModerationRows()
     {
         const string json = """
-            {"items":[{"id":"thread-1","snippet":{"totalReplyCount":2,"topLevelComment":{"id":"comment-1","snippet":{"videoId":"video-1","authorDisplayName":"Viewer","authorChannelUrl":"http://www.youtube.com/channel/viewer-channel","textDisplay":"Great quiz!","publishedAt":"2026-08-22T12:30:00Z","likeCount":3,"moderationStatus":"published"}}}}]}
+            {"items":[{"id":"thread-1","snippet":{"totalReplyCount":2,"topLevelComment":{"id":"comment-1","snippet":{"videoId":"video-1","authorDisplayName":"Viewer","authorChannelUrl":"http://www.youtube.com/channel/viewer-channel","authorChannelId":{"value":"viewer-channel"},"textDisplay":"Great quiz!","publishedAt":"2026-08-22T12:30:00Z","likeCount":3,"moderationStatus":"published"}}}}]}
             """;
 
         var result = Assert.Single(YouTubeManagementService.ParseComments(json));
@@ -52,6 +52,7 @@ public sealed class YouTubeManagementTests
         Assert.Equal(2, result.ReplyCount);
         Assert.Equal("published", result.ModerationStatus);
         Assert.Equal("https://www.youtube.com/channel/viewer-channel", result.AuthorProfileUrl.TrimEnd('/'));
+        Assert.Equal("viewer-channel", result.AuthorChannelId);
     }
 
     [Fact]
@@ -89,6 +90,34 @@ public sealed class YouTubeManagementTests
         var url = YouTubeManagementService.BuildCommentUrl("video 1", "comment+1");
 
         Assert.Equal("https://www.youtube.com/watch?v=video%201&lc=comment%2B1", url);
+    }
+
+    [Fact]
+    public void NeedsReplyInbox_HidesOwnRepliedAndHandledComments()
+    {
+        var comments = YouTubeManagementService.MarkOwnComments(
+        [
+            new YouTubeCommentItem(
+                "own", "thread-own", "video", "Factburst", "Pinned", DateTime.UtcNow,
+                0, 0, "published", AuthorChannelId: "owner-channel"),
+            new YouTubeCommentItem(
+                "viewer", "thread-viewer", "video", "Viewer", "Please reply", DateTime.UtcNow,
+                0, 0, "published", AuthorChannelId: "viewer-channel"),
+            new YouTubeCommentItem(
+                "replied", "thread-replied", "video", "Viewer", "Already answered", DateTime.UtcNow,
+                0, 1, "published", AuthorChannelId: "viewer-channel"),
+            new YouTubeCommentItem(
+                "handled", "thread-handled", "video", "Viewer", "Just answered", DateTime.UtcNow,
+                0, 0, "published", AuthorChannelId: "viewer-channel"),
+        ],
+        "owner-channel");
+
+        var result = Assert.Single(YouTubeCommentInbox.Filter(
+            comments,
+            needsReply: true,
+            new HashSet<string>(StringComparer.Ordinal) { "handled" }));
+
+        Assert.Equal("viewer", result.Id);
     }
 
     [Fact]
