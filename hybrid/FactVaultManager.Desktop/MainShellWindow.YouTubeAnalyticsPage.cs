@@ -830,7 +830,7 @@ public partial class MainShellWindow
             var selection = _youtubeCommentStatus?.SelectedItem?.ToString() ?? "Needs reply";
 
             var published = await _youtubeManagement.ListCommentsAsync(token, channel.Id, "published");
-            var needsReply = YouTubeCommentInbox.Filter(published, needsReply: true, _youtubeHandledCommentIds);
+            var needsReply = YouTubeCommentInbox.Filter(published, needsReply: true, handledCommentIds: _youtubeHandledCommentIds);
             if (_youtubeNeedsReplyCountText is not null)
                 _youtubeNeedsReplyCountText.Text = needsReply.Count.ToString("N0");
 
