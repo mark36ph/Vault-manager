@@ -22,6 +22,7 @@ public sealed class FacebookAnalyticsTests
     [InlineData("https://www.facebook.com/reel/123456789", "123456789")]
     [InlineData("https://facebook.com/reels/123456789/", "123456789")]
     [InlineData("https://m.facebook.com/videos/123456789", "123456789")]
+    [InlineData("https://www.facebook.com/watch/?v=123456789", "123456789")]
     public void ReelId_SupportsCanonicalFacebookLinks(string url, string expected)
     {
         Assert.Equal(expected, FacebookReelAnalyticsService.TryGetReelId(url));
@@ -34,6 +35,23 @@ public sealed class FacebookAnalyticsTests
     public void ReelId_RejectsUnsupportedLinks(string url)
     {
         Assert.Null(FacebookReelAnalyticsService.TryGetReelId(url));
+    }
+
+    [Fact]
+    public void ResolveReelUrl_UsesCanonicalUrlWhenMetaPermalinkIsRelative()
+    {
+        Assert.Equal(
+            "https://www.facebook.com/reel/123456789",
+            FacebookReelAnalyticsService.ResolveReelUrl("123456789", "/reel/123456789"));
+    }
+
+    [Fact]
+    public void ResolveReelUrl_PreservesCompleteFacebookPermalink()
+    {
+        Assert.Equal(
+            "https://www.facebook.com/watch/?v=123456789",
+            FacebookReelAnalyticsService.ResolveReelUrl(
+                "123456789", "https://www.facebook.com/watch/?v=123456789"));
     }
 
     [Theory]
