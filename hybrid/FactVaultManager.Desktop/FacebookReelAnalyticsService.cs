@@ -49,7 +49,31 @@ public sealed class FacebookReelAnalyticsService
                 parts[index].Equals("videos", StringComparison.OrdinalIgnoreCase))
                 return parts[index + 1].All(char.IsDigit) ? parts[index + 1] : null;
         }
+        foreach (var pair in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var separator = pair.IndexOf('=');
+            if (separator <= 0) continue;
+            var key = Uri.UnescapeDataString(pair[..separator]);
+            var value = Uri.UnescapeDataString(pair[(separator + 1)..]);
+            if (key.Equals("v", StringComparison.OrdinalIgnoreCase) && value.Length > 0 && value.All(char.IsDigit)) return value;
+        }
         return null;
+    }
+
+    public static string ResolveReelUrl(string videoId, params string?[] candidates)
+    {
+        foreach (var candidate in candidates)
+        {
+            var value = (candidate ?? "").Trim();
+            if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||
+                !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)) continue;
+            if (string.Equals(TryGetReelId(uri.AbsoluteUri), videoId, StringComparison.Ordinal))
+                return uri.AbsoluteUri;
+        }
+
+        if (string.IsNullOrWhiteSpace(videoId) || !videoId.All(char.IsDigit))
+            throw new ArgumentException("Facebook did not return a usable Reel link or numeric video ID.");
+        return $"https://www.facebook.com/reel/{videoId}";
     }
 
     public async Task<FacebookPageVideos> ListPageVideosAsync(
