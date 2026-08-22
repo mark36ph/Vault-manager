@@ -229,6 +229,8 @@ public partial class MainShellWindow
     private void AddYouTubeManagerButton(Panel parent, string key, string text)
     {
         var button = new Button { Content = text, MinWidth = 112, MinHeight = 34, Margin = new Thickness(0, 0, 8, 0) };
+        if (FindResource("YouTubeManagerTabButtonStyle") is Style managerButtonStyle)
+            button.Style = managerButtonStyle;
         button.Click += async (_, _) =>
         {
             SelectYouTubeManagerSection(key);
@@ -251,8 +253,7 @@ public partial class MainShellWindow
         foreach (var pair in _youtubeManagerButtons)
         {
             var selected = pair.Key == key;
-            pair.Value.Background = new SolidColorBrush(selected ? Color.FromRgb(25, 86, 170) : Color.FromRgb(13, 18, 78));
-            pair.Value.Foreground = selected ? Brushes.White : new SolidColorBrush(Color.FromRgb(190, 210, 255));
+            pair.Value.Tag = selected ? "Selected" : null;
         }
     }
 
@@ -502,6 +503,18 @@ public partial class MainShellWindow
         header.Setters.Add(new Setter(Control.FontWeightProperty, FontWeights.SemiBold));
         header.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(8)));
         grid.ColumnHeaderStyle = header;
+
+        var cell = new Style(typeof(DataGridCell));
+        cell.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+        cell.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
+        cell.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(9, 6, 9, 6)));
+        cell.Setters.Add(new Setter(Control.VerticalContentAlignmentProperty, VerticalAlignment.Center));
+        cell.Setters.Add(new Setter(DataGridCell.BorderThicknessProperty, new Thickness(0)));
+        var selected = new Trigger { Property = DataGridCell.IsSelectedProperty, Value = true };
+        selected.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(25, 86, 170))));
+        selected.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+        cell.Triggers.Add(selected);
+        grid.CellStyle = cell;
         return grid;
     }
 
