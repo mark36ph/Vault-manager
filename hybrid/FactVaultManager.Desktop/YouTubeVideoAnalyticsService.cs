@@ -8,7 +8,17 @@ public sealed record YouTubeVideoAnalytics(
     string VideoId,
     long Views,
     long Likes,
-    DateTime? PublishedAt);
+    DateTime? PublishedAt,
+    long Comments = 0,
+    string ChannelId = "",
+    string Title = "");
+
+public sealed record YouTubeChannelAnalytics(
+    string ChannelId,
+    string Title,
+    long Views,
+    long Videos,
+    long? Subscribers);
 
 public sealed class YouTubeVideoAnalyticsService
 {
@@ -87,7 +97,7 @@ public sealed class YouTubeVideoAnalyticsService
             var batch = ids.Skip(offset).Take(50);
             var requestUri = "https://www.googleapis.com/youtube/v3/videos" +
                              "?part=snippet%2Cstatistics" +
-                             "&fields=items(id%2Csnippet%2FpublishedAt%2Cstatistics%2FviewCount%2Cstatistics%2FlikeCount)" +
+                             "&fields=items(id%2Csnippet%2FchannelId%2Csnippet%2FpublishedAt%2Csnippet%2Ftitle%2Cstatistics%2FcommentCount%2Cstatistics%2FviewCount%2Cstatistics%2FlikeCount)" +
                              $"&id={Uri.EscapeDataString(string.Join(',', batch))}" +
                              $"&key={Uri.EscapeDataString(apiKey.Trim())}";
 
@@ -102,6 +112,31 @@ public sealed class YouTubeVideoAnalyticsService
         }
 
         return results;
+    }
+
+    public async Task<YouTubeChannelAnalytics?> FetchChannelAsync(
+        string apiKey,
+        string channelId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(apiKey))
+            throw new ArgumentException("Add a YouTube Data API key in Settings first.", nameof(apiKey));
+        if (string.IsNullOrWhiteSpace(channelId))
+            return null;
+
+        var requestUri = "https://www.googleapis.com/youtube/v3/channels" +
+                         "?part=snippet%2Cstatistics" +
+                         "&fields=items(id%2Csnippet%2Ftitle%2Cstatistics%2FhiddenSubscriberCount%2Cstatistics%2FsubscriberCount%2Cstatistics%2FvideoCount%2Cstatistics%2FviewCount)" +
+                         $"&id={Uri.EscapeDataString(channelId.Trim())}" +
+                         $"&key={Uri.EscapeDataString(apiKey.Trim())}";
+
+        using var response = await _client.GetAsync(requestUri, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                $"YouTube could not update channel analytics (HTTP {(int)response.StatusCode}). Check the API key and that YouTube Data API v3 is enabled.");
+
+        var json = await response.Content.ReadAsStringAsync(cancellationToken);
+        return ParseChannelResponse(json);
     }
 
     public static IReadOnlyList<YouTubeVideoAnalytics> ParseResponse(string json)
@@ -119,23 +154,60 @@ public sealed class YouTubeVideoAnalyticsService
 
             long views = 0;
             long likes = 0;
+            long comments = 0;
             if (item.TryGetProperty("statistics", out var statistics))
             {
                 views = ReadMetric(statistics, "viewCount");
                 likes = ReadMetric(statistics, "likeCount");
+                comments = ReadMetric(statistics, "commentCount");
             }
 
             DateTime? publishedAt = null;
+            var channelId = "";
+            var title = "";
             if (item.TryGetProperty("snippet", out var snippet) &&
-                snippet.TryGetProperty("publishedAt", out var publishedElement) &&
-                DateTimeOffset.TryParse(publishedElement.GetString(), CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal, out var parsed))
-                publishedAt = parsed.UtcDateTime;
+                snippet.ValueKind == JsonValueKind.Object)
+            {
+                if (snippet.TryGetProperty("publishedAt", out var publishedElement) &&
+                    DateTimeOffset.TryParse(publishedElement.GetString(), CultureInfo.InvariantCulture,
+                        DateTimeStyles.AssumeUniversal, out var parsed))
+                    publishedAt = parsed.UtcDateTime;
+                if (snippet.TryGetProperty("channelId", out var channelElement))
+                    channelId = channelElement.GetString()?.Trim() ?? "";
+                if (snippet.TryGetProperty("title", out var titleElement))
+                    title = titleElement.GetString()?.Trim() ?? "";
+            }
 
-            results.Add(new YouTubeVideoAnalytics(id, views, likes, publishedAt));
+            results.Add(new YouTubeVideoAnalytics(id, views, likes, publishedAt, comments, channelId, title));
         }
 
         return results;
+    }
+
+    public static YouTubeChannelAnalytics? ParseChannelResponse(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        if (!document.RootElement.TryGetProperty("items", out var items) ||
+            items.ValueKind != JsonValueKind.Array || items.GetArrayLength() == 0)
+            return null;
+
+        var item = items[0];
+        var id = item.TryGetProperty("id", out var idElement) ? idElement.GetString()?.Trim() ?? "" : "";
+        var title = item.TryGetProperty("snippet", out var snippet) &&
+                    snippet.TryGetProperty("title", out var titleElement)
+            ? titleElement.GetString()?.Trim() ?? ""
+            : "";
+        if (!item.TryGetProperty("statistics", out var statistics))
+            return new YouTubeChannelAnalytics(id, title, 0, 0, null);
+
+        var hiddenSubscribers = statistics.TryGetProperty("hiddenSubscriberCount", out var hiddenElement) &&
+                                hiddenElement.ValueKind == JsonValueKind.True;
+        return new YouTubeChannelAnalytics(
+            id,
+            title,
+            ReadMetric(statistics, "viewCount"),
+            ReadMetric(statistics, "videoCount"),
+            hiddenSubscribers ? null : ReadOptionalMetric(statistics, "subscriberCount"));
     }
 
     private static long ReadMetric(JsonElement statistics, string propertyName) =>
@@ -143,4 +215,10 @@ public sealed class YouTubeVideoAnalyticsService
         long.TryParse(element.GetString(), NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value >= 0
             ? value
             : 0;
+
+    private static long? ReadOptionalMetric(JsonElement statistics, string propertyName) =>
+        statistics.TryGetProperty(propertyName, out var element) &&
+        long.TryParse(element.GetString(), NumberStyles.None, CultureInfo.InvariantCulture, out var value) && value >= 0
+            ? value
+            : null;
 }

@@ -113,14 +113,40 @@ public sealed class QuizHistoryPublicationTests
     public void AnalyticsResponse_ParsesPublicStatisticsAndPublishDate()
     {
         const string json = """
-            {"items":[{"id":"qJAMsHFhlDA","snippet":{"publishedAt":"2026-08-22T09:30:00Z"},"statistics":{"viewCount":"1234","likeCount":"56"}}]}
+            {"items":[{"id":"qJAMsHFhlDA","snippet":{"publishedAt":"2026-08-22T09:30:00Z","channelId":"UC123","title":"History Quiz"},"statistics":{"viewCount":"1234","likeCount":"56","commentCount":"7"}}]}
             """;
 
         var result = Assert.Single(YouTubeVideoAnalyticsService.ParseResponse(json));
         Assert.Equal("qJAMsHFhlDA", result.VideoId);
         Assert.Equal(1234, result.Views);
         Assert.Equal(56, result.Likes);
+        Assert.Equal(7, result.Comments);
+        Assert.Equal("UC123", result.ChannelId);
+        Assert.Equal("History Quiz", result.Title);
         Assert.Equal(new DateTime(2026, 8, 22, 9, 30, 0, DateTimeKind.Utc), result.PublishedAt);
+    }
+
+    [Fact]
+    public void ChannelResponse_ParsesPublicTotals()
+    {
+        const string json = """
+            {"items":[{"id":"UC123","snippet":{"title":"Factburst Quiz"},"statistics":{"viewCount":"9876","subscriberCount":"321","hiddenSubscriberCount":false,"videoCount":"42"}}]}
+            """;
+
+        var result = Assert.IsType<YouTubeChannelAnalytics>(
+            YouTubeVideoAnalyticsService.ParseChannelResponse(json));
+        Assert.Equal("Factburst Quiz", result.Title);
+        Assert.Equal(9876, result.Views);
+        Assert.Equal(321, result.Subscribers);
+        Assert.Equal(42, result.Videos);
+    }
+
+    [Theory]
+    [InlineData(1000, 40, 10, 5.0)]
+    [InlineData(0, 40, 10, 0.0)]
+    public void EngagementRate_UsesLikesAndComments(long views, long likes, long comments, double expected)
+    {
+        Assert.Equal(expected, YouTubeAnalyticsMetrics.EngagementRate(views, likes, comments), 6);
     }
 
     private static QuizHistorySummary History(
