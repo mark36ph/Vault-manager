@@ -378,7 +378,8 @@ public partial class MainShellWindow
                 _data.UpdateQuizHistoryFacebookAnalytics(
                     item.Id,
                     true,
-                    reel.PermalinkUrl.Length > 0 ? reel.PermalinkUrl : discovered.PermalinkUrl,
+                    FacebookReelAnalyticsService.ResolveReelUrl(
+                        discovered.VideoId, reel.PermalinkUrl, discovered.PermalinkUrl),
                     YouTubeAnalyticsMetrics.PreserveHighest(item.FacebookViews, reel.Views),
                     YouTubeAnalyticsMetrics.PreserveHighest(item.FacebookReactions, reel.Reactions),
                     YouTubeAnalyticsMetrics.PreserveHighest(item.FacebookComments, reel.Comments),
