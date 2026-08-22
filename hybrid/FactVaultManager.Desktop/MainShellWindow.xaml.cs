@@ -310,6 +310,7 @@ public partial class MainShellWindow : Window
             if (!double.TryParse(FrameRateTextBox.Text, out var frameRate) || frameRate <= 0)
                 throw new ArgumentException("Frame rate must be a positive number.");
 
+            var existingSettings = _data.LoadSettings();
             _data.SaveSettings(new AppSettingsModel
             {
                 ProjectsFolder = ProjectsFolderTextBox.Text.Trim(),
@@ -318,6 +319,10 @@ public partial class MainShellWindow : Window
                 PexelsKey = PexelsKeyPasswordBox.Password.Trim(),
                 PixabayKey = PixabayKeyPasswordBox.Password.Trim(),
                 YouTubeApiKey = YouTubeApiKeyPasswordBox.Password.Trim(),
+                YouTubeOAuthClientId = existingSettings.YouTubeOAuthClientId,
+                YouTubeOAuthClientSecret = existingSettings.YouTubeOAuthClientSecret,
+                YouTubeOAuthRefreshToken = existingSettings.YouTubeOAuthRefreshToken,
+                FacebookPageAccessToken = existingSettings.FacebookPageAccessToken,
                 ResolvePath = ResolvePathTextBox.Text.Trim(),
                 TimelineWidth = width,
                 TimelineHeight = height,
