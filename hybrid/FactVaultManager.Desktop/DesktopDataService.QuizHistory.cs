@@ -22,12 +22,20 @@ public sealed record QuizHistorySummary(
     string YouTubeUrl,
     long YouTubeViews = 0,
     long YouTubeLikes = 0,
-    string YouTubeUploadDate = "")
+    string YouTubeUploadDate = "",
+    bool PublishedOnFacebook = false,
+    string FacebookUrl = "",
+    long FacebookViews = 0,
+    long FacebookReactions = 0,
+    long FacebookComments = 0,
+    long FacebookShares = 0,
+    string FacebookUploadDate = "")
 {
     public string EpisodeLabel => EpisodeNumber > 0 ? $"#{EpisodeNumber:000}" : "";
     public string CreatedDisplay => QuizHistoryDate.Format(Created);
     public string VideoType => QuizHistoryVideoType.DisplayName(Format);
     public string YouTubeUploadDateDisplay => QuizYouTubeAnalytics.FormatUploadDate(YouTubeUploadDate);
+    public string FacebookUploadDateDisplay => QuizFacebookAnalytics.FormatUploadDate(FacebookUploadDate);
     public string AnalyticsCategory => QuizYouTubeAnalytics.CategoryName(this);
 }
 
@@ -111,6 +119,34 @@ public static class QuizYouTubePublication
             throw new ArgumentException("The video link must use youtube.com or youtu.be.");
         return uri.AbsoluteUri;
     }
+}
+
+public static class QuizFacebookPublication
+{
+    public static string NormalizeUrl(string? value)
+    {
+        var text = (value ?? "").Trim();
+        if (text.Length == 0) return "";
+        if (!Uri.TryCreate(text, UriKind.Absolute, out var uri) ||
+            !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("Enter a complete HTTPS Facebook Reel link.");
+
+        var host = uri.Host.TrimEnd('.');
+        var isFacebook = string.Equals(host, "facebook.com", StringComparison.OrdinalIgnoreCase) ||
+                         host.EndsWith(".facebook.com", StringComparison.OrdinalIgnoreCase) ||
+                         string.Equals(host, "fb.watch", StringComparison.OrdinalIgnoreCase);
+        if (!isFacebook)
+            throw new ArgumentException("The Reel link must use facebook.com or fb.watch.");
+        return uri.AbsoluteUri;
+    }
+}
+
+public static class QuizFacebookAnalytics
+{
+    public static long ParseMetric(string? value, string label) => QuizYouTubeAnalytics.ParseMetric(value, label);
+    public static DateTime? ParseUploadDate(string? value) => QuizYouTubeAnalytics.ParseUploadDate(value);
+    public static string NormalizeUploadDate(DateTime? value) => QuizYouTubeAnalytics.NormalizeUploadDate(value);
+    public static string FormatUploadDate(string? value) => QuizYouTubeAnalytics.FormatUploadDate(value);
 }
 
 public sealed record QuizCategoryPerformance(string Category, int Published, long Views, long Likes);
@@ -376,7 +412,9 @@ public sealed partial class DesktopDataService
                    question_seconds, shuffle_answers, project_folder,
                    series_name, episode_number, youtube_title, youtube_description,
                    youtube_hashtags, pinned_comment, published_on_youtube, youtube_url,
-                   youtube_views, youtube_likes, youtube_upload_date
+                   youtube_views, youtube_likes, youtube_upload_date,
+                   published_on_facebook, facebook_url, facebook_views, facebook_reactions,
+                   facebook_comments, facebook_shares, facebook_upload_date
             FROM quiz_history
             ORDER BY id DESC
             LIMIT $limit
@@ -407,7 +445,14 @@ public sealed partial class DesktopDataService
                 reader.GetString(16),
                 reader.GetInt64(17),
                 reader.GetInt64(18),
-                reader.GetString(19)));
+                reader.GetString(19),
+                reader.GetInt32(20) != 0,
+                reader.GetString(21),
+                reader.GetInt64(22),
+                reader.GetInt64(23),
+                reader.GetInt64(24),
+                reader.GetInt64(25),
+                reader.GetString(26)));
         }
         return results;
     }
@@ -486,6 +531,67 @@ public sealed partial class DesktopDataService
         return command.ExecuteNonQuery() == 1;
     }
 
+    public bool UpdateQuizHistoryFacebookAnalytics(int historyId, bool published, string? facebookUrl,
+        long views, long reactions, long comments, long shares, DateTime? uploadDate)
+    {
+        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
+        if (views < 0 || reactions < 0 || comments < 0 || shares < 0)
+            throw new ArgumentOutOfRangeException(nameof(views), "Facebook metrics cannot be negative.");
+
+        var normalizedUrl = QuizFacebookPublication.NormalizeUrl(facebookUrl);
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE quiz_history
+            SET published_on_facebook = $published,
+                facebook_url = $facebookUrl,
+                facebook_views = $views,
+                facebook_reactions = $reactions,
+                facebook_comments = $comments,
+                facebook_shares = $shares,
+                facebook_upload_date = $uploadDate
+            WHERE id = $historyId
+            """;
+        command.Parameters.AddWithValue("$published", published ? 1 : 0);
+        command.Parameters.AddWithValue("$facebookUrl", normalizedUrl);
+        command.Parameters.AddWithValue("$views", views);
+        command.Parameters.AddWithValue("$reactions", reactions);
+        command.Parameters.AddWithValue("$comments", comments);
+        command.Parameters.AddWithValue("$shares", shares);
+        command.Parameters.AddWithValue("$uploadDate", QuizFacebookAnalytics.NormalizeUploadDate(uploadDate));
+        command.Parameters.AddWithValue("$historyId", historyId);
+        return command.ExecuteNonQuery() == 1;
+    }
+
+    public bool UpdateQuizHistoryFacebookMetrics(int historyId, long views, long reactions,
+        long comments, long shares, DateTime? uploadDate)
+    {
+        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
+        if (views < 0 || reactions < 0 || comments < 0 || shares < 0)
+            throw new ArgumentOutOfRangeException(nameof(views), "Facebook metrics cannot be negative.");
+
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE quiz_history
+            SET facebook_views = $views,
+                facebook_reactions = $reactions,
+                facebook_comments = $comments,
+                facebook_shares = $shares,
+                facebook_upload_date = $uploadDate
+            WHERE id = $historyId
+            """;
+        command.Parameters.AddWithValue("$views", views);
+        command.Parameters.AddWithValue("$reactions", reactions);
+        command.Parameters.AddWithValue("$comments", comments);
+        command.Parameters.AddWithValue("$shares", shares);
+        command.Parameters.AddWithValue("$uploadDate", QuizFacebookAnalytics.NormalizeUploadDate(uploadDate));
+        command.Parameters.AddWithValue("$historyId", historyId);
+        return command.ExecuteNonQuery() == 1;
+    }
+
     public IReadOnlyList<QuizHistoryQuestion> GetQuizHistoryQuestions(int historyId)
     {
         if (historyId <= 0)
@@ -542,7 +648,14 @@ public sealed partial class DesktopDataService
                     youtube_url TEXT NOT NULL DEFAULT '',
                     youtube_views INTEGER NOT NULL DEFAULT 0,
                     youtube_likes INTEGER NOT NULL DEFAULT 0,
-                    youtube_upload_date TEXT NOT NULL DEFAULT ''
+                    youtube_upload_date TEXT NOT NULL DEFAULT '',
+                    published_on_facebook INTEGER NOT NULL DEFAULT 0,
+                    facebook_url TEXT NOT NULL DEFAULT '',
+                    facebook_views INTEGER NOT NULL DEFAULT 0,
+                    facebook_reactions INTEGER NOT NULL DEFAULT 0,
+                    facebook_comments INTEGER NOT NULL DEFAULT 0,
+                    facebook_shares INTEGER NOT NULL DEFAULT 0,
+                    facebook_upload_date TEXT NOT NULL DEFAULT ''
                 );
 
                 CREATE TABLE IF NOT EXISTS quiz_history_questions (
@@ -575,6 +688,13 @@ public sealed partial class DesktopDataService
         EnsureQuizHistoryColumn(connection, "youtube_views", "INTEGER NOT NULL DEFAULT 0");
         EnsureQuizHistoryColumn(connection, "youtube_likes", "INTEGER NOT NULL DEFAULT 0");
         EnsureQuizHistoryColumn(connection, "youtube_upload_date", "TEXT NOT NULL DEFAULT ''");
+        EnsureQuizHistoryColumn(connection, "published_on_facebook", "INTEGER NOT NULL DEFAULT 0");
+        EnsureQuizHistoryColumn(connection, "facebook_url", "TEXT NOT NULL DEFAULT ''");
+        EnsureQuizHistoryColumn(connection, "facebook_views", "INTEGER NOT NULL DEFAULT 0");
+        EnsureQuizHistoryColumn(connection, "facebook_reactions", "INTEGER NOT NULL DEFAULT 0");
+        EnsureQuizHistoryColumn(connection, "facebook_comments", "INTEGER NOT NULL DEFAULT 0");
+        EnsureQuizHistoryColumn(connection, "facebook_shares", "INTEGER NOT NULL DEFAULT 0");
+        EnsureQuizHistoryColumn(connection, "facebook_upload_date", "TEXT NOT NULL DEFAULT ''");
         using var seriesIndex = connection.CreateCommand();
         seriesIndex.CommandText = """
             CREATE INDEX IF NOT EXISTS ix_quiz_history_series_episode
