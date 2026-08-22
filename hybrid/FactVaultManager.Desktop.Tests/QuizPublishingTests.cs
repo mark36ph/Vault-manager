@@ -59,6 +59,20 @@ public sealed class QuizPublishingTests
     }
 
     [Fact]
+    public void Generate_OneQuestionShortUsesSingularQuestion()
+    {
+        var metadata = QuizPublishMetadataGenerator.Generate(
+            "Science Quiz",
+            2,
+            [Question(1, "Science")],
+            vertical: true,
+            fullQuizUrl: "https://youtu.be/abc123");
+
+        Assert.Contains("with 1 question in Science Quiz #002.", metadata.Description);
+        Assert.DoesNotContain("1 questions", metadata.Description);
+    }
+
+    [Fact]
     public void Generate_ShortRequiresAYouTubeFullQuizUrl()
     {
         Assert.Throws<ArgumentException>(() => QuizPublishMetadataGenerator.Generate(
