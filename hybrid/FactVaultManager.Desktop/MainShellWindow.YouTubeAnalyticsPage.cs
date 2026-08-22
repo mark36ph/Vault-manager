@@ -91,12 +91,12 @@ public partial class MainShellWindow
             FontFamily = new FontFamily("Segoe UI Variable Display"),
             FontSize = 28,
             FontWeight = FontWeights.SemiBold,
-            Foreground = Brushes.White,
+            Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)),
         });
         heading.Children.Add(new TextBlock
         {
             Text = "Review performance, manage comments, and organise channel playlists.",
-            Foreground = new SolidColorBrush(Color.FromRgb(190, 210, 255)),
+            Foreground = QuizMutedBrush(),
             Margin = new Thickness(0, 3, 0, 0),
         });
         root.Children.Add(heading);
@@ -133,12 +133,12 @@ public partial class MainShellWindow
             FontFamily = new FontFamily("Segoe UI Variable Display"),
             FontSize = 28,
             FontWeight = FontWeights.SemiBold,
-            Foreground = Brushes.White,
+            Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)),
         });
         _youtubeChannelNameText = new TextBlock
         {
             Text = "Channel and tracked quiz performance",
-            Foreground = new SolidColorBrush(Color.FromRgb(190, 210, 255)),
+            Foreground = QuizMutedBrush(),
             Margin = new Thickness(0, 3, 0, 0),
         };
         heading.Children.Add(_youtubeChannelNameText);
@@ -211,7 +211,7 @@ public partial class MainShellWindow
         _youtubeAnalyticsPageStatus = new TextBlock
         {
             Text = "Open this page to update analytics.",
-            Foreground = new SolidColorBrush(Color.FromRgb(190, 210, 255)),
+            Foreground = QuizMutedBrush(),
             VerticalAlignment = VerticalAlignment.Center,
         };
         footer.Children.Add(_youtubeAnalyticsPageStatus);
@@ -356,8 +356,8 @@ public partial class MainShellWindow
         toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var title = new StackPanel();
-        title.Children.Add(new TextBlock { Text = "Comments", FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White });
-        title.Children.Add(new TextBlock { Text = "Reply to viewers and review comments held by YouTube.", Foreground = new SolidColorBrush(Color.FromRgb(190, 210, 255)) });
+        title.Children.Add(new TextBlock { Text = "Comments", FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)) });
+        title.Children.Add(new TextBlock { Text = "Reply to viewers and review comments held by YouTube.", Foreground = QuizMutedBrush() });
         toolbar.Children.Add(title);
         _youtubeCommentStatus = new ComboBox { Width = 150, Height = 34, Margin = new Thickness(8, 0, 8, 0) };
         _youtubeCommentStatus.Items.Add("Published");
@@ -400,7 +400,7 @@ public partial class MainShellWindow
         Grid.SetRow(actionRow, 2);
         root.Children.Add(actionRow);
 
-        _youtubeCommentsStatus = new TextBlock { Text = "Connect YouTube in Settings to manage comments.", Foreground = new SolidColorBrush(Color.FromRgb(190, 210, 255)), Margin = new Thickness(0, 8, 0, 0) };
+        _youtubeCommentsStatus = new TextBlock { Text = "Connect YouTube in Settings to manage comments.", Foreground = QuizMutedBrush(), Margin = new Thickness(0, 8, 0, 0) };
         Grid.SetRow(_youtubeCommentsStatus, 3);
         root.Children.Add(_youtubeCommentsStatus);
         return root;
@@ -419,8 +419,8 @@ public partial class MainShellWindow
         toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var title = new StackPanel();
-        title.Children.Add(new TextBlock { Text = "Playlists", FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White });
-        title.Children.Add(new TextBlock { Text = "Create playlists and add published quizzes without leaving the app.", Foreground = new SolidColorBrush(Color.FromRgb(190, 210, 255)) });
+        title.Children.Add(new TextBlock { Text = "Playlists", FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)) });
+        title.Children.Add(new TextBlock { Text = "Create playlists and add published quizzes without leaving the app.", Foreground = QuizMutedBrush() });
         toolbar.Children.Add(title);
         var create = new Button { Content = "Create playlist", MinWidth = 124, MinHeight = 34, Margin = new Thickness(8, 0, 8, 0) };
         StyleQuizHistoryButton(create, Color.FromRgb(204, 70, 255));
@@ -472,7 +472,7 @@ public partial class MainShellWindow
         Grid.SetRow(actions, 2);
         root.Children.Add(actions);
 
-        _youtubePlaylistsStatus = new TextBlock { Text = "Connect YouTube in Settings to manage playlists.", Foreground = new SolidColorBrush(Color.FromRgb(190, 210, 255)), Margin = new Thickness(0, 8, 0, 0) };
+        _youtubePlaylistsStatus = new TextBlock { Text = "Connect YouTube in Settings to manage playlists.", Foreground = QuizMutedBrush(), Margin = new Thickness(0, 8, 0, 0) };
         Grid.SetRow(_youtubePlaylistsStatus, 3);
         root.Children.Add(_youtubePlaylistsStatus);
         return root;
