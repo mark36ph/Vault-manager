@@ -624,7 +624,7 @@ public partial class MainShellWindow
         _youtubeCommentStatus.Items.Add("Published");
         _youtubeCommentStatus.Items.Add("Held for review");
         _youtubeCommentStatus.Items.Add("Likely spam");
-        _youtubeCommentStatus.SelectedIndex = 0;
+        _youtubeCommentStatus.SelectedIndex = 1;
         _youtubeCommentStatus.SelectionChanged += async (_, _) => await RefreshYouTubeCommentsAsync(false);
         Grid.SetColumn(_youtubeCommentStatus, 2);
         toolbar.Children.Add(_youtubeCommentStatus);
@@ -853,7 +853,7 @@ public partial class MainShellWindow
             _youtubeCommentsGrid.ItemsSource = comments;
             SetYouTubeCommentsStatus(selection == "Needs reply"
                 ? $"{channel.Title} • {comments.Count:N0} viewer comments need a reply"
-                : $"{channel.Title} • {comments.Count:N0} {selection.ToLowerInvariant()} viewer comments");
+                : $"{channel.Title} • {comments.Count:N0} {selection.ToLowerInvariant()} comments");
         }
         catch (Exception error)
         {
