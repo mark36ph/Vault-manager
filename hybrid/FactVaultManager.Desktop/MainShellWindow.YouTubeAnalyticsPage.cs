@@ -39,10 +39,10 @@ public partial class MainShellWindow
     private bool _youtubeAnalyticsPageRefreshing;
     private int _youtubeAnalyticsTabIndex = -1;
     private DataGrid? _youtubeAnalyticsGrid;
-    private TextBlock? _youtubeSubscribersText;
-    private TextBlock? _youtubeChannelViewsText;
-    private TextBlock? _youtubeChannelVideosText;
-    private TextBlock? _youtubeEngagementText;
+    private TextBlock? _youtubeTrackedVideosText;
+    private TextBlock? _youtubeTrackedViewsText;
+    private TextBlock? _youtubeTrackedLikesText;
+    private TextBlock? _youtubeTrackedCommentsText;
     private TextBlock? _youtubeAnalyticsPageStatus;
     private TextBlock? _youtubeChannelNameText;
     private readonly YouTubeManagementService _youtubeManagement = new();
@@ -161,28 +161,28 @@ public partial class MainShellWindow
         for (var index = 0; index < 4; index++)
             stats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
-        var subscribers = BuildQuizHistoryStatCard("Subscribers", Color.FromRgb(248, 90, 105));
-        _youtubeSubscribersText = subscribers.Value;
-        subscribers.Card.Margin = new Thickness(0, 0, 5, 0);
-        stats.Children.Add(subscribers.Card);
+        var videos = BuildQuizHistoryStatCard("Tracked videos", Color.FromRgb(248, 90, 105));
+        _youtubeTrackedVideosText = videos.Value;
+        videos.Card.Margin = new Thickness(0, 0, 5, 0);
+        stats.Children.Add(videos.Card);
 
-        var views = BuildQuizHistoryStatCard("Channel views", Color.FromRgb(0, 204, 255));
-        _youtubeChannelViewsText = views.Value;
+        var views = BuildQuizHistoryStatCard("Tracked views", Color.FromRgb(0, 204, 255));
+        _youtubeTrackedViewsText = views.Value;
         views.Card.Margin = new Thickness(5, 0, 5, 0);
         Grid.SetColumn(views.Card, 1);
         stats.Children.Add(views.Card);
 
-        var videos = BuildQuizHistoryStatCard("Channel videos", Color.FromRgb(204, 70, 255));
-        _youtubeChannelVideosText = videos.Value;
-        videos.Card.Margin = new Thickness(5, 0, 5, 0);
-        Grid.SetColumn(videos.Card, 2);
-        stats.Children.Add(videos.Card);
+        var likes = BuildQuizHistoryStatCard("Tracked likes", Color.FromRgb(204, 70, 255));
+        _youtubeTrackedLikesText = likes.Value;
+        likes.Card.Margin = new Thickness(5, 0, 5, 0);
+        Grid.SetColumn(likes.Card, 2);
+        stats.Children.Add(likes.Card);
 
-        var engagement = BuildQuizHistoryStatCard("Tracked engagement", Color.FromRgb(70, 235, 115));
-        _youtubeEngagementText = engagement.Value;
-        engagement.Card.Margin = new Thickness(5, 0, 0, 0);
-        Grid.SetColumn(engagement.Card, 3);
-        stats.Children.Add(engagement.Card);
+        var comments = BuildQuizHistoryStatCard("Tracked comments", Color.FromRgb(70, 235, 115));
+        _youtubeTrackedCommentsText = comments.Value;
+        comments.Card.Margin = new Thickness(5, 0, 0, 0);
+        Grid.SetColumn(comments.Card, 3);
+        stats.Children.Add(comments.Card);
         Grid.SetRow(stats, 1);
         root.Children.Add(stats);
 
@@ -360,6 +360,39 @@ public partial class MainShellWindow
         };
     }
 
+    private DataGridTemplateColumn YouTubeCommentVideoColumn()
+    {
+        var link = new FrameworkElementFactory(typeof(TextBlock));
+        link.SetBinding(TextBlock.TextProperty, new Binding(nameof(YouTubeCommentItem.VideoTitle)));
+        link.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
+        link.SetValue(TextBlock.TextDecorationsProperty, TextDecorations.Underline);
+        link.SetValue(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0, 204, 255)));
+        link.SetValue(TextBlock.CursorProperty, Cursors.Hand);
+        link.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+        link.SetValue(TextBlock.MarginProperty, new Thickness(0, 4, 0, 4));
+        link.SetValue(TextBlock.ToolTipProperty, "Open this video on YouTube");
+        link.AddHandler(UIElement.MouseLeftButtonUpEvent,
+            new MouseButtonEventHandler(YouTubeCommentVideo_MouseLeftButtonUp));
+        return new DataGridTemplateColumn
+        {
+            Header = "Video",
+            CellTemplate = new DataTemplate { VisualTree = link },
+            SortMemberPath = nameof(YouTubeCommentItem.VideoTitle),
+            Width = new DataGridLength(250),
+        };
+    }
+
+    private void YouTubeCommentVideo_MouseLeftButtonUp(object sender, MouseButtonEventArgs eventArgs)
+    {
+        if (sender is not FrameworkElement { DataContext: YouTubeCommentItem comment } ||
+            string.IsNullOrWhiteSpace(comment.VideoId))
+            return;
+
+        var url = "https://www.youtube.com/watch?v=" + Uri.EscapeDataString(comment.VideoId.Trim());
+        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        eventArgs.Handled = true;
+    }
+
     private FrameworkElement BuildYouTubeCommentsSection()
     {
         var root = new Grid();
@@ -394,10 +427,7 @@ public partial class MainShellWindow
         _youtubeCommentsGrid.RowHeight = double.NaN;
         _youtubeCommentsGrid.MinRowHeight = 44;
         _youtubeCommentsGrid.Columns.Add(TextColumn("Author", nameof(YouTubeCommentItem.Author), 132));
-        _youtubeCommentsGrid.Columns.Add(WrappedTextColumn(
-            "Video",
-            nameof(YouTubeCommentItem.VideoTitle),
-            new DataGridLength(250)));
+        _youtubeCommentsGrid.Columns.Add(YouTubeCommentVideoColumn());
         _youtubeCommentsGrid.Columns.Add(WrappedTextColumn(
             "Comment",
             nameof(YouTubeCommentItem.Text),
@@ -868,9 +898,6 @@ public partial class MainShellWindow
             _youtubeAnalyticsGrid.ItemsSource = rows.OrderByDescending(row => row.Views).ToList();
             var channelId = videos.Values.Select(video => video.ChannelId).FirstOrDefault(id => id.Length > 0) ?? "";
             var channel = await _youtubeVideoAnalytics.FetchChannelAsync(apiKey, channelId);
-            _youtubeSubscribersText!.Text = channel?.Subscribers?.ToString("N0") ?? "Hidden";
-            _youtubeChannelViewsText!.Text = channel?.Views.ToString("N0") ?? "—";
-            _youtubeChannelVideosText!.Text = channel?.Videos.ToString("N0") ?? "—";
             _youtubeChannelNameText!.Text = channel is null || channel.Title.Length == 0
                 ? "Channel and tracked quiz performance"
                 : $"{channel.Title} • channel and tracked quiz performance";
@@ -878,12 +905,12 @@ public partial class MainShellWindow
             var totalViews = rows.Sum(row => row.Views);
             var totalLikes = rows.Sum(row => row.Likes);
             var totalComments = rows.Sum(row => row.Comments);
-            _youtubeEngagementText!.Text =
-                YouTubeAnalyticsMetrics.EngagementRate(totalViews, totalLikes, totalComments)
-                    .ToString("0.00'%'", CultureInfo.InvariantCulture);
+            _youtubeTrackedVideosText!.Text = rows.Count.ToString("N0");
+            _youtubeTrackedViewsText!.Text = totalViews.ToString("N0");
+            _youtubeTrackedLikesText!.Text = totalLikes.ToString("N0");
+            _youtubeTrackedCommentsText!.Text = totalComments.ToString("N0");
             RefreshQuizHistory();
-            SetYouTubeAnalyticsStatus(
-                $"Updated {rows.Count:N0} tracked videos • {totalViews:N0} views • {totalLikes:N0} likes • {totalComments:N0} comments");
+            SetYouTubeAnalyticsStatus("YouTube analytics updated.");
         }
         catch (Exception error)
         {
