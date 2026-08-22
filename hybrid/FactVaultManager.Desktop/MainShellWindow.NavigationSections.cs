@@ -36,10 +36,13 @@ public partial class MainShellWindow
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _quizNotesTabIndex.ToString(), StringComparison.Ordinal));
         var youtubeAnalytics = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _youtubeAnalyticsTabIndex.ToString(), StringComparison.Ordinal));
+        var facebookAnalytics = FindVisualChildren<Button>(root)
+            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _facebookAnalyticsTabIndex.ToString(), StringComparison.Ordinal));
 
         if (dashboard?.Parent is not StackPanel navigation ||
             projects is null || production is null || media is null ||
-            settings is null || quizzes is null || questions is null || quizHistory is null || quizNotes is null || youtubeAnalytics is null)
+            settings is null || quizzes is null || questions is null || quizHistory is null || quizNotes is null ||
+            youtubeAnalytics is null || facebookAnalytics is null)
         {
             return;
         }
@@ -52,6 +55,7 @@ public partial class MainShellWindow
         navigation.Children.Add(quizHistory);
         navigation.Children.Add(quizNotes);
         navigation.Children.Add(youtubeAnalytics);
+        navigation.Children.Add(facebookAnalytics);
 
         navigation.Children.Add(NavigationSpacer());
         navigation.Children.Add(settings);
