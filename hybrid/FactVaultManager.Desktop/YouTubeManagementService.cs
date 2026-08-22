@@ -16,7 +16,8 @@ public sealed record YouTubeCommentItem(
     DateTime? PublishedAt,
     long LikeCount,
     int ReplyCount,
-    string ModerationStatus);
+    string ModerationStatus,
+    string VideoTitle = "");
 
 public sealed record YouTubePlaylistItem(string Id, string Title, string Description, string Privacy, long VideoCount);
 
@@ -52,7 +53,32 @@ public sealed class YouTubeManagementService
             + "&order=time&textFormat=plainText&maxResults=100";
         using var response = await SendAsync(HttpMethod.Get, url, accessToken, null, cancellationToken);
         using var document = await ReadDocumentAsync(response, cancellationToken);
-        return ParseComments(document.RootElement);
+        var comments = ParseComments(document.RootElement);
+        var titles = await ListVideoTitlesAsync(accessToken, comments.Select(comment => comment.VideoId), cancellationToken);
+        return AttachVideoTitles(comments, titles);
+    }
+
+    private async Task<IReadOnlyDictionary<string, string>> ListVideoTitlesAsync(
+        string accessToken,
+        IEnumerable<string> videoIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = videoIds
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var results = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (var offset = 0; offset < ids.Length; offset += 50)
+        {
+            var batch = ids.Skip(offset).Take(50);
+            var url = "/videos?part=snippet&id=" + Uri.EscapeDataString(string.Join(',', batch)) + "&maxResults=50";
+            using var response = await SendAsync(HttpMethod.Get, url, accessToken, null, cancellationToken);
+            using var document = await ReadDocumentAsync(response, cancellationToken);
+            foreach (var pair in ParseVideoTitles(document.RootElement))
+                results[pair.Key] = pair.Value;
+        }
+        return results;
     }
 
     public async Task ReplyAsync(string accessToken, string parentCommentId, string text, CancellationToken cancellationToken = default)
@@ -164,6 +190,22 @@ public sealed class YouTubeManagementService
         return ParsePlaylistVideos(document.RootElement);
     }
 
+    public static IReadOnlyDictionary<string, string> ParseVideoTitles(string json)
+    {
+        using var document = JsonDocument.Parse(json);
+        return ParseVideoTitles(document.RootElement);
+    }
+
+    public static IReadOnlyList<YouTubeCommentItem> AttachVideoTitles(
+        IEnumerable<YouTubeCommentItem> comments,
+        IReadOnlyDictionary<string, string> titles) =>
+        comments.Select(comment => comment with
+        {
+            VideoTitle = titles.TryGetValue(comment.VideoId, out var title) && title.Length > 0
+                ? title
+                : comment.VideoId,
+        }).ToList();
+
     public static void ValidateModerationStatus(string status, bool allowSpam)
     {
         var valid = status is "published" or "heldForReview" or "rejected" || allowSpam && status == "likelySpam";
@@ -229,6 +271,19 @@ public sealed class YouTubeManagementService
                 ReadLong(snippet, "likeCount"),
                 (int)ReadLong(threadSnippet, "totalReplyCount"),
                 ReadString(snippet, "moderationStatus")));
+        }
+        return results;
+    }
+
+    private static IReadOnlyDictionary<string, string> ParseVideoTitles(JsonElement root)
+    {
+        var results = new Dictionary<string, string>(StringComparer.Ordinal);
+        if (!root.TryGetProperty("items", out var items)) return results;
+        foreach (var item in items.EnumerateArray())
+        {
+            var id = ReadString(item, "id");
+            var title = item.TryGetProperty("snippet", out var snippet) ? ReadString(snippet, "title") : "";
+            if (id.Length > 0) results[id] = title;
         }
         return results;
     }

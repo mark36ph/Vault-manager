@@ -344,6 +344,22 @@ public partial class MainShellWindow
         Width = new DataGridLength(width),
     };
 
+    private static DataGridTemplateColumn WrappedTextColumn(string header, string property, DataGridLength width)
+    {
+        var text = new FrameworkElementFactory(typeof(TextBlock));
+        text.SetBinding(TextBlock.TextProperty, new Binding(property));
+        text.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
+        text.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+        text.SetValue(TextBlock.MarginProperty, new Thickness(0, 4, 0, 4));
+        return new DataGridTemplateColumn
+        {
+            Header = header,
+            CellTemplate = new DataTemplate { VisualTree = text },
+            SortMemberPath = property,
+            Width = width,
+        };
+    }
+
     private FrameworkElement BuildYouTubeCommentsSection()
     {
         var root = new Grid();
@@ -375,16 +391,25 @@ public partial class MainShellWindow
         root.Children.Add(toolbar);
 
         _youtubeCommentsGrid = BuildManagerGrid();
-        _youtubeCommentsGrid.Columns.Add(TextColumn("Author", nameof(YouTubeCommentItem.Author), 150));
+        _youtubeCommentsGrid.RowHeight = double.NaN;
+        _youtubeCommentsGrid.MinRowHeight = 44;
+        _youtubeCommentsGrid.Columns.Add(TextColumn("Author", nameof(YouTubeCommentItem.Author), 132));
+        _youtubeCommentsGrid.Columns.Add(WrappedTextColumn(
+            "Video",
+            nameof(YouTubeCommentItem.VideoTitle),
+            new DataGridLength(250)));
+        _youtubeCommentsGrid.Columns.Add(WrappedTextColumn(
+            "Comment",
+            nameof(YouTubeCommentItem.Text),
+            new DataGridLength(1, DataGridLengthUnitType.Star)));
         _youtubeCommentsGrid.Columns.Add(new DataGridTextColumn
         {
-            Header = "Comment",
-            Binding = new Binding(nameof(YouTubeCommentItem.Text)),
-            Width = new DataGridLength(1, DataGridLengthUnitType.Star),
+            Header = "Published",
+            Binding = new Binding(nameof(YouTubeCommentItem.PublishedAt)) { StringFormat = "dd-MM-yyyy HH:mm" },
+            Width = new DataGridLength(132),
         });
-        _youtubeCommentsGrid.Columns.Add(TextColumn("Published", nameof(YouTubeCommentItem.PublishedAt), 142));
-        _youtubeCommentsGrid.Columns.Add(NumberColumn("Likes", nameof(YouTubeCommentItem.LikeCount), 72));
-        _youtubeCommentsGrid.Columns.Add(NumberColumn("Replies", nameof(YouTubeCommentItem.ReplyCount), 78));
+        _youtubeCommentsGrid.Columns.Add(NumberColumn("Likes", nameof(YouTubeCommentItem.LikeCount), 62));
+        _youtubeCommentsGrid.Columns.Add(NumberColumn("Replies", nameof(YouTubeCommentItem.ReplyCount), 68));
         var commentsCard = ManagerCard(_youtubeCommentsGrid);
         Grid.SetRow(commentsCard, 1);
         root.Children.Add(commentsCard);

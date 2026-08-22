@@ -54,6 +54,23 @@ public sealed class YouTubeManagementTests
     }
 
     [Fact]
+    public void VideoTitlesResponse_LabelsCommentsWithTheirVideo()
+    {
+        const string commentsJson = """
+            {"items":[{"id":"thread-1","snippet":{"totalReplyCount":0,"topLevelComment":{"id":"comment-1","snippet":{"videoId":"video-1","authorDisplayName":"Viewer","textDisplay":"Great quiz!","publishedAt":"2026-08-22T12:30:00Z","likeCount":1,"moderationStatus":"published"}}}}]}
+            """;
+        const string videosJson = """
+            {"items":[{"id":"video-1","snippet":{"title":"Can You Get 10/10? | History Quiz #001"}}]}
+            """;
+
+        var comments = YouTubeManagementService.ParseComments(commentsJson);
+        var titles = YouTubeManagementService.ParseVideoTitles(videosJson);
+        var result = Assert.Single(YouTubeManagementService.AttachVideoTitles(comments, titles));
+
+        Assert.Equal("Can You Get 10/10? | History Quiz #001", result.VideoTitle);
+    }
+
+    [Fact]
     public void PlaylistsResponse_ParsesPrivacyAndVideoCount()
     {
         const string json = """
