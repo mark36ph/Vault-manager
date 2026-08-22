@@ -48,7 +48,7 @@ public sealed class FacebookAnalyticsTests
     public void AnalyticsResponse_ParsesReelMetrics()
     {
         const string details = """
-            {"id":"123456789","description":"Space Quiz","permalink_url":"https://www.facebook.com/reel/123456789","created_time":"2026-08-22T09:30:00+0000","reactions":{"summary":{"total_count":14}},"comments":{"summary":{"total_count":3}}}
+            {"id":"123456789","description":"Space Quiz","permalink_url":"https://www.facebook.com/reel/123456789","created_time":"2026-08-22T09:30:00+0000"}
             """;
         const string insights = """
             {"data":[{"name":"total_video_views","values":[{"value":450}]}]}
@@ -59,10 +59,17 @@ public sealed class FacebookAnalyticsTests
         Assert.Equal("123456789", result.VideoId);
         Assert.Equal("Space Quiz", result.Description);
         Assert.Equal(450, result.Views);
-        Assert.Equal(14, result.Reactions);
-        Assert.Equal(3, result.Comments);
+        Assert.Equal(0, result.Reactions);
+        Assert.Equal(0, result.Comments);
         Assert.Equal(0, result.Shares);
         Assert.NotNull(result.PublishedAt);
+    }
+
+    [Fact]
+    public void EdgeSummaryResponse_ParsesTotalCount()
+    {
+        Assert.Equal(14, FacebookReelAnalyticsService.ParseEdgeSummaryCount(
+            """{"data":[],"summary":{"total_count":14}}"""));
     }
 
     [Fact]
