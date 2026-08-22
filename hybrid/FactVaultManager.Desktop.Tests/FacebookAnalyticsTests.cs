@@ -48,7 +48,7 @@ public sealed class FacebookAnalyticsTests
     public void AnalyticsResponse_ParsesReelMetrics()
     {
         const string details = """
-            {"id":"123456789","description":"Space Quiz","permalink_url":"https://www.facebook.com/reel/123456789","created_time":"2026-08-22T09:30:00+0000","reactions":{"summary":{"total_count":14}},"comments":{"summary":{"total_count":3}},"sharedposts":{"summary":{"total_count":2}}}
+            {"id":"123456789","description":"Space Quiz","permalink_url":"https://www.facebook.com/reel/123456789","created_time":"2026-08-22T09:30:00+0000","reactions":{"summary":{"total_count":14}},"comments":{"summary":{"total_count":3}}}
             """;
         const string insights = """
             {"data":[{"name":"total_video_views","values":[{"value":450}]}]}
@@ -61,7 +61,7 @@ public sealed class FacebookAnalyticsTests
         Assert.Equal(450, result.Views);
         Assert.Equal(14, result.Reactions);
         Assert.Equal(3, result.Comments);
-        Assert.Equal(2, result.Shares);
+        Assert.Equal(0, result.Shares);
         Assert.NotNull(result.PublishedAt);
     }
 

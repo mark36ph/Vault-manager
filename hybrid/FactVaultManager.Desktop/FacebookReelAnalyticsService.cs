@@ -123,7 +123,7 @@ public sealed class FacebookReelAnalyticsService
             throw new ArgumentException("The Facebook Reel link does not contain a numeric video ID.");
 
         var fields = "id,description,permalink_url,created_time," +
-                     "reactions.limit(0).summary(true),comments.limit(0).summary(true),sharedposts.limit(0).summary(true)";
+                     "reactions.limit(0).summary(true),comments.limit(0).summary(true)";
         var detailsUrl = $"{GraphRoot}/{Uri.EscapeDataString(videoId)}?fields={Uri.EscapeDataString(fields)}" +
                          $"&access_token={Uri.EscapeDataString(pageAccessToken.Trim())}";
         using var detailsResponse = await _client.GetAsync(detailsUrl, cancellationToken);
@@ -154,7 +154,7 @@ public sealed class FacebookReelAnalyticsService
             ReadInsight(insights, "total_video_views"),
             ReadSummaryCount(details, "reactions"),
             ReadSummaryCount(details, "comments"),
-            ReadSummaryCount(details, "sharedposts"));
+            0);
     }
 
     private static async Task<JsonDocument> ReadDocumentAsync(HttpResponseMessage response, CancellationToken cancellationToken)
