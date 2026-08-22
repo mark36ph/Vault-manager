@@ -122,19 +122,27 @@ public sealed class FacebookReelAnalyticsService
         if (string.IsNullOrWhiteSpace(videoId) || !videoId.All(char.IsDigit))
             throw new ArgumentException("The Facebook Reel link does not contain a numeric video ID.");
 
-        var fields = "id,description,permalink_url,created_time," +
-                     "reactions.limit(0).summary(true),comments.limit(0).summary(true)";
+        var fields = "id,description,permalink_url,created_time";
         var detailsUrl = $"{GraphRoot}/{Uri.EscapeDataString(videoId)}?fields={Uri.EscapeDataString(fields)}" +
                          $"&access_token={Uri.EscapeDataString(pageAccessToken.Trim())}";
         using var detailsResponse = await _client.GetAsync(detailsUrl, cancellationToken);
         using var details = await ReadDocumentAsync(detailsResponse, cancellationToken);
+
+        var likes = await FetchOptionalEdgeCountAsync(pageAccessToken, videoId, "likes", cancellationToken);
+        var comments = await FetchOptionalEdgeCountAsync(pageAccessToken, videoId, "comments", cancellationToken);
+        var shares = await FetchOptionalEdgeCountAsync(pageAccessToken, videoId, "sharedposts", cancellationToken);
 
         var insightsUrl = $"{GraphRoot}/{Uri.EscapeDataString(videoId)}/video_insights" +
                           $"?metric=total_video_views&access_token={Uri.EscapeDataString(pageAccessToken.Trim())}";
         using var insightsResponse = await _client.GetAsync(insightsUrl, cancellationToken);
         using var insights = await ReadDocumentAsync(insightsResponse, cancellationToken);
 
-        return Parse(details.RootElement, insights.RootElement);
+        return Parse(details.RootElement, insights.RootElement) with
+        {
+            Reactions = likes,
+            Comments = comments,
+            Shares = shares,
+        };
     }
 
     public static FacebookReelAnalytics Parse(string detailsJson, string insightsJson)
@@ -152,9 +160,23 @@ public sealed class FacebookReelAnalyticsService
             ReadString(details, "permalink_url"),
             ReadDate(details, "created_time"),
             ReadInsight(insights, "total_video_views"),
-            ReadSummaryCount(details, "reactions"),
-            ReadSummaryCount(details, "comments"),
+            0,
+            0,
             0);
+    }
+
+    private async Task<long> FetchOptionalEdgeCountAsync(
+        string pageAccessToken,
+        string videoId,
+        string edge,
+        CancellationToken cancellationToken)
+    {
+        var url = $"{GraphRoot}/{Uri.EscapeDataString(videoId)}/{edge}" +
+                  $"?limit=0&summary=total_count&access_token={Uri.EscapeDataString(pageAccessToken.Trim())}";
+        using var response = await _client.GetAsync(url, cancellationToken);
+        if (!response.IsSuccessStatusCode) return 0;
+        using var document = await ReadDocumentAsync(response, cancellationToken);
+        return ReadEdgeSummaryCount(document.RootElement);
     }
 
     private static async Task<JsonDocument> ReadDocumentAsync(HttpResponseMessage response, CancellationToken cancellationToken)
@@ -172,10 +194,15 @@ public sealed class FacebookReelAnalyticsService
         throw new InvalidOperationException($"{message} (HTTP {(int)response.StatusCode}).");
     }
 
-    private static long ReadSummaryCount(JsonElement root, string property)
+    internal static long ParseEdgeSummaryCount(string json)
     {
-        if (!root.TryGetProperty(property, out var edge) ||
-            !edge.TryGetProperty("summary", out var summary) ||
+        using var document = JsonDocument.Parse(json);
+        return ReadEdgeSummaryCount(document.RootElement);
+    }
+
+    private static long ReadEdgeSummaryCount(JsonElement root)
+    {
+        if (!root.TryGetProperty("summary", out var summary) ||
             !summary.TryGetProperty("total_count", out var count)) return 0;
         return count.ValueKind == JsonValueKind.Number && count.TryGetInt64(out var value) ? value : 0;
     }

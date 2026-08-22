@@ -218,7 +218,7 @@ public partial class MainShellWindow
         views.Card.Margin = new Thickness(5, 0, 5, 0);
         Grid.SetColumn(views.Card, 1);
         stats.Children.Add(views.Card);
-        var reactions = BuildQuizHistoryStatCard("Reactions", Color.FromRgb(248, 90, 105));
+        var reactions = BuildQuizHistoryStatCard("Likes", Color.FromRgb(248, 90, 105));
         _facebookTrackedReactionsText = reactions.Value;
         reactions.Card.Margin = new Thickness(5, 0, 5, 0);
         Grid.SetColumn(reactions.Card, 2);
@@ -307,7 +307,7 @@ public partial class MainShellWindow
         });
         grid.Columns.Add(TextColumn("Uploaded", nameof(FacebookAnalyticsRow.Uploaded), 104));
         grid.Columns.Add(NumberColumn("Views", nameof(FacebookAnalyticsRow.Views), 86));
-        grid.Columns.Add(NumberColumn("Reactions", nameof(FacebookAnalyticsRow.Reactions), 90));
+        grid.Columns.Add(NumberColumn("Likes", nameof(FacebookAnalyticsRow.Reactions), 90));
         grid.Columns.Add(NumberColumn("Comments", nameof(FacebookAnalyticsRow.Comments), 88));
         grid.Columns.Add(NumberColumn("Shares", nameof(FacebookAnalyticsRow.Shares), 78));
         grid.Columns.Add(TextColumn("Engagement", nameof(FacebookAnalyticsRow.EngagementDisplay), 104));
@@ -455,7 +455,7 @@ public partial class MainShellWindow
             return box;
         }
         var views = Metric("Views", history.FacebookViews, 0);
-        var reactions = Metric("Reactions", history.FacebookReactions, 2);
+        var reactions = Metric("Likes", history.FacebookReactions, 2);
         var comments = Metric("Comments", history.FacebookComments, 4);
         var shares = Metric("Shares", history.FacebookShares, 6);
         var dateStack = new StackPanel();
