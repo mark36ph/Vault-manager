@@ -84,6 +84,14 @@ public sealed class YouTubeManagementTests
     }
 
     [Fact]
+    public void CommentUrl_OpensTheExactCommentOnItsVideo()
+    {
+        var url = YouTubeManagementService.BuildCommentUrl("video 1", "comment+1");
+
+        Assert.Equal("https://www.youtube.com/watch?v=video%201&lc=comment%2B1", url);
+    }
+
+    [Fact]
     public void PlaylistsResponse_ParsesPrivacyAndVideoCount()
     {
         const string json = """
