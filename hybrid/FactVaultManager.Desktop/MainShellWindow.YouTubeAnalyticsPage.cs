@@ -382,6 +382,28 @@ public partial class MainShellWindow
         };
     }
 
+    private DataGridTemplateColumn YouTubeCommentAuthorColumn()
+    {
+        var link = new FrameworkElementFactory(typeof(TextBlock));
+        link.SetBinding(TextBlock.TextProperty, new Binding(nameof(YouTubeCommentItem.Author)));
+        link.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
+        link.SetValue(TextBlock.TextDecorationsProperty, TextDecorations.Underline);
+        link.SetValue(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0, 204, 255)));
+        link.SetValue(TextBlock.CursorProperty, Cursors.Hand);
+        link.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+        link.SetValue(TextBlock.MarginProperty, new Thickness(0, 4, 0, 4));
+        link.SetValue(TextBlock.ToolTipProperty, "Open this author's YouTube profile");
+        link.AddHandler(UIElement.MouseLeftButtonUpEvent,
+            new MouseButtonEventHandler(YouTubeCommentAuthor_MouseLeftButtonUp));
+        return new DataGridTemplateColumn
+        {
+            Header = "Author",
+            CellTemplate = new DataTemplate { VisualTree = link },
+            SortMemberPath = nameof(YouTubeCommentItem.Author),
+            Width = new DataGridLength(132),
+        };
+    }
+
     private void YouTubeCommentVideo_MouseLeftButtonUp(object sender, MouseButtonEventArgs eventArgs)
     {
         if (sender is not FrameworkElement { DataContext: YouTubeCommentItem comment } ||
@@ -390,6 +412,22 @@ public partial class MainShellWindow
 
         var url = "https://www.youtube.com/watch?v=" + Uri.EscapeDataString(comment.VideoId.Trim());
         Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        eventArgs.Handled = true;
+    }
+
+    private void YouTubeCommentAuthor_MouseLeftButtonUp(object sender, MouseButtonEventArgs eventArgs)
+    {
+        if (sender is not FrameworkElement { DataContext: YouTubeCommentItem comment } ||
+            !Uri.TryCreate(comment.AuthorProfileUrl, UriKind.Absolute, out var profileUri))
+            return;
+
+        var host = profileUri.Host.TrimEnd('.');
+        if (profileUri.Scheme != Uri.UriSchemeHttps ||
+            !(string.Equals(host, "youtube.com", StringComparison.OrdinalIgnoreCase) ||
+              host.EndsWith(".youtube.com", StringComparison.OrdinalIgnoreCase)))
+            return;
+
+        Process.Start(new ProcessStartInfo(profileUri.AbsoluteUri) { UseShellExecute = true });
         eventArgs.Handled = true;
     }
 
@@ -426,7 +464,7 @@ public partial class MainShellWindow
         _youtubeCommentsGrid = BuildManagerGrid();
         _youtubeCommentsGrid.RowHeight = double.NaN;
         _youtubeCommentsGrid.MinRowHeight = 44;
-        _youtubeCommentsGrid.Columns.Add(TextColumn("Author", nameof(YouTubeCommentItem.Author), 132));
+        _youtubeCommentsGrid.Columns.Add(YouTubeCommentAuthorColumn());
         _youtubeCommentsGrid.Columns.Add(YouTubeCommentVideoColumn());
         _youtubeCommentsGrid.Columns.Add(WrappedTextColumn(
             "Comment",

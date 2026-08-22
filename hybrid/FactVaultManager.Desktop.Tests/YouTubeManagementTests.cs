@@ -38,7 +38,7 @@ public sealed class YouTubeManagementTests
     public void CommentsResponse_ParsesModerationRows()
     {
         const string json = """
-            {"items":[{"id":"thread-1","snippet":{"totalReplyCount":2,"topLevelComment":{"id":"comment-1","snippet":{"videoId":"video-1","authorDisplayName":"Viewer","textDisplay":"Great quiz!","publishedAt":"2026-08-22T12:30:00Z","likeCount":3,"moderationStatus":"published"}}}}]}
+            {"items":[{"id":"thread-1","snippet":{"totalReplyCount":2,"topLevelComment":{"id":"comment-1","snippet":{"videoId":"video-1","authorDisplayName":"Viewer","authorChannelUrl":"http://www.youtube.com/channel/viewer-channel","textDisplay":"Great quiz!","publishedAt":"2026-08-22T12:30:00Z","likeCount":3,"moderationStatus":"published"}}}}]}
             """;
 
         var result = Assert.Single(YouTubeManagementService.ParseComments(json));
@@ -51,6 +51,19 @@ public sealed class YouTubeManagementTests
         Assert.Equal(3, result.LikeCount);
         Assert.Equal(2, result.ReplyCount);
         Assert.Equal("published", result.ModerationStatus);
+        Assert.Equal("https://www.youtube.com/channel/viewer-channel", result.AuthorProfileUrl.TrimEnd('/'));
+    }
+
+    [Fact]
+    public void CommentsResponse_UsesAuthorChannelIdWhenProfileUrlIsMissing()
+    {
+        const string json = """
+            {"items":[{"id":"thread-1","snippet":{"totalReplyCount":0,"topLevelComment":{"id":"comment-1","snippet":{"videoId":"video-1","authorDisplayName":"Viewer","authorChannelId":{"value":"fallback-channel"},"textDisplay":"Great quiz!","publishedAt":"2026-08-22T12:30:00Z","likeCount":0,"moderationStatus":"published"}}}}]}
+            """;
+
+        var result = Assert.Single(YouTubeManagementService.ParseComments(json));
+
+        Assert.Equal("https://www.youtube.com/channel/fallback-channel", result.AuthorProfileUrl);
     }
 
     [Fact]

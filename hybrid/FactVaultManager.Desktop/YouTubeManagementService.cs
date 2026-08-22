@@ -17,7 +17,8 @@ public sealed record YouTubeCommentItem(
     long LikeCount,
     int ReplyCount,
     string ModerationStatus,
-    string VideoTitle = "");
+    string VideoTitle = "",
+    string AuthorProfileUrl = "");
 
 public sealed record YouTubePlaylistItem(string Id, string Title, string Description, string Privacy, long VideoCount);
 
@@ -261,6 +262,7 @@ public sealed class YouTubeManagementService
             var threadSnippet = thread.GetProperty("snippet");
             var topComment = threadSnippet.GetProperty("topLevelComment");
             var snippet = topComment.GetProperty("snippet");
+            var authorProfileUrl = ReadAuthorProfileUrl(snippet);
             results.Add(new YouTubeCommentItem(
                 ReadString(topComment, "id"),
                 ReadString(thread, "id"),
@@ -270,9 +272,35 @@ public sealed class YouTubeManagementService
                 ReadDate(snippet, "publishedAt"),
                 ReadLong(snippet, "likeCount"),
                 (int)ReadLong(threadSnippet, "totalReplyCount"),
-                ReadString(snippet, "moderationStatus")));
+                ReadString(snippet, "moderationStatus"),
+                "",
+                authorProfileUrl));
         }
         return results;
+    }
+
+    private static string ReadAuthorProfileUrl(JsonElement snippet)
+    {
+        var url = ReadString(snippet, "authorChannelUrl");
+        if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            var host = uri.Host.TrimEnd('.');
+            if (string.Equals(host, "youtube.com", StringComparison.OrdinalIgnoreCase) ||
+                host.EndsWith(".youtube.com", StringComparison.OrdinalIgnoreCase))
+            {
+                var builder = new UriBuilder(uri) { Scheme = Uri.UriSchemeHttps, Port = -1 };
+                return builder.Uri.AbsoluteUri;
+            }
+        }
+
+        if (snippet.TryGetProperty("authorChannelId", out var channel) &&
+            channel.ValueKind == JsonValueKind.Object)
+        {
+            var channelId = ReadString(channel, "value");
+            if (channelId.Length > 0)
+                return "https://www.youtube.com/channel/" + Uri.EscapeDataString(channelId);
+        }
+        return "";
     }
 
     private static IReadOnlyDictionary<string, string> ParseVideoTitles(JsonElement root)
