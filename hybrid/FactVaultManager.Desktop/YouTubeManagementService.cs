@@ -207,6 +207,14 @@ public sealed class YouTubeManagementService
                 : comment.VideoId,
         }).ToList();
 
+    public static string BuildCommentUrl(string videoId, string commentId)
+    {
+        if (string.IsNullOrWhiteSpace(videoId)) throw new ArgumentException("The YouTube video ID is missing.");
+        if (string.IsNullOrWhiteSpace(commentId)) throw new ArgumentException("The YouTube comment ID is missing.");
+        return "https://www.youtube.com/watch?v=" + Uri.EscapeDataString(videoId.Trim())
+            + "&lc=" + Uri.EscapeDataString(commentId.Trim());
+    }
+
     public static void ValidateModerationStatus(string status, bool allowSpam)
     {
         var valid = status is "published" or "heldForReview" or "rejected" || allowSpam && status == "likelySpam";
