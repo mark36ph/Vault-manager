@@ -16,6 +16,9 @@ public partial class MainShellWindow
     private TextBlock? _quizHistoryShortCountText;
     private TextBlock? _quizHistoryPublishedCountText;
     private TextBlock? _quizHistoryQuestionUseCountText;
+    private TextBlock? _quizHistoryViewCountText;
+    private TextBlock? _quizHistoryLikeCountText;
+    private TextBlock? _quizHistoryTopCategoryText;
 
     private void InitializeQuizHistoryPage()
     {
@@ -35,6 +38,7 @@ public partial class MainShellWindow
     private FrameworkElement BuildQuizHistoryPage()
     {
         var root = new Grid { Margin = new Thickness(22, 18, 22, 20) };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
@@ -104,6 +108,32 @@ public partial class MainShellWindow
 
         Grid.SetRow(stats, 1);
         root.Children.Add(stats);
+
+        var analyticsStats = new Grid { Margin = new Thickness(0, 0, 0, 14) };
+        analyticsStats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        analyticsStats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        analyticsStats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var views = BuildQuizHistoryStatCard("YouTube views", Color.FromRgb(0, 204, 255));
+        _quizHistoryViewCountText = views.Value;
+        views.Card.Margin = new Thickness(0, 0, 5, 0);
+        analyticsStats.Children.Add(views.Card);
+
+        var likes = BuildQuizHistoryStatCard("YouTube likes", Color.FromRgb(248, 90, 105));
+        _quizHistoryLikeCountText = likes.Value;
+        likes.Card.Margin = new Thickness(5, 0, 5, 0);
+        Grid.SetColumn(likes.Card, 1);
+        analyticsStats.Children.Add(likes.Card);
+
+        var topCategory = BuildQuizHistoryStatCard("Top category by views", Color.FromRgb(70, 235, 115));
+        _quizHistoryTopCategoryText = topCategory.Value;
+        _quizHistoryTopCategoryText.FontSize = 20;
+        topCategory.Card.Margin = new Thickness(5, 0, 0, 0);
+        Grid.SetColumn(topCategory.Card, 2);
+        analyticsStats.Children.Add(topCategory.Card);
+
+        Grid.SetRow(analyticsStats, 2);
+        root.Children.Add(analyticsStats);
 
         _quizHistoryGrid = new DataGrid
         {
@@ -212,6 +242,27 @@ public partial class MainShellWindow
         });
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
+            Header = "Views",
+            Binding = new Binding(nameof(QuizHistorySummary.YouTubeViews)) { StringFormat = "N0" },
+            SortMemberPath = nameof(QuizHistorySummary.YouTubeViews),
+            Width = new DataGridLength(78),
+        });
+        _quizHistoryGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Likes",
+            Binding = new Binding(nameof(QuizHistorySummary.YouTubeLikes)) { StringFormat = "N0" },
+            SortMemberPath = nameof(QuizHistorySummary.YouTubeLikes),
+            Width = new DataGridLength(70),
+        });
+        _quizHistoryGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Uploaded",
+            Binding = new Binding(nameof(QuizHistorySummary.YouTubeUploadDateDisplay)),
+            SortMemberPath = nameof(QuizHistorySummary.YouTubeUploadDate),
+            Width = new DataGridLength(102),
+        });
+        _quizHistoryGrid.Columns.Add(new DataGridTextColumn
+        {
             Header = "Series",
             Binding = new Binding(nameof(QuizHistorySummary.SeriesName)),
             SortMemberPath = nameof(QuizHistorySummary.SeriesName),
@@ -262,7 +313,7 @@ public partial class MainShellWindow
             },
             Child = _quizHistoryGrid,
         };
-        Grid.SetRow(tableCard, 2);
+        Grid.SetRow(tableCard, 3);
         root.Children.Add(tableCard);
 
         var footer = new Grid { Margin = new Thickness(0, 12, 0, 0) };
@@ -270,7 +321,7 @@ public partial class MainShellWindow
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         footer.Children.Add(new TextBlock
         {
-            Text = "Double-click a quiz to update its YouTube link and published status.",
+            Text = "Double-click a quiz to update its YouTube link, publication details, views and likes.",
             Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             VerticalAlignment = VerticalAlignment.Center,
         });
@@ -309,7 +360,7 @@ public partial class MainShellWindow
         actions.Children.Add(delete);
         Grid.SetColumn(actions, 1);
         footer.Children.Add(actions);
-        Grid.SetRow(footer, 3);
+        Grid.SetRow(footer, 4);
         root.Children.Add(footer);
 
         return new Border
@@ -423,6 +474,12 @@ public partial class MainShellWindow
                 _quizHistoryPublishedCountText.Text = statistics.Published.ToString("N0");
             if (_quizHistoryQuestionUseCountText is not null)
                 _quizHistoryQuestionUseCountText.Text = statistics.QuestionsUsed.ToString("N0");
+            if (_quizHistoryViewCountText is not null)
+                _quizHistoryViewCountText.Text = statistics.Views.ToString("N0");
+            if (_quizHistoryLikeCountText is not null)
+                _quizHistoryLikeCountText.Text = statistics.Likes.ToString("N0");
+            if (_quizHistoryTopCategoryText is not null)
+                _quizHistoryTopCategoryText.Text = statistics.TopCategory;
         }
         catch (Exception error)
         {
@@ -654,17 +711,19 @@ public partial class MainShellWindow
 
         var dialog = new Window
         {
-            Title = $"YouTube — {history.SeriesName} {history.EpisodeLabel}",
+            Title = $"YouTube Analytics — {history.SeriesName} {history.EpisodeLabel}",
             Owner = this,
-            Width = 580,
-            Height = 290,
-            MinWidth = 500,
-            MinHeight = 260,
+            Width = 650,
+            Height = 455,
+            MinWidth = 570,
+            MinHeight = 420,
             ResizeMode = ResizeMode.CanResize,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Background = Brushes.White,
         };
         var root = new Grid { Margin = new Thickness(18) };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -709,6 +768,60 @@ public partial class MainShellWindow
         Grid.SetRow(url, 3);
         root.Children.Add(url);
 
+        var analytics = new Grid { Margin = new Thickness(0, 16, 0, 0) };
+        analytics.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        analytics.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        analytics.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        analytics.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        analytics.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var viewsPanel = new StackPanel();
+        viewsPanel.Children.Add(new TextBlock { Text = "Views", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 4) });
+        var views = new TextBox
+        {
+            Text = history.YouTubeViews.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            MinHeight = 34,
+            VerticalContentAlignment = VerticalAlignment.Center,
+        };
+        viewsPanel.Children.Add(views);
+        analytics.Children.Add(viewsPanel);
+
+        var likesPanel = new StackPanel();
+        likesPanel.Children.Add(new TextBlock { Text = "Likes", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 4) });
+        var likes = new TextBox
+        {
+            Text = history.YouTubeLikes.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            MinHeight = 34,
+            VerticalContentAlignment = VerticalAlignment.Center,
+        };
+        likesPanel.Children.Add(likes);
+        Grid.SetColumn(likesPanel, 2);
+        analytics.Children.Add(likesPanel);
+
+        var uploadPanel = new StackPanel();
+        uploadPanel.Children.Add(new TextBlock { Text = "Upload date", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 4) });
+        var uploadDate = new DatePicker
+        {
+            SelectedDate = QuizYouTubeAnalytics.ParseUploadDate(history.YouTubeUploadDate),
+            SelectedDateFormat = DatePickerFormat.Short,
+            MinHeight = 34,
+        };
+        uploadPanel.Children.Add(uploadDate);
+        Grid.SetColumn(uploadPanel, 4);
+        analytics.Children.Add(uploadPanel);
+        Grid.SetRow(analytics, 4);
+        root.Children.Add(analytics);
+
+        var hint = new TextBlock
+        {
+            Text = "Update these numbers from YouTube Studio whenever you want to track performance.",
+            Foreground = QuizMutedBrush(),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 10, 0, 0),
+        };
+        Grid.SetRow(hint, 5);
+        root.Children.Add(hint);
+
         var actions = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -738,18 +851,26 @@ public partial class MainShellWindow
         {
             try
             {
-                if (!_data.UpdateQuizHistoryYouTubePublication(history.Id, published.IsChecked == true, url.Text))
+                var viewCount = QuizYouTubeAnalytics.ParseMetric(views.Text, "Views");
+                var likeCount = QuizYouTubeAnalytics.ParseMetric(likes.Text, "Likes");
+                if (!_data.UpdateQuizHistoryYouTubeAnalytics(
+                        history.Id,
+                        published.IsChecked == true,
+                        url.Text,
+                        viewCount,
+                        likeCount,
+                        uploadDate.SelectedDate))
                     throw new InvalidOperationException("The selected quiz-history entry no longer exists.");
                 dialog.DialogResult = true;
                 RefreshQuizHistory();
             }
             catch (Exception error)
             {
-                MessageBox.Show(dialog, error.Message, "Save YouTube Status", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(dialog, error.Message, "Save YouTube Analytics", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         };
         actions.Children.Add(save);
-        Grid.SetRow(actions, 4);
+        Grid.SetRow(actions, 6);
         root.Children.Add(actions);
         dialog.ShowDialog();
     }

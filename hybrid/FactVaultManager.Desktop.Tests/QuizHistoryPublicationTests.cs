@@ -25,15 +25,18 @@ public sealed class QuizHistoryPublicationTests
     {
         var statistics = QuizHistoryStatistics.Calculate(
         [
-            History("16:9", 10, published: true),
-            History("9:16", 1),
-            History("9:16", 1),
+            History("16:9", 10, published: true, views: 120, likes: 8, series: "Music Quiz"),
+            History("9:16", 1, published: true, views: 30, likes: 2, series: "Space Quiz"),
+            History("9:16", 1, views: 999, likes: 999, series: "History Quiz"),
         ]);
 
         Assert.Equal(1, statistics.Videos);
         Assert.Equal(2, statistics.Shorts);
-        Assert.Equal(1, statistics.Published);
+        Assert.Equal(2, statistics.Published);
         Assert.Equal(12, statistics.QuestionsUsed);
+        Assert.Equal(150, statistics.Views);
+        Assert.Equal(10, statistics.Likes);
+        Assert.Equal("Music", statistics.TopCategory);
     }
 
     [Theory]
@@ -61,7 +64,39 @@ public sealed class QuizHistoryPublicationTests
         Assert.Equal("", QuizYouTubePublication.NormalizeUrl("  "));
     }
 
-    private static QuizHistorySummary History(string format, int questionCount, bool published = false) => new(
+    [Theory]
+    [InlineData("0", 0)]
+    [InlineData("1,234", 1234)]
+    public void AnalyticsMetric_AcceptsNonNegativeWholeNumbers(string value, long expected)
+    {
+        Assert.Equal(expected, QuizYouTubeAnalytics.ParseMetric(value, "Views"));
+    }
+
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("1.5")]
+    [InlineData("unknown")]
+    public void AnalyticsMetric_RejectsInvalidValues(string value)
+    {
+        Assert.Throws<ArgumentException>(() => QuizYouTubeAnalytics.ParseMetric(value, "Views"));
+    }
+
+    [Fact]
+    public void UploadDate_StoresIsoAndDisplaysDayMonthYear()
+    {
+        var date = new DateTime(2026, 8, 22);
+
+        Assert.Equal("2026-08-22", QuizYouTubeAnalytics.NormalizeUploadDate(date));
+        Assert.Equal("22-08-2026", QuizYouTubeAnalytics.FormatUploadDate("2026-08-22"));
+    }
+
+    private static QuizHistorySummary History(
+        string format,
+        int questionCount,
+        bool published = false,
+        long views = 0,
+        long likes = 0,
+        string series = "Music Quiz") => new(
         1,
         "Quiz",
         "2026-08-19 12:00:00",
@@ -71,13 +106,16 @@ public sealed class QuizHistoryPublicationTests
         8,
         false,
         "",
-        "Music Quiz",
+        series,
         1,
         "",
         "",
         "",
         "",
         published,
+        "",
+        views,
+        likes,
         "");
 
 }

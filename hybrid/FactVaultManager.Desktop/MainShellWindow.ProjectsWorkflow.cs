@@ -50,14 +50,14 @@ public partial class MainShellWindow
             return;
 
         _productBrandApplied = true;
-        Title = "Content Vault Manager";
+        Title = "Factburst Quiz Manager";
         if (Content is not DependencyObject root)
             return;
 
         var brand = FindVisualChildren<TextBlock>(root)
             .FirstOrDefault(block => string.Equals(block.Text, "FactVaultManager", StringComparison.Ordinal));
         if (brand is not null)
-            brand.Text = "Content Vault Manager";
+            brand.Text = "Factburst Quiz Manager";
     }
 
     private void InitializeProjectsWorkflow()

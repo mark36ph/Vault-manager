@@ -19,18 +19,26 @@ public sealed record QuizHistorySummary(
     string Hashtags,
     string PinnedComment,
     bool PublishedOnYouTube,
-    string YouTubeUrl)
+    string YouTubeUrl,
+    long YouTubeViews = 0,
+    long YouTubeLikes = 0,
+    string YouTubeUploadDate = "")
 {
     public string EpisodeLabel => EpisodeNumber > 0 ? $"#{EpisodeNumber:000}" : "";
     public string CreatedDisplay => QuizHistoryDate.Format(Created);
     public string VideoType => QuizHistoryVideoType.DisplayName(Format);
+    public string YouTubeUploadDateDisplay => QuizYouTubeAnalytics.FormatUploadDate(YouTubeUploadDate);
+    public string AnalyticsCategory => QuizYouTubeAnalytics.CategoryName(this);
 }
 
 public sealed record QuizHistoryStats(
     int Videos,
     int Shorts,
     int Published,
-    int QuestionsUsed);
+    int QuestionsUsed,
+    long Views,
+    long Likes,
+    string TopCategory);
 
 public static class QuizHistoryStatistics
 {
@@ -39,11 +47,15 @@ public static class QuizHistoryStatistics
         ArgumentNullException.ThrowIfNull(history);
         var shorts = history.Count(item =>
             string.Equals(item.Format.Trim(), "9:16", StringComparison.OrdinalIgnoreCase));
+        var categoryPerformance = QuizYouTubeAnalytics.SummarizeByCategory(history);
         return new QuizHistoryStats(
             Videos: history.Count - shorts,
             Shorts: shorts,
             Published: history.Count(item => item.PublishedOnYouTube),
-            QuestionsUsed: history.Sum(item => Math.Max(0, item.QuestionCount)));
+            QuestionsUsed: history.Sum(item => Math.Max(0, item.QuestionCount)),
+            Views: categoryPerformance.Sum(item => item.Views),
+            Likes: categoryPerformance.Sum(item => item.Likes),
+            TopCategory: categoryPerformance.Count == 0 ? "—" : categoryPerformance[0].Category);
     }
 }
 
@@ -98,6 +110,69 @@ public static class QuizYouTubePublication
         if (!isYouTube)
             throw new ArgumentException("The video link must use youtube.com or youtu.be.");
         return uri.AbsoluteUri;
+    }
+}
+
+public sealed record QuizCategoryPerformance(string Category, int Published, long Views, long Likes);
+
+public static class QuizYouTubeAnalytics
+{
+    private static readonly string[] UploadDateFormats =
+    [
+        "yyyy-MM-dd",
+        "dd-MM-yyyy",
+        "yyyy-MM-dd HH:mm:ss",
+    ];
+
+    public static long ParseMetric(string? value, string label)
+    {
+        var text = (value ?? "").Trim();
+        if (!long.TryParse(text, NumberStyles.Integer | NumberStyles.AllowThousands,
+                CultureInfo.InvariantCulture, out var result) || result < 0)
+            throw new ArgumentException($"{label} must be zero or a positive whole number.");
+        return result;
+    }
+
+    public static DateTime? ParseUploadDate(string? value)
+    {
+        var text = (value ?? "").Trim();
+        if (text.Length == 0) return null;
+        return DateTime.TryParseExact(text, UploadDateFormats, CultureInfo.InvariantCulture,
+            DateTimeStyles.None, out var date) ? date : null;
+    }
+
+    public static string NormalizeUploadDate(DateTime? value) =>
+        value?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "";
+
+    public static string FormatUploadDate(string? value)
+    {
+        var date = ParseUploadDate(value);
+        return date?.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture) ?? (value ?? "").Trim();
+    }
+
+    public static string CategoryName(QuizHistorySummary history)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        var series = history.SeriesName.Trim();
+        if (series.EndsWith(" Quiz", StringComparison.OrdinalIgnoreCase))
+            series = series[..^5].TrimEnd();
+        if (series.Length > 0) return series;
+        var categories = history.Categories.Trim();
+        return categories.Length == 0 || categories.Contains(',') ? "General Knowledge" : categories;
+    }
+
+    public static IReadOnlyList<QuizCategoryPerformance> SummarizeByCategory(IReadOnlyList<QuizHistorySummary> history)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        return history.Where(item => item.PublishedOnYouTube)
+            .GroupBy(CategoryName, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new QuizCategoryPerformance(group.Key, group.Count(),
+                group.Sum(item => Math.Max(0, item.YouTubeViews)),
+                group.Sum(item => Math.Max(0, item.YouTubeLikes))))
+            .OrderByDescending(item => item.Views)
+            .ThenByDescending(item => item.Likes)
+            .ThenBy(item => item.Category, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 }
 
@@ -300,7 +375,8 @@ public sealed partial class DesktopDataService
             SELECT id, title, created, question_count, categories, format,
                    question_seconds, shuffle_answers, project_folder,
                    series_name, episode_number, youtube_title, youtube_description,
-                   youtube_hashtags, pinned_comment, published_on_youtube, youtube_url
+                   youtube_hashtags, pinned_comment, published_on_youtube, youtube_url,
+                   youtube_views, youtube_likes, youtube_upload_date
             FROM quiz_history
             ORDER BY id DESC
             LIMIT $limit
@@ -328,7 +404,10 @@ public sealed partial class DesktopDataService
                 reader.GetString(13),
                 reader.GetString(14),
                 reader.GetInt32(15) != 0,
-                reader.GetString(16)));
+                reader.GetString(16),
+                reader.GetInt64(17),
+                reader.GetInt64(18),
+                reader.GetString(19)));
         }
         return results;
     }
@@ -350,6 +429,36 @@ public sealed partial class DesktopDataService
             """;
         command.Parameters.AddWithValue("$published", published ? 1 : 0);
         command.Parameters.AddWithValue("$youtubeUrl", normalizedUrl);
+        command.Parameters.AddWithValue("$historyId", historyId);
+        return command.ExecuteNonQuery() == 1;
+    }
+
+    public bool UpdateQuizHistoryYouTubeAnalytics(int historyId, bool published, string? youtubeUrl,
+        long views, long likes, DateTime? uploadDate)
+    {
+        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
+        if (views < 0) throw new ArgumentOutOfRangeException(nameof(views));
+        if (likes < 0) throw new ArgumentOutOfRangeException(nameof(likes));
+
+        var normalizedUrl = QuizYouTubePublication.NormalizeUrl(youtubeUrl);
+        var normalizedUploadDate = QuizYouTubeAnalytics.NormalizeUploadDate(uploadDate);
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE quiz_history
+            SET published_on_youtube = $published,
+                youtube_url = $youtubeUrl,
+                youtube_views = $views,
+                youtube_likes = $likes,
+                youtube_upload_date = $uploadDate
+            WHERE id = $historyId
+            """;
+        command.Parameters.AddWithValue("$published", published ? 1 : 0);
+        command.Parameters.AddWithValue("$youtubeUrl", normalizedUrl);
+        command.Parameters.AddWithValue("$views", views);
+        command.Parameters.AddWithValue("$likes", likes);
+        command.Parameters.AddWithValue("$uploadDate", normalizedUploadDate);
         command.Parameters.AddWithValue("$historyId", historyId);
         return command.ExecuteNonQuery() == 1;
     }
@@ -407,7 +516,10 @@ public sealed partial class DesktopDataService
                     youtube_hashtags TEXT NOT NULL DEFAULT '',
                     pinned_comment TEXT NOT NULL DEFAULT '',
                     published_on_youtube INTEGER NOT NULL DEFAULT 0,
-                    youtube_url TEXT NOT NULL DEFAULT ''
+                    youtube_url TEXT NOT NULL DEFAULT '',
+                    youtube_views INTEGER NOT NULL DEFAULT 0,
+                    youtube_likes INTEGER NOT NULL DEFAULT 0,
+                    youtube_upload_date TEXT NOT NULL DEFAULT ''
                 );
 
                 CREATE TABLE IF NOT EXISTS quiz_history_questions (
@@ -437,6 +549,9 @@ public sealed partial class DesktopDataService
         EnsureQuizHistoryColumn(connection, "pinned_comment", "TEXT NOT NULL DEFAULT ''");
         EnsureQuizHistoryColumn(connection, "published_on_youtube", "INTEGER NOT NULL DEFAULT 0");
         EnsureQuizHistoryColumn(connection, "youtube_url", "TEXT NOT NULL DEFAULT ''");
+        EnsureQuizHistoryColumn(connection, "youtube_views", "INTEGER NOT NULL DEFAULT 0");
+        EnsureQuizHistoryColumn(connection, "youtube_likes", "INTEGER NOT NULL DEFAULT 0");
+        EnsureQuizHistoryColumn(connection, "youtube_upload_date", "TEXT NOT NULL DEFAULT ''");
         using var seriesIndex = connection.CreateCommand();
         seriesIndex.CommandText = """
             CREATE INDEX IF NOT EXISTS ix_quiz_history_series_episode

@@ -7,6 +7,7 @@ namespace FactVaultManager.Desktop;
 public partial class MainShellWindow
 {
     private bool _navigationSectionsApplied;
+    private bool _quizHomeSelected;
 
     private void ApplyNavigationSections()
     {
@@ -44,12 +45,6 @@ public partial class MainShellWindow
         _navigationSectionsApplied = true;
 
         navigation.Children.Clear();
-        navigation.Children.Add(dashboard);
-        navigation.Children.Add(projects);
-        navigation.Children.Add(production);
-        navigation.Children.Add(media);
-
-        navigation.Children.Add(NavigationSpacer());
         navigation.Children.Add(quizzes);
         navigation.Children.Add(questions);
         navigation.Children.Add(quizHistory);
@@ -58,6 +53,11 @@ public partial class MainShellWindow
         navigation.Children.Add(NavigationSpacer());
         navigation.Children.Add(settings);
 
+        if (!_quizHomeSelected)
+        {
+            _quizHomeSelected = true;
+            MainTabs.SelectedIndex = _quizTabIndex;
+        }
         ApplyNavigationSelection(MainTabs.SelectedIndex);
     }
 
