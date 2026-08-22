@@ -18,7 +18,24 @@ public sealed record YouTubeCommentItem(
     int ReplyCount,
     string ModerationStatus,
     string VideoTitle = "",
-    string AuthorProfileUrl = "");
+    string AuthorProfileUrl = "",
+    string AuthorChannelId = "",
+    bool IsOwnComment = false);
+
+public static class YouTubeCommentInbox
+{
+    public static IReadOnlyList<YouTubeCommentItem> Filter(
+        IEnumerable<YouTubeCommentItem> comments,
+        bool needsReply,
+        ISet<string>? handledCommentIds = null) =>
+        comments
+            .Where(comment => !comment.IsOwnComment)
+            .Where(comment => !needsReply ||
+                comment.ReplyCount == 0 &&
+                !(handledCommentIds?.Contains(comment.Id) ?? false))
+            .OrderByDescending(comment => comment.PublishedAt)
+            .ToList();
+}
 
 public sealed record YouTubePlaylistItem(string Id, string Title, string Description, string Privacy, long VideoCount);
 
@@ -56,7 +73,7 @@ public sealed class YouTubeManagementService
         using var document = await ReadDocumentAsync(response, cancellationToken);
         var comments = ParseComments(document.RootElement);
         var titles = await ListVideoTitlesAsync(accessToken, comments.Select(comment => comment.VideoId), cancellationToken);
-        return AttachVideoTitles(comments, titles);
+        return MarkOwnComments(AttachVideoTitles(comments, titles), channelId);
     }
 
     private async Task<IReadOnlyDictionary<string, string>> ListVideoTitlesAsync(
@@ -215,6 +232,15 @@ public sealed class YouTubeManagementService
             + "&lc=" + Uri.EscapeDataString(commentId.Trim());
     }
 
+    public static IReadOnlyList<YouTubeCommentItem> MarkOwnComments(
+        IEnumerable<YouTubeCommentItem> comments,
+        string channelId) =>
+        comments.Select(comment => comment with
+        {
+            IsOwnComment = channelId.Length > 0 &&
+                string.Equals(comment.AuthorChannelId, channelId, StringComparison.Ordinal),
+        }).ToList();
+
     public static void ValidateModerationStatus(string status, bool allowSpam)
     {
         var valid = status is "published" or "heldForReview" or "rejected" || allowSpam && status == "likelySpam";
@@ -271,6 +297,10 @@ public sealed class YouTubeManagementService
             var topComment = threadSnippet.GetProperty("topLevelComment");
             var snippet = topComment.GetProperty("snippet");
             var authorProfileUrl = ReadAuthorProfileUrl(snippet);
+            var authorChannelId = snippet.TryGetProperty("authorChannelId", out var authorChannel) &&
+                                  authorChannel.ValueKind == JsonValueKind.Object
+                ? ReadString(authorChannel, "value")
+                : "";
             results.Add(new YouTubeCommentItem(
                 ReadString(topComment, "id"),
                 ReadString(thread, "id"),
@@ -282,7 +312,8 @@ public sealed class YouTubeManagementService
                 (int)ReadLong(threadSnippet, "totalReplyCount"),
                 ReadString(snippet, "moderationStatus"),
                 "",
-                authorProfileUrl));
+                authorProfileUrl,
+                authorChannelId));
         }
         return results;
     }
