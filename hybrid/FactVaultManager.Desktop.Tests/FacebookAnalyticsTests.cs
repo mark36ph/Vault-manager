@@ -69,7 +69,7 @@ public sealed class FacebookAnalyticsTests
             {"id":"123456789","description":"Space Quiz","permalink_url":"https://www.facebook.com/reel/123456789","created_time":"2026-08-22T09:30:00+0000"}
             """;
         const string insights = """
-            {"data":[{"name":"total_video_views","values":[{"value":450}]}]}
+            {"data":[{"name":"blue_reels_play_count","values":[{"value":450}]}]}
             """;
 
         var result = FacebookReelAnalyticsService.Parse(details, insights);
