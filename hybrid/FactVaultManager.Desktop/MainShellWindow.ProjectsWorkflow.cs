@@ -35,6 +35,7 @@ public partial class MainShellWindow
         InitializeQuizHistoryPage();
         InitializeQuizNotesPage();
         InitializeYouTubeAnalyticsPage();
+        InitializeFacebookAnalyticsPage();
         InitializeQuizDraftEditor();
         InitializeQuizRotationWorkflow();
         InitializeQuizExportWorkflow();
