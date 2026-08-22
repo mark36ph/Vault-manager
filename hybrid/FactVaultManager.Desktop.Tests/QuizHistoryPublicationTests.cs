@@ -158,18 +158,45 @@ public sealed class QuizHistoryPublicationTests
         Assert.Equal(expected, YouTubeAnalyticsMetrics.PreserveHighest(stored, fetched));
     }
 
+    [Fact]
+    public void NextQuizRecommendation_BalancesTypeCategoryAndRecentUploads()
+    {
+        var recommendation = YouTubeNextQuizPlanner.Recommend(
+        [
+            History("16:9", 10, published: true, views: 100, series: "Music Quiz", categories: "Music"),
+            History("16:9", 10, published: true, views: 80, series: "Space Quiz", categories: "Space"),
+        ],
+        ["Music", "Space", "Film"]);
+
+        Assert.Equal("Film", recommendation.Category);
+        Assert.Equal("Short", recommendation.VideoType);
+        Assert.Equal("Film Quiz — Short", recommendation.Display);
+    }
+
+    [Fact]
+    public void NextQuizRecommendation_StartsWithGeneralKnowledgeVideo()
+    {
+        var recommendation = YouTubeNextQuizPlanner.Recommend(
+            [],
+            ["Science", "General Knowledge", "History"]);
+
+        Assert.Equal("General Knowledge", recommendation.Category);
+        Assert.Equal("Video", recommendation.VideoType);
+    }
+
     private static QuizHistorySummary History(
         string format,
         int questionCount,
         bool published = false,
         long views = 0,
         long likes = 0,
-        string series = "Music Quiz") => new(
+        string series = "Music Quiz",
+        string categories = "Music") => new(
         1,
         "Quiz",
         "2026-08-19 12:00:00",
         questionCount,
-        "Music",
+        categories,
         format,
         8,
         false,
