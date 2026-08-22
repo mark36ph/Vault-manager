@@ -261,6 +261,8 @@ public sealed partial class DesktopDataService
         var pexelsStored = node["images"]?["pexels_api_key"]?.GetValue<string>() ?? "";
         var pixabayStored = node["images"]?["pixabay_api_key"]?.GetValue<string>() ?? "";
         var youtubeStored = node["youtube"]?["api_key"]?.GetValue<string>() ?? "";
+        var youtubeClientSecretStored = node["youtube"]?["oauth_client_secret"]?.GetValue<string>() ?? "";
+        var youtubeRefreshTokenStored = node["youtube"]?["oauth_refresh_token"]?.GetValue<string>() ?? "";
 
         var settings = new AppSettingsModel
         {
@@ -271,6 +273,9 @@ public sealed partial class DesktopDataService
             PexelsKey = LocalSecretProtector.Unprotect(pexelsStored),
             PixabayKey = LocalSecretProtector.Unprotect(pixabayStored),
             YouTubeApiKey = LocalSecretProtector.Unprotect(youtubeStored),
+            YouTubeOAuthClientId = node["youtube"]?["oauth_client_id"]?.GetValue<string>() ?? "",
+            YouTubeOAuthClientSecret = LocalSecretProtector.Unprotect(youtubeClientSecretStored),
+            YouTubeOAuthRefreshToken = LocalSecretProtector.Unprotect(youtubeRefreshTokenStored),
             ResolvePath = node["resolve"]?["application_path"]?.GetValue<string>() ?? "",
             TimelineWidth = node["resolve"]?["timeline_width"]?.GetValue<int>() ?? 1080,
             TimelineHeight = node["resolve"]?["timeline_height"]?.GetValue<int>() ?? 1920,
@@ -302,6 +307,9 @@ public sealed partial class DesktopDataService
         images["pexels_api_key"] = LocalSecretProtector.Protect(settings.PexelsKey);
         images["pixabay_api_key"] = LocalSecretProtector.Protect(settings.PixabayKey);
         youtube["api_key"] = LocalSecretProtector.Protect(settings.YouTubeApiKey);
+        youtube["oauth_client_id"] = settings.YouTubeOAuthClientId;
+        youtube["oauth_client_secret"] = LocalSecretProtector.Protect(settings.YouTubeOAuthClientSecret);
+        youtube["oauth_refresh_token"] = LocalSecretProtector.Protect(settings.YouTubeOAuthRefreshToken);
         resolve["application_path"] = settings.ResolvePath;
         resolve["timeline_width"] = settings.TimelineWidth;
         resolve["timeline_height"] = settings.TimelineHeight;
@@ -431,6 +439,9 @@ public sealed class AppSettingsModel
     public string PexelsKey { get; set; } = "";
     public string PixabayKey { get; set; } = "";
     public string YouTubeApiKey { get; set; } = "";
+    public string YouTubeOAuthClientId { get; set; } = "";
+    public string YouTubeOAuthClientSecret { get; set; } = "";
+    public string YouTubeOAuthRefreshToken { get; set; } = "";
     public string ResolvePath { get; set; } = "";
     public int TimelineWidth { get; set; } = 1080;
     public int TimelineHeight { get; set; } = 1920;

@@ -1,0 +1,101 @@
+namespace FactVaultManager.Desktop.Tests;
+
+public sealed class YouTubeManagementTests
+{
+    [Fact]
+    public void AuthorizationUri_UsesDesktopPkceAndManagementScope()
+    {
+        var uri = YouTubeOAuthService.CreateAuthorizationUri(
+            "client.apps.googleusercontent.com",
+            "http://127.0.0.1:54321/",
+            "secure-state",
+            "pkce-challenge");
+
+        Assert.Contains("response_type=code", uri);
+        Assert.Contains("access_type=offline", uri);
+        Assert.Contains("prompt=consent", uri);
+        Assert.Contains("code_challenge_method=S256", uri);
+        Assert.Contains("state=secure-state", uri);
+        Assert.Contains(Uri.EscapeDataString(YouTubeOAuthService.ManagementScope), uri);
+    }
+
+    [Fact]
+    public void TokenResponse_ParsesAccessAndRefreshTokens()
+    {
+        const string json = """
+            {"access_token":"access","refresh_token":"refresh","expires_in":3599,"scope":"youtube-scope"}
+            """;
+
+        var result = YouTubeOAuthService.ParseTokenResponse(json);
+
+        Assert.Equal("access", result.AccessToken);
+        Assert.Equal("refresh", result.RefreshToken);
+        Assert.Equal(3599, result.ExpiresInSeconds);
+        Assert.Equal("youtube-scope", result.Scope);
+    }
+
+    [Fact]
+    public void CommentsResponse_ParsesModerationRows()
+    {
+        const string json = """
+            {"items":[{"id":"thread-1","snippet":{"totalReplyCount":2,"topLevelComment":{"id":"comment-1","snippet":{"videoId":"video-1","authorDisplayName":"Viewer","textDisplay":"Great quiz!","publishedAt":"2026-08-22T12:30:00Z","likeCount":3,"moderationStatus":"published"}}}}]}
+            """;
+
+        var result = Assert.Single(YouTubeManagementService.ParseComments(json));
+
+        Assert.Equal("comment-1", result.Id);
+        Assert.Equal("thread-1", result.ThreadId);
+        Assert.Equal("video-1", result.VideoId);
+        Assert.Equal("Viewer", result.Author);
+        Assert.Equal("Great quiz!", result.Text);
+        Assert.Equal(3, result.LikeCount);
+        Assert.Equal(2, result.ReplyCount);
+        Assert.Equal("published", result.ModerationStatus);
+    }
+
+    [Fact]
+    public void PlaylistsResponse_ParsesPrivacyAndVideoCount()
+    {
+        const string json = """
+            {"items":[{"id":"playlist-1","snippet":{"title":"History Quizzes","description":"History videos"},"status":{"privacyStatus":"public"},"contentDetails":{"itemCount":4}}]}
+            """;
+
+        var result = Assert.Single(YouTubeManagementService.ParsePlaylists(json));
+
+        Assert.Equal("playlist-1", result.Id);
+        Assert.Equal("History Quizzes", result.Title);
+        Assert.Equal("public", result.Privacy);
+        Assert.Equal(4, result.VideoCount);
+    }
+
+    [Fact]
+    public void PlaylistVideosResponse_ParsesItemIdAndPosition()
+    {
+        const string json = """
+            {"items":[{"id":"playlist-item-1","snippet":{"title":"History Quiz 001","position":2,"resourceId":{"videoId":"video-1"}}}]}
+            """;
+
+        var result = Assert.Single(YouTubeManagementService.ParsePlaylistVideos(json));
+
+        Assert.Equal("playlist-item-1", result.PlaylistItemId);
+        Assert.Equal("video-1", result.VideoId);
+        Assert.Equal("History Quiz 001", result.Title);
+        Assert.Equal(2, result.Position);
+    }
+
+    [Theory]
+    [InlineData("published")]
+    [InlineData("heldForReview")]
+    [InlineData("rejected")]
+    public void ModerationStatus_AcceptsWritableStates(string status)
+    {
+        YouTubeManagementService.ValidateModerationStatus(status, allowSpam: false);
+    }
+
+    [Fact]
+    public void ModerationStatus_RejectsSpamAsWritableState()
+    {
+        Assert.Throws<ArgumentException>(() =>
+            YouTubeManagementService.ValidateModerationStatus("likelySpam", allowSpam: false));
+    }
+}

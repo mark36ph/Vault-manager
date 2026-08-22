@@ -22,6 +22,11 @@ public sealed record YouTubeAnalyticsRow(
     public string EngagementDisplay => EngagementRate.ToString("0.00'%'", CultureInfo.InvariantCulture);
 }
 
+public sealed record YouTubeQuizChoice(string VideoId, string Title)
+{
+    public string Display => Title;
+}
+
 public static class YouTubeAnalyticsMetrics
 {
     public static double EngagementRate(long views, long likes, long comments) =>
@@ -40,6 +45,18 @@ public partial class MainShellWindow
     private TextBlock? _youtubeEngagementText;
     private TextBlock? _youtubeAnalyticsPageStatus;
     private TextBlock? _youtubeChannelNameText;
+    private readonly YouTubeManagementService _youtubeManagement = new();
+    private ContentControl? _youtubeManagerContent;
+    private readonly Dictionary<string, Button> _youtubeManagerButtons = new(StringComparer.OrdinalIgnoreCase);
+    private string _youtubeManagerSection = "analytics";
+    private DataGrid? _youtubeCommentsGrid;
+    private ComboBox? _youtubeCommentStatus;
+    private TextBox? _youtubeReplyText;
+    private TextBlock? _youtubeCommentsStatus;
+    private DataGrid? _youtubePlaylistsGrid;
+    private DataGrid? _youtubePlaylistVideosGrid;
+    private ComboBox? _youtubeQuizVideoChoice;
+    private TextBlock? _youtubePlaylistsStatus;
 
     private void InitializeYouTubeAnalyticsPage()
     {
@@ -51,7 +68,7 @@ public partial class MainShellWindow
         MainTabs.SelectionChanged += async (_, eventArgs) =>
         {
             if (ReferenceEquals(eventArgs.OriginalSource, MainTabs) && ReferenceEquals(MainTabs.SelectedItem, tab))
-                await RefreshYouTubeAnalyticsPageAsync(false);
+                await RefreshCurrentYouTubeManagerSectionAsync(false);
         };
         if (FindResource("HiddenPageTabStyle") is Style hiddenStyle)
             tab.Style = hiddenStyle;
@@ -66,6 +83,44 @@ public partial class MainShellWindow
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+        var heading = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
+        heading.Children.Add(new TextBlock
+        {
+            Text = "YouTube Manager",
+            FontFamily = new FontFamily("Segoe UI Variable Display"),
+            FontSize = 28,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = Brushes.White,
+        });
+        heading.Children.Add(new TextBlock
+        {
+            Text = "Review performance, manage comments, and organise channel playlists.",
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 210, 255)),
+            Margin = new Thickness(0, 3, 0, 0),
+        });
+        root.Children.Add(heading);
+
+        var navigation = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 12) };
+        AddYouTubeManagerButton(navigation, "analytics", "Analytics");
+        AddYouTubeManagerButton(navigation, "comments", "Comments");
+        AddYouTubeManagerButton(navigation, "playlists", "Playlists");
+        Grid.SetRow(navigation, 1);
+        root.Children.Add(navigation);
+
+        _youtubeManagerContent = new ContentControl();
+        Grid.SetRow(_youtubeManagerContent, 2);
+        root.Children.Add(_youtubeManagerContent);
+        SelectYouTubeManagerSection("analytics");
+        return root;
+    }
+
+    private FrameworkElement BuildYouTubeAnalyticsSection()
+    {
+        var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         var header = new Grid { Margin = new Thickness(0, 0, 0, 14) };
@@ -74,7 +129,7 @@ public partial class MainShellWindow
         var heading = new StackPanel();
         heading.Children.Add(new TextBlock
         {
-            Text = "YouTube Analytics",
+            Text = "Analytics",
             FontFamily = new FontFamily("Segoe UI Variable Display"),
             FontSize = 28,
             FontWeight = FontWeights.SemiBold,
@@ -171,6 +226,43 @@ public partial class MainShellWindow
         return root;
     }
 
+    private void AddYouTubeManagerButton(Panel parent, string key, string text)
+    {
+        var button = new Button { Content = text, MinWidth = 112, MinHeight = 34, Margin = new Thickness(0, 0, 8, 0) };
+        button.Click += async (_, _) =>
+        {
+            SelectYouTubeManagerSection(key);
+            await RefreshCurrentYouTubeManagerSectionAsync(false);
+        };
+        _youtubeManagerButtons[key] = button;
+        parent.Children.Add(button);
+    }
+
+    private void SelectYouTubeManagerSection(string key)
+    {
+        if (_youtubeManagerContent is null) return;
+        _youtubeManagerSection = key;
+        _youtubeManagerContent.Content = key switch
+        {
+            "comments" => BuildYouTubeCommentsSection(),
+            "playlists" => BuildYouTubePlaylistsSection(),
+            _ => BuildYouTubeAnalyticsSection(),
+        };
+        foreach (var pair in _youtubeManagerButtons)
+        {
+            var selected = pair.Key == key;
+            pair.Value.Background = new SolidColorBrush(selected ? Color.FromRgb(25, 86, 170) : Color.FromRgb(13, 18, 78));
+            pair.Value.Foreground = selected ? Brushes.White : new SolidColorBrush(Color.FromRgb(190, 210, 255));
+        }
+    }
+
+    private Task RefreshCurrentYouTubeManagerSectionAsync(bool showErrors) => _youtubeManagerSection switch
+    {
+        "comments" => RefreshYouTubeCommentsAsync(showErrors),
+        "playlists" => RefreshYouTubePlaylistsAsync(showErrors),
+        _ => RefreshYouTubeAnalyticsPageAsync(showErrors),
+    };
+
     private DataGrid BuildYouTubeAnalyticsGrid()
     {
         var grid = new DataGrid
@@ -251,6 +343,424 @@ public partial class MainShellWindow
         Width = new DataGridLength(width),
     };
 
+    private FrameworkElement BuildYouTubeCommentsSection()
+    {
+        var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var toolbar = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var title = new StackPanel();
+        title.Children.Add(new TextBlock { Text = "Comments", FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White });
+        title.Children.Add(new TextBlock { Text = "Reply to viewers and review comments held by YouTube.", Foreground = new SolidColorBrush(Color.FromRgb(190, 210, 255)) });
+        toolbar.Children.Add(title);
+        _youtubeCommentStatus = new ComboBox { Width = 150, Height = 34, Margin = new Thickness(8, 0, 8, 0) };
+        _youtubeCommentStatus.Items.Add("Published");
+        _youtubeCommentStatus.Items.Add("Held for review");
+        _youtubeCommentStatus.Items.Add("Likely spam");
+        _youtubeCommentStatus.SelectedIndex = 0;
+        Grid.SetColumn(_youtubeCommentStatus, 1);
+        toolbar.Children.Add(_youtubeCommentStatus);
+        var refresh = new Button { Content = "Refresh comments", MinWidth = 132, MinHeight = 34 };
+        StyleQuizHistoryButton(refresh, Color.FromRgb(0, 204, 255));
+        refresh.Click += async (_, _) => await RefreshYouTubeCommentsAsync(true);
+        Grid.SetColumn(refresh, 2);
+        toolbar.Children.Add(refresh);
+        root.Children.Add(toolbar);
+
+        _youtubeCommentsGrid = BuildManagerGrid();
+        _youtubeCommentsGrid.Columns.Add(TextColumn("Author", nameof(YouTubeCommentItem.Author), 150));
+        _youtubeCommentsGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Comment",
+            Binding = new Binding(nameof(YouTubeCommentItem.Text)),
+            Width = new DataGridLength(1, DataGridLengthUnitType.Star),
+        });
+        _youtubeCommentsGrid.Columns.Add(TextColumn("Published", nameof(YouTubeCommentItem.PublishedAt), 142));
+        _youtubeCommentsGrid.Columns.Add(NumberColumn("Likes", nameof(YouTubeCommentItem.LikeCount), 72));
+        _youtubeCommentsGrid.Columns.Add(NumberColumn("Replies", nameof(YouTubeCommentItem.ReplyCount), 78));
+        var commentsCard = ManagerCard(_youtubeCommentsGrid);
+        Grid.SetRow(commentsCard, 1);
+        root.Children.Add(commentsCard);
+
+        var actionRow = new Grid { Margin = new Thickness(0, 10, 0, 0) };
+        actionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        for (var i = 0; i < 4; i++) actionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _youtubeReplyText = new TextBox { MinHeight = 36, Margin = new Thickness(0, 0, 8, 0), VerticalContentAlignment = VerticalAlignment.Center };
+        actionRow.Children.Add(_youtubeReplyText);
+        AddCommentAction(actionRow, 1, "Reply", Color.FromRgb(0, 204, 255), () => ReplyToSelectedCommentAsync());
+        AddCommentAction(actionRow, 2, "Approve", Color.FromRgb(70, 235, 115), () => ModerateSelectedCommentAsync("published"));
+        AddCommentAction(actionRow, 3, "Hold", Color.FromRgb(255, 202, 45), () => ModerateSelectedCommentAsync("heldForReview"));
+        AddCommentAction(actionRow, 4, "Reject", Color.FromRgb(248, 90, 105), () => ModerateSelectedCommentAsync("rejected"));
+        Grid.SetRow(actionRow, 2);
+        root.Children.Add(actionRow);
+
+        _youtubeCommentsStatus = new TextBlock { Text = "Connect YouTube in Settings to manage comments.", Foreground = new SolidColorBrush(Color.FromRgb(190, 210, 255)), Margin = new Thickness(0, 8, 0, 0) };
+        Grid.SetRow(_youtubeCommentsStatus, 3);
+        root.Children.Add(_youtubeCommentsStatus);
+        return root;
+    }
+
+    private FrameworkElement BuildYouTubePlaylistsSection()
+    {
+        var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var toolbar = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var title = new StackPanel();
+        title.Children.Add(new TextBlock { Text = "Playlists", FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White });
+        title.Children.Add(new TextBlock { Text = "Create playlists and add published quizzes without leaving the app.", Foreground = new SolidColorBrush(Color.FromRgb(190, 210, 255)) });
+        toolbar.Children.Add(title);
+        var create = new Button { Content = "Create playlist", MinWidth = 124, MinHeight = 34, Margin = new Thickness(8, 0, 8, 0) };
+        StyleQuizHistoryButton(create, Color.FromRgb(204, 70, 255));
+        create.Click += async (_, _) => await CreateYouTubePlaylistAsync();
+        Grid.SetColumn(create, 1);
+        toolbar.Children.Add(create);
+        var refresh = new Button { Content = "Refresh playlists", MinWidth = 132, MinHeight = 34 };
+        StyleQuizHistoryButton(refresh, Color.FromRgb(0, 204, 255));
+        refresh.Click += async (_, _) => await RefreshYouTubePlaylistsAsync(true);
+        Grid.SetColumn(refresh, 2);
+        toolbar.Children.Add(refresh);
+        root.Children.Add(toolbar);
+
+        var tables = new Grid();
+        tables.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.42, GridUnitType.Star) });
+        tables.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(10) });
+        tables.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(0.58, GridUnitType.Star) });
+        _youtubePlaylistsGrid = BuildManagerGrid();
+        _youtubePlaylistsGrid.Columns.Add(new DataGridTextColumn { Header = "Playlist", Binding = new Binding(nameof(YouTubePlaylistItem.Title)), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
+        _youtubePlaylistsGrid.Columns.Add(TextColumn("Privacy", nameof(YouTubePlaylistItem.Privacy), 84));
+        _youtubePlaylistsGrid.Columns.Add(NumberColumn("Videos", nameof(YouTubePlaylistItem.VideoCount), 72));
+        _youtubePlaylistsGrid.SelectionChanged += async (_, _) => await RefreshSelectedPlaylistVideosAsync(false);
+        tables.Children.Add(ManagerCard(_youtubePlaylistsGrid));
+        _youtubePlaylistVideosGrid = BuildManagerGrid();
+        _youtubePlaylistVideosGrid.Columns.Add(new DataGridTextColumn { Header = "Videos in selected playlist", Binding = new Binding(nameof(YouTubePlaylistVideo.Title)), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
+        _youtubePlaylistVideosGrid.Columns.Add(NumberColumn("Position", nameof(YouTubePlaylistVideo.Position), 80));
+        var videosCard = ManagerCard(_youtubePlaylistVideosGrid);
+        Grid.SetColumn(videosCard, 2);
+        tables.Children.Add(videosCard);
+        Grid.SetRow(tables, 1);
+        root.Children.Add(tables);
+
+        var actions = new Grid { Margin = new Thickness(0, 10, 0, 0) };
+        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _youtubeQuizVideoChoice = new ComboBox { MinHeight = 36, Margin = new Thickness(0, 0, 8, 0), DisplayMemberPath = nameof(YouTubeQuizChoice.Display) };
+        actions.Children.Add(_youtubeQuizVideoChoice);
+        var add = new Button { Content = "Add quiz video", MinWidth = 124, MinHeight = 36, Margin = new Thickness(0, 0, 8, 0) };
+        StyleQuizHistoryButton(add, Color.FromRgb(70, 235, 115));
+        add.Click += async (_, _) => await AddSelectedQuizToPlaylistAsync();
+        Grid.SetColumn(add, 1);
+        actions.Children.Add(add);
+        var remove = new Button { Content = "Remove video", MinWidth = 116, MinHeight = 36 };
+        StyleQuizHistoryButton(remove, Color.FromRgb(248, 90, 105));
+        remove.Click += async (_, _) => await RemoveSelectedPlaylistVideoAsync();
+        Grid.SetColumn(remove, 2);
+        actions.Children.Add(remove);
+        Grid.SetRow(actions, 2);
+        root.Children.Add(actions);
+
+        _youtubePlaylistsStatus = new TextBlock { Text = "Connect YouTube in Settings to manage playlists.", Foreground = new SolidColorBrush(Color.FromRgb(190, 210, 255)), Margin = new Thickness(0, 8, 0, 0) };
+        Grid.SetRow(_youtubePlaylistsStatus, 3);
+        root.Children.Add(_youtubePlaylistsStatus);
+        return root;
+    }
+
+    private static DataGrid BuildManagerGrid()
+    {
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            IsReadOnly = true,
+            SelectionMode = DataGridSelectionMode.Single,
+            SelectionUnit = DataGridSelectionUnit.FullRow,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
+            HorizontalGridLinesBrush = new SolidColorBrush(Color.FromRgb(35, 62, 145)),
+            BorderThickness = new Thickness(0),
+            Background = new SolidColorBrush(Color.FromRgb(8, 14, 62)),
+            Foreground = Brushes.White,
+            RowBackground = new SolidColorBrush(Color.FromRgb(15, 31, 86)),
+            AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(12, 25, 72)),
+            MinRowHeight = 40,
+        };
+        var header = new Style(typeof(DataGridColumnHeader));
+        header.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(13, 18, 78))));
+        header.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(255, 202, 45))));
+        header.Setters.Add(new Setter(Control.FontWeightProperty, FontWeights.SemiBold));
+        header.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(8)));
+        grid.ColumnHeaderStyle = header;
+        return grid;
+    }
+
+    private static Border ManagerCard(UIElement content) => new()
+    {
+        Background = new SolidColorBrush(Color.FromRgb(8, 14, 62)),
+        BorderBrush = new SolidColorBrush(Color.FromRgb(0, 204, 255)),
+        BorderThickness = new Thickness(2),
+        CornerRadius = new CornerRadius(12),
+        Child = content,
+    };
+
+    private void AddCommentAction(Grid row, int column, string label, Color colour, Func<Task> action)
+    {
+        var button = new Button { Content = label, MinWidth = 82, MinHeight = 36, Margin = new Thickness(0, 0, 8, 0) };
+        StyleQuizHistoryButton(button, colour);
+        button.Click += async (_, _) => await action();
+        Grid.SetColumn(button, column);
+        row.Children.Add(button);
+    }
+
+    private async Task<string> GetYouTubeManagementAccessTokenAsync()
+    {
+        var settings = _data.LoadSettings();
+        if (settings.YouTubeOAuthClientId.Length == 0 || settings.YouTubeOAuthRefreshToken.Length == 0)
+            throw new InvalidOperationException("Open Settings → YouTube, enter the OAuth desktop client details, then connect your Google account.");
+        return await _youtubeOAuth.RefreshAccessTokenAsync(
+            settings.YouTubeOAuthClientId,
+            settings.YouTubeOAuthClientSecret,
+            settings.YouTubeOAuthRefreshToken);
+    }
+
+    private async Task RefreshYouTubeCommentsAsync(bool showErrors)
+    {
+        if (_youtubeCommentsGrid is null) return;
+        try
+        {
+            SetYouTubeCommentsStatus("Loading comments...");
+            var token = await GetYouTubeManagementAccessTokenAsync();
+            var channel = await _youtubeManagement.GetMyChannelAsync(token);
+            var status = (_youtubeCommentStatus?.SelectedItem?.ToString()) switch
+            {
+                "Held for review" => "heldForReview",
+                "Likely spam" => "likelySpam",
+                _ => "published",
+            };
+            var comments = await _youtubeManagement.ListCommentsAsync(token, channel.Id, status);
+            _youtubeCommentsGrid.ItemsSource = comments;
+            SetYouTubeCommentsStatus($"{channel.Title} • {comments.Count:N0} {(_youtubeCommentStatus?.SelectedItem?.ToString() ?? "published").ToLowerInvariant()} comments");
+        }
+        catch (Exception error)
+        {
+            SetYouTubeCommentsStatus(error.Message);
+            if (showErrors) MessageBox.Show(this, error.Message, "YouTube Comments", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task ReplyToSelectedCommentAsync()
+    {
+        if (_youtubeCommentsGrid?.SelectedItem is not YouTubeCommentItem comment)
+        {
+            MessageBox.Show(this, "Select a comment first.", "YouTube Comments", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var reply = _youtubeReplyText?.Text.Trim() ?? "";
+        try
+        {
+            var token = await GetYouTubeManagementAccessTokenAsync();
+            await _youtubeManagement.ReplyAsync(token, comment.Id, reply);
+            if (_youtubeReplyText is not null) _youtubeReplyText.Clear();
+            await RefreshYouTubeCommentsAsync(true);
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Reply to Comment", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task ModerateSelectedCommentAsync(string status)
+    {
+        if (_youtubeCommentsGrid?.SelectedItem is not YouTubeCommentItem comment)
+        {
+            MessageBox.Show(this, "Select a comment first.", "YouTube Comments", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        var action = status switch { "published" => "approve", "heldForReview" => "hold for review", _ => "reject" };
+        if (MessageBox.Show(this, $"Do you want to {action} this comment from {comment.Author}?", "Confirm Comment Action", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        try
+        {
+            var token = await GetYouTubeManagementAccessTokenAsync();
+            await _youtubeManagement.SetModerationStatusAsync(token, comment.Id, status);
+            await RefreshYouTubeCommentsAsync(true);
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Moderate Comment", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task RefreshYouTubePlaylistsAsync(bool showErrors)
+    {
+        if (_youtubePlaylistsGrid is null) return;
+        try
+        {
+            SetYouTubePlaylistsStatus("Loading playlists...");
+            var token = await GetYouTubeManagementAccessTokenAsync();
+            var playlists = await _youtubeManagement.ListPlaylistsAsync(token);
+            _youtubePlaylistsGrid.ItemsSource = playlists;
+            _youtubeQuizVideoChoice!.ItemsSource = _data.GetQuizHistory()
+                .Where(item => item.PublishedOnYouTube)
+                .Select(item => new YouTubeQuizChoice(
+                    YouTubeVideoAnalyticsService.TryGetVideoId(item.YouTubeUrl) ?? "",
+                    item.YouTubeTitle.Length > 0 ? item.YouTubeTitle : item.Title))
+                .Where(item => item.VideoId.Length > 0)
+                .GroupBy(item => item.VideoId)
+                .Select(group => group.First())
+                .OrderBy(item => item.Title)
+                .ToList();
+            if (playlists.Count > 0) _youtubePlaylistsGrid.SelectedIndex = 0;
+            SetYouTubePlaylistsStatus($"Loaded {playlists.Count:N0} playlists.");
+        }
+        catch (Exception error)
+        {
+            SetYouTubePlaylistsStatus(error.Message);
+            if (showErrors) MessageBox.Show(this, error.Message, "YouTube Playlists", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task RefreshSelectedPlaylistVideosAsync(bool showErrors)
+    {
+        if (_youtubePlaylistVideosGrid is null || _youtubePlaylistsGrid?.SelectedItem is not YouTubePlaylistItem playlist)
+            return;
+        try
+        {
+            var token = await GetYouTubeManagementAccessTokenAsync();
+            var videos = await _youtubeManagement.ListPlaylistVideosAsync(token, playlist.Id);
+            _youtubePlaylistVideosGrid.ItemsSource = videos.OrderBy(item => item.Position).ToList();
+            SetYouTubePlaylistsStatus($"{playlist.Title} • {videos.Count:N0} videos");
+        }
+        catch (Exception error)
+        {
+            SetYouTubePlaylistsStatus(error.Message);
+            if (showErrors) MessageBox.Show(this, error.Message, "YouTube Playlist", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task CreateYouTubePlaylistAsync()
+    {
+        var result = ShowCreatePlaylistDialog();
+        if (result is null) return;
+        try
+        {
+            var token = await GetYouTubeManagementAccessTokenAsync();
+            await _youtubeManagement.CreatePlaylistAsync(token, result.Value.Title, result.Value.Description, result.Value.Privacy);
+            await RefreshYouTubePlaylistsAsync(true);
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Create Playlist", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task AddSelectedQuizToPlaylistAsync()
+    {
+        if (_youtubePlaylistsGrid?.SelectedItem is not YouTubePlaylistItem playlist || _youtubeQuizVideoChoice?.SelectedItem is not YouTubeQuizChoice quiz)
+        {
+            MessageBox.Show(this, "Select a playlist and a published quiz video first.", "YouTube Playlists", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        try
+        {
+            var token = await GetYouTubeManagementAccessTokenAsync();
+            await _youtubeManagement.AddVideoToPlaylistAsync(token, playlist.Id, quiz.VideoId);
+            await RefreshSelectedPlaylistVideosAsync(true);
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Add to Playlist", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task RemoveSelectedPlaylistVideoAsync()
+    {
+        if (_youtubePlaylistsGrid?.SelectedItem is not YouTubePlaylistItem playlist || _youtubePlaylistVideosGrid?.SelectedItem is not YouTubePlaylistVideo video)
+        {
+            MessageBox.Show(this, "Select a video in a playlist first.", "YouTube Playlists", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (MessageBox.Show(this, $"Remove “{video.Title}” from “{playlist.Title}”? The video itself will not be deleted.", "Remove from Playlist", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        try
+        {
+            var token = await GetYouTubeManagementAccessTokenAsync();
+            await _youtubeManagement.RemovePlaylistVideoAsync(token, video.PlaylistItemId);
+            await RefreshSelectedPlaylistVideosAsync(true);
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Remove from Playlist", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private (string Title, string Description, string Privacy)? ShowCreatePlaylistDialog()
+    {
+        var dialog = new Window
+        {
+            Title = "Create YouTube Playlist",
+            Owner = this,
+            Width = 480,
+            Height = 350,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ResizeMode = ResizeMode.NoResize,
+        };
+        var panel = new StackPanel { Margin = new Thickness(18) };
+        panel.Children.Add(new TextBlock { Text = "Title", FontWeight = FontWeights.SemiBold });
+        var title = new TextBox { Margin = new Thickness(0, 5, 0, 12) };
+        panel.Children.Add(title);
+        panel.Children.Add(new TextBlock { Text = "Description", FontWeight = FontWeights.SemiBold });
+        var description = new TextBox { Height = 80, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 5, 0, 12) };
+        panel.Children.Add(description);
+        panel.Children.Add(new TextBlock { Text = "Privacy", FontWeight = FontWeights.SemiBold });
+        var privacy = new ComboBox { Width = 150, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 5, 0, 16) };
+        privacy.Items.Add("public");
+        privacy.Items.Add("unlisted");
+        privacy.Items.Add("private");
+        privacy.SelectedIndex = 0;
+        panel.Children.Add(privacy);
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var cancel = new Button { Content = "Cancel", Width = 88, Margin = new Thickness(0, 0, 8, 0), IsCancel = true };
+        var create = new Button { Content = "Create", Width = 88, IsDefault = true };
+        create.Click += (_, _) =>
+        {
+            if (title.Text.Trim().Length == 0)
+            {
+                MessageBox.Show(dialog, "Enter a playlist title.", "Create Playlist", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            dialog.DialogResult = true;
+        };
+        buttons.Children.Add(cancel);
+        buttons.Children.Add(create);
+        panel.Children.Add(buttons);
+        dialog.Content = panel;
+        return dialog.ShowDialog() == true
+            ? (title.Text.Trim(), description.Text.Trim(), privacy.SelectedItem?.ToString() ?? "public")
+            : null;
+    }
+
+    private void SetYouTubeCommentsStatus(string text)
+    {
+        if (_youtubeCommentsStatus is not null) _youtubeCommentsStatus.Text = text;
+    }
+
+    private void SetYouTubePlaylistsStatus(string text)
+    {
+        if (_youtubePlaylistsStatus is not null) _youtubePlaylistsStatus.Text = text;
+    }
+
     private void AddYouTubeAnalyticsNavigationButton(int tabIndex)
     {
         if (Content is not DependencyObject root)
@@ -260,7 +770,7 @@ public partial class MainShellWindow
         if (notesButton?.Parent is not StackPanel navigation)
             return;
 
-        var analyticsButton = new Button { Content = "▶   YouTube Analytics", Tag = tabIndex.ToString() };
+        var analyticsButton = new Button { Content = "▶   YouTube Manager", Tag = tabIndex.ToString() };
         if (FindResource("NavButtonStyle") is Style navStyle)
             analyticsButton.Style = navStyle;
         analyticsButton.Click += Navigate_Click;

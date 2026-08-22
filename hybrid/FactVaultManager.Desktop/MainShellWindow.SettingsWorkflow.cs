@@ -23,6 +23,11 @@ public partial class MainShellWindow
     private ComboBox? _settingsResolveMode;
     private TextBlock? _settingsIntegrityText;
     private TextBlock? _settingsPageStatus;
+    private TextBox? _settingsYouTubeClientId;
+    private PasswordBox? _settingsYouTubeClientSecret;
+    private TextBlock? _settingsYouTubeConnectionStatus;
+    private Button? _settingsYouTubeConnectButton;
+    private readonly YouTubeOAuthService _youtubeOAuth = new();
     private string _settingsSelectedPage = "general";
 
     private void InitializeSettingsWorkflow()
@@ -316,7 +321,7 @@ public partial class MainShellWindow
     {
         var page = SettingsPageStack(
             "YouTube",
-            "Connect the public YouTube Data API so Quiz History can update video views, likes and publication dates automatically.");
+            "Configure analytics and securely connect the channel for comments and playlists.");
 
         var credentials = SettingsSection("YouTube Data API v3");
         page.Children.Add(credentials);
@@ -331,6 +336,43 @@ public partial class MainShellWindow
             Margin = new Thickness(0, 7, 0, 0),
             TextWrapping = TextWrapping.Wrap,
         });
+
+        var management = SettingsSection("Channel management");
+        page.Children.Add(management);
+        var managementStack = (StackPanel)management.Child;
+        managementStack.Children.Add(new TextBlock
+        {
+            Text = "Create an OAuth client with application type Desktop app in the same Google Cloud project.",
+            Foreground = SettingsMutedBrush(),
+            Margin = new Thickness(0, 6, 0, 8),
+            TextWrapping = TextWrapping.Wrap,
+        });
+        managementStack.Children.Add(SettingsFieldLabel("OAuth desktop client ID"));
+        _settingsYouTubeClientId = new TextBox { Margin = new Thickness(0, 5, 0, 8) };
+        managementStack.Children.Add(_settingsYouTubeClientId);
+        managementStack.Children.Add(SettingsFieldLabel("OAuth client secret"));
+        _settingsYouTubeClientSecret = new PasswordBox { Margin = new Thickness(0, 5, 0, 10) };
+        managementStack.Children.Add(_settingsYouTubeClientSecret);
+
+        var connectionRow = new Grid();
+        connectionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        connectionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        connectionRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _settingsYouTubeConnectionStatus = new TextBlock
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = SettingsMutedBrush(),
+        };
+        connectionRow.Children.Add(_settingsYouTubeConnectionStatus);
+        _settingsYouTubeConnectButton = new Button { Content = "Connect Google account", MinWidth = 154, Margin = new Thickness(8, 0, 0, 0) };
+        _settingsYouTubeConnectButton.Click += async (_, _) => await ConnectYouTubeAsync();
+        Grid.SetColumn(_settingsYouTubeConnectButton, 1);
+        connectionRow.Children.Add(_settingsYouTubeConnectButton);
+        var disconnect = new Button { Content = "Disconnect", MinWidth = 92, Margin = new Thickness(8, 0, 0, 0) };
+        disconnect.Click += async (_, _) => await DisconnectYouTubeAsync();
+        Grid.SetColumn(disconnect, 2);
+        connectionRow.Children.Add(disconnect);
+        managementStack.Children.Add(connectionRow);
 
         var behaviour = SettingsSection("Automatic updates");
         page.Children.Add(behaviour);
@@ -408,6 +450,10 @@ public partial class MainShellWindow
             SelectComboValue(_settingsOrientation!, ReadString(node, "images", "default_orientation", "vertical"), "vertical");
             _settingsResolveModulePath!.Text = ReadString(node, "resolve", "scripting_module_path", "");
             SelectComboValue(_settingsResolveMode!, ReadString(node, "resolve", "integration_mode", "external"), "external");
+            var settings = _data.LoadSettings();
+            if (_settingsYouTubeClientId is not null) _settingsYouTubeClientId.Text = settings.YouTubeOAuthClientId;
+            if (_settingsYouTubeClientSecret is not null) _settingsYouTubeClientSecret.Password = settings.YouTubeOAuthClientSecret;
+            SetYouTubeConnectionStatus(settings.YouTubeOAuthRefreshToken.Length > 0 ? "Connected to Google" : "Not connected");
         }
         catch (Exception error)
         {
@@ -415,7 +461,9 @@ public partial class MainShellWindow
         }
     }
 
-    private void SaveAllSettings()
+    private void SaveAllSettings() => SaveAllSettingsCore(null);
+
+    private bool SaveAllSettingsCore(string? refreshTokenOverride)
     {
         try
         {
@@ -426,6 +474,7 @@ public partial class MainShellWindow
             if (!double.TryParse(FrameRateTextBox.Text, out var frameRate) || frameRate <= 0)
                 throw new ArgumentException("Frame rate must be a positive number.");
 
+            var existingSettings = _data.LoadSettings();
             _data.SaveSettings(new AppSettingsModel
             {
                 ProjectsFolder = ProjectsFolderTextBox.Text.Trim(),
@@ -435,6 +484,9 @@ public partial class MainShellWindow
                 PexelsKey = PexelsKeyPasswordBox.Password.Trim(),
                 PixabayKey = PixabayKeyPasswordBox.Password.Trim(),
                 YouTubeApiKey = YouTubeApiKeyPasswordBox.Password.Trim(),
+                YouTubeOAuthClientId = _settingsYouTubeClientId?.Text.Trim() ?? existingSettings.YouTubeOAuthClientId,
+                YouTubeOAuthClientSecret = _settingsYouTubeClientSecret?.Password.Trim() ?? existingSettings.YouTubeOAuthClientSecret,
+                YouTubeOAuthRefreshToken = refreshTokenOverride ?? existingSettings.YouTubeOAuthRefreshToken,
                 ResolvePath = ResolvePathTextBox.Text.Trim(),
                 TimelineWidth = width,
                 TimelineHeight = height,
@@ -461,11 +513,77 @@ public partial class MainShellWindow
             SettingsStatusText.Text = message;
             if (_settingsPageStatus is not null) _settingsPageStatus.Text = message;
             HeaderStatusText.Text = message;
+            return true;
         }
         catch (Exception error)
         {
             SettingsStatusText.Text = error.Message;
             if (_settingsPageStatus is not null) _settingsPageStatus.Text = error.Message;
+            return false;
+        }
+    }
+
+    private async Task ConnectYouTubeAsync()
+    {
+        if (_settingsYouTubeConnectButton is null) return;
+        try
+        {
+            _settingsYouTubeConnectButton.IsEnabled = false;
+            SetYouTubeConnectionStatus("Waiting for Google sign-in...");
+            var clientId = _settingsYouTubeClientId?.Text.Trim() ?? "";
+            var clientSecret = _settingsYouTubeClientSecret?.Password.Trim() ?? "";
+            var tokens = await _youtubeOAuth.AuthorizeAsync(clientId, clientSecret);
+            if (!SaveAllSettingsCore(tokens.RefreshToken))
+                throw new InvalidOperationException("The YouTube connection could not be saved.");
+            SetYouTubeConnectionStatus("Connected to Google");
+        }
+        catch (Exception error)
+        {
+            SetYouTubeConnectionStatus("Not connected");
+            MessageBox.Show(this, error.Message, "Connect YouTube", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            _settingsYouTubeConnectButton.IsEnabled = true;
+        }
+    }
+
+    private async Task DisconnectYouTubeAsync()
+    {
+        var settings = _data.LoadSettings();
+        if (settings.YouTubeOAuthRefreshToken.Length == 0)
+        {
+            SetYouTubeConnectionStatus("Not connected");
+            return;
+        }
+        if (MessageBox.Show(
+                this,
+                "Disconnect Factburst Quiz Manager from this Google account?",
+                "Disconnect YouTube",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        try
+        {
+            await _youtubeOAuth.RevokeAsync(settings.YouTubeOAuthRefreshToken);
+            if (!SaveAllSettingsCore(""))
+                throw new InvalidOperationException("The disconnected state could not be saved.");
+            SetYouTubeConnectionStatus("Not connected");
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Disconnect YouTube", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void SetYouTubeConnectionStatus(string text)
+    {
+        if (_settingsYouTubeConnectionStatus is not null)
+        {
+            _settingsYouTubeConnectionStatus.Text = text;
+            _settingsYouTubeConnectionStatus.Foreground = text.StartsWith("Connected", StringComparison.Ordinal)
+                ? new SolidColorBrush(Color.FromRgb(25, 140, 75))
+                : SettingsMutedBrush();
         }
     }
 
