@@ -154,6 +154,18 @@ public partial class MainShellWindow
     private TextBlock? _facebookNextShortReasonText;
     private TextBlock? _facebookAnalyticsStatus;
     private readonly FacebookReelAnalyticsService _facebookAnalytics = new();
+    private readonly FacebookCommentManagementService _facebookComments = new();
+    private ContentControl? _facebookManagerContent;
+    private readonly Dictionary<string, Button> _facebookManagerButtons = new(StringComparer.OrdinalIgnoreCase);
+    private string _facebookManagerSection = "analytics";
+    private DataGrid? _facebookCommentsGrid;
+    private ComboBox? _facebookCommentFilter;
+    private TextBox? _facebookReplyText;
+    private TextBlock? _facebookNeedsReplyCountText;
+    private TextBlock? _facebookCommentsStatus;
+    private readonly HashSet<string> _facebookHandledCommentIds = new(StringComparer.Ordinal);
+    private IReadOnlyList<FacebookCommentItem> _facebookLoadedComments = Array.Empty<FacebookCommentItem>();
+    private string _facebookCommentsPageName = "Facebook Page";
 
     private void InitializeFacebookAnalyticsPage()
     {
@@ -163,7 +175,7 @@ public partial class MainShellWindow
         MainTabs.SelectionChanged += async (_, eventArgs) =>
         {
             if (ReferenceEquals(eventArgs.OriginalSource, MainTabs) && ReferenceEquals(MainTabs.SelectedItem, tab))
-                await RefreshFacebookAnalyticsPageAsync(false);
+                await RefreshCurrentFacebookManagerSectionAsync(false);
         };
         if (FindResource("HiddenPageTabStyle") is Style hiddenStyle) tab.Style = hiddenStyle;
         MainTabs.Items.Add(tab);
@@ -176,6 +188,43 @@ public partial class MainShellWindow
         var root = new Grid { Margin = new Thickness(22, 18, 22, 20) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+        var heading = new StackPanel { Margin = new Thickness(0, 0, 0, 10) };
+        heading.Children.Add(new TextBlock
+        {
+            Text = "Facebook Manager",
+            FontFamily = new FontFamily("Segoe UI Variable Display"),
+            FontSize = 28,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)),
+        });
+        heading.Children.Add(new TextBlock
+        {
+            Text = "Track Reel performance and manage viewer comments from your Page.",
+            Foreground = QuizMutedBrush(),
+            Margin = new Thickness(0, 3, 0, 0),
+        });
+        root.Children.Add(heading);
+
+        var navigation = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 12) };
+        AddFacebookManagerButton(navigation, "analytics", "Analytics");
+        AddFacebookManagerButton(navigation, "comments", "Comments");
+        Grid.SetRow(navigation, 1);
+        root.Children.Add(navigation);
+
+        _facebookManagerContent = new ContentControl();
+        Grid.SetRow(_facebookManagerContent, 2);
+        root.Children.Add(_facebookManagerContent);
+        SelectFacebookManagerSection("analytics");
+        return root;
+    }
+
+    private FrameworkElement BuildFacebookAnalyticsSection()
+    {
+        var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -186,7 +235,7 @@ public partial class MainShellWindow
         var heading = new StackPanel();
         heading.Children.Add(new TextBlock
         {
-            Text = "Facebook Manager",
+            Text = "Analytics",
             FontFamily = new FontFamily("Segoe UI Variable Display"),
             FontSize = 28,
             FontWeight = FontWeights.SemiBold,
@@ -293,6 +342,213 @@ public partial class MainShellWindow
         return root;
     }
 
+    private void AddFacebookManagerButton(Panel parent, string key, string text)
+    {
+        var button = new Button { Content = text, MinWidth = 112, MinHeight = 34, Margin = new Thickness(0, 0, 8, 0) };
+        if (FindResource("YouTubeManagerTabButtonStyle") is Style managerButtonStyle)
+            button.Style = managerButtonStyle;
+        button.Click += async (_, _) =>
+        {
+            SelectFacebookManagerSection(key);
+            await RefreshCurrentFacebookManagerSectionAsync(false);
+        };
+        _facebookManagerButtons[key] = button;
+        parent.Children.Add(button);
+    }
+
+    private void SelectFacebookManagerSection(string key)
+    {
+        if (_facebookManagerContent is null) return;
+        _facebookManagerSection = key;
+        _facebookManagerContent.Content = key == "comments"
+            ? BuildFacebookCommentsSection()
+            : BuildFacebookAnalyticsSection();
+        foreach (var pair in _facebookManagerButtons)
+            pair.Value.Tag = pair.Key == key ? "Selected" : null;
+    }
+
+    private Task RefreshCurrentFacebookManagerSectionAsync(bool showErrors) =>
+        _facebookManagerSection == "comments"
+            ? RefreshFacebookCommentsAsync(showErrors)
+            : RefreshFacebookAnalyticsPageAsync(showErrors);
+
+    private FrameworkElement BuildFacebookCommentsSection()
+    {
+        var root = new Grid();
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+        var toolbar = new Grid { Margin = new Thickness(0, 0, 0, 10) };
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var title = new StackPanel();
+        title.Children.Add(new TextBlock
+        {
+            Text = "Comments",
+            FontSize = 22,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)),
+        });
+        title.Children.Add(new TextBlock
+        {
+            Text = "Reply to viewers and moderate comments across your Facebook Reels.",
+            Foreground = QuizMutedBrush(),
+        });
+        toolbar.Children.Add(title);
+
+        _facebookNeedsReplyCountText = new TextBlock
+        {
+            Text = "0",
+            FontSize = 20,
+            FontWeight = FontWeights.Bold,
+            Foreground = new SolidColorBrush(Color.FromRgb(255, 202, 45)),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var needsReplyBadge = new Border
+        {
+            Background = new SolidColorBrush(Color.FromRgb(13, 18, 78)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(255, 202, 45)),
+            BorderThickness = new Thickness(2),
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(12, 5, 12, 5),
+            Margin = new Thickness(8, 0, 0, 0),
+            Child = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = "Needs reply  ",
+                        Foreground = Brushes.White,
+                        FontWeight = FontWeights.SemiBold,
+                        VerticalAlignment = VerticalAlignment.Center,
+                    },
+                    _facebookNeedsReplyCountText,
+                },
+            },
+        };
+        Grid.SetColumn(needsReplyBadge, 1);
+        toolbar.Children.Add(needsReplyBadge);
+
+        _facebookCommentFilter = new ComboBox { Width = 132, Height = 34, Margin = new Thickness(8, 0, 8, 0) };
+        _facebookCommentFilter.Items.Add("Needs reply");
+        _facebookCommentFilter.Items.Add("Newest");
+        _facebookCommentFilter.Items.Add("Hidden");
+        _facebookCommentFilter.SelectedIndex = 0;
+        _facebookCommentFilter.SelectionChanged += (_, _) => ApplyFacebookCommentFilter();
+        Grid.SetColumn(_facebookCommentFilter, 2);
+        toolbar.Children.Add(_facebookCommentFilter);
+
+        var refresh = new Button { Content = "Refresh comments", MinWidth = 132, MinHeight = 34 };
+        StyleQuizHistoryButton(refresh, Color.FromRgb(0, 204, 255));
+        refresh.Click += async (_, _) => await RefreshFacebookCommentsAsync(true);
+        Grid.SetColumn(refresh, 3);
+        toolbar.Children.Add(refresh);
+        root.Children.Add(toolbar);
+
+        _facebookCommentsGrid = BuildManagerGrid();
+        _facebookCommentsGrid.RowHeight = double.NaN;
+        _facebookCommentsGrid.MinRowHeight = 44;
+        _facebookCommentsGrid.Columns.Add(FacebookCommentAuthorColumn());
+        _facebookCommentsGrid.Columns.Add(FacebookCommentReelColumn());
+        _facebookCommentsGrid.Columns.Add(WrappedTextColumn(
+            "Comment",
+            nameof(FacebookCommentItem.Message),
+            new DataGridLength(1, DataGridLengthUnitType.Star)));
+        _facebookCommentsGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Published",
+            Binding = new Binding(nameof(FacebookCommentItem.CreatedAt)) { StringFormat = "dd-MM-yyyy HH:mm" },
+            Width = new DataGridLength(132),
+        });
+        _facebookCommentsGrid.Columns.Add(NumberColumn("Likes", nameof(FacebookCommentItem.LikeCount), 62));
+        _facebookCommentsGrid.Columns.Add(NumberColumn("Replies", nameof(FacebookCommentItem.ReplyCount), 68));
+        _facebookCommentsGrid.Columns.Add(TextColumn("Hidden", nameof(FacebookCommentItem.IsHidden), 66));
+        var commentsCard = ManagerCard(_facebookCommentsGrid);
+        Grid.SetRow(commentsCard, 1);
+        root.Children.Add(commentsCard);
+
+        var actions = new Grid { Margin = new Thickness(0, 10, 0, 0) };
+        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        for (var index = 0; index < 5; index++)
+            actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _facebookReplyText = new TextBox
+        {
+            MinHeight = 36,
+            Margin = new Thickness(0, 0, 8, 0),
+            VerticalContentAlignment = VerticalAlignment.Center,
+        };
+        actions.Children.Add(_facebookReplyText);
+        AddCommentAction(actions, 1, "Open Reel", Color.FromRgb(255, 202, 45), () =>
+        {
+            OpenSelectedFacebookCommentReel();
+            return Task.CompletedTask;
+        });
+        AddCommentAction(actions, 2, "Like / unlike", Color.FromRgb(204, 70, 255), ToggleSelectedFacebookCommentLikeAsync);
+        AddCommentAction(actions, 3, "Reply", Color.FromRgb(0, 204, 255), ReplyToSelectedFacebookCommentAsync);
+        AddCommentAction(actions, 4, "Hide / unhide", Color.FromRgb(70, 235, 115), ToggleSelectedFacebookCommentHiddenAsync);
+        AddCommentAction(actions, 5, "Delete", Color.FromRgb(248, 90, 105), DeleteSelectedFacebookCommentAsync);
+        Grid.SetRow(actions, 2);
+        root.Children.Add(actions);
+
+        _facebookCommentsStatus = new TextBlock
+        {
+            Text = "Add the Facebook Page access token in Settings to manage comments.",
+            Foreground = QuizMutedBrush(),
+            Margin = new Thickness(0, 8, 0, 0),
+        };
+        Grid.SetRow(_facebookCommentsStatus, 3);
+        root.Children.Add(_facebookCommentsStatus);
+        return root;
+    }
+
+    private DataGridTemplateColumn FacebookCommentReelColumn()
+    {
+        var link = new FrameworkElementFactory(typeof(TextBlock));
+        link.SetBinding(TextBlock.TextProperty, new Binding(nameof(FacebookCommentItem.ReelTitle)));
+        link.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
+        link.SetValue(TextBlock.TextDecorationsProperty, TextDecorations.Underline);
+        link.SetValue(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0, 204, 255)));
+        link.SetValue(TextBlock.CursorProperty, Cursors.Hand);
+        link.SetValue(TextBlock.MarginProperty, new Thickness(0, 4, 0, 4));
+        link.SetValue(TextBlock.ToolTipProperty, "Open this Reel on Facebook");
+        link.AddHandler(UIElement.MouseLeftButtonUpEvent,
+            new MouseButtonEventHandler(FacebookCommentReel_MouseLeftButtonUp));
+        return new DataGridTemplateColumn
+        {
+            Header = "Reel",
+            CellTemplate = new DataTemplate { VisualTree = link },
+            SortMemberPath = nameof(FacebookCommentItem.ReelTitle),
+            Width = new DataGridLength(250),
+        };
+    }
+
+    private DataGridTemplateColumn FacebookCommentAuthorColumn()
+    {
+        var link = new FrameworkElementFactory(typeof(TextBlock));
+        link.SetBinding(TextBlock.TextProperty, new Binding(nameof(FacebookCommentItem.Author)));
+        link.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
+        link.SetValue(TextBlock.TextDecorationsProperty, TextDecorations.Underline);
+        link.SetValue(TextBlock.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0, 204, 255)));
+        link.SetValue(TextBlock.CursorProperty, Cursors.Hand);
+        link.SetValue(TextBlock.MarginProperty, new Thickness(0, 4, 0, 4));
+        link.SetValue(TextBlock.ToolTipProperty, "Open this author's Facebook profile when available");
+        link.AddHandler(UIElement.MouseLeftButtonUpEvent,
+            new MouseButtonEventHandler(FacebookCommentAuthor_MouseLeftButtonUp));
+        return new DataGridTemplateColumn
+        {
+            Header = "Author",
+            CellTemplate = new DataTemplate { VisualTree = link },
+            SortMemberPath = nameof(FacebookCommentItem.Author),
+            Width = new DataGridLength(132),
+        };
+    }
+
     private DataGrid BuildFacebookAnalyticsGrid()
     {
         var grid = BuildYouTubeAnalyticsGrid();
@@ -316,6 +572,176 @@ public partial class MainShellWindow
             if (eventArgs.ChangedButton == MouseButton.Left) ShowSelectedFacebookShort();
         };
         return grid;
+    }
+
+    private async Task RefreshFacebookCommentsAsync(bool showErrors)
+    {
+        if (_facebookCommentsGrid is null) return;
+        var token = _data.LoadSettings().FacebookPageAccessToken.Trim();
+        if (token.Length == 0)
+        {
+            _facebookLoadedComments = Array.Empty<FacebookCommentItem>();
+            ApplyFacebookCommentFilter();
+            SetFacebookCommentsStatus("Add the Facebook Page access token in Settings → Facebook to manage comments.");
+            return;
+        }
+
+        try
+        {
+            SetFacebookCommentsStatus("Loading comments from Facebook Reels...");
+            var page = await _facebookAnalytics.ListPageVideosAsync(token);
+            _facebookLoadedComments = await _facebookComments.ListCommentsAsync(token, page);
+            _facebookCommentsPageName = page.PageName.Length > 0 ? page.PageName : "Facebook Page";
+            ApplyFacebookCommentFilter();
+        }
+        catch (Exception error)
+        {
+            SetFacebookCommentsStatus(error.Message);
+            if (showErrors)
+                MessageBox.Show(this, error.Message, "Facebook Comments", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void ApplyFacebookCommentFilter()
+    {
+        var selection = _facebookCommentFilter?.SelectedItem?.ToString() ?? "Needs reply";
+        var needsReply = FacebookCommentInbox.Filter(
+            _facebookLoadedComments,
+            "Needs reply",
+            _facebookHandledCommentIds);
+        if (_facebookNeedsReplyCountText is not null)
+            _facebookNeedsReplyCountText.Text = needsReply.Count.ToString("N0");
+        var rows = FacebookCommentInbox.Filter(
+            _facebookLoadedComments,
+            selection,
+            _facebookHandledCommentIds);
+        if (_facebookCommentsGrid is not null) _facebookCommentsGrid.ItemsSource = rows;
+        SetFacebookCommentsStatus(selection == "Needs reply"
+            ? $"{_facebookCommentsPageName} • {rows.Count:N0} viewer comments need a reply"
+            : $"{_facebookCommentsPageName} • {rows.Count:N0} {selection.ToLowerInvariant()} comments");
+    }
+
+    private FacebookCommentItem? SelectedFacebookComment(bool showMessage = true)
+    {
+        if (_facebookCommentsGrid?.SelectedItem is FacebookCommentItem comment) return comment;
+        if (showMessage)
+            MessageBox.Show(this, "Select a comment first.", "Facebook Comments", MessageBoxButton.OK, MessageBoxImage.Information);
+        return null;
+    }
+
+    private void FacebookCommentReel_MouseLeftButtonUp(object sender, MouseButtonEventArgs eventArgs)
+    {
+        if (sender is not FrameworkElement { DataContext: FacebookCommentItem comment }) return;
+        OpenFacebookUrl(comment.ReelUrl);
+        eventArgs.Handled = true;
+    }
+
+    private void FacebookCommentAuthor_MouseLeftButtonUp(object sender, MouseButtonEventArgs eventArgs)
+    {
+        if (sender is not FrameworkElement { DataContext: FacebookCommentItem comment } ||
+            comment.AuthorProfileUrl.Length == 0) return;
+        OpenFacebookUrl(comment.AuthorProfileUrl);
+        eventArgs.Handled = true;
+    }
+
+    private void OpenSelectedFacebookCommentReel()
+    {
+        var comment = SelectedFacebookComment();
+        if (comment is not null) OpenFacebookUrl(comment.ReelUrl);
+    }
+
+    private static void OpenFacebookUrl(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps) return;
+        var host = uri.Host.TrimEnd('.');
+        if (!(string.Equals(host, "facebook.com", StringComparison.OrdinalIgnoreCase) ||
+              host.EndsWith(".facebook.com", StringComparison.OrdinalIgnoreCase))) return;
+        Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+    }
+
+    private async Task ReplyToSelectedFacebookCommentAsync()
+    {
+        var comment = SelectedFacebookComment();
+        if (comment is null) return;
+        try
+        {
+            var reply = _facebookReplyText?.Text.Trim() ?? "";
+            await _facebookComments.ReplyAsync(FacebookPageToken(), comment.Id, reply);
+            _facebookHandledCommentIds.Add(comment.Id);
+            if (_facebookReplyText is not null) _facebookReplyText.Clear();
+            await RefreshFacebookCommentsAsync(true);
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Reply to Facebook Comment", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task ToggleSelectedFacebookCommentLikeAsync()
+    {
+        var comment = SelectedFacebookComment();
+        if (comment is null) return;
+        try
+        {
+            await _facebookComments.SetLikedAsync(FacebookPageToken(), comment.Id, !comment.IsLiked);
+            await RefreshFacebookCommentsAsync(true);
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Like Facebook Comment", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task ToggleSelectedFacebookCommentHiddenAsync()
+    {
+        var comment = SelectedFacebookComment();
+        if (comment is null) return;
+        var action = comment.IsHidden ? "unhide" : "hide";
+        if (MessageBox.Show(this, $"Do you want to {action} this comment from {comment.Author}?",
+                "Confirm Comment Action", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        try
+        {
+            await _facebookComments.SetHiddenAsync(FacebookPageToken(), comment.Id, !comment.IsHidden);
+            await RefreshFacebookCommentsAsync(true);
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Hide Facebook Comment", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task DeleteSelectedFacebookCommentAsync()
+    {
+        var comment = SelectedFacebookComment();
+        if (comment is null) return;
+        if (MessageBox.Show(this,
+                $"Permanently delete this comment from {comment.Author}? This cannot be undone.",
+                "Delete Facebook Comment", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+            return;
+        try
+        {
+            await _facebookComments.DeleteAsync(FacebookPageToken(), comment.Id);
+            _facebookHandledCommentIds.Remove(comment.Id);
+            await RefreshFacebookCommentsAsync(true);
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Delete Facebook Comment", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private string FacebookPageToken()
+    {
+        var token = _data.LoadSettings().FacebookPageAccessToken.Trim();
+        if (token.Length == 0)
+            throw new InvalidOperationException("Add the Facebook Page access token in Settings first.");
+        return token;
+    }
+
+    private void SetFacebookCommentsStatus(string text)
+    {
+        if (_facebookCommentsStatus is not null) _facebookCommentsStatus.Text = text;
     }
 
     private void RefreshFacebookRows()
