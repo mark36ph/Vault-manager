@@ -31,6 +31,9 @@ public static class YouTubeAnalyticsMetrics
 {
     public static double EngagementRate(long views, long likes, long comments) =>
         views <= 0 ? 0 : (Math.Max(0, likes) + Math.Max(0, comments)) * 100.0 / views;
+
+    public static long PreserveHighest(long stored, long fetched) =>
+        Math.Max(0, Math.Max(stored, fetched));
 }
 
 public partial class MainShellWindow
@@ -949,7 +952,9 @@ public partial class MainShellWindow
                 if (!videos.TryGetValue(item.VideoId!, out var video))
                     continue;
 
-                _data.UpdateQuizHistoryYouTubeMetrics(item.History.Id, video.Views, video.Likes, video.PublishedAt);
+                var views = YouTubeAnalyticsMetrics.PreserveHighest(item.History.YouTubeViews, video.Views);
+                var likes = YouTubeAnalyticsMetrics.PreserveHighest(item.History.YouTubeLikes, video.Likes);
+                _data.UpdateQuizHistoryYouTubeMetrics(item.History.Id, views, likes, video.PublishedAt);
                 var quizName = item.History.YouTubeTitle.Trim();
                 if (quizName.Length == 0) quizName = video.Title.Length > 0 ? video.Title : item.History.Title;
                 rows.Add(new YouTubeAnalyticsRow(
@@ -957,10 +962,10 @@ public partial class MainShellWindow
                     item.History.VideoType,
                     quizName,
                     video.PublishedAt?.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture) ?? "",
-                    video.Views,
-                    video.Likes,
+                    views,
+                    likes,
                     video.Comments,
-                    YouTubeAnalyticsMetrics.EngagementRate(video.Views, video.Likes, video.Comments),
+                    YouTubeAnalyticsMetrics.EngagementRate(views, likes, video.Comments),
                     item.History.YouTubeUrl));
             }
 
