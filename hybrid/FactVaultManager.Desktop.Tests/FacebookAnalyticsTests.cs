@@ -50,6 +50,43 @@ public sealed class FacebookAnalyticsTests
     }
 
     [Fact]
+    public void ShortMatcher_MatchesFacebookDescriptionToYouTubeTitle()
+    {
+        var history = History("Space Quiz", "Space", publishedOnFacebook: false) with
+        {
+            Id = 7,
+            YouTubeTitle = "The Eiffel Tower Gets Taller Every Summer",
+            FacebookUrl = "",
+        };
+        var videos = new[]
+        {
+            new FacebookPageVideo("111", "", "The Eiffel Tower Gets Taller Every Summer #facts", "https://www.facebook.com/reel/111", DateTime.UtcNow),
+            new FacebookPageVideo("222", "Ocean facts", "A completely different quiz", "https://www.facebook.com/reel/222", DateTime.UtcNow),
+        };
+
+        var matches = FacebookShortMatcher.Match([history], videos);
+
+        Assert.Equal("111", matches[7].VideoId);
+    }
+
+    [Fact]
+    public void ShortMatcher_DoesNotGuessWhenTitlesDoNotMatch()
+    {
+        var history = History("Space Quiz", "Space", publishedOnFacebook: false) with
+        {
+            Id = 8,
+            YouTubeTitle = "The Eiffel Tower Gets Taller Every Summer",
+            FacebookUrl = "",
+        };
+        var videos = new[]
+        {
+            new FacebookPageVideo("222", "Ocean facts", "A completely different quiz", "https://www.facebook.com/reel/222", DateTime.UtcNow),
+        };
+
+        Assert.Empty(FacebookShortMatcher.Match([history], videos));
+    }
+
+    [Fact]
     public void NextShortRecommendation_UsesLeastPublishedFacebookCategory()
     {
         var recommendation = FacebookNextShortPlanner.Recommend(
