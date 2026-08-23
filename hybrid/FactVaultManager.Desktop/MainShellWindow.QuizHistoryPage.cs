@@ -314,7 +314,7 @@ public partial class MainShellWindow
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         footer.Children.Add(new TextBlock
         {
-            Text = "Double-click a quiz to update its YouTube link, publication details, views and likes.",
+            Text = "Select a quiz to review metadata, upload the completed video, or update publication details.",
             Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             VerticalAlignment = VerticalAlignment.Center,
         });
@@ -336,6 +336,10 @@ public partial class MainShellWindow
         StyleQuizHistoryButton(youtube, Color.FromRgb(255, 202, 45));
         youtube.Click += (_, _) => ShowSelectedQuizYouTubePublication();
         actions.Children.Add(youtube);
+        var upload = new Button { Content = "Upload", MinWidth = 82, Margin = new Thickness(8, 0, 0, 0), ToolTip = "Upload the completed video to YouTube and, for Shorts, Facebook" };
+        StyleQuizHistoryButton(upload, Color.FromRgb(70, 235, 115));
+        upload.Click += (_, _) => ShowSelectedQuizUpload();
+        actions.Children.Add(upload);
         var openFolder = new Button { Content = "Folder", MinWidth = 78, Margin = new Thickness(8, 0, 0, 0), ToolTip = "Open the selected quiz export folder" };
         StyleQuizHistoryButton(openFolder, Color.FromRgb(70, 235, 115));
         openFolder.Click += (_, _) => OpenSelectedQuizHistoryFolder();
