@@ -28,6 +28,23 @@ public sealed class SocialVideoUploadTests
             SocialVideoUploadRules.UploadDescription(history with { YouTubeDescription = "Try this quiz. #Quiz #Shorts" }));
     }
 
+    [Theory]
+    [InlineData(3)]
+    [InlineData(60)]
+    [InlineData(90)]
+    public void FacebookDuration_AcceptsCurrentReelRange(double seconds)
+    {
+        SocialVideoUploadRules.ValidateFacebookDuration(seconds);
+    }
+
+    [Theory]
+    [InlineData(2.99)]
+    [InlineData(90.01)]
+    public void FacebookDuration_RejectsVideosOutsideReelRange(double seconds)
+    {
+        Assert.Throws<ArgumentException>(() => SocialVideoUploadRules.ValidateFacebookDuration(seconds));
+    }
+
     [Fact]
     public async Task YouTubeUpload_UsesResumableSessionAndReturnsWatchUrl()
     {
