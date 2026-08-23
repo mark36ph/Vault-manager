@@ -88,9 +88,36 @@ public sealed class InstagramManagementServiceTests
         }
     }
 
+    [Fact]
+    public async Task UploadReel_ShowsResumableUploadDebugMessage()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"instagram-upload-{Guid.NewGuid():N}.mp4");
+        await File.WriteAllBytesAsync(path, [0, 1, 2, 3]);
+        try
+        {
+            var handler = new InstagramHandler
+            {
+                UploadFailureJson =
+                    "{\"debug_info\":{\"retriable\":false,\"message\":\"Video file format is not supported\"}}",
+            };
+            var service = new InstagramManagementService(new HttpClient(handler));
+
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                service.UploadReelAsync("facebook-page-secret-token", path, "Quiz caption"));
+
+            Assert.Contains("Video file format is not supported", error.Message);
+            Assert.Contains("HTTP 400", error.Message);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     private sealed class InstagramHandler : HttpMessageHandler
     {
         public List<Request> Requests { get; } = new();
+        public string? UploadFailureJson { get; init; }
 
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
@@ -122,7 +149,14 @@ public sealed class InstagramManagementServiceTests
                 new Uri(url).AbsolutePath.EndsWith("/17890000000000000/media", StringComparison.Ordinal))
                 return Json("{\"id\":\"ig-container-1\",\"uri\":\"https://rupload.facebook.com/ig-api-upload/v26.0/ig-container-1\"}");
             if (request.Method == HttpMethod.Post && captured.Host == "rupload.facebook.com")
+            {
+                if (UploadFailureJson is not null)
+                    return new HttpResponseMessage(HttpStatusCode.BadRequest)
+                    {
+                        Content = new StringContent(UploadFailureJson, Encoding.UTF8, "application/json"),
+                    };
                 return Json("{\"success\":true}");
+            }
             if (request.Method == HttpMethod.Get && url.Contains("/ig-container-1?fields=status_code", StringComparison.Ordinal))
                 return Json("{\"status_code\":\"FINISHED\",\"status\":\"Finished\"}");
             if (request.Method == HttpMethod.Post && url.EndsWith("/17890000000000000/media_publish", StringComparison.Ordinal))
