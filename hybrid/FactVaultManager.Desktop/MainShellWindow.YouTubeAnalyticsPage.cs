@@ -194,12 +194,19 @@ public partial class MainShellWindow
             FontFamily = new FontFamily("Segoe UI Variable Display"),
             FontSize = 28,
             FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)),
+            Foreground = Brushes.White,
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                Color = Color.FromRgb(0, 204, 255),
+                BlurRadius = 16,
+                ShadowDepth = 0,
+                Opacity = 0.55,
+            },
         });
         heading.Children.Add(new TextBlock
         {
             Text = "Review performance, manage comments, and organise channel playlists.",
-            Foreground = QuizMutedBrush(),
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             Margin = new Thickness(0, 3, 0, 0),
         });
         root.Children.Add(heading);
@@ -215,7 +222,19 @@ public partial class MainShellWindow
         Grid.SetRow(_youtubeManagerContent, 2);
         root.Children.Add(_youtubeManagerContent);
         SelectYouTubeManagerSection("analytics");
-        return root;
+        return new Border
+        {
+            Background = new LinearGradientBrush(
+                new GradientStopCollection
+                {
+                    new(Color.FromRgb(7, 13, 57), 0),
+                    new(Color.FromRgb(18, 34, 115), 0.58),
+                    new(Color.FromRgb(80, 30, 145), 1),
+                },
+                new Point(0, 0),
+                new Point(1, 1)),
+            Child = root,
+        };
     }
 
     private FrameworkElement BuildYouTubeAnalyticsSection()
