@@ -159,6 +159,7 @@ public partial class MainShellWindow
     private DataGrid? _youtubePlaylistsGrid;
     private DataGrid? _youtubePlaylistVideosGrid;
     private ComboBox? _youtubeQuizVideoChoice;
+    private TextBlock? _youtubeQuizVideoEmptyText;
     private IReadOnlyList<YouTubeQuizChoice> _youtubeAllQuizVideoChoices = Array.Empty<YouTubeQuizChoice>();
     private readonly Dictionary<string, IReadOnlyList<YouTubePlaylistVideo>> _youtubePlaylistVideoCache = new(StringComparer.Ordinal);
     private readonly HashSet<string> _youtubePlaylistVideoIds = new(StringComparer.Ordinal);
@@ -763,6 +764,15 @@ public partial class MainShellWindow
             actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _youtubeQuizVideoChoice = new ComboBox { MinHeight = 36, Margin = new Thickness(0, 0, 8, 0), DisplayMemberPath = nameof(YouTubeQuizChoice.Display) };
         actions.Children.Add(_youtubeQuizVideoChoice);
+        _youtubeQuizVideoEmptyText = new TextBlock
+        {
+            Text = "No full videos are available to add to a playlist.",
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(4, 0, 8, 0),
+            Visibility = Visibility.Collapsed,
+        };
+        actions.Children.Add(_youtubeQuizVideoEmptyText);
         var add = new Button { Content = "Add quiz video", MinWidth = 124, MinHeight = 36, Margin = new Thickness(0, 0, 8, 0) };
         StyleQuizHistoryButton(add, Color.FromRgb(70, 235, 115));
         add.Click += async (_, _) => await AddSelectedQuizToPlaylistAsync();
@@ -1092,6 +1102,9 @@ public partial class MainShellWindow
 
         _youtubeQuizVideoChoice.ItemsSource = available;
         _youtubeQuizVideoChoice.SelectedIndex = available.Count > 0 ? 0 : -1;
+        _youtubeQuizVideoChoice.Visibility = available.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (_youtubeQuizVideoEmptyText is not null)
+            _youtubeQuizVideoEmptyText.Visibility = available.Count > 0 ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void SyncSelectedPlaylistPrivacyChoice()
