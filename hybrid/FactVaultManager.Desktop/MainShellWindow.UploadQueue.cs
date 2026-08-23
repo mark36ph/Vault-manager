@@ -375,27 +375,25 @@ public partial class MainShellWindow
         };
         findMissing.Click += async (_, _) =>
         {
-            var missingHistory = _data.GetQuizHistory()
-                .Where(history => items.Any(item => item.HistoryId == history.Id && item.VideoPath.Length == 0))
-                .ToList();
-            if (missingHistory.Count == 0)
-            {
-                queueStatus.Text = "Every queue item already has a video path.";
-                return;
-            }
-
-            var picker = new OpenFolderDialog
-            {
-                Title = "Select the folder containing your quiz project folders",
-            };
-            var configuredRoot = _data.LoadSettings().ProjectsFolder.Trim();
-            if (Directory.Exists(configuredRoot)) picker.InitialDirectory = configuredRoot;
-            if (picker.ShowDialog(dialog) != true) return;
-
             findMissing.IsEnabled = false;
-            queueStatus.Text = $"Searching for {missingHistory.Count:N0} missing video(s)...";
             try
             {
+                var missingHistory = _data.GetQuizHistory()
+                    .Where(history => items.Any(item => item.HistoryId == history.Id && item.VideoPath.Length == 0))
+                    .ToList();
+                if (missingHistory.Count == 0)
+                {
+                    queueStatus.Text = "Every queue item already has a video path.";
+                    return;
+                }
+
+                var picker = new OpenFolderDialog
+                {
+                    Title = "Select the folder containing your quiz project folders",
+                };
+                if (picker.ShowDialog(dialog) != true) return;
+
+                queueStatus.Text = $"Searching for {missingHistory.Count:N0} missing video(s)...";
                 var matches = await Task.Run(() =>
                     SocialUploadQueuePathFinder.FindMissingVideos(missingHistory, picker.FolderName));
                 foreach (var match in matches)
@@ -415,7 +413,10 @@ public partial class MainShellWindow
             }
             catch (Exception error)
             {
-                queueStatus.Text = "Video search failed: " + error.Message;
+                queueStatus.Text = "Could not open or search that folder: " + error.Message;
+                MessageBox.Show(dialog,
+                    "The folder search could not be opened or completed.\n\n" + error.Message,
+                    "Find Missing Videos", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
             finally
             {
