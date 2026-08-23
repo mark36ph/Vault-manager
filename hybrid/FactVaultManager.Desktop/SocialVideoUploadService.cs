@@ -20,6 +20,7 @@ public sealed record FacebookReelUploadResult(string VideoId, string Url);
 public static class SocialVideoUploadRules
 {
     public const long MaximumThumbnailBytes = 2 * 1024 * 1024;
+    public const string InstagramFullQuizCallToAction = "Watch the full quiz using the link in our bio.";
     private static readonly HashSet<string> SupportedExtensions =
         new(StringComparer.OrdinalIgnoreCase) { ".mp4", ".mov", ".m4v" };
     private static readonly HashSet<string> SupportedThumbnailExtensions =
@@ -46,6 +47,28 @@ public static class SocialVideoUploadRules
         if (hashtags.Length == 0 || description.Contains(hashtags, StringComparison.OrdinalIgnoreCase))
             return description;
         return description.Length == 0 ? hashtags : description + Environment.NewLine + Environment.NewLine + hashtags;
+    }
+
+    public static string InstagramCaption(string? description)
+    {
+        var lines = (description ?? "")
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Split('\n');
+        var result = new List<string>(lines.Length);
+        var addedCallToAction = false;
+        foreach (var line in lines)
+        {
+            if (!ContainsFullYouTubeVideoLink(line))
+            {
+                result.Add(line);
+                continue;
+            }
+            if (addedCallToAction) continue;
+            result.Add(InstagramFullQuizCallToAction);
+            addedCallToAction = true;
+        }
+        return string.Join(Environment.NewLine, result).Trim();
     }
 
     public static void ValidateUploadMetadata(string videoType, string? title, string? description)
