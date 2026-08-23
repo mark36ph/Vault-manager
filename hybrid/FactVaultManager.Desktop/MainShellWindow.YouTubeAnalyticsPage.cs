@@ -163,6 +163,7 @@ public partial class MainShellWindow
     private IReadOnlyList<YouTubeQuizChoice> _youtubeAllQuizVideoChoices = Array.Empty<YouTubeQuizChoice>();
     private readonly Dictionary<string, IReadOnlyList<YouTubePlaylistVideo>> _youtubePlaylistVideoCache = new(StringComparer.Ordinal);
     private readonly HashSet<string> _youtubePlaylistVideoIds = new(StringComparer.Ordinal);
+    private YouTubeManagerCacheStore? _youtubeManagerCacheStore;
     private ComboBox? _youtubePlaylistPrivacyChoice;
     private TextBlock? _youtubePlaylistsStatus;
 
@@ -982,9 +983,28 @@ public partial class MainShellWindow
     private async Task RefreshYouTubePlaylistsAsync(bool showErrors)
     {
         if (_youtubePlaylistsGrid is null) return;
-        try
+
+        var accountKey = CurrentYouTubeCacheAccountKey();
+        var cached = YouTubeManagerCacheStoreInstance.Load(accountKey);
+        if (cached is not null)
+        {
+            ApplyYouTubePlaylistSnapshot(cached);
+            if (!showErrors && YouTubeManagerCacheStore.IsFresh(cached, DateTime.UtcNow))
+            {
+                SetYouTubePlaylistsStatus(
+                    $"Loaded {cached.Playlists.Count:N0} playlists from cache. Use Refresh playlists to check YouTube now.");
+                return;
+            }
+
+            SetYouTubePlaylistsStatus("Showing cached playlists while checking YouTube...");
+        }
+        else
         {
             SetYouTubePlaylistsStatus("Loading playlists...");
+        }
+
+        try
+        {
             var token = await GetYouTubeManagementAccessTokenAsync();
             var playlists = await _youtubeManagement.ListPlaylistsAsync(token);
             var missingCategories = YouTubeCategoryPlaylistPlanner.MissingCategories(
@@ -1003,27 +1023,17 @@ public partial class MainShellWindow
 
             SetYouTubePlaylistsStatus("Checking videos across all playlists...");
             await RefreshAllYouTubePlaylistVideoIdsAsync(token, playlists);
-            _youtubePlaylistsGrid.ItemsSource = playlists;
-            _youtubeAllQuizVideoChoices = _data.GetQuizHistory()
-                .Where(item => item.PublishedOnYouTube)
-                .Where(item => string.Equals(item.VideoType, "Video", StringComparison.OrdinalIgnoreCase))
-                .Select(item => new YouTubeQuizChoice(
-                    YouTubeVideoAnalyticsService.TryGetVideoId(item.YouTubeUrl) ?? "",
-                    item.YouTubeTitle.Length > 0 ? item.YouTubeTitle : item.Title))
-                .Where(item => item.VideoId.Length > 0)
-                .GroupBy(item => item.VideoId)
-                .Select(group => group.First())
-                .OrderBy(item => item.Title)
-                .ToList();
-            ApplyAvailableYouTubeQuizChoices();
-            if (playlists.Count > 0) _youtubePlaylistsGrid.SelectedIndex = 0;
+            BindYouTubePlaylistData(playlists);
+            TrySaveYouTubePlaylistCache(accountKey, playlists);
             SetYouTubePlaylistsStatus(missingCategories.Count == 0
                 ? $"Loaded {playlists.Count:N0} playlists. All category playlists are ready."
                 : $"Created {missingCategories.Count:N0} private category playlists and loaded {playlists.Count:N0} playlists.");
         }
         catch (Exception error)
         {
-            SetYouTubePlaylistsStatus(error.Message);
+            SetYouTubePlaylistsStatus(cached is null
+                ? error.Message
+                : "Could not refresh YouTube. Cached playlists are still shown.");
             if (showErrors) MessageBox.Show(this, error.Message, "YouTube Playlists", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -1032,15 +1042,23 @@ public partial class MainShellWindow
     {
         if (_youtubePlaylistVideosGrid is null || _youtubePlaylistsGrid?.SelectedItem is not YouTubePlaylistItem playlist)
             return;
+
+        if (!showErrors && _youtubePlaylistVideoCache.TryGetValue(playlist.Id, out var cachedVideos))
+        {
+            BindSelectedYouTubePlaylistVideos(playlist, cachedVideos);
+            return;
+        }
+
         try
         {
             var token = await GetYouTubeManagementAccessTokenAsync();
             var videos = await _youtubeManagement.ListPlaylistVideosAsync(token, playlist.Id);
             _youtubePlaylistVideoCache[playlist.Id] = videos;
             RebuildYouTubePlaylistVideoIds();
-            _youtubePlaylistVideosGrid.ItemsSource = videos.OrderBy(item => item.Position).ToList();
-            ApplyAvailableYouTubeQuizChoices();
-            SetYouTubePlaylistsStatus($"{playlist.Title} • {videos.Count:N0} videos");
+            BindSelectedYouTubePlaylistVideos(playlist, videos);
+            TrySaveYouTubePlaylistCache(
+                CurrentYouTubeCacheAccountKey(),
+                CurrentYouTubePlaylists());
         }
         catch (Exception error)
         {
@@ -1062,6 +1080,91 @@ public partial class MainShellWindow
         catch (Exception error)
         {
             MessageBox.Show(this, error.Message, "Create Playlist", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private YouTubeManagerCacheStore YouTubeManagerCacheStoreInstance =>
+        _youtubeManagerCacheStore ??= new YouTubeManagerCacheStore(_data.DatabasePath);
+
+    private string CurrentYouTubeCacheAccountKey()
+    {
+        var settings = _data.LoadSettings();
+        return YouTubeManagerCacheStore.CreateAccountKey(
+            settings.YouTubeOAuthClientId,
+            settings.YouTubeOAuthRefreshToken);
+    }
+
+    private IReadOnlyList<YouTubePlaylistItem> CurrentYouTubePlaylists() =>
+        (_youtubePlaylistsGrid?.ItemsSource as IEnumerable<YouTubePlaylistItem>)?.ToList()
+        ?? Array.Empty<YouTubePlaylistItem>();
+
+    private void ApplyYouTubePlaylistSnapshot(YouTubeManagerCacheSnapshot snapshot)
+    {
+        _youtubePlaylistVideoCache.Clear();
+        foreach (var pair in snapshot.PlaylistVideos)
+            _youtubePlaylistVideoCache[pair.Key] = pair.Value;
+        RebuildYouTubePlaylistVideoIds();
+        BindYouTubePlaylistData(snapshot.Playlists);
+    }
+
+    private void BindYouTubePlaylistData(IReadOnlyList<YouTubePlaylistItem> playlists)
+    {
+        if (_youtubePlaylistsGrid is null)
+            return;
+
+        _youtubePlaylistsGrid.ItemsSource = playlists;
+        _youtubeAllQuizVideoChoices = _data.GetQuizHistory()
+            .Where(item => item.PublishedOnYouTube)
+            .Where(item => string.Equals(item.VideoType, "Video", StringComparison.OrdinalIgnoreCase))
+            .Select(item => new YouTubeQuizChoice(
+                YouTubeVideoAnalyticsService.TryGetVideoId(item.YouTubeUrl) ?? "",
+                item.YouTubeTitle.Length > 0 ? item.YouTubeTitle : item.Title))
+            .Where(item => item.VideoId.Length > 0)
+            .GroupBy(item => item.VideoId)
+            .Select(group => group.First())
+            .OrderBy(item => item.Title)
+            .ToList();
+        ApplyAvailableYouTubeQuizChoices();
+
+        if (playlists.Count > 0)
+            _youtubePlaylistsGrid.SelectedIndex = 0;
+        else if (_youtubePlaylistVideosGrid is not null)
+            _youtubePlaylistVideosGrid.ItemsSource = Array.Empty<YouTubePlaylistVideo>();
+    }
+
+    private void BindSelectedYouTubePlaylistVideos(
+        YouTubePlaylistItem playlist,
+        IReadOnlyList<YouTubePlaylistVideo> videos)
+    {
+        if (_youtubePlaylistVideosGrid is not null)
+            _youtubePlaylistVideosGrid.ItemsSource = videos.OrderBy(item => item.Position).ToList();
+        ApplyAvailableYouTubeQuizChoices();
+        SetYouTubePlaylistsStatus($"{playlist.Title} • {videos.Count:N0} videos");
+    }
+
+    private void TrySaveYouTubePlaylistCache(
+        string accountKey,
+        IReadOnlyList<YouTubePlaylistItem> playlists)
+    {
+        if (accountKey.Length == 0)
+            return;
+
+        try
+        {
+            YouTubeManagerCacheStoreInstance.Save(new YouTubeManagerCacheSnapshot
+            {
+                AccountKey = accountKey,
+                RefreshedAtUtc = DateTime.UtcNow,
+                Playlists = playlists.ToList(),
+                PlaylistVideos = _youtubePlaylistVideoCache.ToDictionary(
+                    pair => pair.Key,
+                    pair => pair.Value.ToList(),
+                    StringComparer.Ordinal),
+            });
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            Debug.WriteLine($"YouTube playlist cache: {error.Message}");
         }
     }
 
