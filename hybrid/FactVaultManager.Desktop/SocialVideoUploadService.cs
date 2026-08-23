@@ -17,8 +17,11 @@ public sealed record FacebookReelUploadResult(string VideoId, string Url);
 
 public static class SocialVideoUploadRules
 {
+    public const long MaximumThumbnailBytes = 2 * 1024 * 1024;
     private static readonly HashSet<string> SupportedExtensions =
         new(StringComparer.OrdinalIgnoreCase) { ".mp4", ".mov", ".m4v" };
+    private static readonly HashSet<string> SupportedThumbnailExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { ".jpg", ".jpeg", ".png" };
 
     public static bool CanUploadToFacebook(QuizHistorySummary history) =>
         string.Equals(history.VideoType, "Short", StringComparison.Ordinal);
@@ -41,6 +44,57 @@ public static class SocialVideoUploadRules
         if (hashtags.Length == 0 || description.Contains(hashtags, StringComparison.OrdinalIgnoreCase))
             return description;
         return description.Length == 0 ? hashtags : description + Environment.NewLine + Environment.NewLine + hashtags;
+    }
+
+    public static void ValidateUploadMetadata(string videoType, string? title, string? description)
+    {
+        if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("Enter the upload title first.");
+        if (!string.Equals(videoType, "Short", StringComparison.Ordinal)) return;
+        if (!ContainsFullYouTubeVideoLink(description))
+            throw new ArgumentException(
+                "The Short description must include the HTTPS link to its full YouTube video (youtube.com/watch or youtu.be).");
+    }
+
+    public static bool ContainsFullYouTubeVideoLink(string? description)
+    {
+        foreach (var token in (description ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var candidate = token.Trim('(', ')', '[', ']', '<', '>', ',', '.', ';', '!', '"', '\'');
+            if (!Uri.TryCreate(candidate, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps) continue;
+            var host = uri.Host.TrimStart('.');
+            if (string.Equals(host, "youtu.be", StringComparison.OrdinalIgnoreCase) && uri.AbsolutePath.Trim('/').Length > 0)
+                return true;
+            if ((string.Equals(host, "youtube.com", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(host, "www.youtube.com", StringComparison.OrdinalIgnoreCase)) &&
+                string.Equals(uri.AbsolutePath.TrimEnd('/'), "/watch", StringComparison.OrdinalIgnoreCase) &&
+                uri.Query.Contains("v=", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    public static string? ValidateThumbnailFile(string? path)
+    {
+        var value = (path ?? "").Trim().Trim('"');
+        if (value.Length == 0) return null;
+        var fullPath = Path.GetFullPath(value);
+        if (!File.Exists(fullPath)) throw new FileNotFoundException("The selected thumbnail image does not exist.", fullPath);
+        if (!SupportedThumbnailExtensions.Contains(Path.GetExtension(fullPath)))
+            throw new ArgumentException("Choose a JPG, JPEG, or PNG thumbnail image.");
+        if (new FileInfo(fullPath).Length > MaximumThumbnailBytes)
+            throw new ArgumentException("The thumbnail image must be 2 MB or smaller for YouTube.");
+        return fullPath;
+    }
+
+    public static string? FindLikelyThumbnail(string projectFolder)
+    {
+        if (!Directory.Exists(projectFolder)) return null;
+        var preferred = Path.Combine(projectFolder, "Thumbnail.png");
+        if (File.Exists(preferred)) return preferred;
+        return Directory.EnumerateFiles(projectFolder, "*", SearchOption.TopDirectoryOnly)
+            .Where(path => SupportedThumbnailExtensions.Contains(Path.GetExtension(path)))
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .FirstOrDefault();
     }
 
     public static string? FindLikelyRenderedVideo(string projectFolder)
@@ -68,6 +122,7 @@ public static class SocialVideoUploadRules
 public sealed class YouTubeVideoUploadService
 {
     private const string UploadEndpoint = "https://www.googleapis.com/upload/youtube/v3/videos";
+    private const string ThumbnailEndpoint = "https://www.googleapis.com/upload/youtube/v3/thumbnails/set";
     private static readonly HttpClient SharedClient = new() { Timeout = TimeSpan.FromHours(4) };
     private readonly HttpClient _client;
 
@@ -134,12 +189,40 @@ public sealed class YouTubeVideoUploadService
         return new YouTubeVideoUploadResult(videoId, $"https://www.youtube.com/watch?v={Uri.EscapeDataString(videoId)}");
     }
 
+    public async Task SetThumbnailAsync(
+        string accessToken,
+        string videoId,
+        string thumbnailPath,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(accessToken))
+            throw new InvalidOperationException("Connect YouTube in Settings first.");
+        if (string.IsNullOrWhiteSpace(videoId)) throw new ArgumentException("YouTube did not return a video ID.");
+        var path = SocialVideoUploadRules.ValidateThumbnailFile(thumbnailPath)!;
+        await using var stream = File.OpenRead(path);
+        using var content = new StreamContent(stream);
+        content.Headers.ContentType = new MediaTypeHeaderValue(ImageMimeType(path));
+        content.Headers.ContentLength = stream.Length;
+        using var request = new HttpRequestMessage(
+            HttpMethod.Post,
+            ThumbnailEndpoint + "?videoId=" + Uri.EscapeDataString(videoId) + "&uploadType=media")
+        {
+            Content = content,
+        };
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.Trim());
+        using var response = await _client.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode) throw await YouTubeErrorAsync(response, cancellationToken);
+    }
+
     private static string VideoMimeType(string path) => Path.GetExtension(path).ToLowerInvariant() switch
     {
         ".mov" => "video/quicktime",
         ".m4v" => "video/x-m4v",
         _ => "video/mp4",
     };
+
+    private static string ImageMimeType(string path) =>
+        Path.GetExtension(path).Equals(".png", StringComparison.OrdinalIgnoreCase) ? "image/png" : "image/jpeg";
 
     private static async Task<InvalidOperationException> YouTubeErrorAsync(
         HttpResponseMessage response,
@@ -230,6 +313,31 @@ public sealed class FacebookReelUploadService
         return new FacebookReelUploadResult(
             videoId,
             FacebookReelAnalyticsService.ResolveReelUrl(videoId));
+    }
+
+    public async Task SetThumbnailAsync(
+        string pageAccessToken,
+        string videoId,
+        string thumbnailPath,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(pageAccessToken))
+            throw new InvalidOperationException("Add the Facebook Page access token in Settings first.");
+        if (string.IsNullOrWhiteSpace(videoId)) throw new ArgumentException("Facebook did not return a video ID.");
+        var path = SocialVideoUploadRules.ValidateThumbnailFile(thumbnailPath)!;
+        await using var stream = File.OpenRead(path);
+        using var file = new StreamContent(stream);
+        file.Headers.ContentType = new MediaTypeHeaderValue(
+            Path.GetExtension(path).Equals(".png", StringComparison.OrdinalIgnoreCase) ? "image/png" : "image/jpeg");
+        using var content = new MultipartFormDataContent();
+        content.Add(new StringContent(pageAccessToken.Trim()), "access_token");
+        content.Add(new StringContent("true"), "is_preferred");
+        content.Add(file, "source", Path.GetFileName(path));
+        using var response = await _client.PostAsync(
+            $"{GraphRoot}/{Uri.EscapeDataString(videoId)}/thumbnails",
+            content,
+            cancellationToken);
+        if (!response.IsSuccessStatusCode) throw await FacebookErrorAsync(response, cancellationToken);
     }
 
     private async Task<string> GetPageIdAsync(string token, CancellationToken cancellationToken)
