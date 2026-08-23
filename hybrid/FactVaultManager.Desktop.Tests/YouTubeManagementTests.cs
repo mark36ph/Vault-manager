@@ -153,6 +153,30 @@ public sealed class YouTubeManagementTests
         Assert.Equal(2, result.Position);
     }
 
+    [Fact]
+    public void CategoryPlaylistPlanner_CreatesOnlyMissingCategories()
+    {
+        var playlists = new[]
+        {
+            new YouTubePlaylistItem("history", "History Quizzes", "", "private", 0),
+            new YouTubePlaylistItem("science", "Science Quiz", "", "public", 3),
+            new YouTubePlaylistItem("music", "Music", "", "private", 1),
+        };
+
+        var result = YouTubeCategoryPlaylistPlanner.MissingCategories(
+            ["History", "Science", "Music", "Film", "film"],
+            playlists);
+
+        Assert.Equal(["Film"], result);
+        Assert.Equal("Nature & Animals Quizzes", YouTubeCategoryPlaylistPlanner.PlaylistTitle("Nature & Animals"));
+    }
+
+    [Fact]
+    public void CategoryPlaylistPlanner_RejectsAnEmptyCategory()
+    {
+        Assert.Throws<ArgumentException>(() => YouTubeCategoryPlaylistPlanner.PlaylistTitle(" "));
+    }
+
     [Theory]
     [InlineData("published")]
     [InlineData("heldForReview")]
