@@ -156,9 +156,19 @@ public sealed class YouTubeManagementService
 
     public async Task<IReadOnlyList<YouTubePlaylistItem>> ListPlaylistsAsync(string accessToken, CancellationToken cancellationToken = default)
     {
-        using var response = await SendAsync(HttpMethod.Get, "/playlists?part=snippet%2Cstatus%2CcontentDetails&mine=true&maxResults=50", accessToken, null, cancellationToken);
-        using var document = await ReadDocumentAsync(response, cancellationToken);
-        return ParsePlaylists(document.RootElement);
+        var results = new List<YouTubePlaylistItem>();
+        var pageToken = "";
+        do
+        {
+            var url = "/playlists?part=snippet%2Cstatus%2CcontentDetails&mine=true&maxResults=50"
+                + (pageToken.Length == 0 ? "" : "&pageToken=" + Uri.EscapeDataString(pageToken));
+            using var response = await SendAsync(HttpMethod.Get, url, accessToken, null, cancellationToken);
+            using var document = await ReadDocumentAsync(response, cancellationToken);
+            results.AddRange(ParsePlaylists(document.RootElement));
+            pageToken = ReadString(document.RootElement, "nextPageToken");
+        } while (pageToken.Length > 0);
+
+        return results;
     }
 
     public async Task<YouTubePlaylistItem> CreatePlaylistAsync(
