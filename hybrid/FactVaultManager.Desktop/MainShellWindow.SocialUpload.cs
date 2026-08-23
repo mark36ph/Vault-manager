@@ -27,7 +27,7 @@ public partial class MainShellWindow
             Title = "Upload Quiz Video",
             Owner = this,
             Width = 800,
-            Height = 760,
+            Height = 830,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             ResizeMode = ResizeMode.CanResize,
             Background = new SolidColorBrush(Color.FromRgb(246, 248, 253)),
@@ -150,6 +150,8 @@ public partial class MainShellWindow
             Margin = new Thickness(0, 0, 0, 14),
         };
         var destinationContent = new Grid();
+        destinationContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        destinationContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         destinationContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         destinationContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
@@ -204,6 +206,72 @@ public partial class MainShellWindow
         });
         Grid.SetColumn(facebookPanel, 1);
         destinationContent.Children.Add(facebookPanel);
+
+        var schedulePanel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(0, 16, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var schedule = new CheckBox
+        {
+            Content = "Schedule publication",
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 14, 0),
+        };
+        var scheduleDate = new DatePicker
+        {
+            SelectedDate = DateTime.Today.AddDays(1),
+            Width = 145,
+            Height = 32,
+            IsEnabled = false,
+        };
+        var scheduleAt = new TextBlock
+        {
+            Text = "at",
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(10, 0, 10, 0),
+            Foreground = QuizMutedBrush(),
+        };
+        var scheduleTime = new TextBox
+        {
+            Text = "18:00",
+            Width = 64,
+            Height = 32,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            IsEnabled = false,
+            ToolTip = "Local time in 24-hour HH:mm format",
+        };
+        var scheduleZone = new TextBlock
+        {
+            Text = "local time",
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(10, 0, 0, 0),
+            Foreground = QuizMutedBrush(),
+        };
+        schedulePanel.Children.Add(schedule);
+        schedulePanel.Children.Add(scheduleDate);
+        schedulePanel.Children.Add(scheduleAt);
+        schedulePanel.Children.Add(scheduleTime);
+        schedulePanel.Children.Add(scheduleZone);
+        Grid.SetRow(schedulePanel, 1);
+        Grid.SetColumnSpan(schedulePanel, 2);
+        destinationContent.Children.Add(schedulePanel);
+        schedule.Checked += (_, _) =>
+        {
+            scheduleDate.IsEnabled = true;
+            scheduleTime.IsEnabled = true;
+            privacy.SelectedItem = "private";
+            privacy.IsEnabled = false;
+        };
+        schedule.Unchecked += (_, _) =>
+        {
+            scheduleDate.IsEnabled = false;
+            scheduleTime.IsEnabled = false;
+            privacy.IsEnabled = youtube.IsEnabled;
+        };
         destinations.Child = destinationContent;
         Grid.SetRow(destinations, 3);
         root.Children.Add(destinations);
@@ -296,15 +364,26 @@ public partial class MainShellWindow
                 var title = titleBox.Text.Trim();
                 var description = descriptionBox.Text.Trim();
                 SocialVideoUploadRules.ValidateUploadMetadata(history.VideoType, title, description);
+                var scheduledFor = SocialVideoUploadRules.ResolveScheduledPublishAt(
+                    schedule.IsChecked == true,
+                    scheduleDate.SelectedDate,
+                    scheduleTime.Text,
+                    DateTimeOffset.Now,
+                    uploadFacebook);
                 uploadButton.IsEnabled = false;
                 browse.IsEnabled = false;
                 browseThumbnail.IsEnabled = false;
+                schedule.IsEnabled = false;
+                scheduleDate.IsEnabled = false;
+                scheduleTime.IsEnabled = false;
                 cancel.IsEnabled = false;
                 progress.Visibility = Visibility.Visible;
 
                 if (uploadYouTube)
                 {
-                    statusText.Text = "Uploading to YouTube... Keep this window open.";
+                    statusText.Text = scheduledFor is null
+                        ? "Uploading to YouTube... Keep this window open."
+                        : "Uploading to YouTube for scheduled publication... Keep this window open.";
                     var accessToken = await GetYouTubeManagementAccessTokenAsync();
                     var result = await _youtubeVideoUpload.UploadAsync(
                         accessToken,
@@ -313,8 +392,10 @@ public partial class MainShellWindow
                             title,
                             description,
                             Convert.ToString(privacy.SelectedItem) ?? "private",
-                            notify.IsChecked == true));
-                    _data.UpdateQuizHistoryYouTubeAnalytics(history.Id, true, result.Url, 0, 0, DateTime.Today);
+                            notify.IsChecked == true,
+                            scheduledFor));
+                    _data.UpdateQuizHistoryYouTubeAnalytics(
+                        history.Id, true, result.Url, 0, 0, scheduledFor?.LocalDateTime.Date ?? DateTime.Today);
                     completed.Add("YouTube");
                     if (thumbnail is not null)
                     {
@@ -333,14 +414,18 @@ public partial class MainShellWindow
                         throw new InvalidOperationException("Only Shorts can be uploaded to Facebook.");
                     var duration = await new NativeFfmpegTimelineService().MediaDurationAsync(file);
                     SocialVideoUploadRules.ValidateFacebookDuration(duration);
-                    statusText.Text = "Uploading the Short to Facebook... Keep this window open.";
+                    statusText.Text = scheduledFor is null
+                        ? "Uploading the Short to Facebook... Keep this window open."
+                        : "Uploading the Short to Facebook for scheduled publication... Keep this window open.";
                     var pageToken = FacebookPageToken();
                     var result = await _facebookReelUpload.UploadAsync(
                         pageToken,
                         file,
                         title,
-                        description);
-                    _data.UpdateQuizHistoryFacebookAnalytics(history.Id, true, result.Url, 0, 0, 0, 0, DateTime.Today);
+                        description,
+                        scheduledFor);
+                    _data.UpdateQuizHistoryFacebookAnalytics(
+                        history.Id, true, result.Url, 0, 0, 0, 0, scheduledFor?.LocalDateTime.Date ?? DateTime.Today);
                     completed.Add("Facebook");
                     if (thumbnail is not null)
                     {
@@ -357,11 +442,14 @@ public partial class MainShellWindow
                 var warningText = thumbnailWarnings.Count == 0
                     ? ""
                     : "\n\nThe video upload succeeded, but:\n" + string.Join("\n", thumbnailWarnings);
-                statusText.Text = "Upload complete: " + string.Join(" and ", completed) +
+                var completion = scheduledFor is null
+                    ? "Uploaded successfully"
+                    : $"Uploaded and scheduled for {scheduledFor.Value:dd-MM-yyyy HH:mm}";
+                statusText.Text = completion + ": " + string.Join(" and ", completed) +
                                   (thumbnailWarnings.Count == 0 ? "." : ". Thumbnail warning shown.");
                 MessageBox.Show(dialog,
-                    $"Uploaded successfully to {string.Join(" and ", completed)}.{warningText}",
-                    "Upload Complete", MessageBoxButton.OK,
+                    $"{completion} on {string.Join(" and ", completed)}.{warningText}",
+                    scheduledFor is null ? "Upload Complete" : "Upload Scheduled", MessageBoxButton.OK,
                     thumbnailWarnings.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
                 dialog.DialogResult = true;
             }
@@ -379,6 +467,9 @@ public partial class MainShellWindow
                 uploadButton.IsEnabled = youtube.IsEnabled || facebook.IsEnabled;
                 browse.IsEnabled = true;
                 browseThumbnail.IsEnabled = true;
+                schedule.IsEnabled = true;
+                scheduleDate.IsEnabled = schedule.IsChecked == true;
+                scheduleTime.IsEnabled = schedule.IsChecked == true;
                 cancel.IsEnabled = true;
                 progress.Visibility = Visibility.Collapsed;
             }
