@@ -159,6 +159,7 @@ public partial class MainShellWindow
     private DataGrid? _youtubePlaylistsGrid;
     private DataGrid? _youtubePlaylistVideosGrid;
     private ComboBox? _youtubeQuizVideoChoice;
+    private ComboBox? _youtubePlaylistPrivacyChoice;
     private TextBlock? _youtubePlaylistsStatus;
 
     private void InitializeYouTubeAnalyticsPage()
@@ -711,8 +712,12 @@ public partial class MainShellWindow
         toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var title = new StackPanel();
-        title.Children.Add(new TextBlock { Text = "Playlists", FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)) });
-        title.Children.Add(new TextBlock { Text = "Create playlists and add published quizzes without leaving the app.", Foreground = QuizMutedBrush() });
+        title.Children.Add(new TextBlock { Text = "Playlists", FontSize = 22, FontWeight = FontWeights.SemiBold, Foreground = Brushes.White });
+        title.Children.Add(new TextBlock
+        {
+            Text = "Category playlists are created automatically as private. Select one to change its privacy.",
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
+        });
         toolbar.Children.Add(title);
         var create = new Button { Content = "Create playlist", MinWidth = 124, MinHeight = 34, Margin = new Thickness(8, 0, 8, 0) };
         StyleQuizHistoryButton(create, Color.FromRgb(204, 70, 255));
@@ -734,7 +739,11 @@ public partial class MainShellWindow
         _youtubePlaylistsGrid.Columns.Add(new DataGridTextColumn { Header = "Playlist", Binding = new Binding(nameof(YouTubePlaylistItem.Title)), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
         _youtubePlaylistsGrid.Columns.Add(TextColumn("Privacy", nameof(YouTubePlaylistItem.Privacy), 84));
         _youtubePlaylistsGrid.Columns.Add(NumberColumn("Videos", nameof(YouTubePlaylistItem.VideoCount), 72));
-        _youtubePlaylistsGrid.SelectionChanged += async (_, _) => await RefreshSelectedPlaylistVideosAsync(false);
+        _youtubePlaylistsGrid.SelectionChanged += async (_, _) =>
+        {
+            SyncSelectedPlaylistPrivacyChoice();
+            await RefreshSelectedPlaylistVideosAsync(false);
+        };
         tables.Children.Add(ManagerCard(_youtubePlaylistsGrid));
         _youtubePlaylistVideosGrid = BuildManagerGrid();
         _youtubePlaylistVideosGrid.Columns.Add(new DataGridTextColumn { Header = "Videos in selected playlist", Binding = new Binding(nameof(YouTubePlaylistVideo.Title)), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
@@ -747,8 +756,8 @@ public partial class MainShellWindow
 
         var actions = new Grid { Margin = new Thickness(0, 10, 0, 0) };
         actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        for (var index = 0; index < 4; index++)
+            actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _youtubeQuizVideoChoice = new ComboBox { MinHeight = 36, Margin = new Thickness(0, 0, 8, 0), DisplayMemberPath = nameof(YouTubeQuizChoice.Display) };
         actions.Children.Add(_youtubeQuizVideoChoice);
         var add = new Button { Content = "Add quiz video", MinWidth = 124, MinHeight = 36, Margin = new Thickness(0, 0, 8, 0) };
@@ -761,6 +770,26 @@ public partial class MainShellWindow
         remove.Click += async (_, _) => await RemoveSelectedPlaylistVideoAsync();
         Grid.SetColumn(remove, 2);
         actions.Children.Add(remove);
+
+        _youtubePlaylistPrivacyChoice = new ComboBox
+        {
+            MinWidth = 104,
+            MinHeight = 36,
+            Margin = new Thickness(8, 0, 8, 0),
+            VerticalContentAlignment = VerticalAlignment.Center,
+        };
+        _youtubePlaylistPrivacyChoice.Items.Add("Private");
+        _youtubePlaylistPrivacyChoice.Items.Add("Public");
+        _youtubePlaylistPrivacyChoice.SelectedIndex = 0;
+        Grid.SetColumn(_youtubePlaylistPrivacyChoice, 3);
+        actions.Children.Add(_youtubePlaylistPrivacyChoice);
+
+        var updatePrivacy = new Button { Content = "Update privacy", MinWidth = 120, MinHeight = 36 };
+        StyleQuizHistoryButton(updatePrivacy, Color.FromRgb(204, 70, 255));
+        updatePrivacy.Click += async (_, _) => await UpdateSelectedPlaylistPrivacyAsync();
+        Grid.SetColumn(updatePrivacy, 4);
+        actions.Children.Add(updatePrivacy);
+
         Grid.SetRow(actions, 2);
         root.Children.Add(actions);
 
@@ -945,6 +974,20 @@ public partial class MainShellWindow
             SetYouTubePlaylistsStatus("Loading playlists...");
             var token = await GetYouTubeManagementAccessTokenAsync();
             var playlists = await _youtubeManagement.ListPlaylistsAsync(token);
+            var missingCategories = YouTubeCategoryPlaylistPlanner.MissingCategories(
+                QuizQuestionTopicCategorizer.Categories,
+                playlists);
+            foreach (var category in missingCategories)
+            {
+                await _youtubeManagement.CreatePlaylistAsync(
+                    token,
+                    YouTubeCategoryPlaylistPlanner.PlaylistTitle(category),
+                    $"Quiz videos for the {category} category.",
+                    "private");
+            }
+            if (missingCategories.Count > 0)
+                playlists = await _youtubeManagement.ListPlaylistsAsync(token);
+
             _youtubePlaylistsGrid.ItemsSource = playlists;
             _youtubeQuizVideoChoice!.ItemsSource = _data.GetQuizHistory()
                 .Where(item => item.PublishedOnYouTube)
@@ -957,7 +1000,9 @@ public partial class MainShellWindow
                 .OrderBy(item => item.Title)
                 .ToList();
             if (playlists.Count > 0) _youtubePlaylistsGrid.SelectedIndex = 0;
-            SetYouTubePlaylistsStatus($"Loaded {playlists.Count:N0} playlists.");
+            SetYouTubePlaylistsStatus(missingCategories.Count == 0
+                ? $"Loaded {playlists.Count:N0} playlists. All category playlists are ready."
+                : $"Created {missingCategories.Count:N0} private category playlists and loaded {playlists.Count:N0} playlists.");
         }
         catch (Exception error)
         {
@@ -997,6 +1042,40 @@ public partial class MainShellWindow
         catch (Exception error)
         {
             MessageBox.Show(this, error.Message, "Create Playlist", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void SyncSelectedPlaylistPrivacyChoice()
+    {
+        if (_youtubePlaylistPrivacyChoice is null ||
+            _youtubePlaylistsGrid?.SelectedItem is not YouTubePlaylistItem playlist)
+            return;
+
+        _youtubePlaylistPrivacyChoice.SelectedItem =
+            string.Equals(playlist.Privacy, "public", StringComparison.OrdinalIgnoreCase)
+                ? "Public"
+                : "Private";
+    }
+
+    private async Task UpdateSelectedPlaylistPrivacyAsync()
+    {
+        if (_youtubePlaylistsGrid?.SelectedItem is not YouTubePlaylistItem playlist)
+        {
+            MessageBox.Show(this, "Select a playlist first.", "YouTube Playlists", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var privacy = _youtubePlaylistPrivacyChoice?.SelectedItem?.ToString()?.ToLowerInvariant() ?? "private";
+        try
+        {
+            var token = await GetYouTubeManagementAccessTokenAsync();
+            await _youtubeManagement.UpdatePlaylistPrivacyAsync(token, playlist, privacy);
+            await RefreshYouTubePlaylistsAsync(true);
+            SetYouTubePlaylistsStatus($"{playlist.Title} is now {privacy}.");
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Update Playlist Privacy", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -1060,9 +1139,9 @@ public partial class MainShellWindow
         panel.Children.Add(description);
         panel.Children.Add(new TextBlock { Text = "Privacy", FontWeight = FontWeights.SemiBold });
         var privacy = new ComboBox { Width = 150, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(0, 5, 0, 16) };
+        privacy.Items.Add("private");
         privacy.Items.Add("public");
         privacy.Items.Add("unlisted");
-        privacy.Items.Add("private");
         privacy.SelectedIndex = 0;
         panel.Children.Add(privacy);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
