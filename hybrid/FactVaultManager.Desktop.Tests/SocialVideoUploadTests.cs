@@ -29,6 +29,22 @@ public sealed class SocialVideoUploadTests
     }
 
     [Fact]
+    public void InstagramCaption_ReplacesYouTubeLinkWithLinkInBioCallToAction()
+    {
+        var description =
+            "Can you get 1/1?\n\n" +
+            "To try the full quiz, go to this URL: https://youtu.be/full-video-1\n\n" +
+            "#Quiz #Shorts";
+
+        var result = SocialVideoUploadRules.InstagramCaption(description);
+
+        Assert.Contains(SocialVideoUploadRules.InstagramFullQuizCallToAction, result);
+        Assert.DoesNotContain("youtu.be", result);
+        Assert.Contains("Can you get 1/1?", result);
+        Assert.Contains("#Quiz #Shorts", result);
+    }
+
+    [Fact]
     public void ShortMetadata_RequiresFullVideoYouTubeLink()
     {
         SocialVideoUploadRules.ValidateUploadMetadata(
@@ -328,7 +344,6 @@ public sealed class SocialVideoUploadTests
         string FileSize,
         string ContentType);
 }
-
 internal static class HttpRequestHeadersTestExtensions
 {
     public static IEnumerable<string> GetValuesOrEmpty(this System.Net.Http.Headers.HttpRequestHeaders headers, string name) =>
