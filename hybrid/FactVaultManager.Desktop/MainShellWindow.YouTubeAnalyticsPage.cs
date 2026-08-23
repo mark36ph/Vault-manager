@@ -160,6 +160,8 @@ public partial class MainShellWindow
     private DataGrid? _youtubePlaylistVideosGrid;
     private ComboBox? _youtubeQuizVideoChoice;
     private IReadOnlyList<YouTubeQuizChoice> _youtubeAllQuizVideoChoices = Array.Empty<YouTubeQuizChoice>();
+    private readonly Dictionary<string, IReadOnlyList<YouTubePlaylistVideo>> _youtubePlaylistVideoCache = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _youtubePlaylistVideoIds = new(StringComparer.Ordinal);
     private ComboBox? _youtubePlaylistPrivacyChoice;
     private TextBlock? _youtubePlaylistsStatus;
 
@@ -989,6 +991,8 @@ public partial class MainShellWindow
             if (missingCategories.Count > 0)
                 playlists = await _youtubeManagement.ListPlaylistsAsync(token);
 
+            SetYouTubePlaylistsStatus("Checking videos across all playlists...");
+            await RefreshAllYouTubePlaylistVideoIdsAsync(token, playlists);
             _youtubePlaylistsGrid.ItemsSource = playlists;
             _youtubeAllQuizVideoChoices = _data.GetQuizHistory()
                 .Where(item => item.PublishedOnYouTube)
@@ -1001,7 +1005,7 @@ public partial class MainShellWindow
                 .Select(group => group.First())
                 .OrderBy(item => item.Title)
                 .ToList();
-            ApplyAvailableYouTubeQuizChoices(Array.Empty<YouTubePlaylistVideo>());
+            ApplyAvailableYouTubeQuizChoices();
             if (playlists.Count > 0) _youtubePlaylistsGrid.SelectedIndex = 0;
             SetYouTubePlaylistsStatus(missingCategories.Count == 0
                 ? $"Loaded {playlists.Count:N0} playlists. All category playlists are ready."
@@ -1022,8 +1026,10 @@ public partial class MainShellWindow
         {
             var token = await GetYouTubeManagementAccessTokenAsync();
             var videos = await _youtubeManagement.ListPlaylistVideosAsync(token, playlist.Id);
+            _youtubePlaylistVideoCache[playlist.Id] = videos;
+            RebuildYouTubePlaylistVideoIds();
             _youtubePlaylistVideosGrid.ItemsSource = videos.OrderBy(item => item.Position).ToList();
-            ApplyAvailableYouTubeQuizChoices(videos);
+            ApplyAvailableYouTubeQuizChoices();
             SetYouTubePlaylistsStatus($"{playlist.Title} • {videos.Count:N0} videos");
         }
         catch (Exception error)
@@ -1049,17 +1055,39 @@ public partial class MainShellWindow
         }
     }
 
-    private void ApplyAvailableYouTubeQuizChoices(IEnumerable<YouTubePlaylistVideo> playlistVideos)
+    private async Task RefreshAllYouTubePlaylistVideoIdsAsync(
+        string accessToken,
+        IEnumerable<YouTubePlaylistItem> playlists)
+    {
+        _youtubePlaylistVideoCache.Clear();
+        foreach (var playlist in playlists)
+        {
+            var videos = await _youtubeManagement.ListPlaylistVideosAsync(accessToken, playlist.Id);
+            _youtubePlaylistVideoCache[playlist.Id] = videos;
+        }
+        RebuildYouTubePlaylistVideoIds();
+    }
+
+    private void RebuildYouTubePlaylistVideoIds()
+    {
+        _youtubePlaylistVideoIds.Clear();
+        foreach (var videos in _youtubePlaylistVideoCache.Values)
+        {
+            foreach (var video in videos)
+            {
+                if (video.VideoId.Length > 0)
+                    _youtubePlaylistVideoIds.Add(video.VideoId);
+            }
+        }
+    }
+
+    private void ApplyAvailableYouTubeQuizChoices()
     {
         if (_youtubeQuizVideoChoice is null)
             return;
 
-        var existingVideoIds = playlistVideos
-            .Select(video => video.VideoId)
-            .Where(videoId => videoId.Length > 0)
-            .ToHashSet(StringComparer.Ordinal);
         var available = _youtubeAllQuizVideoChoices
-            .Where(choice => !existingVideoIds.Contains(choice.VideoId))
+            .Where(choice => !_youtubePlaylistVideoIds.Contains(choice.VideoId))
             .ToList();
 
         _youtubeQuizVideoChoice.ItemsSource = available;
