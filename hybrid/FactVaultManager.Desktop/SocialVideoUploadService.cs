@@ -57,6 +57,12 @@ public static class SocialVideoUploadRules
         if (privacy is not ("private" or "unlisted" or "public"))
             throw new ArgumentException("Choose private, unlisted, or public for YouTube.");
     }
+
+    public static void ValidateFacebookDuration(double seconds)
+    {
+        if (!double.IsFinite(seconds) || seconds < 3 || seconds > 90)
+            throw new ArgumentException("Facebook Reels must be between 3 and 90 seconds long.");
+    }
 }
 
 public sealed class YouTubeVideoUploadService
