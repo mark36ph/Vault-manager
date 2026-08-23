@@ -247,6 +247,8 @@ public partial class MainShellWindow
                 {
                     if (!SocialVideoUploadRules.CanUploadToFacebook(history))
                         throw new InvalidOperationException("Only Shorts can be uploaded to Facebook.");
+                    var duration = await new NativeFfmpegTimelineService().MediaDurationAsync(file);
+                    SocialVideoUploadRules.ValidateFacebookDuration(duration);
                     statusText.Text = "Uploading the Short to Facebook... Keep this window open.";
                     var result = await _facebookReelUpload.UploadAsync(
                         FacebookPageToken(),
