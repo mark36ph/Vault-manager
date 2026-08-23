@@ -41,6 +41,36 @@ public sealed record YouTubePlaylistItem(string Id, string Title, string Descrip
 
 public sealed record YouTubePlaylistVideo(string PlaylistItemId, string VideoId, string Title, int Position);
 
+public static class YouTubeCategoryPlaylistPlanner
+{
+    public static string PlaylistTitle(string category)
+    {
+        category = (category ?? "").Trim();
+        if (category.Length == 0) throw new ArgumentException("Category is required.", nameof(category));
+        return category + " Quizzes";
+    }
+
+    public static IReadOnlyList<string> MissingCategories(
+        IEnumerable<string> categories,
+        IEnumerable<YouTubePlaylistItem> playlists)
+    {
+        var existingTitles = playlists
+            .Select(playlist => playlist.Title.Trim())
+            .Where(title => title.Length > 0)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return categories
+            .Where(category => !string.IsNullOrWhiteSpace(category))
+            .Select(category => category.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(category =>
+                !existingTitles.Contains(PlaylistTitle(category)) &&
+                !existingTitles.Contains(category + " Quiz") &&
+                !existingTitles.Contains(category))
+            .ToList();
+    }
+}
+
 public sealed class YouTubeManagementService
 {
     private const string ApiRoot = "https://www.googleapis.com/youtube/v3";
@@ -149,6 +179,31 @@ public sealed class YouTubeManagementService
         using var response = await SendAsync(HttpMethod.Post, "/playlists?part=snippet%2Cstatus%2CcontentDetails", accessToken, json, cancellationToken);
         using var document = await ReadDocumentAsync(response, cancellationToken);
         return ParsePlaylist(document.RootElement);
+    }
+
+    public async Task UpdatePlaylistPrivacyAsync(
+        string accessToken,
+        YouTubePlaylistItem playlist,
+        string privacy,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(playlist.Id)) throw new ArgumentException("Select a playlist first.");
+        privacy = privacy.Trim().ToLowerInvariant();
+        if (privacy is not ("public" or "private")) throw new ArgumentException("Choose public or private.");
+
+        var json = JsonSerializer.Serialize(new
+        {
+            id = playlist.Id,
+            snippet = new { title = playlist.Title, description = playlist.Description },
+            status = new { privacyStatus = privacy },
+        });
+        using var response = await SendAsync(
+            HttpMethod.Put,
+            "/playlists?part=snippet%2Cstatus",
+            accessToken,
+            json,
+            cancellationToken);
+        await EnsureSuccessAsync(response, cancellationToken);
     }
 
     public async Task<IReadOnlyList<YouTubePlaylistVideo>> ListPlaylistVideosAsync(
