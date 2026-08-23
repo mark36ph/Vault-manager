@@ -159,6 +159,7 @@ public partial class MainShellWindow
     private DataGrid? _youtubePlaylistsGrid;
     private DataGrid? _youtubePlaylistVideosGrid;
     private ComboBox? _youtubeQuizVideoChoice;
+    private IReadOnlyList<YouTubeQuizChoice> _youtubeAllQuizVideoChoices = Array.Empty<YouTubeQuizChoice>();
     private ComboBox? _youtubePlaylistPrivacyChoice;
     private TextBlock? _youtubePlaylistsStatus;
 
@@ -989,7 +990,7 @@ public partial class MainShellWindow
                 playlists = await _youtubeManagement.ListPlaylistsAsync(token);
 
             _youtubePlaylistsGrid.ItemsSource = playlists;
-            _youtubeQuizVideoChoice!.ItemsSource = _data.GetQuizHistory()
+            _youtubeAllQuizVideoChoices = _data.GetQuizHistory()
                 .Where(item => item.PublishedOnYouTube)
                 .Where(item => string.Equals(item.VideoType, "Video", StringComparison.OrdinalIgnoreCase))
                 .Select(item => new YouTubeQuizChoice(
@@ -1000,6 +1001,7 @@ public partial class MainShellWindow
                 .Select(group => group.First())
                 .OrderBy(item => item.Title)
                 .ToList();
+            ApplyAvailableYouTubeQuizChoices(Array.Empty<YouTubePlaylistVideo>());
             if (playlists.Count > 0) _youtubePlaylistsGrid.SelectedIndex = 0;
             SetYouTubePlaylistsStatus(missingCategories.Count == 0
                 ? $"Loaded {playlists.Count:N0} playlists. All category playlists are ready."
@@ -1021,6 +1023,7 @@ public partial class MainShellWindow
             var token = await GetYouTubeManagementAccessTokenAsync();
             var videos = await _youtubeManagement.ListPlaylistVideosAsync(token, playlist.Id);
             _youtubePlaylistVideosGrid.ItemsSource = videos.OrderBy(item => item.Position).ToList();
+            ApplyAvailableYouTubeQuizChoices(videos);
             SetYouTubePlaylistsStatus($"{playlist.Title} • {videos.Count:N0} videos");
         }
         catch (Exception error)
@@ -1044,6 +1047,23 @@ public partial class MainShellWindow
         {
             MessageBox.Show(this, error.Message, "Create Playlist", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private void ApplyAvailableYouTubeQuizChoices(IEnumerable<YouTubePlaylistVideo> playlistVideos)
+    {
+        if (_youtubeQuizVideoChoice is null)
+            return;
+
+        var existingVideoIds = playlistVideos
+            .Select(video => video.VideoId)
+            .Where(videoId => videoId.Length > 0)
+            .ToHashSet(StringComparer.Ordinal);
+        var available = _youtubeAllQuizVideoChoices
+            .Where(choice => !existingVideoIds.Contains(choice.VideoId))
+            .ToList();
+
+        _youtubeQuizVideoChoice.ItemsSource = available;
+        _youtubeQuizVideoChoice.SelectedIndex = available.Count > 0 ? 0 : -1;
     }
 
     private void SyncSelectedPlaylistPrivacyChoice()
