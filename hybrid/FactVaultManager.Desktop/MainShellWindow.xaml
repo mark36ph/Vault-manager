@@ -322,6 +322,7 @@
                     <Button Style="{StaticResource NavButtonStyle}" Tag="2" Click="Navigate_Click" Content="▷   Production" />
                     <Button Style="{StaticResource NavButtonStyle}" Tag="3" Click="Navigate_Click" Content="□   Media Library" />
                     <Button Style="{StaticResource NavButtonStyle}" Tag="4" Click="Navigate_Click" Content="◉   Asset Review" />
+                    <Border x:Name="SocialNavigationDivider" Style="{StaticResource NavSeparatorStyle}" />
                     <Border Style="{StaticResource NavSeparatorStyle}" />
                     <Button Style="{StaticResource NavButtonStyle}" Tag="5" Click="Navigate_Click" Content="⚙   Settings" />
                 </StackPanel>
