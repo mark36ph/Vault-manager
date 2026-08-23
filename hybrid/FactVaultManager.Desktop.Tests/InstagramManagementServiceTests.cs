@@ -56,24 +56,31 @@ public sealed class InstagramManagementServiceTests
             var service = new InstagramManagementService(new HttpClient(handler));
 
             var result = await service.UploadReelAsync(
-                "instagram-secret-token",
+                "facebook-page-secret-token",
                 path,
                 "Can you get 1/1? #Quiz");
 
             Assert.Equal("ig-media-1", result.MediaId);
             Assert.Equal("https://www.instagram.com/reel/ABC123/", result.Url);
             var upload = Assert.Single(handler.Requests.Where(request => request.Host == "rupload.facebook.com"));
-            Assert.Equal("OAuth instagram-secret-token", upload.Authorization);
+            Assert.Equal("OAuth facebook-page-secret-token", upload.Authorization);
             Assert.Equal("0", upload.Offset);
             Assert.Equal("4", upload.FileSize);
             Assert.Equal("video/mp4", upload.ContentType);
             var create = Assert.Single(handler.Requests.Where(request =>
                 new Uri(request.Url).AbsolutePath.EndsWith("/17890000000000000/media", StringComparison.Ordinal)));
             Assert.Equal("application/json", create.ContentType);
-            Assert.Contains("media_type=REELS", create.Url);
-            Assert.Contains("upload_type=resumable", create.Url);
+            Assert.Equal("graph.facebook.com", create.Host);
+            Assert.Contains("\"media_type\":\"REELS\"", create.Body);
+            Assert.Contains("\"upload_type\":\"resumable\"", create.Body);
             Assert.Contains("\"caption\":\"Can you get 1/1? #Quiz\"", create.Body);
             Assert.Contains("\"share_to_feed\":true", create.Body);
+            Assert.DoesNotContain(handler.Requests, request => request.Host == "graph.instagram.com");
+            Assert.All(handler.Requests.Where(request => request.Host == "graph.facebook.com"), request =>
+            {
+                Assert.Equal("Bearer facebook-page-secret-token", request.Authorization);
+                Assert.DoesNotContain("facebook-page-secret-token", request.Url);
+            });
         }
         finally
         {
@@ -105,6 +112,8 @@ public sealed class InstagramManagementServiceTests
                 return Json("{\"user_id\":\"17890000000000000\",\"username\":\"factburstquiz\",\"account_type\":\"BUSINESS\",\"media_count\":1}");
             if (url.Contains("/me?fields=user_id", StringComparison.Ordinal))
                 return Json("{\"user_id\":\"17890000000000000\"}");
+            if (url.Contains("/me?fields=instagram_business_account", StringComparison.Ordinal))
+                return Json("{\"id\":\"facebook-page-1\",\"instagram_business_account\":{\"id\":\"17890000000000000\"}}");
             if (request.Method == HttpMethod.Get && url.Contains("/17890000000000000/media?", StringComparison.Ordinal))
                 return Json("{\"data\":[{\"id\":\"ig-media-1\",\"caption\":\"Quiz caption\",\"media_type\":\"VIDEO\",\"media_product_type\":\"REELS\",\"permalink\":\"https://www.instagram.com/reel/ABC123/\",\"timestamp\":\"2026-08-23T12:00:00+0000\",\"like_count\":35,\"comments_count\":8}]}");
             if (url.Contains("/ig-media-1/insights", StringComparison.Ordinal))
