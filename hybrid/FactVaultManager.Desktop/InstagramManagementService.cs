@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 
 namespace FactVaultManager.Desktop;
@@ -118,22 +119,23 @@ public sealed class InstagramManagementService
         if (userId.Length == 0)
             throw new InvalidOperationException("Instagram did not return the connected account ID.");
 
-        using var create = await PostFormAsync(
+        using var create = await PostJsonAsync(
             $"{GraphRoot}/{Uri.EscapeDataString(userId)}/media",
             token,
-            new Dictionary<string, string>
+            new Dictionary<string, object>
             {
                 ["media_type"] = "REELS",
                 ["upload_type"] = "resumable",
                 ["caption"] = text,
-                ["share_to_feed"] = shareToFeed ? "true" : "false",
+                ["share_to_feed"] = shareToFeed,
             },
             cancellationToken);
         var containerId = ReadString(create.RootElement, "id");
         if (containerId.Length == 0)
             throw new InvalidOperationException("Instagram did not create a Reel upload container.");
+        var uploadUrl = ReadString(create.RootElement, "uri");
 
-        await UploadVideoBytesAsync(token, containerId, path, cancellationToken);
+        await UploadVideoBytesAsync(token, containerId, uploadUrl, path, cancellationToken);
         await WaitUntilReadyAsync(token, containerId, cancellationToken);
 
         using var publish = await PostFormAsync(
@@ -164,11 +166,14 @@ public sealed class InstagramManagementService
     private async Task UploadVideoBytesAsync(
         string token,
         string containerId,
+        string uploadUrl,
         string path,
         CancellationToken cancellationToken)
     {
         var file = new FileInfo(path);
-        var uri = new Uri($"https://rupload.facebook.com/ig-api-upload/v26.0/{Uri.EscapeDataString(containerId)}");
+        var fallbackUrl = $"https://rupload.facebook.com/ig-api-upload/v26.0/{Uri.EscapeDataString(containerId)}";
+        if (!Uri.TryCreate(string.IsNullOrWhiteSpace(uploadUrl) ? fallbackUrl : uploadUrl, UriKind.Absolute, out var uri))
+            throw new InvalidOperationException("Instagram returned an invalid upload address.");
         if (uri.Scheme != Uri.UriSchemeHttps || !string.Equals(uri.Host, "rupload.facebook.com", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Instagram did not provide a trusted upload address.");
 
@@ -247,6 +252,19 @@ public sealed class InstagramManagementService
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         request.Content = new FormUrlEncodedContent(values);
+        using var response = await _client.SendAsync(request, cancellationToken);
+        return await ReadDocumentAsync(response, "Instagram request failed", cancellationToken);
+    }
+
+    private async Task<JsonDocument> PostJsonAsync(
+        string url,
+        string token,
+        IReadOnlyDictionary<string, object> values,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Content = new StringContent(JsonSerializer.Serialize(values), Encoding.UTF8, "application/json");
         using var response = await _client.SendAsync(request, cancellationToken);
         return await ReadDocumentAsync(response, "Instagram request failed", cancellationToken);
     }

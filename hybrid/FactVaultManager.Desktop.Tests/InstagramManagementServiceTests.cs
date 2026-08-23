@@ -68,9 +68,11 @@ public sealed class InstagramManagementServiceTests
             Assert.Equal("4", upload.FileSize);
             Assert.Equal("video/mp4", upload.ContentType);
             var create = Assert.Single(handler.Requests.Where(request => request.Url.EndsWith("/17890000000000000/media", StringComparison.Ordinal)));
-            Assert.Contains("media_type=REELS", create.Body);
-            Assert.Contains("upload_type=resumable", create.Body);
-            Assert.Contains("caption=Can+you+get+1%2F1%3F+%23Quiz", create.Body);
+            Assert.Equal("application/json", create.ContentType);
+            Assert.Contains("\"media_type\":\"REELS\"", create.Body);
+            Assert.Contains("\"upload_type\":\"resumable\"", create.Body);
+            Assert.Contains("\"caption\":\"Can you get 1/1? #Quiz\"", create.Body);
+            Assert.Contains("\"share_to_feed\":true", create.Body);
         }
         finally
         {
@@ -107,7 +109,7 @@ public sealed class InstagramManagementServiceTests
             if (url.Contains("/ig-media-1/insights", StringComparison.Ordinal))
                 return Json("{\"data\":[{\"name\":\"views\",\"values\":[{\"value\":1200}]},{\"name\":\"reach\",\"values\":[{\"value\":900}]},{\"name\":\"saved\",\"values\":[{\"value\":12}]},{\"name\":\"shares\",\"values\":[{\"value\":9}]},{\"name\":\"total_interactions\",\"values\":[{\"value\":64}]}]}");
             if (request.Method == HttpMethod.Post && url.EndsWith("/17890000000000000/media", StringComparison.Ordinal))
-                return Json("{\"id\":\"ig-container-1\"}");
+                return Json("{\"id\":\"ig-container-1\",\"uri\":\"https://rupload.facebook.com/ig-api-upload/v26.0/ig-container-1\"}");
             if (request.Method == HttpMethod.Post && captured.Host == "rupload.facebook.com")
                 return Json("{\"success\":true}");
             if (request.Method == HttpMethod.Get && url.Contains("/ig-container-1?fields=status_code", StringComparison.Ordinal))
