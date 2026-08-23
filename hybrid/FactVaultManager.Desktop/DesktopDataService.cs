@@ -269,6 +269,8 @@ public sealed partial class DesktopDataService
         var settings = new AppSettingsModel
         {
             ProjectsFolder = node["general"]?["projects_folder"]?.GetValue<string>() ?? "",
+            NasArchiveFolder = node["general"]?["nas_archive_folder"]?.GetValue<string>() ?? "",
+            ArchiveAfterUpload = node["general"]?["archive_after_upload"]?.GetValue<bool>() ?? false,
             Theme = node["general"]?["theme"]?.GetValue<string>() ?? "dark",
             OpenAiKey = LocalSecretProtector.Unprotect(openAiStored),
             OpenAiModel = node["ai"]?["model"]?.GetValue<string>() ?? "",
@@ -306,6 +308,8 @@ public sealed partial class DesktopDataService
         var instagram = node["instagram"] as JsonObject ?? new JsonObject();
         node["general"] = general; node["ai"] = ai; node["images"] = images; node["resolve"] = resolve; node["youtube"] = youtube; node["facebook"] = facebook; node["instagram"] = instagram;
         general["projects_folder"] = settings.ProjectsFolder;
+        general["nas_archive_folder"] = settings.NasArchiveFolder;
+        general["archive_after_upload"] = settings.ArchiveAfterUpload;
         general["theme"] = settings.Theme;
         general["check_updates"] = settings.CheckUpdates;
         ai["api_key"] = LocalSecretProtector.Protect(settings.OpenAiKey);
@@ -441,6 +445,8 @@ public sealed record AssetReviewItem(string Kind, string Name, string Path, stri
 public sealed class AppSettingsModel
 {
     public string ProjectsFolder { get; set; } = "";
+    public string NasArchiveFolder { get; set; } = "";
+    public bool ArchiveAfterUpload { get; set; }
     public string Theme { get; set; } = "dark";
     public string OpenAiKey { get; set; } = "";
     public string OpenAiModel { get; set; } = "";

@@ -93,6 +93,7 @@ public static class SocialUploadQueuePathFinder
 
     private static int MatchScore(QuizHistorySummary history, string folder, string video)
     {
+        if (!MatchesVideoType(history.VideoType, video)) return 0;
         var folderName = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         var searchable = Normalize(folderName + " " + Path.GetFileNameWithoutExtension(video));
         var uploadTitleIdentity = UploadTitleIdentity(history.YouTubeTitle);
@@ -133,6 +134,17 @@ public static class SocialUploadQueuePathFinder
         if (folderName.Contains(history.EpisodeNumber.ToString("000"), StringComparison.Ordinal))
             score += 20;
         return score;
+    }
+
+    public static bool MatchesVideoType(string videoType, string videoPath)
+    {
+        var folder = Path.GetDirectoryName(videoPath) ?? "";
+        var folderName = Normalize(Path.GetFileName(folder.TrimEnd(
+            Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)));
+        var shortFolder = ContainsPhrase(folderName, "short");
+        return string.Equals(videoType, "Short", StringComparison.Ordinal)
+            ? shortFolder
+            : !shortFolder;
     }
 
     private static string UploadTitleIdentity(string? title)
@@ -200,8 +212,14 @@ public sealed class SocialUploadQueueItem : INotifyPropertyChanged
         HistoryId = history.Id;
         Title = history.YouTubeTitle.Length > 0 ? history.YouTubeTitle : history.Title;
         VideoType = history.VideoType;
-        VideoPath = SocialVideoUploadRules.FindLikelyRenderedVideo(history.ProjectFolder) ?? "";
-        ThumbnailPath = SocialVideoUploadRules.FindLikelyThumbnail(history.ProjectFolder) ?? "";
+        var detectedVideo = SocialVideoUploadRules.FindLikelyRenderedVideo(history.ProjectFolder) ?? "";
+        VideoPath = detectedVideo.Length > 0 &&
+                    SocialUploadQueuePathFinder.MatchesVideoType(history.VideoType, detectedVideo)
+            ? detectedVideo
+            : "";
+        ThumbnailPath = VideoPath.Length > 0
+            ? SocialVideoUploadRules.FindLikelyThumbnail(history.ProjectFolder) ?? ""
+            : "";
         _remaining = SocialUploadQueuePlanner.RemainingDestinations(history);
         _include = _remaining != SocialUploadDestination.None && VideoPath.Length > 0;
         _status = VideoPath.Length == 0 ? "Video file not found" : "Ready";
@@ -478,6 +496,11 @@ public partial class MainShellWindow
             try
             {
                 var videoPath = SocialVideoUploadRules.ValidateVideoFile(picker.FileName);
+                if (!SocialUploadQueuePathFinder.MatchesVideoType(item.VideoType, videoPath))
+                    throw new InvalidOperationException(
+                        item.VideoType == "Short"
+                            ? "This queue entry is a Short. Choose a video from a project folder whose name contains 'Short'."
+                            : "This queue entry is a full video. Do not choose a video from a Short project folder.");
                 var projectFolder = Path.GetDirectoryName(videoPath) ?? "";
                 var thumbnailPath = SocialVideoUploadRules.FindLikelyThumbnail(projectFolder) ?? "";
                 item.ApplyPaths(videoPath, thumbnailPath);
@@ -622,10 +645,31 @@ public partial class MainShellWindow
                     }
                     else
                     {
+                        var completionNotes = result.Warnings.ToList();
+                        try
+                        {
+                            var archive = await ArchiveCompletedQuizAsync(
+                                item.HistoryId,
+                                message =>
+                                {
+                                    queueStatus.Text = message;
+                                    item.Status = "Archiving to NAS...";
+                                });
+                            if (archive is not null)
+                            {
+                                completionNotes.Add(archive.SourceDeleted
+                                    ? "Archived to NAS"
+                                    : archive.Warning);
+                            }
+                        }
+                        catch (Exception archiveError)
+                        {
+                            completionNotes.Add("NAS archive failed: " + archiveError.Message);
+                        }
                         completedItems++;
-                        item.Status = result.Warnings.Count == 0
+                        item.Status = completionNotes.Count == 0
                             ? "Complete"
-                            : "Complete; " + string.Join(" | ", result.Warnings);
+                            : "Complete; " + string.Join(" | ", completionNotes);
                         item.Include = false;
                     }
                     RefreshQuizHistory();

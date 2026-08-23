@@ -44,4 +44,13 @@ public sealed class ProjectPathSecurityTests
         Assert.StartsWith(Path.GetFullPath(root), path, StringComparison.OrdinalIgnoreCase);
         Assert.EndsWith(Path.Combine("Completed", "Octopuses Have Three Hearts"), path, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void TryEnsureContained_ReturnsNullForFolderOutsideProjectsRoot()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "factburst-projects");
+        var outside = Path.Combine(Path.GetTempPath(), "old-factburst-projects", "Space - 001");
+
+        Assert.Null(ProjectPathSecurity.TryEnsureContained(root, outside));
+    }
 }

@@ -113,6 +113,31 @@ public sealed class SocialVideoUploadTests
         }
     }
 
+    [Fact]
+    public void UploadQueuePathFinder_DoesNotUseFullVideoFolderForShortEntry()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"factburst-queue-{Guid.NewGuid():N}");
+        var fullProject = Path.Combine(root, "Space - 001");
+        Directory.CreateDirectory(fullProject);
+        File.WriteAllBytes(Path.Combine(fullProject, "Space.mp4"), [0, 1, 2, 3]);
+        try
+        {
+            var history = History("9:16") with
+            {
+                YouTubeTitle = "Can You Get 1/1? | Space Quiz #001",
+                ProjectFolder = fullProject,
+            };
+
+            Assert.Empty(SocialUploadQueuePathFinder.FindMissingVideos([history], root));
+            Assert.False(SocialUploadQueuePathFinder.MatchesVideoType(
+                history.VideoType, Path.Combine(fullProject, "Space.mp4")));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Theory]
     [InlineData("Error validating access token: Session has expired")]
     [InlineData("Invalid OAuth access token")]

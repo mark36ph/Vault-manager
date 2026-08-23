@@ -39,8 +39,8 @@ public sealed partial class DesktopDataService
         string? stagedFolder = null;
         if (deleteFolder && !string.IsNullOrWhiteSpace(projectFolder))
         {
-            safeFolder = ProjectPathSecurity.EnsureContained(projectsRoot, projectFolder);
-            if (Directory.Exists(safeFolder))
+            safeFolder = ProjectPathSecurity.TryEnsureContained(projectsRoot, projectFolder);
+            if (safeFolder is not null && Directory.Exists(safeFolder))
             {
                 stagedFolder = ProjectPathSecurity.EnsureContained(
                     projectsRoot,

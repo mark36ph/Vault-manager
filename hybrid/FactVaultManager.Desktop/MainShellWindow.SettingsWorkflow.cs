@@ -16,6 +16,8 @@ public partial class MainShellWindow
     private readonly Dictionary<string, FrameworkElement> _settingsPages = new(StringComparer.OrdinalIgnoreCase);
     private CheckBox? _settingsStartMaximized;
     private CheckBox? _settingsRememberProject;
+    private TextBox? _settingsNasArchiveFolder;
+    private CheckBox? _settingsArchiveAfterUpload;
     private ComboBox? _settingsTheme;
     private ComboBox? _settingsImageProvider;
     private ComboBox? _settingsOrientation;
@@ -189,6 +191,30 @@ public partial class MainShellWindow
         Grid.SetColumn(browse, 1);
         folderRow.Children.Add(browse);
         storageStack.Children.Add(folderRow);
+        storageStack.Children.Add(SettingsFieldLabel("NAS archive folder"));
+        var archiveRow = new Grid();
+        archiveRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        archiveRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _settingsNasArchiveFolder = new TextBox { Margin = new Thickness(0, 5, 8, 0) };
+        archiveRow.Children.Add(_settingsNasArchiveFolder);
+        var browseArchive = new Button { Content = "Browse", Width = 88, Margin = new Thickness(0, 5, 0, 0) };
+        browseArchive.Click += (_, _) => BrowseNasArchiveFolder();
+        Grid.SetColumn(browseArchive, 1);
+        archiveRow.Children.Add(browseArchive);
+        storageStack.Children.Add(archiveRow);
+        _settingsArchiveAfterUpload = new CheckBox
+        {
+            Content = "Move a quiz project to the NAS after all of its required uploads are complete",
+            Margin = new Thickness(0, 9, 0, 0),
+        };
+        storageStack.Children.Add(_settingsArchiveAfterUpload);
+        storageStack.Children.Add(new TextBlock
+        {
+            Text = "The project is copied and verified first, Quiz History is updated, then the local folder is removed.",
+            Foreground = SettingsMutedBrush(),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(22, 4, 0, 0),
+        });
 
         var startup = SettingsSection("Startup");
         page.Children.Add(startup);
@@ -525,6 +551,8 @@ public partial class MainShellWindow
             _settingsResolveModulePath!.Text = ReadString(node, "resolve", "scripting_module_path", "");
             SelectComboValue(_settingsResolveMode!, ReadString(node, "resolve", "integration_mode", "external"), "external");
             var settings = _data.LoadSettings();
+            if (_settingsNasArchiveFolder is not null) _settingsNasArchiveFolder.Text = settings.NasArchiveFolder;
+            if (_settingsArchiveAfterUpload is not null) _settingsArchiveAfterUpload.IsChecked = settings.ArchiveAfterUpload;
             if (_settingsYouTubeClientId is not null) _settingsYouTubeClientId.Text = settings.YouTubeOAuthClientId;
             if (_settingsYouTubeClientSecret is not null) _settingsYouTubeClientSecret.Password = settings.YouTubeOAuthClientSecret;
             if (_settingsFacebookPageAccessToken is not null) _settingsFacebookPageAccessToken.Password = settings.FacebookPageAccessToken;
@@ -554,6 +582,8 @@ public partial class MainShellWindow
             _data.SaveSettings(new AppSettingsModel
             {
                 ProjectsFolder = ProjectsFolderTextBox.Text.Trim(),
+                NasArchiveFolder = _settingsNasArchiveFolder?.Text.Trim() ?? existingSettings.NasArchiveFolder,
+                ArchiveAfterUpload = _settingsArchiveAfterUpload?.IsChecked == true,
                 Theme = (_settingsTheme?.SelectedItem?.ToString() ?? "Light").ToLowerInvariant(),
                 OpenAiKey = OpenAiKeyPasswordBox.Password.Trim(),
                 OpenAiModel = string.IsNullOrWhiteSpace(OpenAiModelTextBox.Text) ? "gpt-5-mini" : OpenAiModelTextBox.Text.Trim(),
@@ -747,6 +777,13 @@ public partial class MainShellWindow
     {
         var dialog = new OpenFolderDialog { Title = "Select projects folder" };
         if (dialog.ShowDialog(this) == true) ProjectsFolderTextBox.Text = dialog.FolderName;
+    }
+
+    private void BrowseNasArchiveFolder()
+    {
+        var dialog = new OpenFolderDialog { Title = "Select NAS archive folder" };
+        if (dialog.ShowDialog(this) == true && _settingsNasArchiveFolder is not null)
+            _settingsNasArchiveFolder.Text = dialog.FolderName;
     }
 
     private void BrowseResolveApplication()

@@ -52,6 +52,7 @@ public partial class MainShellWindow
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.Children.Add(new TextBlock
         {
             Text = "Quiz History",
@@ -68,6 +69,21 @@ public partial class MainShellWindow
             },
         });
 
+        var updatePaths = new Button
+        {
+            Content = "Update paths",
+            MinWidth = 108,
+            MinHeight = 34,
+            Padding = new Thickness(12, 0, 12, 0),
+            Margin = new Thickness(0, 0, 10, 0),
+            VerticalAlignment = VerticalAlignment.Bottom,
+            ToolTip = "Find quiz project folders under the configured Projects folder and update Quiz History",
+        };
+        StyleQuizHistoryButton(updatePaths, Color.FromRgb(255, 202, 45));
+        updatePaths.Click += async (_, _) => await UpdateAllQuizHistoryPathsAsync(updatePaths);
+        Grid.SetColumn(updatePaths, 2);
+        header.Children.Add(updatePaths);
+
         var refresh = new Button
         {
             Content = "Refresh",
@@ -82,7 +98,7 @@ public partial class MainShellWindow
             RefreshQuizHistory();
             await RefreshQuizYouTubeAnalyticsAsync(true);
         };
-        Grid.SetColumn(refresh, 2);
+        Grid.SetColumn(refresh, 3);
         header.Children.Add(refresh);
 
         _quizHistoryAnalyticsStatusText = new TextBlock
@@ -383,6 +399,44 @@ public partial class MainShellWindow
                 new Point(1, 1)),
             Child = root,
         };
+    }
+
+    private async Task UpdateAllQuizHistoryPathsAsync(Button updatePaths)
+    {
+        var confirmation = MessageBox.Show(
+            this,
+            "Scan the configured Projects folder and update every Quiz History path that can be matched to the correct quiz and video type?\n\nUnresolved entries will be left unchanged.",
+            "Update Quiz History Paths",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question,
+            MessageBoxResult.Yes);
+        if (confirmation != MessageBoxResult.Yes)
+            return;
+
+        updatePaths.IsEnabled = false;
+        if (_quizHistoryAnalyticsStatusText is not null)
+            _quizHistoryAnalyticsStatusText.Text = "Updating Quiz History paths...";
+        try
+        {
+            var result = await Task.Run(_data.RecoverQuizHistoryProjectFolders);
+            RefreshQuizHistory();
+            if (_quizHistoryAnalyticsStatusText is not null)
+                _quizHistoryAnalyticsStatusText.Text = $"Paths: {result.Updated} updated, {result.Unresolved} unresolved";
+            MessageBox.Show(
+                this,
+                $"Updated {result.Updated} Quiz History path(s).\n\nAlready correct: {result.AlreadyCorrect}\nUnresolved: {result.Unresolved}",
+                "Update Quiz History Paths",
+                MessageBoxButton.OK,
+                result.Unresolved == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        }
+        catch (Exception error)
+        {
+            MessageBox.Show(this, error.Message, "Update Quiz History Paths", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            updatePaths.IsEnabled = true;
+        }
     }
 
     private static void StyleQuizHistoryButton(Button button, Color accent)
