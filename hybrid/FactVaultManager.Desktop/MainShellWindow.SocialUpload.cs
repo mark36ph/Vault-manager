@@ -514,6 +514,22 @@ public partial class MainShellWindow
                     instagram.Content = "Instagram (uploaded)";
                 }
 
+                string archiveText = "";
+                try
+                {
+                    var archive = await ArchiveCompletedQuizAsync(history.Id, message => statusText.Text = message);
+                    if (archive is not null)
+                    {
+                        archiveText = $"\n\nProject archived to:\n{archive.DestinationFolder}";
+                        if (archive.Warning.Length > 0)
+                            thumbnailWarnings.Add("NAS archive: " + archive.Warning);
+                    }
+                }
+                catch (Exception archiveError)
+                {
+                    thumbnailWarnings.Add("NAS archive failed: " + archiveError.Message);
+                }
+
                 RefreshQuizHistory();
                 var warningText = thumbnailWarnings.Count == 0
                     ? ""
@@ -524,7 +540,7 @@ public partial class MainShellWindow
                 statusText.Text = completion + ": " + string.Join(" and ", completed) +
                                   (thumbnailWarnings.Count == 0 ? "." : ". Thumbnail warning shown.");
                 MessageBox.Show(dialog,
-                    $"{completion} on {string.Join(" and ", completed)}.{warningText}",
+                    $"{completion} on {string.Join(" and ", completed)}.{archiveText}{warningText}",
                     scheduledFor is null ? "Upload Complete" : "Upload Scheduled", MessageBoxButton.OK,
                     thumbnailWarnings.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
                 dialog.DialogResult = true;

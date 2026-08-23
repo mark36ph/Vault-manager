@@ -3,6 +3,37 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class QuizNasStorageTests
 {
     [Fact]
+    public void Archive_CopiesVerifiesAndRebasesProjectBeforeLocalRemoval()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"quiz-nas-archive-{Guid.NewGuid():N}");
+        var projects = Path.Combine(root, "local-projects");
+        var archive = Path.Combine(root, "nas-archive");
+        var source = Path.Combine(projects, "Quizzes", "Space Quiz - Short - 001");
+        try
+        {
+            Directory.CreateDirectory(source);
+            var video = Path.Combine(source, "Space Quiz.mp4");
+            var manifest = Path.Combine(source, "manifest.json");
+            File.WriteAllBytes(video, new byte[] { 1, 2, 3, 4 });
+            File.WriteAllText(manifest, $"{{\"video\":\"{JsonPath(video)}\"}}");
+
+            var destination = QuizProjectArchive.CopyAndVerify(source, projects, archive);
+
+            Assert.True(Directory.Exists(source));
+            Assert.Equal(
+                Path.Combine(archive, "Quizzes", "Space Quiz - Short - 001"),
+                destination);
+            Assert.Equal(new byte[] { 1, 2, 3, 4 }, File.ReadAllBytes(Path.Combine(destination, "Space Quiz.mp4")));
+            Assert.Contains(JsonPath(destination), File.ReadAllText(Path.Combine(destination, "manifest.json")),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Publish_CopiesCompletedPackageAndRebasesAllRecordedPaths()
     {
         var root = Path.Combine(Path.GetTempPath(), $"quiz-nas-publish-{Guid.NewGuid():N}");

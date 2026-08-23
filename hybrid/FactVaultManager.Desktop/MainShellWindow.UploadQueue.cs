@@ -645,10 +645,31 @@ public partial class MainShellWindow
                     }
                     else
                     {
+                        var completionNotes = result.Warnings.ToList();
+                        try
+                        {
+                            var archive = await ArchiveCompletedQuizAsync(
+                                item.HistoryId,
+                                message =>
+                                {
+                                    queueStatus.Text = message;
+                                    item.Status = "Archiving to NAS...";
+                                });
+                            if (archive is not null)
+                            {
+                                completionNotes.Add(archive.SourceDeleted
+                                    ? "Archived to NAS"
+                                    : archive.Warning);
+                            }
+                        }
+                        catch (Exception archiveError)
+                        {
+                            completionNotes.Add("NAS archive failed: " + archiveError.Message);
+                        }
                         completedItems++;
-                        item.Status = result.Warnings.Count == 0
+                        item.Status = completionNotes.Count == 0
                             ? "Complete"
-                            : "Complete; " + string.Join(" | ", result.Warnings);
+                            : "Complete; " + string.Join(" | ", completionNotes);
                         item.Include = false;
                     }
                     RefreshQuizHistory();
