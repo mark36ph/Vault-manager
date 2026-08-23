@@ -53,6 +53,35 @@ public sealed class SocialVideoUploadTests
     }
 
     [Fact]
+    public void UploadQueuePathFinder_RecoversVideosAfterTheProjectsRootMoves()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"factburst-queue-{Guid.NewGuid():N}");
+        var project = Path.Combine(root, "Film Quiz - Short - 001");
+        Directory.CreateDirectory(project);
+        var video = Path.Combine(project, "Film Quiz.mp4");
+        var thumbnail = Path.Combine(project, "Thumbnail.png");
+        File.WriteAllBytes(video, [0, 1, 2, 3]);
+        File.WriteAllBytes(thumbnail, [137, 80, 78, 71]);
+        try
+        {
+            var history = History("9:16") with
+            {
+                ProjectFolder = @"Z:\OldFactVault\Quizzes\Film Quiz - Short - 001",
+            };
+
+            var match = Assert.Single(SocialUploadQueuePathFinder.FindMissingVideos([history], root));
+
+            Assert.Equal(history.Id, match.HistoryId);
+            Assert.Equal(video, match.VideoPath);
+            Assert.Equal(thumbnail, match.ThumbnailPath);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void UploadDescription_AppendsSavedHashtagsOnce()
     {
         var history = History("9:16") with

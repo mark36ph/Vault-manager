@@ -643,6 +643,26 @@ public sealed partial class DesktopDataService
         return command.ExecuteNonQuery() == 1;
     }
 
+    public bool UpdateQuizHistoryProjectFolder(int historyId, string projectFolder)
+    {
+        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
+        if (string.IsNullOrWhiteSpace(projectFolder))
+            throw new ArgumentException("Project folder is required.", nameof(projectFolder));
+
+        var normalizedFolder = Path.GetFullPath(projectFolder.Trim());
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE quiz_history
+            SET project_folder = $projectFolder
+            WHERE id = $historyId
+            """;
+        command.Parameters.AddWithValue("$projectFolder", normalizedFolder);
+        command.Parameters.AddWithValue("$historyId", historyId);
+        return command.ExecuteNonQuery() == 1;
+    }
+
     public IReadOnlyList<QuizHistoryQuestion> GetQuizHistoryQuestions(int historyId)
     {
         if (historyId <= 0)
