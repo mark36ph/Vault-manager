@@ -1354,7 +1354,14 @@ public partial class MainShellWindow
             analyticsButton.Style = navStyle;
         analyticsButton.Click += Navigate_Click;
         var notesIndex = navigation.Children.IndexOf(notesButton);
-        navigation.Children.Insert(Math.Min(navigation.Children.Count, notesIndex + 1), analyticsButton);
+        var socialDivider = new Border
+        {
+            Height = 1,
+            Background = new SolidColorBrush(Color.FromRgb(225, 225, 225)),
+            Margin = new Thickness(12),
+        };
+        navigation.Children.Insert(Math.Min(navigation.Children.Count, notesIndex + 1), socialDivider);
+        navigation.Children.Insert(Math.Min(navigation.Children.Count, notesIndex + 2), analyticsButton);
     }
 
     private async Task RefreshYouTubeAnalyticsPageAsync(bool showErrors)
