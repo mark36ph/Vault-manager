@@ -41,6 +41,15 @@ public static class SocialUploadQueuePlanner
         if (destinations.HasFlag(SocialUploadDestination.Instagram)) names.Add("Instagram");
         return names.Count == 0 ? "Complete" : string.Join(" + ", names);
     }
+
+    public static bool IsMetaAuthenticationError(string? message)
+    {
+        var value = (message ?? "").ToLowerInvariant();
+        return value.Contains("error validating access token", StringComparison.Ordinal) ||
+               value.Contains("session has expired", StringComparison.Ordinal) ||
+               value.Contains("access token has expired", StringComparison.Ordinal) ||
+               value.Contains("invalid oauth access token", StringComparison.Ordinal);
+    }
 }
 
 public sealed record SocialUploadQueuePathMatch(int HistoryId, string VideoPath, string ThumbnailPath);
@@ -55,37 +64,69 @@ public static class SocialUploadQueuePathFinder
         if (string.IsNullOrWhiteSpace(searchRoot) || !Directory.Exists(searchRoot))
             return [];
 
-        var pending = histories
-            .Select(history => (History: history, FolderName: StoredFolderName(history.ProjectFolder)))
-            .Where(candidate => candidate.FolderName.Length > 0)
-            .GroupBy(candidate => candidate.FolderName, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.Select(candidate => candidate.History).ToList(),
-                StringComparer.OrdinalIgnoreCase);
+        var pending = histories.ToList();
         if (pending.Count == 0) return [];
 
-        var candidates = new Dictionary<int, List<SocialUploadQueuePathMatch>>();
+        var candidates = new Dictionary<int, List<(int Score, SocialUploadQueuePathMatch Match)>>();
         foreach (var folder in EnumerateDirectoriesSafely(searchRoot))
         {
-            if (!pending.TryGetValue(Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
-                    out var matches))
-                continue;
-
             var video = SocialVideoUploadRules.FindLikelyRenderedVideo(folder);
             if (video is null) continue;
             var thumbnail = SocialVideoUploadRules.FindLikelyThumbnail(folder) ?? "";
-            foreach (var history in matches)
+            foreach (var history in pending)
             {
+                var score = MatchScore(history, folder, video);
+                if (score == 0) continue;
                 if (!candidates.TryGetValue(history.Id, out var found))
                     candidates[history.Id] = found = [];
-                found.Add(new SocialUploadQueuePathMatch(history.Id, video, thumbnail));
+                found.Add((score, new SocialUploadQueuePathMatch(history.Id, video, thumbnail)));
             }
         }
 
         return candidates.Values
             .Select(found => found
-                .OrderByDescending(match => File.GetLastWriteTimeUtc(match.VideoPath))
-                .First())
+                .OrderByDescending(candidate => candidate.Score)
+                .ThenByDescending(candidate => File.GetLastWriteTimeUtc(candidate.Match.VideoPath))
+                .First().Match)
             .ToList();
+    }
+
+    private static int MatchScore(QuizHistorySummary history, string folder, string video)
+    {
+        var folderName = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        var searchable = Normalize(folderName + " " + Path.GetFileNameWithoutExtension(video));
+        var identityScore = new[]
+            {
+                Normalize(history.SeriesName),
+                Normalize(history.Categories),
+                Normalize(history.Title),
+            }
+            .Where(identity => identity.Length >= 3)
+            .Where(identity => ContainsPhrase(searchable, identity))
+            .Select(identity => identity.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length * 10)
+            .DefaultIfEmpty(0)
+            .Max();
+        if (identityScore == 0) return 0;
+
+        var score = 100 + identityScore;
+        if (string.Equals(Normalize(folderName), Normalize(StoredFolderName(history.ProjectFolder)),
+                StringComparison.Ordinal))
+            score += 50;
+        if (folderName.Contains(history.EpisodeNumber.ToString("000"), StringComparison.Ordinal))
+            score += 20;
+        return score;
+    }
+
+    private static bool ContainsPhrase(string searchable, string identity) =>
+        (" " + searchable + " ").Contains(" " + identity + " ", StringComparison.Ordinal);
+
+    private static string Normalize(string? value)
+    {
+        var characters = (value ?? "").ToLowerInvariant()
+            .Select(character => char.IsLetterOrDigit(character) ? character : ' ')
+            .ToArray();
+        return string.Join(' ', new string(characters)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
     private static string StoredFolderName(string? path) =>
@@ -378,12 +419,12 @@ public partial class MainShellWindow
             findMissing.IsEnabled = false;
             try
             {
-                var missingHistory = _data.GetQuizHistory()
-                    .Where(history => items.Any(item => item.HistoryId == history.Id && item.VideoPath.Length == 0))
+                var queueHistory = _data.GetQuizHistory()
+                    .Where(history => items.Any(item => item.HistoryId == history.Id))
                     .ToList();
-                if (missingHistory.Count == 0)
+                if (queueHistory.Count == 0)
                 {
-                    queueStatus.Text = "Every queue item already has a video path.";
+                    queueStatus.Text = "There are no queue items to check.";
                     return;
                 }
 
@@ -393,9 +434,9 @@ public partial class MainShellWindow
                 };
                 if (picker.ShowDialog(dialog) != true) return;
 
-                queueStatus.Text = $"Searching for {missingHistory.Count:N0} missing video(s)...";
+                queueStatus.Text = $"Checking video paths for {queueHistory.Count:N0} queue item(s)...";
                 var matches = await Task.Run(() =>
-                    SocialUploadQueuePathFinder.FindMissingVideos(missingHistory, picker.FolderName));
+                    SocialUploadQueuePathFinder.FindMissingVideos(queueHistory, picker.FolderName));
                 foreach (var match in matches)
                 {
                     var item = items.First(candidate => candidate.HistoryId == match.HistoryId);
@@ -492,6 +533,8 @@ public partial class MainShellWindow
 
                     var updated = _data.GetQuizHistory().First(history => history.Id == item.HistoryId);
                     item.ApplyRemaining(SocialUploadQueuePlanner.RemainingDestinations(updated));
+                    var metaAuthenticationError = result.Errors
+                        .FirstOrDefault(SocialUploadQueuePlanner.IsMetaAuthenticationError);
                     if (result.Errors.Count > 0)
                     {
                         var prefix = result.Completed.Count > 0
@@ -509,10 +552,21 @@ public partial class MainShellWindow
                         item.Include = false;
                     }
                     RefreshQuizHistory();
+                    if (metaAuthenticationError is not null)
+                    {
+                        foreach (var waiting in selected.Skip(index + 1).Where(candidate =>
+                                     candidate.Remaining.HasFlag(SocialUploadDestination.Facebook) ||
+                                     candidate.Remaining.HasFlag(SocialUploadDestination.Instagram)))
+                            waiting.Status = "Waiting: renew Meta token in Settings → Facebook";
+                        queueStatus.Text =
+                            "Queue stopped: renew the Facebook Page access token in Settings → Facebook, then retry.";
+                        break;
+                    }
                 }
 
-                queueStatus.Text = $"Queue finished: {completedItems:N0} complete, " +
-                                   $"{items.Count(item => item.Include):N0} ready to retry.";
+                if (!queueStatus.Text.StartsWith("Queue stopped:", StringComparison.Ordinal))
+                    queueStatus.Text = $"Queue finished: {completedItems:N0} complete, " +
+                                       $"{items.Count(item => item.Include):N0} ready to retry.";
             }
             catch (OperationCanceledException)
             {
@@ -631,6 +685,7 @@ public partial class MainShellWindow
         var completed = new List<string>();
         var warnings = new List<string>();
         var errors = new List<string>();
+        var metaAuthenticationFailed = false;
         var file = SocialVideoUploadRules.ValidateVideoFile(videoPath);
         var title = (history.YouTubeTitle.Length > 0 ? history.YouTubeTitle : history.Title).Trim();
         var description = SocialVideoUploadRules.UploadDescription(history).Trim();
@@ -729,10 +784,11 @@ public partial class MainShellWindow
             catch (Exception error)
             {
                 errors.Add("Facebook: " + error.Message);
+                metaAuthenticationFailed = SocialUploadQueuePlanner.IsMetaAuthenticationError(error.Message);
             }
         }
 
-        if (destinations.HasFlag(SocialUploadDestination.Instagram))
+        if (destinations.HasFlag(SocialUploadDestination.Instagram) && !metaAuthenticationFailed)
         {
             try
             {
