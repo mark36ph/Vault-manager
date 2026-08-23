@@ -71,10 +71,15 @@ public static class SocialVideoUploadRules
         return string.Join(Environment.NewLine, result).Trim();
     }
 
-    public static void ValidateUploadMetadata(string videoType, string? title, string? description)
+    public static void ValidateUploadMetadata(
+        string videoType,
+        string? title,
+        string? description,
+        bool requireFullYouTubeVideoLink = true)
     {
         if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("Enter the upload title first.");
-        if (!string.Equals(videoType, "Short", StringComparison.Ordinal)) return;
+        if (!requireFullYouTubeVideoLink ||
+            !string.Equals(videoType, "Short", StringComparison.Ordinal)) return;
         if (!ContainsFullYouTubeVideoLink(description))
             throw new ArgumentException(
                 "The Short description must include the HTTPS link to its full YouTube video (youtube.com/watch or youtu.be).");
