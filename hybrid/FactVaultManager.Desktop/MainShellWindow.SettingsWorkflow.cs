@@ -442,7 +442,7 @@ public partial class MainShellWindow
         stack.Children.Add(_settingsInstagramAccessToken);
         stack.Children.Add(new TextBlock
         {
-            Text = "Use the token generated under Instagram > API setup with Instagram Login. It needs basic, content publishing, insights and comment permissions. The token is encrypted on this PC.",
+            Text = "Use the token generated under Instagram > API setup with Instagram Login for Instagram Manager, insights and comments. Reel uploads use the linked Facebook Page token from Facebook settings. The token is encrypted on this PC.",
             Foreground = SettingsMutedBrush(),
             Margin = new Thickness(0, 7, 0, 0),
             TextWrapping = TextWrapping.Wrap,

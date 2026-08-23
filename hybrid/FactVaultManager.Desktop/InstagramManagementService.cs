@@ -31,6 +31,7 @@ public sealed record InstagramReelUploadResult(string MediaId, string Url);
 public sealed class InstagramManagementService
 {
     internal const string GraphRoot = "https://graph.instagram.com/v26.0";
+    internal const string FacebookGraphRoot = "https://graph.facebook.com/v26.0";
     private static readonly HttpClient SharedClient = new() { Timeout = TimeSpan.FromMinutes(20) };
     private readonly HttpClient _client;
 
@@ -96,13 +97,13 @@ public sealed class InstagramManagementService
     }
 
     public async Task<InstagramReelUploadResult> UploadReelAsync(
-        string accessToken,
+        string facebookPageAccessToken,
         string videoPath,
         string caption,
         bool shareToFeed = true,
         CancellationToken cancellationToken = default)
     {
-        var token = RequireToken(accessToken);
+        var token = RequireFacebookPageToken(facebookPageAccessToken);
         var path = SocialVideoUploadRules.ValidateVideoFile(videoPath);
         if (new FileInfo(path).Length > 1024L * 1024 * 1024)
             throw new ArgumentException("The Instagram Reel video must be 1 GB or smaller.");
@@ -111,19 +112,22 @@ public sealed class InstagramManagementService
             throw new ArgumentException("The Instagram caption cannot exceed 2,200 characters.");
 
         using var account = await GetJsonAsync(
-            $"{GraphRoot}/me?fields=user_id",
+            $"{FacebookGraphRoot}/me?fields=instagram_business_account",
             token,
             cancellationToken);
-        var userId = ReadString(account.RootElement, "user_id");
-        if (userId.Length == 0) userId = ReadString(account.RootElement, "id");
+        var userId = account.RootElement.TryGetProperty("instagram_business_account", out var instagramAccount)
+            ? ReadString(instagramAccount, "id")
+            : "";
         if (userId.Length == 0)
-            throw new InvalidOperationException("Instagram did not return the connected account ID.");
+            throw new InvalidOperationException("The saved Facebook Page is not linked to a professional Instagram account.");
 
         using var create = await PostJsonAsync(
-            $"{GraphRoot}/{Uri.EscapeDataString(userId)}/media?media_type=REELS&upload_type=resumable",
+            $"{FacebookGraphRoot}/{Uri.EscapeDataString(userId)}/media",
             token,
             new Dictionary<string, object>
             {
+                ["media_type"] = "REELS",
+                ["upload_type"] = "resumable",
                 ["caption"] = text,
                 ["share_to_feed"] = shareToFeed,
             },
@@ -134,10 +138,10 @@ public sealed class InstagramManagementService
         var uploadUrl = ReadString(create.RootElement, "uri");
 
         await UploadVideoBytesAsync(token, containerId, uploadUrl, path, cancellationToken);
-        await WaitUntilReadyAsync(token, containerId, cancellationToken);
+        await WaitUntilReadyAsync(FacebookGraphRoot, token, containerId, cancellationToken);
 
         using var publish = await PostFormAsync(
-            $"{GraphRoot}/{Uri.EscapeDataString(userId)}/media_publish",
+            $"{FacebookGraphRoot}/{Uri.EscapeDataString(userId)}/media_publish",
             token,
             new Dictionary<string, string> { ["creation_id"] = containerId },
             cancellationToken);
@@ -149,7 +153,7 @@ public sealed class InstagramManagementService
         try
         {
             using var details = await GetJsonAsync(
-                $"{GraphRoot}/{Uri.EscapeDataString(mediaId)}?fields=permalink",
+                $"{FacebookGraphRoot}/{Uri.EscapeDataString(mediaId)}?fields=permalink",
                 token,
                 cancellationToken);
             url = ReadString(details.RootElement, "permalink");
@@ -188,12 +192,16 @@ public sealed class InstagramManagementService
         await EnsureSuccessAsync(response, "Instagram video upload failed", cancellationToken);
     }
 
-    private async Task WaitUntilReadyAsync(string token, string containerId, CancellationToken cancellationToken)
+    private async Task WaitUntilReadyAsync(
+        string graphRoot,
+        string token,
+        string containerId,
+        CancellationToken cancellationToken)
     {
         for (var attempt = 0; attempt < 120; attempt++)
         {
             using var status = await GetJsonAsync(
-                $"{GraphRoot}/{Uri.EscapeDataString(containerId)}?fields=status_code%2Cstatus",
+                $"{graphRoot}/{Uri.EscapeDataString(containerId)}?fields=status_code%2Cstatus",
                 token,
                 cancellationToken);
             var code = ReadString(status.RootElement, "status_code");
@@ -302,6 +310,14 @@ public sealed class InstagramManagementService
         var token = (value ?? "").Trim();
         if (token.Length == 0)
             throw new InvalidOperationException("Add the Instagram user access token in Settings first.");
+        return token;
+    }
+
+    private static string RequireFacebookPageToken(string? value)
+    {
+        var token = (value ?? "").Trim();
+        if (token.Length == 0)
+            throw new InvalidOperationException("Add the Facebook Page access token in Settings first.");
         return token;
     }
 
