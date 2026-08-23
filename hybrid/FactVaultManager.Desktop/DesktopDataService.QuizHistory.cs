@@ -29,13 +29,17 @@ public sealed record QuizHistorySummary(
     long FacebookReactions = 0,
     long FacebookComments = 0,
     long FacebookShares = 0,
-    string FacebookUploadDate = "")
+    string FacebookUploadDate = "",
+    bool PublishedOnInstagram = false,
+    string InstagramUrl = "",
+    string InstagramUploadDate = "")
 {
     public string EpisodeLabel => EpisodeNumber > 0 ? $"#{EpisodeNumber:000}" : "";
     public string CreatedDisplay => QuizHistoryDate.Format(Created);
     public string VideoType => QuizHistoryVideoType.DisplayName(Format);
     public string YouTubeUploadDateDisplay => QuizYouTubeAnalytics.FormatUploadDate(YouTubeUploadDate);
     public string FacebookUploadDateDisplay => QuizFacebookAnalytics.FormatUploadDate(FacebookUploadDate);
+    public string InstagramUploadDateDisplay => QuizYouTubeAnalytics.FormatUploadDate(InstagramUploadDate);
     public string AnalyticsCategory => QuizYouTubeAnalytics.CategoryName(this);
 }
 
@@ -137,6 +141,24 @@ public static class QuizFacebookPublication
                          string.Equals(host, "fb.watch", StringComparison.OrdinalIgnoreCase);
         if (!isFacebook)
             throw new ArgumentException("The Reel link must use facebook.com or fb.watch.");
+        return uri.AbsoluteUri;
+    }
+}
+
+public static class QuizInstagramPublication
+{
+    public static string NormalizeUrl(string? value)
+    {
+        var text = (value ?? "").Trim();
+        if (text.Length == 0) return "";
+        if (!Uri.TryCreate(text, UriKind.Absolute, out var uri) ||
+            !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("Enter a complete HTTPS Instagram post link.");
+
+        var host = uri.Host.TrimEnd('.');
+        if (!(string.Equals(host, "instagram.com", StringComparison.OrdinalIgnoreCase) ||
+              host.EndsWith(".instagram.com", StringComparison.OrdinalIgnoreCase)))
+            throw new ArgumentException("The post link must use instagram.com.");
         return uri.AbsoluteUri;
     }
 }
@@ -414,7 +436,8 @@ public sealed partial class DesktopDataService
                    youtube_hashtags, pinned_comment, published_on_youtube, youtube_url,
                    youtube_views, youtube_likes, youtube_upload_date,
                    published_on_facebook, facebook_url, facebook_views, facebook_reactions,
-                   facebook_comments, facebook_shares, facebook_upload_date
+                   facebook_comments, facebook_shares, facebook_upload_date,
+                   published_on_instagram, instagram_url, instagram_upload_date
             FROM quiz_history
             ORDER BY id DESC
             LIMIT $limit
@@ -452,7 +475,10 @@ public sealed partial class DesktopDataService
                 reader.GetInt64(23),
                 reader.GetInt64(24),
                 reader.GetInt64(25),
-                reader.GetString(26)));
+                reader.GetString(26),
+                reader.GetInt32(27) != 0,
+                reader.GetString(28),
+                reader.GetString(29)));
         }
         return results;
     }
@@ -592,6 +618,31 @@ public sealed partial class DesktopDataService
         return command.ExecuteNonQuery() == 1;
     }
 
+    public bool UpdateQuizHistoryInstagramPublication(
+        int historyId,
+        bool published,
+        string? instagramUrl,
+        DateTime? uploadDate)
+    {
+        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
+        var normalizedUrl = QuizInstagramPublication.NormalizeUrl(instagramUrl);
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE quiz_history
+            SET published_on_instagram = $published,
+                instagram_url = $instagramUrl,
+                instagram_upload_date = $uploadDate
+            WHERE id = $historyId
+            """;
+        command.Parameters.AddWithValue("$published", published ? 1 : 0);
+        command.Parameters.AddWithValue("$instagramUrl", normalizedUrl);
+        command.Parameters.AddWithValue("$uploadDate", QuizYouTubeAnalytics.NormalizeUploadDate(uploadDate));
+        command.Parameters.AddWithValue("$historyId", historyId);
+        return command.ExecuteNonQuery() == 1;
+    }
+
     public IReadOnlyList<QuizHistoryQuestion> GetQuizHistoryQuestions(int historyId)
     {
         if (historyId <= 0)
@@ -655,7 +706,10 @@ public sealed partial class DesktopDataService
                     facebook_reactions INTEGER NOT NULL DEFAULT 0,
                     facebook_comments INTEGER NOT NULL DEFAULT 0,
                     facebook_shares INTEGER NOT NULL DEFAULT 0,
-                    facebook_upload_date TEXT NOT NULL DEFAULT ''
+                    facebook_upload_date TEXT NOT NULL DEFAULT '',
+                    published_on_instagram INTEGER NOT NULL DEFAULT 0,
+                    instagram_url TEXT NOT NULL DEFAULT '',
+                    instagram_upload_date TEXT NOT NULL DEFAULT ''
                 );
 
                 CREATE TABLE IF NOT EXISTS quiz_history_questions (
@@ -695,6 +749,9 @@ public sealed partial class DesktopDataService
         EnsureQuizHistoryColumn(connection, "facebook_comments", "INTEGER NOT NULL DEFAULT 0");
         EnsureQuizHistoryColumn(connection, "facebook_shares", "INTEGER NOT NULL DEFAULT 0");
         EnsureQuizHistoryColumn(connection, "facebook_upload_date", "TEXT NOT NULL DEFAULT ''");
+        EnsureQuizHistoryColumn(connection, "published_on_instagram", "INTEGER NOT NULL DEFAULT 0");
+        EnsureQuizHistoryColumn(connection, "instagram_url", "TEXT NOT NULL DEFAULT ''");
+        EnsureQuizHistoryColumn(connection, "instagram_upload_date", "TEXT NOT NULL DEFAULT ''");
         using var seriesIndex = connection.CreateCommand();
         seriesIndex.CommandText = """
             CREATE INDEX IF NOT EXISTS ix_quiz_history_series_episode
