@@ -87,6 +87,14 @@
                 <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#F2F4F7" /></Trigger>
             </Style.Triggers>
         </Style>
+        <Style x:Key="NavSeparatorStyle" TargetType="Border">
+            <Setter Property="Height" Value="1" />
+            <Setter Property="MinWidth" Value="196" />
+            <Setter Property="Background" Value="#E1E1E1" />
+            <Setter Property="Margin" Value="12,12" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="SnapsToDevicePixels" Value="True" />
+        </Style>
         <Style x:Key="StatCard" TargetType="Border">
             <Setter Property="Background" Value="#FFFFFF" />
             <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
@@ -314,7 +322,7 @@
                     <Button Style="{StaticResource NavButtonStyle}" Tag="2" Click="Navigate_Click" Content="▷   Production" />
                     <Button Style="{StaticResource NavButtonStyle}" Tag="3" Click="Navigate_Click" Content="□   Media Library" />
                     <Button Style="{StaticResource NavButtonStyle}" Tag="4" Click="Navigate_Click" Content="◉   Asset Review" />
-                    <Border Height="1" Background="#E1E1E1" Margin="12,12" />
+                    <Border Style="{StaticResource NavSeparatorStyle}" />
                     <Button Style="{StaticResource NavButtonStyle}" Tag="5" Click="Navigate_Click" Content="⚙   Settings" />
                 </StackPanel>
             </Border>
