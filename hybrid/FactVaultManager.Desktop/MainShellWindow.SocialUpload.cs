@@ -225,7 +225,7 @@ public partial class MainShellWindow
         instagramPanel.Children.Add(new TextBlock
         {
             Text = instagramAllowed
-                ? "Publishes this vertical video as an Instagram Reel using the saved Instagram token."
+                ? "Publishes this vertical video as an Instagram Reel through the linked Facebook Page."
                 : "Full videos are never sent to Instagram.",
             Foreground = QuizMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
@@ -475,9 +475,9 @@ public partial class MainShellWindow
                     var duration = await new NativeFfmpegTimelineService().MediaDurationAsync(file);
                     SocialVideoUploadRules.ValidateInstagramDuration(duration);
                     statusText.Text = "Uploading the Short to Instagram... Keep this window open.";
-                    var instagramToken = _data.LoadSettings().InstagramAccessToken;
+                    var pageToken = FacebookPageToken();
                     var result = await _instagramReelUpload.UploadReelAsync(
-                        instagramToken,
+                        pageToken,
                         file,
                         description);
                     _data.UpdateQuizHistoryInstagramPublication(
