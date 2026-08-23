@@ -141,6 +141,59 @@ public partial class MainShellWindow
         if (bankActions is not null)
         {
             ConfigureQuizBulkActions(bankActions);
+
+            var bulkButtons = bankActions.Children
+                .OfType<Button>()
+                .Where(button => string.Equals(
+                    button.Tag?.ToString(),
+                    "QuizBulkAction",
+                    StringComparison.Ordinal))
+                .ToArray();
+            if (bulkButtons.Length > 0 && bankHeader is not null)
+            {
+                while (bankHeader.RowDefinitions.Count < 2)
+                    bankHeader.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+                var bulkLayout = new WrapPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    VerticalAlignment = VerticalAlignment.Center,
+                };
+                var bulkLabel = new TextBlock
+                {
+                    Text = "SELECTED QUESTIONS",
+                    FontSize = 10,
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Margin = new Thickness(0, 0, 12, 0),
+                };
+                bulkLayout.Children.Add(bulkLabel);
+
+                foreach (var button in bulkButtons)
+                {
+                    bankActions.Children.Remove(button);
+                    button.MinHeight = 32;
+                    button.Margin = new Thickness(0, 0, 8, 0);
+                    bulkLayout.Children.Add(button);
+                }
+
+                var bulkBar = new Border
+                {
+                    Background = new SolidColorBrush(Color.FromRgb(11, 24, 78)),
+                    BorderBrush = new SolidColorBrush(Color.FromRgb(35, 62, 145)),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(8),
+                    Padding = new Thickness(10, 7, 4, 7),
+                    Margin = new Thickness(0, 10, 0, 0),
+                    Child = bulkLayout,
+                };
+                Grid.SetRow(bulkBar, 1);
+                Grid.SetColumnSpan(bulkBar, 2);
+                bankHeader.Children.Add(bulkBar);
+            }
+
+            bankActions.HorizontalAlignment = HorizontalAlignment.Right;
             foreach (var button in bankActions.Children.OfType<Button>())
             {
                 var label = button.Content?.ToString() ?? string.Empty;
@@ -159,6 +212,13 @@ public partial class MainShellWindow
             text.Foreground = Brushes.White;
         if (_quizBankStatusText is not null)
             _quizBankStatusText.Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255));
+        var searchLabel = FindVisualChildren<TextBlock>(bankCard)
+            .FirstOrDefault(text => string.Equals(text.Text, "Search", StringComparison.Ordinal));
+        if (searchLabel is not null)
+        {
+            searchLabel.Text = "Search questions";
+            searchLabel.Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255));
+        }
 
         foreach (var button in FindVisualChildren<Button>(bankCard))
         {
