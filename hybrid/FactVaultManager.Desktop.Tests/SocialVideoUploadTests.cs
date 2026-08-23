@@ -86,11 +86,11 @@ public sealed class SocialVideoUploadTests
     {
         var root = Path.Combine(Path.GetTempPath(), $"factburst-queue-{Guid.NewGuid():N}");
         var generalKnowledge = Path.Combine(root, "General Knowledge Quiz - Short - 001");
-        var space = Path.Combine(root, "Space Quiz - Short - 001");
+        var space = Path.Combine(root, "Space - Short - 001");
         Directory.CreateDirectory(generalKnowledge);
         Directory.CreateDirectory(space);
         File.WriteAllBytes(Path.Combine(generalKnowledge, "General Knowledge Quiz.mp4"), [0, 1, 2, 3]);
-        var expectedVideo = Path.Combine(space, "Space Quiz.mp4");
+        var expectedVideo = Path.Combine(space, "Space.mp4");
         File.WriteAllBytes(expectedVideo, [0, 1, 2, 3]);
         try
         {

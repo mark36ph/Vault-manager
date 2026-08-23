@@ -99,8 +99,16 @@ public static class SocialUploadQueuePathFinder
         int identityScore;
         if (uploadTitleIdentity.Length >= 3)
         {
-            if (!ContainsPhrase(searchable, uploadTitleIdentity)) return 0;
-            identityScore = 100 + uploadTitleIdentity.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length * 10;
+            var identities = new[] { uploadTitleIdentity, WithoutTrailingQuiz(uploadTitleIdentity) }
+                .Distinct(StringComparer.Ordinal)
+                .Where(identity => identity.Length >= 3)
+                .ToList();
+            var matchedIdentity = identities
+                .Where(identity => ContainsPhrase(searchable, identity))
+                .OrderByDescending(identity => identity.Length)
+                .FirstOrDefault();
+            if (matchedIdentity is null) return 0;
+            identityScore = 100 + matchedIdentity.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length * 10;
         }
         else
         {
@@ -137,6 +145,11 @@ public static class SocialUploadQueuePathFinder
         if (episodeMarker >= 0) value = value[..episodeMarker];
         return Normalize(value);
     }
+
+    private static string WithoutTrailingQuiz(string identity) =>
+        identity.EndsWith(" quiz", StringComparison.Ordinal)
+            ? identity[..^5].TrimEnd()
+            : identity;
 
     private static bool ContainsPhrase(string searchable, string identity) =>
         (" " + searchable + " ").Contains(" " + identity + " ", StringComparison.Ordinal);
@@ -380,6 +393,7 @@ public partial class MainShellWindow
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var queueStatus = new TextBlock
         {
             Text = $"{items.Count(item => item.Include):N0} ready item(s) selected.",
@@ -388,6 +402,16 @@ public partial class MainShellWindow
             TextWrapping = TextWrapping.Wrap,
         };
         footer.Children.Add(queueStatus);
+        var chooseVideo = new Button
+        {
+            Content = "Choose selected video",
+            MinWidth = 146,
+            MinHeight = 36,
+            Margin = new Thickness(8, 0, 0, 0),
+        };
+        StyleQuizHistoryButton(chooseVideo, Color.FromRgb(255, 202, 45));
+        Grid.SetColumn(chooseVideo, 1);
+        footer.Children.Add(chooseVideo);
         var stop = new Button
         {
             Content = "Stop queue",
@@ -397,7 +421,7 @@ public partial class MainShellWindow
             Margin = new Thickness(8, 0, 0, 0),
         };
         StyleQuizHistoryButton(stop, Color.FromRgb(248, 90, 105));
-        Grid.SetColumn(stop, 1);
+        Grid.SetColumn(stop, 2);
         footer.Children.Add(stop);
         var close = new Button
         {
@@ -408,7 +432,7 @@ public partial class MainShellWindow
             IsCancel = true,
         };
         StyleQuizHistoryButton(close, Color.FromRgb(204, 70, 255));
-        Grid.SetColumn(close, 2);
+        Grid.SetColumn(close, 3);
         footer.Children.Add(close);
         var start = new Button
         {
@@ -419,7 +443,7 @@ public partial class MainShellWindow
             IsDefault = true,
         };
         StyleQuizHistoryButton(start, Color.FromRgb(70, 235, 115));
-        Grid.SetColumn(start, 3);
+        Grid.SetColumn(start, 4);
         footer.Children.Add(start);
         Grid.SetRow(footer, 3);
         root.Children.Add(footer);
@@ -434,6 +458,37 @@ public partial class MainShellWindow
         {
             foreach (var item in items) item.Include = false;
             queueStatus.Text = "Queue selection cleared.";
+        };
+        chooseVideo.Click += (_, _) =>
+        {
+            if (grid.SelectedItem is not SocialUploadQueueItem item)
+            {
+                MessageBox.Show(dialog, "Select the quiz row you want to correct first.",
+                    "Choose Video", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var picker = new OpenFileDialog
+            {
+                Title = $"Choose the completed video for {item.Title}",
+                Filter = "Video files (*.mp4;*.mov;*.m4v)|*.mp4;*.mov;*.m4v|All files (*.*)|*.*",
+                Multiselect = false,
+            };
+            if (picker.ShowDialog(dialog) != true) return;
+            try
+            {
+                var videoPath = SocialVideoUploadRules.ValidateVideoFile(picker.FileName);
+                var projectFolder = Path.GetDirectoryName(videoPath) ?? "";
+                var thumbnailPath = SocialVideoUploadRules.FindLikelyThumbnail(projectFolder) ?? "";
+                item.ApplyPaths(videoPath, thumbnailPath);
+                _data.UpdateQuizHistoryProjectFolder(item.HistoryId, projectFolder);
+                queueStatus.Text = $"Saved {Path.GetFileName(videoPath)} for {item.Title}.";
+                RefreshQuizHistory();
+            }
+            catch (Exception error)
+            {
+                MessageBox.Show(dialog, error.Message, "Choose Video", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         };
         findMissing.Click += async (_, _) =>
         {
@@ -517,6 +572,7 @@ public partial class MainShellWindow
             selectReady.IsEnabled = false;
             clear.IsEnabled = false;
             findMissing.IsEnabled = false;
+            chooseVideo.IsEnabled = false;
             var completedItems = 0;
             try
             {
@@ -605,6 +661,7 @@ public partial class MainShellWindow
                 selectReady.IsEnabled = true;
                 clear.IsEnabled = true;
                 findMissing.IsEnabled = true;
+                chooseVideo.IsEnabled = true;
                 RefreshQuizHistory();
             }
         };
