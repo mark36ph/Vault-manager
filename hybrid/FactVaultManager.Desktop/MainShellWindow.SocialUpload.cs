@@ -476,10 +476,11 @@ public partial class MainShellWindow
                     SocialVideoUploadRules.ValidateInstagramDuration(duration);
                     statusText.Text = "Uploading the Short to Instagram... Keep this window open.";
                     var pageToken = FacebookPageToken();
+                    var instagramCaption = SocialVideoUploadRules.InstagramCaption(description);
                     var result = await _instagramReelUpload.UploadReelAsync(
                         pageToken,
                         file,
-                        description);
+                        instagramCaption);
                     _data.UpdateQuizHistoryInstagramPublication(
                         history.Id, true, result.Url, DateTime.Today);
                     completed.Add("Instagram");
