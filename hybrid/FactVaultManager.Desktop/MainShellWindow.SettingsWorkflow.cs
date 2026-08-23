@@ -28,6 +28,7 @@ public partial class MainShellWindow
     private TextBlock? _settingsYouTubeConnectionStatus;
     private Button? _settingsYouTubeConnectButton;
     private PasswordBox? _settingsFacebookPageAccessToken;
+    private PasswordBox? _settingsInstagramAccessToken;
     private readonly YouTubeOAuthService _youtubeOAuth = new();
     private string _settingsSelectedPage = "general";
 
@@ -100,6 +101,7 @@ public partial class MainShellWindow
         AddSettingsNav(sidebarStack, "ai", "AI");
         AddSettingsNav(sidebarStack, "youtube", "YouTube");
         AddSettingsNav(sidebarStack, "facebook", "Facebook");
+        AddSettingsNav(sidebarStack, "instagram", "Instagram");
         AddSettingsNav(sidebarStack, "about", "About");
 
         var contentBorder = SettingsCard(new Thickness(18));
@@ -115,6 +117,7 @@ public partial class MainShellWindow
         _settingsPages["ai"] = BuildAiSettingsPage();
         _settingsPages["youtube"] = BuildYouTubeSettingsPage();
         _settingsPages["facebook"] = BuildFacebookSettingsPage();
+        _settingsPages["instagram"] = BuildInstagramSettingsPage();
         _settingsPages["about"] = BuildAboutSettingsPage();
 
         tab.Content = root;
@@ -425,6 +428,40 @@ public partial class MainShellWindow
         return SettingsScrollable(page);
     }
 
+    private FrameworkElement BuildInstagramSettingsPage()
+    {
+        var page = SettingsPageStack(
+            "Instagram",
+            "Connect the professional Instagram account used for quiz Reels.");
+
+        var credentials = SettingsSection("Instagram API with Instagram Login");
+        page.Children.Add(credentials);
+        var stack = (StackPanel)credentials.Child;
+        stack.Children.Add(SettingsFieldLabel("Instagram user access token"));
+        _settingsInstagramAccessToken = new PasswordBox { Margin = new Thickness(0, 5, 0, 0) };
+        stack.Children.Add(_settingsInstagramAccessToken);
+        stack.Children.Add(new TextBlock
+        {
+            Text = "Use the token generated under Instagram > API setup with Instagram Login. It needs basic, content publishing, insights and comment permissions. The token is encrypted on this PC.",
+            Foreground = SettingsMutedBrush(),
+            Margin = new Thickness(0, 7, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+        });
+
+        var behaviour = SettingsSection("Instagram Manager");
+        page.Children.Add(behaviour);
+        ((StackPanel)behaviour.Child).Children.Add(new TextBlock
+        {
+            Text = "Instagram Manager loads your recent media and insights. Quiz Shorts can also be uploaded as Reels from the Quiz History upload window.",
+            Foreground = SettingsMutedBrush(),
+            Margin = new Thickness(0, 6, 0, 0),
+            TextWrapping = TextWrapping.Wrap,
+        });
+
+        page.Children.Add(SettingsFooter("Save Instagram settings", SaveAllSettings));
+        return SettingsScrollable(page);
+    }
+
     private FrameworkElement BuildIntegritySettingsPage()
     {
         var page = SettingsPageStack("Project Integrity", "Check the database and project folders for missing or inconsistent project data.");
@@ -491,6 +528,7 @@ public partial class MainShellWindow
             if (_settingsYouTubeClientId is not null) _settingsYouTubeClientId.Text = settings.YouTubeOAuthClientId;
             if (_settingsYouTubeClientSecret is not null) _settingsYouTubeClientSecret.Password = settings.YouTubeOAuthClientSecret;
             if (_settingsFacebookPageAccessToken is not null) _settingsFacebookPageAccessToken.Password = settings.FacebookPageAccessToken;
+            if (_settingsInstagramAccessToken is not null) _settingsInstagramAccessToken.Password = settings.InstagramAccessToken;
             SetYouTubeConnectionStatus(settings.YouTubeOAuthRefreshToken.Length > 0 ? "Connected to Google" : "Not connected");
         }
         catch (Exception error)
@@ -526,6 +564,7 @@ public partial class MainShellWindow
                 YouTubeOAuthClientSecret = _settingsYouTubeClientSecret?.Password.Trim() ?? existingSettings.YouTubeOAuthClientSecret,
                 YouTubeOAuthRefreshToken = refreshTokenOverride ?? existingSettings.YouTubeOAuthRefreshToken,
                 FacebookPageAccessToken = _settingsFacebookPageAccessToken?.Password.Trim() ?? existingSettings.FacebookPageAccessToken,
+                InstagramAccessToken = _settingsInstagramAccessToken?.Password.Trim() ?? existingSettings.InstagramAccessToken,
                 ResolvePath = ResolvePathTextBox.Text.Trim(),
                 TimelineWidth = width,
                 TimelineHeight = height,

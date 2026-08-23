@@ -264,6 +264,7 @@ public sealed partial class DesktopDataService
         var youtubeClientSecretStored = node["youtube"]?["oauth_client_secret"]?.GetValue<string>() ?? "";
         var youtubeRefreshTokenStored = node["youtube"]?["oauth_refresh_token"]?.GetValue<string>() ?? "";
         var facebookAccessTokenStored = node["facebook"]?["page_access_token"]?.GetValue<string>() ?? "";
+        var instagramAccessTokenStored = node["instagram"]?["access_token"]?.GetValue<string>() ?? "";
 
         var settings = new AppSettingsModel
         {
@@ -278,6 +279,7 @@ public sealed partial class DesktopDataService
             YouTubeOAuthClientSecret = LocalSecretProtector.Unprotect(youtubeClientSecretStored),
             YouTubeOAuthRefreshToken = LocalSecretProtector.Unprotect(youtubeRefreshTokenStored),
             FacebookPageAccessToken = LocalSecretProtector.Unprotect(facebookAccessTokenStored),
+            InstagramAccessToken = LocalSecretProtector.Unprotect(instagramAccessTokenStored),
             ResolvePath = node["resolve"]?["application_path"]?.GetValue<string>() ?? "",
             TimelineWidth = node["resolve"]?["timeline_width"]?.GetValue<int>() ?? 1080,
             TimelineHeight = node["resolve"]?["timeline_height"]?.GetValue<int>() ?? 1920,
@@ -301,7 +303,8 @@ public sealed partial class DesktopDataService
         var resolve = node["resolve"] as JsonObject ?? new JsonObject();
         var youtube = node["youtube"] as JsonObject ?? new JsonObject();
         var facebook = node["facebook"] as JsonObject ?? new JsonObject();
-        node["general"] = general; node["ai"] = ai; node["images"] = images; node["resolve"] = resolve; node["youtube"] = youtube; node["facebook"] = facebook;
+        var instagram = node["instagram"] as JsonObject ?? new JsonObject();
+        node["general"] = general; node["ai"] = ai; node["images"] = images; node["resolve"] = resolve; node["youtube"] = youtube; node["facebook"] = facebook; node["instagram"] = instagram;
         general["projects_folder"] = settings.ProjectsFolder;
         general["theme"] = settings.Theme;
         general["check_updates"] = settings.CheckUpdates;
@@ -314,6 +317,7 @@ public sealed partial class DesktopDataService
         youtube["oauth_client_secret"] = LocalSecretProtector.Protect(settings.YouTubeOAuthClientSecret);
         youtube["oauth_refresh_token"] = LocalSecretProtector.Protect(settings.YouTubeOAuthRefreshToken);
         facebook["page_access_token"] = LocalSecretProtector.Protect(settings.FacebookPageAccessToken);
+        instagram["access_token"] = LocalSecretProtector.Protect(settings.InstagramAccessToken);
         resolve["application_path"] = settings.ResolvePath;
         resolve["timeline_width"] = settings.TimelineWidth;
         resolve["timeline_height"] = settings.TimelineHeight;
@@ -447,6 +451,7 @@ public sealed class AppSettingsModel
     public string YouTubeOAuthClientSecret { get; set; } = "";
     public string YouTubeOAuthRefreshToken { get; set; } = "";
     public string FacebookPageAccessToken { get; set; } = "";
+    public string InstagramAccessToken { get; set; } = "";
     public string ResolvePath { get; set; } = "";
     public int TimelineWidth { get; set; } = 1080;
     public int TimelineHeight { get; set; } = 1920;

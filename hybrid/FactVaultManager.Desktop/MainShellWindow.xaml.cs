@@ -327,6 +327,7 @@ public partial class MainShellWindow : Window
                 YouTubeOAuthClientSecret = existingSettings.YouTubeOAuthClientSecret,
                 YouTubeOAuthRefreshToken = existingSettings.YouTubeOAuthRefreshToken,
                 FacebookPageAccessToken = existingSettings.FacebookPageAccessToken,
+                InstagramAccessToken = existingSettings.InstagramAccessToken,
                 ResolvePath = ResolvePathTextBox.Text.Trim(),
                 TimelineWidth = width,
                 TimelineHeight = height,

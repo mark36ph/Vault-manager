@@ -150,6 +150,12 @@ public static class SocialVideoUploadRules
         if (!double.IsFinite(seconds) || seconds < 3 || seconds > 90)
             throw new ArgumentException("Facebook Reels must be between 3 and 90 seconds long.");
     }
+
+    public static void ValidateInstagramDuration(double seconds)
+    {
+        if (!double.IsFinite(seconds) || seconds < 3 || seconds > 900)
+            throw new ArgumentException("Instagram Reels must be between 3 seconds and 15 minutes long.");
+    }
 }
 
 public sealed class YouTubeVideoUploadService
