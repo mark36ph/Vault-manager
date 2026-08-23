@@ -14,8 +14,22 @@ public sealed class FacebookAnalyticsTests
         Assert.Equal("Quiz Page", page.PageName);
         Assert.Single(page.Videos);
         Assert.Equal("456", page.Videos[0].VideoId);
-        Assert.Contains(handler.Paths, path => path.Contains("/123/video_reels", StringComparison.Ordinal));
-        Assert.DoesNotContain(handler.Paths, path => path.Contains("/123/videos", StringComparison.Ordinal));
+        Assert.Contains(handler.Paths, path => path.Contains("/me/video_reels", StringComparison.Ordinal));
+        Assert.DoesNotContain(handler.Paths, path => path.Contains("/me/videos", StringComparison.Ordinal));
+        Assert.DoesNotContain(handler.Paths, path => path.Contains("/123/video_reels", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task PageDiscovery_FallsBackToVideosWhenVideoReelsEdgeIsUnavailable()
+    {
+        var handler = new FacebookGraphHandler { RejectVideoReels = true };
+        var service = new FacebookReelAnalyticsService(new HttpClient(handler));
+
+        var page = await service.ListPageVideosAsync("page-token");
+
+        Assert.Single(page.Videos);
+        Assert.Contains(handler.Paths, path => path.Contains("/me/video_reels", StringComparison.Ordinal));
+        Assert.Contains(handler.Paths, path => path.Contains("/me/videos", StringComparison.Ordinal));
     }
 
     [Theory]
@@ -149,6 +163,7 @@ public sealed class FacebookAnalyticsTests
     private sealed class FacebookGraphHandler : HttpMessageHandler
     {
         public List<string> Paths { get; } = [];
+        public bool RejectVideoReels { get; init; }
 
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
@@ -156,6 +171,14 @@ public sealed class FacebookAnalyticsTests
         {
             var path = request.RequestUri?.AbsolutePath ?? "";
             Paths.Add(path);
+            if (RejectVideoReels && path.EndsWith("/video_reels", StringComparison.Ordinal))
+            {
+                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.BadRequest)
+                {
+                    Content = new StringContent(
+                        """{"error":{"message":"(#100) Tried accessing nonexisting field (video_reels)"}}"""),
+                });
+            }
             var json = path.EndsWith("/me", StringComparison.Ordinal)
                 ? """{"id":"123","name":"Quiz Page"}"""
                 : """{"data":[{"id":"456","title":"Science Quiz","description":"Can You Get 1/1?","permalink_url":"https://www.facebook.com/reel/456","created_time":"2026-08-22T09:30:00+0000"}]}""";
