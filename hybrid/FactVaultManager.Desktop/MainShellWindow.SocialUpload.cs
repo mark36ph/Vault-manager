@@ -9,6 +9,7 @@ public partial class MainShellWindow
 {
     private readonly YouTubeVideoUploadService _youtubeVideoUpload = new();
     private readonly FacebookReelUploadService _facebookReelUpload = new();
+    private readonly InstagramManagementService _instagramReelUpload = new();
 
     private void ShowSelectedQuizUpload()
     {
@@ -26,8 +27,8 @@ public partial class MainShellWindow
         {
             Title = "Upload Quiz Video",
             Owner = this,
-            Width = 800,
-            Height = 830,
+            Width = 940,
+            Height = 860,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             ResizeMode = ResizeMode.CanResize,
             Background = new SolidColorBrush(Color.FromRgb(246, 248, 253)),
@@ -52,7 +53,7 @@ public partial class MainShellWindow
         heading.Children.Add(new TextBlock
         {
             Text = history.VideoType == "Short"
-                ? "Short • upload to YouTube, Facebook, or both"
+                ? "Short • upload to YouTube, Facebook, Instagram, or any combination"
                 : "Full video • upload to YouTube only",
             Foreground = QuizMutedBrush(),
             Margin = new Thickness(0, 4, 0, 0),
@@ -154,6 +155,7 @@ public partial class MainShellWindow
         destinationContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         destinationContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         destinationContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        destinationContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         var youtubePanel = new StackPanel { Margin = new Thickness(0, 0, 14, 0) };
         var youtube = new CheckBox
@@ -207,6 +209,31 @@ public partial class MainShellWindow
         Grid.SetColumn(facebookPanel, 1);
         destinationContent.Children.Add(facebookPanel);
 
+        var instagramPanel = new StackPanel { Margin = new Thickness(14, 0, 0, 0) };
+        var instagramAllowed = string.Equals(history.VideoType, "Short", StringComparison.Ordinal);
+        var instagram = new CheckBox
+        {
+            Content = !instagramAllowed
+                ? "Instagram (Shorts only)"
+                : history.PublishedOnInstagram ? "Instagram (already published)" : "Upload to Instagram",
+            IsChecked = instagramAllowed && !history.PublishedOnInstagram,
+            IsEnabled = instagramAllowed && !history.PublishedOnInstagram,
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 15,
+        };
+        instagramPanel.Children.Add(instagram);
+        instagramPanel.Children.Add(new TextBlock
+        {
+            Text = instagramAllowed
+                ? "Publishes this vertical video as an Instagram Reel using the saved Instagram token."
+                : "Full videos are never sent to Instagram.",
+            Foreground = QuizMutedBrush(),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(22, 4, 0, 0),
+        });
+        Grid.SetColumn(instagramPanel, 2);
+        destinationContent.Children.Add(instagramPanel);
+
         var schedulePanel = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -257,7 +284,7 @@ public partial class MainShellWindow
         schedulePanel.Children.Add(scheduleTime);
         schedulePanel.Children.Add(scheduleZone);
         Grid.SetRow(schedulePanel, 1);
-        Grid.SetColumnSpan(schedulePanel, 2);
+        Grid.SetColumnSpan(schedulePanel, 3);
         destinationContent.Children.Add(schedulePanel);
         schedule.Checked += (_, _) =>
         {
@@ -339,7 +366,7 @@ public partial class MainShellWindow
         footer.Children.Add(cancel);
         var uploadButton = new Button { Content = "Upload", MinWidth = 104, MinHeight = 36, Margin = new Thickness(8, 0, 0, 0), IsDefault = true };
         StyleQuizHistoryButton(uploadButton, Color.FromRgb(70, 235, 115));
-        uploadButton.IsEnabled = youtube.IsEnabled || facebook.IsEnabled;
+        uploadButton.IsEnabled = youtube.IsEnabled || facebook.IsEnabled || instagram.IsEnabled;
         Grid.SetColumn(uploadButton, 2);
         footer.Children.Add(uploadButton);
         Grid.SetRow(footer, 5);
@@ -349,9 +376,10 @@ public partial class MainShellWindow
         {
             var uploadYouTube = youtube.IsChecked == true;
             var uploadFacebook = facebook.IsChecked == true;
-            if (!uploadYouTube && !uploadFacebook)
+            var uploadInstagram = instagram.IsChecked == true;
+            if (!uploadYouTube && !uploadFacebook && !uploadInstagram)
             {
-                MessageBox.Show(dialog, "Choose YouTube, Facebook, or both.", "Upload Video", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(dialog, "Choose YouTube, Facebook, Instagram, or a combination.", "Upload Video", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
@@ -364,6 +392,8 @@ public partial class MainShellWindow
                 var title = titleBox.Text.Trim();
                 var description = descriptionBox.Text.Trim();
                 SocialVideoUploadRules.ValidateUploadMetadata(history.VideoType, title, description);
+                if (uploadInstagram && schedule.IsChecked == true)
+                    throw new InvalidOperationException("Scheduled Instagram publishing is not available yet. Turn off scheduling or deselect Instagram.");
                 var scheduledFor = SocialVideoUploadRules.ResolveScheduledPublishAt(
                     schedule.IsChecked == true,
                     scheduleDate.SelectedDate,
@@ -438,6 +468,26 @@ public partial class MainShellWindow
                     facebook.Content = "Facebook (uploaded)";
                 }
 
+                if (uploadInstagram)
+                {
+                    if (!string.Equals(history.VideoType, "Short", StringComparison.Ordinal))
+                        throw new InvalidOperationException("Only Shorts can be uploaded to Instagram.");
+                    var duration = await new NativeFfmpegTimelineService().MediaDurationAsync(file);
+                    SocialVideoUploadRules.ValidateInstagramDuration(duration);
+                    statusText.Text = "Uploading the Short to Instagram... Keep this window open.";
+                    var instagramToken = _data.LoadSettings().InstagramAccessToken;
+                    var result = await _instagramReelUpload.UploadReelAsync(
+                        instagramToken,
+                        file,
+                        description);
+                    _data.UpdateQuizHistoryInstagramPublication(
+                        history.Id, true, result.Url, DateTime.Today);
+                    completed.Add("Instagram");
+                    instagram.IsChecked = false;
+                    instagram.IsEnabled = false;
+                    instagram.Content = "Instagram (uploaded)";
+                }
+
                 RefreshQuizHistory();
                 var warningText = thumbnailWarnings.Count == 0
                     ? ""
@@ -464,7 +514,7 @@ public partial class MainShellWindow
             }
             finally
             {
-                uploadButton.IsEnabled = youtube.IsEnabled || facebook.IsEnabled;
+                uploadButton.IsEnabled = youtube.IsEnabled || facebook.IsEnabled || instagram.IsEnabled;
                 browse.IsEnabled = true;
                 browseThumbnail.IsEnabled = true;
                 schedule.IsEnabled = true;
