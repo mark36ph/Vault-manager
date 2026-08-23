@@ -26,13 +26,14 @@ public partial class MainShellWindow
         {
             Title = "Upload Quiz Video",
             Owner = this,
-            Width = 760,
-            Height = 610,
+            Width = 800,
+            Height = 760,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             ResizeMode = ResizeMode.CanResize,
             Background = new SolidColorBrush(Color.FromRgb(246, 248, 253)),
         };
         var root = new Grid { Margin = new Thickness(24) };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -42,7 +43,7 @@ public partial class MainShellWindow
         var heading = new StackPanel { Margin = new Thickness(0, 0, 0, 16) };
         heading.Children.Add(new TextBlock
         {
-            Text = history.YouTubeTitle.Length > 0 ? history.YouTubeTitle : history.Title,
+            Text = "Upload " + (history.VideoType == "Short" ? "Short" : "Full Video"),
             FontSize = 23,
             FontWeight = FontWeights.SemiBold,
             Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)),
@@ -98,6 +99,46 @@ public partial class MainShellWindow
         filePanel.Children.Add(browse);
         Grid.SetRow(filePanel, 1);
         root.Children.Add(filePanel);
+
+        var thumbnailPanel = new Grid { Margin = new Thickness(0, 0, 0, 14) };
+        thumbnailPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        thumbnailPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        thumbnailPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        thumbnailPanel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        thumbnailPanel.Children.Add(new TextBlock
+        {
+            Text = "Thumbnail / Reel cover (optional, JPG or PNG, maximum 2 MB)",
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)),
+            Margin = new Thickness(0, 0, 0, 5),
+        });
+        var thumbnailPath = new TextBox
+        {
+            Text = SocialVideoUploadRules.FindLikelyThumbnail(history.ProjectFolder) ?? "",
+            MinHeight = 36,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(8, 0, 8, 0),
+        };
+        Grid.SetRow(thumbnailPath, 1);
+        thumbnailPanel.Children.Add(thumbnailPath);
+        var browseThumbnail = new Button { Content = "Browse...", MinWidth = 92, MinHeight = 36, Margin = new Thickness(8, 0, 0, 0) };
+        StyleQuizHistoryButton(browseThumbnail, Color.FromRgb(255, 190, 0));
+        browseThumbnail.Click += (_, _) =>
+        {
+            var picker = new OpenFileDialog
+            {
+                Title = "Choose the thumbnail image",
+                Filter = "Thumbnail images (*.jpg;*.jpeg;*.png)|*.jpg;*.jpeg;*.png|All files (*.*)|*.*",
+                CheckFileExists = true,
+            };
+            if (Directory.Exists(history.ProjectFolder)) picker.InitialDirectory = history.ProjectFolder;
+            if (picker.ShowDialog(dialog) == true) thumbnailPath.Text = picker.FileName;
+        };
+        Grid.SetRow(browseThumbnail, 1);
+        Grid.SetColumn(browseThumbnail, 1);
+        thumbnailPanel.Children.Add(browseThumbnail);
+        Grid.SetRow(thumbnailPanel, 2);
+        root.Children.Add(thumbnailPanel);
 
         var destinations = new Border
         {
@@ -164,23 +205,56 @@ public partial class MainShellWindow
         Grid.SetColumn(facebookPanel, 1);
         destinationContent.Children.Add(facebookPanel);
         destinations.Child = destinationContent;
-        Grid.SetRow(destinations, 2);
+        Grid.SetRow(destinations, 3);
         root.Children.Add(destinations);
 
-        var metadata = new TextBox
+        var metadataPanel = new Grid();
+        metadataPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        metadataPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        metadataPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        metadataPanel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        metadataPanel.Children.Add(new TextBlock
+        {
+            Text = "Upload title",
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)),
+            Margin = new Thickness(0, 0, 0, 5),
+        });
+        var titleBox = new TextBox
+        {
+            Text = history.YouTubeTitle.Length > 0 ? history.YouTubeTitle : history.Title,
+            MinHeight = 36,
+            VerticalContentAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(8, 0, 8, 0),
+        };
+        Grid.SetRow(titleBox, 1);
+        metadataPanel.Children.Add(titleBox);
+        var descriptionLabel = new TextBlock
+        {
+            Text = history.VideoType == "Short"
+                ? "Description (must keep the full-video YouTube link)"
+                : "Description",
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)),
+            Margin = new Thickness(0, 10, 0, 5),
+        };
+        Grid.SetRow(descriptionLabel, 2);
+        metadataPanel.Children.Add(descriptionLabel);
+        var descriptionBox = new TextBox
         {
             Text = SocialVideoUploadRules.UploadDescription(history),
-            IsReadOnly = true,
             TextWrapping = TextWrapping.Wrap,
             AcceptsReturn = true,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             Background = Brushes.White,
             Foreground = new SolidColorBrush(Color.FromRgb(45, 55, 72)),
             Padding = new Thickness(10),
-            ToolTip = "Saved publishing description and hashtags",
+            ToolTip = "Saved publishing description, full-video link, and hashtags",
         };
-        Grid.SetRow(metadata, 3);
-        root.Children.Add(metadata);
+        Grid.SetRow(descriptionBox, 3);
+        metadataPanel.Children.Add(descriptionBox);
+        Grid.SetRow(metadataPanel, 4);
+        root.Children.Add(metadataPanel);
 
         var footer = new Grid { Margin = new Thickness(0, 14, 0, 0) };
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -200,7 +274,7 @@ public partial class MainShellWindow
         uploadButton.IsEnabled = youtube.IsEnabled || facebook.IsEnabled;
         Grid.SetColumn(uploadButton, 2);
         footer.Children.Add(uploadButton);
-        Grid.SetRow(footer, 4);
+        Grid.SetRow(footer, 5);
         root.Children.Add(footer);
 
         uploadButton.Click += async (_, _) =>
@@ -214,15 +288,19 @@ public partial class MainShellWindow
             }
 
             var completed = new List<string>();
+            var thumbnailWarnings = new List<string>();
             try
             {
                 var file = SocialVideoUploadRules.ValidateVideoFile(videoPath.Text);
+                var thumbnail = SocialVideoUploadRules.ValidateThumbnailFile(thumbnailPath.Text);
+                var title = titleBox.Text.Trim();
+                var description = descriptionBox.Text.Trim();
+                SocialVideoUploadRules.ValidateUploadMetadata(history.VideoType, title, description);
                 uploadButton.IsEnabled = false;
                 browse.IsEnabled = false;
+                browseThumbnail.IsEnabled = false;
                 cancel.IsEnabled = false;
                 progress.Visibility = Visibility.Visible;
-                var title = history.YouTubeTitle.Length > 0 ? history.YouTubeTitle : history.Title;
-                var description = SocialVideoUploadRules.UploadDescription(history);
 
                 if (uploadYouTube)
                 {
@@ -238,6 +316,12 @@ public partial class MainShellWindow
                             notify.IsChecked == true));
                     _data.UpdateQuizHistoryYouTubeAnalytics(history.Id, true, result.Url, 0, 0, DateTime.Today);
                     completed.Add("YouTube");
+                    if (thumbnail is not null)
+                    {
+                        statusText.Text = "Setting the YouTube thumbnail...";
+                        try { await _youtubeVideoUpload.SetThumbnailAsync(accessToken, result.VideoId, thumbnail); }
+                        catch (Exception error) { thumbnailWarnings.Add("YouTube thumbnail: " + error.Message); }
+                    }
                     youtube.IsChecked = false;
                     youtube.IsEnabled = false;
                     youtube.Content = "YouTube (uploaded)";
@@ -250,23 +334,35 @@ public partial class MainShellWindow
                     var duration = await new NativeFfmpegTimelineService().MediaDurationAsync(file);
                     SocialVideoUploadRules.ValidateFacebookDuration(duration);
                     statusText.Text = "Uploading the Short to Facebook... Keep this window open.";
+                    var pageToken = FacebookPageToken();
                     var result = await _facebookReelUpload.UploadAsync(
-                        FacebookPageToken(),
+                        pageToken,
                         file,
                         title,
                         description);
                     _data.UpdateQuizHistoryFacebookAnalytics(history.Id, true, result.Url, 0, 0, 0, 0, DateTime.Today);
                     completed.Add("Facebook");
+                    if (thumbnail is not null)
+                    {
+                        statusText.Text = "Setting the Facebook Reel cover...";
+                        try { await _facebookReelUpload.SetThumbnailAsync(pageToken, result.VideoId, thumbnail); }
+                        catch (Exception error) { thumbnailWarnings.Add("Facebook Reel cover: " + error.Message); }
+                    }
                     facebook.IsChecked = false;
                     facebook.IsEnabled = false;
                     facebook.Content = "Facebook (uploaded)";
                 }
 
                 RefreshQuizHistory();
-                statusText.Text = "Upload complete: " + string.Join(" and ", completed) + ".";
+                var warningText = thumbnailWarnings.Count == 0
+                    ? ""
+                    : "\n\nThe video upload succeeded, but:\n" + string.Join("\n", thumbnailWarnings);
+                statusText.Text = "Upload complete: " + string.Join(" and ", completed) +
+                                  (thumbnailWarnings.Count == 0 ? "." : ". Thumbnail warning shown.");
                 MessageBox.Show(dialog,
-                    $"Uploaded successfully to {string.Join(" and ", completed)}.",
-                    "Upload Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+                    $"Uploaded successfully to {string.Join(" and ", completed)}.{warningText}",
+                    "Upload Complete", MessageBoxButton.OK,
+                    thumbnailWarnings.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
                 dialog.DialogResult = true;
             }
             catch (Exception error)
@@ -282,6 +378,7 @@ public partial class MainShellWindow
             {
                 uploadButton.IsEnabled = youtube.IsEnabled || facebook.IsEnabled;
                 browse.IsEnabled = true;
+                browseThumbnail.IsEnabled = true;
                 cancel.IsEnabled = true;
                 progress.Visibility = Visibility.Collapsed;
             }
