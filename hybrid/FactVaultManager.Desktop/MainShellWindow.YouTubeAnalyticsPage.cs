@@ -1357,8 +1357,9 @@ public partial class MainShellWindow
         var socialDivider = new Border
         {
             Height = 1,
-            Background = new SolidColorBrush(Color.FromRgb(225, 225, 225)),
-            Margin = new Thickness(12),
+            Background = new SolidColorBrush(Color.FromRgb(190, 198, 210)),
+            Margin = new Thickness(15, 8, 15, 8),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
         };
         navigation.Children.Insert(Math.Min(navigation.Children.Count, notesIndex + 1), socialDivider);
         navigation.Children.Insert(Math.Min(navigation.Children.Count, notesIndex + 2), analyticsButton);
