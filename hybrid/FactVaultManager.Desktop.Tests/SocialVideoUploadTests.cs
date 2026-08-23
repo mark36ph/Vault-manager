@@ -28,6 +28,39 @@ public sealed class SocialVideoUploadTests
             SocialVideoUploadRules.UploadDescription(history with { YouTubeDescription = "Try this quiz. #Quiz #Shorts" }));
     }
 
+    [Fact]
+    public void ShortMetadata_RequiresFullVideoYouTubeLink()
+    {
+        SocialVideoUploadRules.ValidateUploadMetadata(
+            "Short", "Film Quiz Short",
+            "Try the full quiz: https://www.youtube.com/watch?v=full-video-1\n\n#Shorts");
+
+        var error = Assert.Throws<ArgumentException>(() =>
+            SocialVideoUploadRules.ValidateUploadMetadata("Short", "Film Quiz Short", "Can you get 1/1? #Shorts"));
+        Assert.Contains("full YouTube video", error.Message);
+    }
+
+    [Theory]
+    [InlineData("https://youtu.be/full-video-1")]
+    [InlineData("https://youtube.com/watch?v=full-video-1")]
+    [InlineData("https://www.youtube.com/watch?v=full-video-1&t=3s")]
+    public void FullVideoLink_AcceptsSupportedYouTubeUrls(string url)
+    {
+        Assert.True(SocialVideoUploadRules.ContainsFullYouTubeVideoLink("Full quiz: " + url));
+    }
+
+    [Fact]
+    public void ThumbnailValidation_AcceptsPngAndAllowsNoSelection()
+    {
+        var path = TemporaryThumbnail();
+        try
+        {
+            Assert.Equal(Path.GetFullPath(path), SocialVideoUploadRules.ValidateThumbnailFile(path));
+            Assert.Null(SocialVideoUploadRules.ValidateThumbnailFile(""));
+        }
+        finally { File.Delete(path); }
+    }
+
     [Theory]
     [InlineData(3)]
     [InlineData(60)]
@@ -77,6 +110,24 @@ public sealed class SocialVideoUploadTests
     }
 
     [Fact]
+    public async Task YouTubeThumbnail_PostsSelectedImageForUploadedVideo()
+    {
+        var path = TemporaryThumbnail();
+        try
+        {
+            var handler = new YouTubeUploadHandler();
+            var service = new YouTubeVideoUploadService(new HttpClient(handler));
+            await service.SetThumbnailAsync("youtube-token", "yt-video-1", path);
+
+            var request = Assert.Single(handler.Requests);
+            Assert.Contains("/thumbnails/set?videoId=yt-video-1&uploadType=media", request.Url);
+            Assert.Equal("Bearer youtube-token", request.Authorization);
+            Assert.Equal("image/png", request.ContentType);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public async Task FacebookUpload_StartsTransfersAndPublishesReel()
     {
         var path = TemporaryVideo();
@@ -110,6 +161,26 @@ public sealed class SocialVideoUploadTests
         }
     }
 
+    [Fact]
+    public async Task FacebookThumbnail_PostsPreferredReelCover()
+    {
+        var path = TemporaryThumbnail();
+        try
+        {
+            var handler = new FacebookUploadHandler();
+            var service = new FacebookReelUploadService(new HttpClient(handler));
+            await service.SetThumbnailAsync("page-token", "1051847137549312", path);
+
+            var request = Assert.Single(handler.Requests);
+            Assert.EndsWith("/1051847137549312/thumbnails", request.Url);
+            Assert.Contains("name=access_token", request.Body);
+            Assert.Contains("page-token", request.Body);
+            Assert.Contains("name=is_preferred", request.Body);
+            Assert.Contains("name=source", request.Body);
+        }
+        finally { File.Delete(path); }
+    }
+
     private static QuizHistorySummary History(string format) => new(
         1, "Film Quiz", "2026-08-23", 1, "Film", format, 8, false, "C:\\Quiz",
         "Film Quiz", 1, "Can You Get 1/1? | Film Quiz #001", "Description", "#Quiz",
@@ -119,6 +190,13 @@ public sealed class SocialVideoUploadTests
     {
         var path = Path.Combine(Path.GetTempPath(), $"factburst-upload-{Guid.NewGuid():N}.mp4");
         File.WriteAllBytes(path, [0, 1, 2, 3]);
+        return path;
+    }
+
+    private static string TemporaryThumbnail()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"factburst-thumbnail-{Guid.NewGuid():N}.png");
+        File.WriteAllBytes(path, [137, 80, 78, 71]);
         return path;
     }
 
@@ -168,7 +246,8 @@ public sealed class SocialVideoUploadTests
             request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken),
             request.Headers.Authorization?.ToString() ?? request.Headers.GetValuesOrEmpty("Authorization").FirstOrDefault() ?? "",
             request.Headers.GetValuesOrEmpty("offset").FirstOrDefault() ?? "",
-            request.Headers.GetValuesOrEmpty("file_size").FirstOrDefault() ?? "");
+            request.Headers.GetValuesOrEmpty("file_size").FirstOrDefault() ?? "",
+            request.Content?.Headers.ContentType?.MediaType ?? "");
 
     private static HttpResponseMessage Json(string json) => new(HttpStatusCode.OK)
     {
@@ -181,7 +260,8 @@ public sealed class SocialVideoUploadTests
         string Body,
         string Authorization,
         string Offset,
-        string FileSize);
+        string FileSize,
+        string ContentType);
 }
 
 internal static class HttpRequestHeadersTestExtensions
