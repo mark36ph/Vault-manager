@@ -242,6 +242,9 @@ public sealed class QuizQuestionBankTests
         Assert.Contains("World History", prompt);
         Assert.Contains("correct_answer", prompt);
         Assert.Contains("JSON only", prompt);
+        Assert.Contains("downloadable JSON file", prompt);
+        Assert.Contains("quiz-questions.json", prompt);
+        Assert.Contains("do not paste the JSON into the chat response", prompt);
         Assert.Contains("Do not include citations", prompt);
         Assert.Contains("after the final }", prompt);
     }
