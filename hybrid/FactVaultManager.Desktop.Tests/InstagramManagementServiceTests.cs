@@ -151,3 +151,99 @@ public sealed class InstagramManagementServiceTests
         string FileSize,
         string ContentType);
 }
+
+public sealed class InstagramManagerPlanningTests
+{
+    [Fact]
+    public void Matcher_UsesSavedReelUrlBeforeCaption()
+    {
+        var history = new[]
+        {
+            Short(1, "Geography", 2, instagramUrl: "https://www.instagram.com/reel/ABC123"),
+        };
+        var media = new[]
+        {
+            Reel("media-1", "A completely different caption", "https://www.instagram.com/reel/ABC123/"),
+        };
+
+        var matches = InstagramShortMatcher.Match(history, media);
+
+        Assert.Equal("media-1", matches[1].MediaId);
+    }
+
+    [Fact]
+    public void Matcher_RecognisesQuizCategoryAndEpisodeInCaption()
+    {
+        var history = new[] { Short(7, "Geography", 2) };
+        var media = new[]
+        {
+            Reel(
+                "media-7",
+                "Test your knowledge with 1 question in Geography Quiz #002.",
+                "https://www.instagram.com/reel/GEO002/"),
+        };
+
+        var matches = InstagramShortMatcher.Match(history, media);
+
+        Assert.Equal("media-7", matches[7].MediaId);
+    }
+
+    [Fact]
+    public void Planner_RecommendsCategoryWithNoInstagramShorts()
+    {
+        var history = new[]
+        {
+            Short(1, "Geography", 1, published: true),
+            Short(2, "Science", 1),
+        };
+
+        var recommendation = InstagramNextShortPlanner.Recommend(
+            history,
+            new[] { "Geography", "Science" });
+
+        Assert.Equal("Science", recommendation.Category);
+        Assert.Contains("does not yet have", recommendation.Reason);
+    }
+
+    private static QuizHistorySummary Short(
+        int id,
+        string category,
+        int episode,
+        bool published = false,
+        string instagramUrl = "") =>
+        new(
+            id,
+            $"{category} - Short - {episode:000}",
+            "2026-08-23",
+            1,
+            category,
+            "9:16",
+            10,
+            false,
+            "",
+            category,
+            episode,
+            $"Can You Get 1/1? | {category} Quiz #{episode:000}",
+            "",
+            "",
+            "",
+            true,
+            "https://youtu.be/example",
+            PublishedOnInstagram: published || instagramUrl.Length > 0,
+            InstagramUrl: instagramUrl);
+
+    private static InstagramMediaItem Reel(string id, string caption, string url) =>
+        new(
+            id,
+            "REELS",
+            caption,
+            url,
+            new DateTime(2026, 8, 23, 12, 0, 0, DateTimeKind.Utc),
+            100,
+            90,
+            10,
+            2,
+            3,
+            4,
+            19);
+}
