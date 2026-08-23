@@ -82,6 +82,47 @@ public sealed class SocialVideoUploadTests
     }
 
     [Fact]
+    public void UploadQueuePathFinder_DoesNotReuseAnUnrelatedSavedFolder()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"factburst-queue-{Guid.NewGuid():N}");
+        var generalKnowledge = Path.Combine(root, "General Knowledge Quiz - Short - 001");
+        var space = Path.Combine(root, "Space Quiz - Short - 001");
+        Directory.CreateDirectory(generalKnowledge);
+        Directory.CreateDirectory(space);
+        File.WriteAllBytes(Path.Combine(generalKnowledge, "General Knowledge Quiz.mp4"), [0, 1, 2, 3]);
+        var expectedVideo = Path.Combine(space, "Space Quiz.mp4");
+        File.WriteAllBytes(expectedVideo, [0, 1, 2, 3]);
+        try
+        {
+            var history = History("9:16") with
+            {
+                Title = "Space Quiz - Short - 001",
+                Categories = "Space",
+                SeriesName = "Space Quiz",
+                YouTubeTitle = "Can You Get 1/1? | Space Quiz #001",
+                ProjectFolder = @"Z:\OldFactVault\Quizzes\General Knowledge Quiz - Short - 001",
+            };
+
+            var match = Assert.Single(SocialUploadQueuePathFinder.FindMissingVideos([history], root));
+
+            Assert.Equal(expectedVideo, match.VideoPath);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Theory]
+    [InlineData("Error validating access token: Session has expired")]
+    [InlineData("Invalid OAuth access token")]
+    public void UploadQueuePlanner_RecognisesMetaAuthenticationFailures(string message)
+    {
+        Assert.True(SocialUploadQueuePlanner.IsMetaAuthenticationError(message));
+        Assert.False(SocialUploadQueuePlanner.IsMetaAuthenticationError("Instagram video processing failed"));
+    }
+
+    [Fact]
     public void UploadDescription_AppendsSavedHashtagsOnce()
     {
         var history = History("9:16") with
