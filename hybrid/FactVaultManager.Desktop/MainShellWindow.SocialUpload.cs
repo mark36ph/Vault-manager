@@ -391,7 +391,11 @@ public partial class MainShellWindow
                 var thumbnail = SocialVideoUploadRules.ValidateThumbnailFile(thumbnailPath.Text);
                 var title = titleBox.Text.Trim();
                 var description = descriptionBox.Text.Trim();
-                SocialVideoUploadRules.ValidateUploadMetadata(history.VideoType, title, description);
+                SocialVideoUploadRules.ValidateUploadMetadata(
+                    history.VideoType,
+                    title,
+                    description,
+                    requireFullYouTubeVideoLink: uploadYouTube || uploadFacebook);
                 if (uploadInstagram && schedule.IsChecked == true)
                     throw new InvalidOperationException("Scheduled Instagram publishing is not available yet. Turn off scheduling or deselect Instagram.");
                 var scheduledFor = SocialVideoUploadRules.ResolveScheduledPublishAt(

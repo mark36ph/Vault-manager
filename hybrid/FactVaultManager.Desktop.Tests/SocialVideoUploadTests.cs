@@ -56,6 +56,16 @@ public sealed class SocialVideoUploadTests
         Assert.Contains("full YouTube video", error.Message);
     }
 
+    [Fact]
+    public void ShortMetadata_AllowsInstagramOnlyUploadWithoutYouTubeLink()
+    {
+        SocialVideoUploadRules.ValidateUploadMetadata(
+            "Short",
+            "Film Quiz Short",
+            "Can you get 1/1? #Shorts",
+            requireFullYouTubeVideoLink: false);
+    }
+
     [Theory]
     [InlineData("https://youtu.be/full-video-1")]
     [InlineData("https://youtube.com/watch?v=full-video-1")]
