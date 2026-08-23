@@ -1096,7 +1096,7 @@ public partial class MainShellWindow
 
     private IReadOnlyList<YouTubePlaylistItem> CurrentYouTubePlaylists() =>
         (_youtubePlaylistsGrid?.ItemsSource as IEnumerable<YouTubePlaylistItem>)?.ToList()
-        ?? Array.Empty<YouTubePlaylistItem>();
+        ?? new List<YouTubePlaylistItem>();
 
     private void ApplyYouTubePlaylistSnapshot(YouTubeManagerCacheSnapshot snapshot)
     {
