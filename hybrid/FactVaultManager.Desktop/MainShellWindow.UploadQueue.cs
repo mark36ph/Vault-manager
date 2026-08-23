@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
+using Microsoft.Win32;
 
 namespace FactVaultManager.Desktop;
 
@@ -42,6 +43,77 @@ public static class SocialUploadQueuePlanner
     }
 }
 
+public sealed record SocialUploadQueuePathMatch(int HistoryId, string VideoPath, string ThumbnailPath);
+
+public static class SocialUploadQueuePathFinder
+{
+    public static IReadOnlyList<SocialUploadQueuePathMatch> FindMissingVideos(
+        IEnumerable<QuizHistorySummary> histories,
+        string searchRoot)
+    {
+        ArgumentNullException.ThrowIfNull(histories);
+        if (string.IsNullOrWhiteSpace(searchRoot) || !Directory.Exists(searchRoot))
+            return [];
+
+        var pending = histories
+            .Select(history => (History: history, FolderName: StoredFolderName(history.ProjectFolder)))
+            .Where(candidate => candidate.FolderName.Length > 0)
+            .GroupBy(candidate => candidate.FolderName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Select(candidate => candidate.History).ToList(),
+                StringComparer.OrdinalIgnoreCase);
+        if (pending.Count == 0) return [];
+
+        var candidates = new Dictionary<int, List<SocialUploadQueuePathMatch>>();
+        foreach (var folder in EnumerateDirectoriesSafely(searchRoot))
+        {
+            if (!pending.TryGetValue(Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+                    out var matches))
+                continue;
+
+            var video = SocialVideoUploadRules.FindLikelyRenderedVideo(folder);
+            if (video is null) continue;
+            var thumbnail = SocialVideoUploadRules.FindLikelyThumbnail(folder) ?? "";
+            foreach (var history in matches)
+            {
+                if (!candidates.TryGetValue(history.Id, out var found))
+                    candidates[history.Id] = found = [];
+                found.Add(new SocialUploadQueuePathMatch(history.Id, video, thumbnail));
+            }
+        }
+
+        return candidates.Values
+            .Select(found => found
+                .OrderByDescending(match => File.GetLastWriteTimeUtc(match.VideoPath))
+                .First())
+            .ToList();
+    }
+
+    private static string StoredFolderName(string? path) =>
+        (path ?? "")
+        .Trim()
+        .TrimEnd('\\', '/')
+        .Split(['\\', '/'], StringSplitOptions.RemoveEmptyEntries)
+        .LastOrDefault() ?? "";
+
+    private static IEnumerable<string> EnumerateDirectoriesSafely(string searchRoot)
+    {
+        var pending = new Stack<string>();
+        pending.Push(Path.GetFullPath(searchRoot));
+        while (pending.Count > 0)
+        {
+            var current = pending.Pop();
+            yield return current;
+            try
+            {
+                foreach (var child in Directory.EnumerateDirectories(current))
+                    pending.Push(child);
+            }
+            catch (UnauthorizedAccessException) { }
+            catch (IOException) { }
+        }
+    }
+}
+
 public sealed class SocialUploadQueueItem : INotifyPropertyChanged
 {
     private bool _include;
@@ -63,8 +135,8 @@ public sealed class SocialUploadQueueItem : INotifyPropertyChanged
     public int HistoryId { get; }
     public string Title { get; }
     public string VideoType { get; }
-    public string VideoPath { get; }
-    public string ThumbnailPath { get; }
+    public string VideoPath { get; private set; }
+    public string ThumbnailPath { get; private set; }
     public string VideoFile => VideoPath.Length == 0 ? "Not found" : Path.GetFileName(VideoPath);
     public string RemainingDisplay => SocialUploadQueuePlanner.Display(_remaining);
     public SocialUploadDestination Remaining => _remaining;
@@ -97,6 +169,17 @@ public sealed class SocialUploadQueueItem : INotifyPropertyChanged
         OnPropertyChanged(nameof(Remaining));
         OnPropertyChanged(nameof(RemainingDisplay));
         if (remaining == SocialUploadDestination.None) Include = false;
+    }
+
+    public void ApplyPaths(string videoPath, string thumbnailPath)
+    {
+        VideoPath = videoPath;
+        ThumbnailPath = thumbnailPath;
+        Status = "Ready";
+        Include = _remaining != SocialUploadDestination.None;
+        OnPropertyChanged(nameof(VideoPath));
+        OnPropertyChanged(nameof(ThumbnailPath));
+        OnPropertyChanged(nameof(VideoFile));
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -162,8 +245,8 @@ public partial class MainShellWindow
         root.Children.Add(heading);
 
         var options = new Grid { Margin = new Thickness(0, 0, 0, 12) };
-        for (var index = 0; index < 5; index++)
-            options.ColumnDefinitions.Add(new ColumnDefinition { Width = index == 4 ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
+        for (var index = 0; index < 6; index++)
+            options.ColumnDefinitions.Add(new ColumnDefinition { Width = index == 5 ? new GridLength(1, GridUnitType.Star) : GridLength.Auto });
         options.Children.Add(new TextBlock
         {
             Text = "YouTube privacy",
@@ -189,9 +272,19 @@ public partial class MainShellWindow
         };
         Grid.SetColumn(notify, 2);
         options.Children.Add(notify);
+        var findMissing = new Button
+        {
+            Content = "Find missing videos",
+            MinWidth = 142,
+            MinHeight = 32,
+            Margin = new Thickness(0, 0, 8, 0),
+        };
+        StyleQuizHistoryButton(findMissing, Color.FromRgb(255, 202, 45));
+        Grid.SetColumn(findMissing, 3);
+        options.Children.Add(findMissing);
         var selectReady = new Button { Content = "Select ready", MinWidth = 104, MinHeight = 32 };
         StyleQuizHistoryButton(selectReady, Color.FromRgb(0, 204, 255));
-        Grid.SetColumn(selectReady, 3);
+        Grid.SetColumn(selectReady, 4);
         options.Children.Add(selectReady);
         var clear = new Button
         {
@@ -202,7 +295,7 @@ public partial class MainShellWindow
             HorizontalAlignment = HorizontalAlignment.Left,
         };
         StyleQuizHistoryButton(clear, Color.FromRgb(204, 70, 255));
-        Grid.SetColumn(clear, 4);
+        Grid.SetColumn(clear, 5);
         options.Children.Add(clear);
         Grid.SetRow(options, 1);
         root.Children.Add(options);
@@ -235,10 +328,10 @@ public partial class MainShellWindow
         footer.Children.Add(queueStatus);
         var stop = new Button
         {
-            Content = "Stop",
-            MinWidth = 76,
+            Content = "Stop queue",
+            MinWidth = 100,
             MinHeight = 36,
-            IsEnabled = false,
+            Visibility = Visibility.Collapsed,
             Margin = new Thickness(8, 0, 0, 0),
         };
         StyleQuizHistoryButton(stop, Color.FromRgb(248, 90, 105));
@@ -280,11 +373,60 @@ public partial class MainShellWindow
             foreach (var item in items) item.Include = false;
             queueStatus.Text = "Queue selection cleared.";
         };
+        findMissing.Click += async (_, _) =>
+        {
+            var missingHistory = _data.GetQuizHistory()
+                .Where(history => items.Any(item => item.HistoryId == history.Id && item.VideoPath.Length == 0))
+                .ToList();
+            if (missingHistory.Count == 0)
+            {
+                queueStatus.Text = "Every queue item already has a video path.";
+                return;
+            }
+
+            var picker = new OpenFolderDialog
+            {
+                Title = "Select the folder containing your quiz project folders",
+            };
+            var configuredRoot = _data.LoadSettings().ProjectsFolder.Trim();
+            if (Directory.Exists(configuredRoot)) picker.InitialDirectory = configuredRoot;
+            if (picker.ShowDialog(dialog) != true) return;
+
+            findMissing.IsEnabled = false;
+            queueStatus.Text = $"Searching for {missingHistory.Count:N0} missing video(s)...";
+            try
+            {
+                var matches = await Task.Run(() =>
+                    SocialUploadQueuePathFinder.FindMissingVideos(missingHistory, picker.FolderName));
+                foreach (var match in matches)
+                {
+                    var item = items.First(candidate => candidate.HistoryId == match.HistoryId);
+                    item.ApplyPaths(match.VideoPath, match.ThumbnailPath);
+                    var projectFolder = Path.GetDirectoryName(match.VideoPath) ?? "";
+                    if (projectFolder.Length > 0)
+                        _data.UpdateQuizHistoryProjectFolder(match.HistoryId, projectFolder);
+                }
+
+                var stillMissing = items.Count(item => item.VideoPath.Length == 0);
+                queueStatus.Text = matches.Count == 0
+                    ? "No matching quiz videos were found under that folder."
+                    : $"Found and saved {matches.Count:N0} video path(s); {stillMissing:N0} still missing.";
+                RefreshQuizHistory();
+            }
+            catch (Exception error)
+            {
+                queueStatus.Text = "Video search failed: " + error.Message;
+            }
+            finally
+            {
+                findMissing.IsEnabled = true;
+            }
+        };
 
         CancellationTokenSource? cancellation = null;
         stop.Click += (_, _) =>
         {
-            stop.IsEnabled = false;
+            stop.Content = "Stopping...";
             queueStatus.Text = "Stopping the queue...";
             cancellation?.Cancel();
         };
@@ -305,11 +447,13 @@ public partial class MainShellWindow
             cancellation = new CancellationTokenSource();
             start.IsEnabled = false;
             close.IsEnabled = false;
-            stop.IsEnabled = true;
+            stop.Content = "Stop queue";
+            stop.Visibility = Visibility.Visible;
             privacy.IsEnabled = false;
             notify.IsEnabled = false;
             selectReady.IsEnabled = false;
             clear.IsEnabled = false;
+            findMissing.IsEnabled = false;
             var completedItems = 0;
             try
             {
@@ -379,11 +523,12 @@ public partial class MainShellWindow
                 cancellation = null;
                 start.IsEnabled = true;
                 close.IsEnabled = true;
-                stop.IsEnabled = false;
+                stop.Visibility = Visibility.Collapsed;
                 privacy.IsEnabled = true;
                 notify.IsEnabled = true;
                 selectReady.IsEnabled = true;
                 clear.IsEnabled = true;
+                findMissing.IsEnabled = true;
                 RefreshQuizHistory();
             }
         };
