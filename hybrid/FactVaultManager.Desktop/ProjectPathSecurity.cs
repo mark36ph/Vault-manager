@@ -63,6 +63,26 @@ internal static class ProjectPathSecurity
         return candidateFull;
     }
 
+    public static string? TryEnsureContained(string root, string candidate)
+    {
+        try
+        {
+            return EnsureContained(root, candidate);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
     private static string NormalizeRoot(string root)
     {
         if (string.IsNullOrWhiteSpace(root))

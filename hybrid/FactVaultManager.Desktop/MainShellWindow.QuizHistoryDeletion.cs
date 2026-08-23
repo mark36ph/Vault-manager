@@ -60,7 +60,7 @@ public partial class MainShellWindow
             : $"Export folder:\n{history.ProjectFolder}";
         var result = MessageBox.Show(
             this,
-            $"Delete {history.SeriesName} {history.EpisodeLabel}?\n\nThis permanently removes the Quiz History entry, deletes its export folder, and removes one usage count from each question used in this quiz.\n\n{folderText}\n\nThis cannot be undone.",
+            $"Delete {history.SeriesName} {history.EpisodeLabel}?\n\nThis permanently removes the Quiz History entry and removes one usage count from each question used in this quiz. Its export folder is also deleted when it is inside the currently configured Projects folder.\n\n{folderText}\n\nThis cannot be undone.",
             "Delete Quiz",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning,
@@ -80,7 +80,7 @@ public partial class MainShellWindow
             RefreshQuizHistory();
             RefreshQuizBank();
             if (_quizPageStatusText is not null)
-                _quizPageStatusText.Text = "Quiz removed. Its project folder is being deleted in the background.";
+                _quizPageStatusText.Text = "Quiz removed. Any export folder inside the configured Projects folder is being deleted in the background.";
         }
         catch (QuizHistoryFolderCleanupException error)
         {
