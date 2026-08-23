@@ -483,7 +483,7 @@ public partial class MainShellWindow
 
         var instructions = new TextBlock
         {
-            Text = "Choose the prompt options, copy the ChatGPT prompt, then paste the returned JSON below. Duplicate questions are skipped automatically.",
+            Text = "Choose the options and copy the ChatGPT prompt. Download the quiz-questions.json file ChatGPT creates, then select Load JSON file below. Duplicate questions are skipped automatically.",
             Foreground = QuizMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 8),
@@ -515,7 +515,11 @@ public partial class MainShellWindow
         };
         import.Click += ImportQuizJson_Click;
         actions.Children.Add(import);
-        var load = new Button { Content = "Load JSON file" };
+        var load = new Button
+        {
+            Content = "Load downloaded JSON file",
+            ToolTip = "Choose the quiz-questions.json file downloaded from ChatGPT",
+        };
         load.Click += LoadQuizJsonFile_Click;
         actions.Children.Add(load);
         var prompt = new Button { Content = "Copy ChatGPT prompt", Margin = new Thickness(0) };

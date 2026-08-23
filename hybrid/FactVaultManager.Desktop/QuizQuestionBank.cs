@@ -315,7 +315,9 @@ public static class QuizQuestionImportParser
 
         var prompt = """
 Create __COUNT__ accurate multiple-choice quiz questions __SUBJECT_LINE__.
-Return JSON only, with no Markdown and no commentary.
+Create a downloadable JSON file named quiz-questions.json and attach it to your response.
+Do not display the questions as a list and do not paste the JSON into the chat response.
+The downloaded file must contain JSON only, with no Markdown and no commentary.
 Use exactly this shape:
 {
   "questions": [
@@ -338,7 +340,7 @@ __CATEGORY_RULES__- Avoid trick questions, ambiguous wording, duplicate question
 - Keep questions suitable for a YouTube quiz.
 - Verify factual accuracy before including each question.
 - Do not include citations, source links, URLs, footnotes, references, Markdown, or source lists anywhere in the JSON.
-- Do not write anything before the opening { or after the final }.
+- Inside quiz-questions.json, do not write anything before the opening { or after the final }.
 """;
 
         return prompt
