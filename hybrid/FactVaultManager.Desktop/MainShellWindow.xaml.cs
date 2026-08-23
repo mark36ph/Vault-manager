@@ -13,7 +13,11 @@ public partial class MainShellWindow : Window
     public MainShellWindow()
     {
         InitializeComponent();
-        Loaded += (_, _) => RefreshAll();
+        Loaded += (_, _) =>
+        {
+            RefreshAll();
+            _data.ResumeQuizFolderCleanup();
+        };
     }
 
     private void RefreshAll()
