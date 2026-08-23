@@ -1353,11 +1353,10 @@ public partial class MainShellWindow
         if (FindResource("NavButtonStyle") is Style navStyle)
             analyticsButton.Style = navStyle;
         analyticsButton.Click += Navigate_Click;
+        if (SocialNavigationDivider.Parent is Panel dividerParent)
+            dividerParent.Children.Remove(SocialNavigationDivider);
         var notesIndex = navigation.Children.IndexOf(notesButton);
-        var socialDivider = new Border();
-        if (FindResource("NavSeparatorStyle") is Style separatorStyle)
-            socialDivider.Style = separatorStyle;
-        navigation.Children.Insert(Math.Min(navigation.Children.Count, notesIndex + 1), socialDivider);
+        navigation.Children.Insert(Math.Min(navigation.Children.Count, notesIndex + 1), SocialNavigationDivider);
         navigation.Children.Insert(Math.Min(navigation.Children.Count, notesIndex + 2), analyticsButton);
     }
 
