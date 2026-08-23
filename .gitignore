@@ -31,8 +31,9 @@ Thumbs.db
 # Database
 *.db
 
-# Settings
+# Settings and local caches
 data/settings.json
+data/youtube-manager-cache.json
 
 # Logs
 *.log
