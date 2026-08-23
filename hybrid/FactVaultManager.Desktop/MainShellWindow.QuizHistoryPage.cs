@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using Microsoft.Win32;
 
 namespace FactVaultManager.Desktop;
 
@@ -422,12 +423,39 @@ public partial class MainShellWindow
             RefreshQuizHistory();
             if (_quizHistoryAnalyticsStatusText is not null)
                 _quizHistoryAnalyticsStatusText.Text = $"Paths: {result.Updated} updated, {result.Unresolved} unresolved";
-            MessageBox.Show(
-                this,
-                $"Updated {result.Updated} Quiz History path(s).\n\nAlready correct: {result.AlreadyCorrect}\nUnresolved: {result.Unresolved}",
-                "Update Quiz History Paths",
-                MessageBoxButton.OK,
-                result.Unresolved == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            if (result.Unresolved == 0)
+            {
+                MessageBox.Show(
+                    this,
+                    $"Updated {result.Updated} Quiz History path(s).\n\nAlready correct: {result.AlreadyCorrect}\nUnresolved: 0",
+                    "Update Quiz History Paths",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            else
+            {
+                var chooseFolders = MessageBox.Show(
+                    this,
+                    $"Updated {result.Updated} Quiz History path(s).\n\nAlready correct: {result.AlreadyCorrect}\nUnresolved: {result.Unresolved}\n\nWould you like to select the unresolved project folders manually now?",
+                    "Update Quiz History Paths",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning,
+                    MessageBoxResult.Yes);
+                if (chooseFolders == MessageBoxResult.Yes)
+                {
+                    var manuallyUpdated = ResolveQuizHistoryPathsManually(result.UnresolvedHistoryIds);
+                    var remaining = result.Unresolved - manuallyUpdated;
+                    RefreshQuizHistory();
+                    if (_quizHistoryAnalyticsStatusText is not null)
+                        _quizHistoryAnalyticsStatusText.Text = $"Paths: {result.Updated + manuallyUpdated} updated, {remaining} unresolved";
+                    MessageBox.Show(
+                        this,
+                        $"Manually updated {manuallyUpdated} Quiz History path(s).\n\nStill unresolved: {remaining}",
+                        "Update Quiz History Paths",
+                        MessageBoxButton.OK,
+                        remaining == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+                }
+            }
         }
         catch (Exception error)
         {
@@ -437,6 +465,71 @@ public partial class MainShellWindow
         {
             updatePaths.IsEnabled = true;
         }
+    }
+
+    private int ResolveQuizHistoryPathsManually(IReadOnlyList<int> historyIds)
+    {
+        var updated = 0;
+        foreach (var historyId in historyIds)
+        {
+            while (true)
+            {
+                var history = _data.GetQuizHistory().FirstOrDefault(item => item.Id == historyId);
+                if (history is null)
+                    break;
+
+                var choice = MessageBox.Show(
+                    this,
+                    $"Select the project folder for:\n\n{history.YouTubeTitle}\nType: {history.VideoType}\nRecorded path: {history.ProjectFolder}\n\nYes: choose folder\nNo: skip this quiz\nCancel: stop manual selection",
+                    "Resolve Quiz History Path",
+                    MessageBoxButton.YesNoCancel,
+                    MessageBoxImage.Question,
+                    MessageBoxResult.Yes);
+                if (choice == MessageBoxResult.Cancel)
+                    return updated;
+                if (choice == MessageBoxResult.No)
+                    break;
+
+                var picker = new OpenFolderDialog
+                {
+                    Title = $"Select the {history.VideoType} project folder for {history.SeriesName}",
+                    Multiselect = false,
+                };
+                if (Directory.Exists(history.ProjectFolder))
+                    picker.InitialDirectory = history.ProjectFolder;
+                if (picker.ShowDialog(this) != true)
+                    break;
+
+                try
+                {
+                    var folder = Path.GetFullPath(picker.FolderName);
+                    var video = SocialVideoUploadRules.FindLikelyRenderedVideo(folder)
+                        ?? throw new InvalidOperationException("No completed video was found in that project folder.");
+                    if (!SocialUploadQueuePathFinder.MatchesVideoType(history.VideoType, video))
+                    {
+                        throw new InvalidOperationException(
+                            history.VideoType == "Short"
+                                ? "This history entry is a Short. Select a project folder whose name contains 'Short'."
+                                : "This history entry is a full video. Do not select a Short project folder.");
+                    }
+                    if (!_data.UpdateQuizHistoryProjectFolder(history.Id, folder))
+                        throw new InvalidOperationException("The Quiz History entry could not be updated.");
+
+                    updated++;
+                    break;
+                }
+                catch (Exception error)
+                {
+                    MessageBox.Show(
+                        this,
+                        error.Message + "\n\nChoose a different folder, skip this quiz, or cancel manual selection.",
+                        "Resolve Quiz History Path",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
+            }
+        }
+        return updated;
     }
 
     private static void StyleQuizHistoryButton(Button button, Color accent)
