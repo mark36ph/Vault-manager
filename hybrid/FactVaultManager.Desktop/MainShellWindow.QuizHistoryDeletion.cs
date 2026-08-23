@@ -79,6 +79,8 @@ public partial class MainShellWindow
 
             RefreshQuizHistory();
             RefreshQuizBank();
+            if (_quizPageStatusText is not null)
+                _quizPageStatusText.Text = "Quiz removed. Its project folder is being deleted in the background.";
         }
         catch (QuizHistoryFolderCleanupException error)
         {

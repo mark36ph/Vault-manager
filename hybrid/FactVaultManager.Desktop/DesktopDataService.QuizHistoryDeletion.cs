@@ -13,6 +13,9 @@ public sealed class QuizHistoryFolderCleanupException : IOException
 
 public sealed partial class DesktopDataService
 {
+    public void ResumeQuizFolderCleanup() =>
+        QuizFolderCleanupQueue.ProcessDefaultInBackground(GetProjectsRoot());
+
     public bool DeleteQuizHistory(int historyId, bool deleteFolder = true)
     {
         if (historyId <= 0)
@@ -20,29 +23,48 @@ public sealed partial class DesktopDataService
 
         EnsureQuizHistorySchema();
         using var connection = OpenConnection();
-        using var transaction = connection.BeginTransaction();
-
         string projectFolder;
         using (var history = connection.CreateCommand())
         {
-            history.Transaction = transaction;
             history.CommandText = "SELECT project_folder FROM quiz_history WHERE id = $historyId";
             history.Parameters.AddWithValue("$historyId", historyId);
             var value = history.ExecuteScalar();
             if (value is null || value is DBNull)
-            {
-                transaction.Rollback();
                 return false;
-            }
             projectFolder = Convert.ToString(value)?.Trim() ?? "";
         }
 
+        var projectsRoot = GetProjectsRoot();
         string? safeFolder = null;
-        if (deleteFolder && !string.IsNullOrWhiteSpace(projectFolder) && Directory.Exists(projectFolder))
-            safeFolder = ProjectPathSecurity.EnsureContained(GetProjectsRoot(), projectFolder);
+        string? stagedFolder = null;
+        if (deleteFolder && !string.IsNullOrWhiteSpace(projectFolder))
+        {
+            safeFolder = ProjectPathSecurity.EnsureContained(projectsRoot, projectFolder);
+            if (Directory.Exists(safeFolder))
+            {
+                stagedFolder = ProjectPathSecurity.EnsureContained(
+                    projectsRoot,
+                    safeFolder + ".delete-" + Guid.NewGuid().ToString("N")[..8]);
+                Directory.Move(safeFolder, stagedFolder);
+                try
+                {
+                    QuizFolderCleanupQueue.Enqueue(
+                        QuizFolderCleanupQueue.DefaultQueuePath,
+                        projectsRoot,
+                        stagedFolder);
+                }
+                catch
+                {
+                    if (Directory.Exists(stagedFolder) && !Directory.Exists(safeFolder))
+                        Directory.Move(stagedFolder, safeFolder);
+                    throw;
+                }
+            }
+        }
 
         try
         {
+            using var transaction = connection.BeginTransaction();
             var questionIds = new List<int>();
             using (var questions = connection.CreateCommand())
             {
@@ -82,6 +104,7 @@ public sealed partial class DesktopDataService
             if (deleted == 0)
             {
                 transaction.Rollback();
+                RestoreStagedFolder();
                 return false;
             }
 
@@ -108,34 +131,22 @@ public sealed partial class DesktopDataService
         }
         catch
         {
-            try { transaction.Rollback(); } catch { }
+            RestoreStagedFolder();
             throw;
         }
 
-        if (safeFolder is not null && Directory.Exists(safeFolder))
-        {
-            try
-            {
-                ClearReadOnlyAttributes(safeFolder);
-                Directory.Delete(safeFolder, recursive: true);
-            }
-            catch (Exception error) when (error is UnauthorizedAccessException or IOException)
-            {
-                throw new QuizHistoryFolderCleanupException(safeFolder, error);
-            }
-        }
+        if (stagedFolder is not null)
+            QuizFolderCleanupQueue.ProcessDefaultInBackground(projectsRoot);
 
         return true;
-    }
 
-    private static void ClearReadOnlyAttributes(string folder)
-    {
-        foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories))
-            File.SetAttributes(file, File.GetAttributes(file) & ~FileAttributes.ReadOnly);
-
-        foreach (var directory in Directory.EnumerateDirectories(folder, "*", SearchOption.AllDirectories))
-            File.SetAttributes(directory, File.GetAttributes(directory) & ~FileAttributes.ReadOnly);
-
-        File.SetAttributes(folder, File.GetAttributes(folder) & ~FileAttributes.ReadOnly);
+        void RestoreStagedFolder()
+        {
+            if (stagedFolder is null || safeFolder is null) return;
+            try { QuizFolderCleanupQueue.Remove(QuizFolderCleanupQueue.DefaultQueuePath, stagedFolder); }
+            catch { }
+            if (Directory.Exists(stagedFolder) && !Directory.Exists(safeFolder))
+                Directory.Move(stagedFolder, safeFolder);
+        }
     }
 }

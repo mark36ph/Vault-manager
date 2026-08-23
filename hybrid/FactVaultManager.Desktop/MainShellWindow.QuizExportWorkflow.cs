@@ -489,9 +489,10 @@ public partial class MainShellWindow
             }
 
             var exportFolderName = QuizExportFolderNaming.BaseName(title, vertical);
-            var quizFolder = ProjectPathSecurity.CombineContained(settings.ProjectsFolder, "Quizzes", exportFolderName);
-            var voiceFolder = ProjectPathSecurity.CombineContained(settings.ProjectsFolder, "Quizzes", exportFolderName, "Voice");
-            var audioFolder = ProjectPathSecurity.CombineContained(settings.ProjectsFolder, "Quizzes", exportFolderName, "Audio");
+            var stagingRoot = QuizExportStaging.CreateSessionRoot();
+            var quizFolder = ProjectPathSecurity.CombineContained(stagingRoot, "Quizzes", exportFolderName);
+            var voiceFolder = ProjectPathSecurity.CombineContained(stagingRoot, "Quizzes", exportFolderName, "Voice");
+            var audioFolder = ProjectPathSecurity.CombineContained(stagingRoot, "Quizzes", exportFolderName, "Audio");
             Directory.CreateDirectory(quizFolder);
 
             IReadOnlyDictionary<int, QuizNarrationAsset> narrationByQuestion = new Dictionary<int, QuizNarrationAsset>();
@@ -555,7 +556,7 @@ public partial class MainShellWindow
             var result = new NativeQuizVideoBuilder().BuildAndExport(
                 exportQuestions,
                 options,
-                settings.ProjectsFolder,
+                stagingRoot,
                 narrationByQuestion);
             new QuizThemedCardRenderer().OverwriteCards(
                 result.ProjectFolder,
@@ -585,6 +586,13 @@ public partial class MainShellWindow
                 logoPath,
                 vertical);
             QuizPublishMetadataFiles.Write(result.ProjectFolder, publishing);
+
+            if (_quizPageStatusText is not null)
+                _quizPageStatusText.Text = "Copying the finished quiz package to project storage...";
+            var stagedThumbnailPath = thumbnailPath;
+            var stagedResult = result;
+            result = await Task.Run(() => QuizExportStaging.Publish(stagedResult, settings.ProjectsFolder, stagingRoot));
+            thumbnailPath = Path.Combine(result.ProjectFolder, Path.GetFileName(stagedThumbnailPath));
 
             var historyId = _data.RecordQuizExport(
                 title,

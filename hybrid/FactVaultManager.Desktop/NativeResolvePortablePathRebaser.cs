@@ -11,18 +11,24 @@ public static class NativeResolvePortablePathRebaser
 
     public static int Rebase(string oldFolder, string newFolder)
     {
+        var portableRoot = Path.Combine(Path.GetFullPath(newFolder), "Resolve", "Portable");
+        return RebaseTree(portableRoot, oldFolder, newFolder);
+    }
+
+    public static int RebaseTree(string folderToScan, string oldFolder, string newFolder)
+    {
         oldFolder = Path.GetFullPath(oldFolder)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         newFolder = Path.GetFullPath(newFolder)
             .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-        var portableRoot = Path.Combine(newFolder, "Resolve", "Portable");
-        if (!Directory.Exists(portableRoot))
+        folderToScan = Path.GetFullPath(folderToScan);
+        if (!Directory.Exists(folderToScan))
             return 0;
 
         var replacements = BuildReplacements(oldFolder, newFolder);
         var changedFiles = 0;
-        foreach (var file in Directory.EnumerateFiles(portableRoot, "*", SearchOption.AllDirectories))
+        foreach (var file in Directory.EnumerateFiles(folderToScan, "*", SearchOption.AllDirectories))
         {
             if (!TextExtensions.Contains(Path.GetExtension(file)))
                 continue;
