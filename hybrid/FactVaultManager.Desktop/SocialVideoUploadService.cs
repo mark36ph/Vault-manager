@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 
@@ -9,7 +10,8 @@ public sealed record YouTubeVideoUpload(
     string Title,
     string Description,
     string PrivacyStatus,
-    bool NotifySubscribers = true);
+    bool NotifySubscribers = true,
+    DateTimeOffset? PublishAt = null);
 
 public sealed record YouTubeVideoUploadResult(string VideoId, string Url);
 
@@ -112,6 +114,37 @@ public static class SocialVideoUploadRules
             throw new ArgumentException("Choose private, unlisted, or public for YouTube.");
     }
 
+    public static DateTimeOffset? ResolveScheduledPublishAt(
+        bool schedule,
+        DateTime? selectedDate,
+        string? timeText,
+        DateTimeOffset now,
+        bool includesFacebook)
+    {
+        if (!schedule) return null;
+        if (selectedDate is null)
+            throw new ArgumentException("Choose the publication date.");
+        if (!TimeOnly.TryParseExact(
+                (timeText ?? "").Trim(),
+                new[] { "H:mm", "HH:mm" },
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var time))
+        {
+            throw new ArgumentException("Enter the publication time as HH:mm, for example 18:30.");
+        }
+
+        var localDateTime = DateTime.SpecifyKind(selectedDate.Value.Date.Add(time.ToTimeSpan()), DateTimeKind.Unspecified);
+        if (TimeZoneInfo.Local.IsInvalidTime(localDateTime))
+            throw new ArgumentException("That local publication time does not exist because the clocks change then. Choose another time.");
+        var scheduled = new DateTimeOffset(localDateTime, TimeZoneInfo.Local.GetUtcOffset(localDateTime));
+        if (scheduled < now.AddMinutes(10))
+            throw new ArgumentException("Schedule publication for at least 10 minutes from now.");
+        if (includesFacebook && scheduled > now.AddDays(30))
+            throw new ArgumentException("Facebook Reels can be scheduled no more than 30 days ahead.");
+        return scheduled;
+    }
+
     public static void ValidateFacebookDuration(double seconds)
     {
         if (!double.IsFinite(seconds) || seconds < 3 || seconds > 90)
@@ -141,9 +174,20 @@ public sealed class YouTubeVideoUploadService
         if (title.Length == 0) throw new ArgumentException("Enter the YouTube title first.");
         if (title.Length > 100) throw new ArgumentException("The YouTube title cannot exceed 100 characters.");
         SocialVideoUploadRules.ValidatePrivacy(upload.PrivacyStatus);
+        if (upload.PublishAt is not null && upload.PrivacyStatus != "private")
+            throw new ArgumentException("A scheduled YouTube upload must use private visibility until publication.");
+        if (upload.PublishAt is { } publishAt && publishAt < DateTimeOffset.Now.AddMinutes(10))
+            throw new ArgumentException("Schedule YouTube publication for at least 10 minutes from now.");
 
         var length = new FileInfo(path).Length;
         var mimeType = VideoMimeType(path);
+        var status = new Dictionary<string, object?>
+        {
+            ["privacyStatus"] = upload.PrivacyStatus,
+            ["selfDeclaredMadeForKids"] = false,
+        };
+        if (upload.PublishAt is { } scheduled)
+            status["publishAt"] = scheduled.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
         var metadata = JsonSerializer.Serialize(new
         {
             snippet = new
@@ -152,11 +196,7 @@ public sealed class YouTubeVideoUploadService
                 description = upload.Description.Trim(),
                 categoryId = "27",
             },
-            status = new
-            {
-                privacyStatus = upload.PrivacyStatus,
-                selfDeclaredMadeForKids = false,
-            },
+            status,
         });
         var initiateUrl = UploadEndpoint +
                           "?uploadType=resumable&part=snippet%2Cstatus&notifySubscribers=" +
@@ -263,11 +303,19 @@ public sealed class FacebookReelUploadService
         string videoPath,
         string title,
         string description,
+        DateTimeOffset? publishAt = null,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(pageAccessToken))
             throw new InvalidOperationException("Add the Facebook Page access token in Settings first.");
         var path = SocialVideoUploadRules.ValidateVideoFile(videoPath);
+        if (publishAt is { } requestedSchedule)
+        {
+            if (requestedSchedule < DateTimeOffset.Now.AddMinutes(10))
+                throw new ArgumentException("Schedule Facebook publication for at least 10 minutes from now.");
+            if (requestedSchedule > DateTimeOffset.Now.AddDays(30))
+                throw new ArgumentException("Facebook Reels can be scheduled no more than 30 days ahead.");
+        }
         var token = pageAccessToken.Trim();
         var pageId = await GetPageIdAsync(token, cancellationToken);
 
@@ -301,9 +349,15 @@ public sealed class FacebookReelUploadService
         {
             ["upload_phase"] = "finish",
             ["video_id"] = videoId,
-            ["video_state"] = "PUBLISHED",
+            ["video_state"] = publishAt is null ? "PUBLISHED" : "SCHEDULED",
             ["description"] = description.Trim(),
         };
+        if (publishAt is { } scheduled)
+        {
+            finishValues["scheduled_publish_time"] = scheduled.ToUniversalTime()
+                .ToUnixTimeSeconds()
+                .ToString(CultureInfo.InvariantCulture);
+        }
         if (!string.IsNullOrWhiteSpace(title)) finishValues["title"] = title.Trim();
         using var finishResponse = await _client.PostAsync(
             $"{GraphRoot}/{Uri.EscapeDataString(pageId)}/video_reels",
