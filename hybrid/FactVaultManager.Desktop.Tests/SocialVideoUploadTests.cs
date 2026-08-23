@@ -79,6 +79,24 @@ public sealed class SocialVideoUploadTests
     }
 
     [Fact]
+    public void ScheduleRules_ParseLocalDateAndTimeAndProtectFacebookWindow()
+    {
+        var localNoon = DateTime.SpecifyKind(DateTime.Today.AddHours(12), DateTimeKind.Unspecified);
+        var now = new DateTimeOffset(localNoon, TimeZoneInfo.Local.GetUtcOffset(localNoon));
+
+        var scheduled = SocialVideoUploadRules.ResolveScheduledPublishAt(
+            true, localNoon.Date.AddDays(1), "18:30", now, includesFacebook: true);
+
+        Assert.NotNull(scheduled);
+        Assert.Equal(18, scheduled.Value.Hour);
+        Assert.Equal(30, scheduled.Value.Minute);
+        Assert.Null(SocialVideoUploadRules.ResolveScheduledPublishAt(
+            false, null, null, now, includesFacebook: true));
+        Assert.Throws<ArgumentException>(() => SocialVideoUploadRules.ResolveScheduledPublishAt(
+            true, localNoon.Date.AddDays(31), "18:30", now, includesFacebook: true));
+    }
+
+    [Fact]
     public async Task YouTubeUpload_UsesResumableSessionAndReturnsWatchUrl()
     {
         var path = TemporaryVideo();
@@ -123,6 +141,28 @@ public sealed class SocialVideoUploadTests
             Assert.Contains("/thumbnails/set?videoId=yt-video-1&uploadType=media", request.Url);
             Assert.Equal("Bearer youtube-token", request.Authorization);
             Assert.Equal("image/png", request.ContentType);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public async Task YouTubeUpload_SendsPrivateUtcPublishTimeWhenScheduled()
+    {
+        var path = TemporaryVideo();
+        try
+        {
+            var handler = new YouTubeUploadHandler();
+            var service = new YouTubeVideoUploadService(new HttpClient(handler));
+            var scheduled = DateTimeOffset.Now.AddDays(1);
+
+            await service.UploadAsync(
+                "youtube-token",
+                path,
+                new YouTubeVideoUpload("Film Quiz", "Description", "private", true, scheduled));
+
+            var expected = scheduled.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", System.Globalization.CultureInfo.InvariantCulture);
+            Assert.Contains("\"privacyStatus\":\"private\"", handler.Requests[0].Body);
+            Assert.Contains($"\"publishAt\":\"{expected}\"", handler.Requests[0].Body);
         }
         finally { File.Delete(path); }
     }
@@ -177,6 +217,31 @@ public sealed class SocialVideoUploadTests
             Assert.Contains("page-token", request.Body);
             Assert.Contains("name=is_preferred", request.Body);
             Assert.Contains("name=source", request.Body);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public async Task FacebookUpload_SendsScheduledStateAndUnixPublishTime()
+    {
+        var path = TemporaryVideo();
+        try
+        {
+            var handler = new FacebookUploadHandler();
+            var service = new FacebookReelUploadService(new HttpClient(handler));
+            var scheduled = DateTimeOffset.Now.AddDays(1);
+
+            await service.UploadAsync(
+                "page-token",
+                path,
+                "Film Quiz",
+                "Can you get 1/1?",
+                scheduled);
+
+            Assert.Contains("video_state=SCHEDULED", handler.Requests[3].Body);
+            Assert.Contains(
+                "scheduled_publish_time=" + scheduled.ToUnixTimeSeconds(),
+                handler.Requests[3].Body);
         }
         finally { File.Delete(path); }
     }
