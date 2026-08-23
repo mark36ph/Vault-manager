@@ -120,12 +120,10 @@ public sealed class InstagramManagementService
             throw new InvalidOperationException("Instagram did not return the connected account ID.");
 
         using var create = await PostJsonAsync(
-            $"{GraphRoot}/{Uri.EscapeDataString(userId)}/media",
+            $"{GraphRoot}/{Uri.EscapeDataString(userId)}/media?media_type=REELS&upload_type=resumable",
             token,
             new Dictionary<string, object>
             {
-                ["media_type"] = "REELS",
-                ["upload_type"] = "resumable",
                 ["caption"] = text,
                 ["share_to_feed"] = shareToFeed,
             },
