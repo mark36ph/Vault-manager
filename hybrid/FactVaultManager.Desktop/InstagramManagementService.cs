@@ -282,19 +282,40 @@ public sealed class InstagramManagementService
     {
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
         if (response.IsSuccessStatusCode) return JsonDocument.Parse(json);
-        var message = fallback;
+        var message = ErrorMessage(json, fallback);
+        throw new InvalidOperationException($"{message} (HTTP {(int)response.StatusCode}).");
+    }
+
+    private static string ErrorMessage(string content, string fallback)
+    {
+        var value = (content ?? "").Trim();
         try
         {
-            using var error = JsonDocument.Parse(json);
-            if (error.RootElement.TryGetProperty("error", out var value))
+            using var document = JsonDocument.Parse(value);
+            var root = document.RootElement;
+            foreach (var detail in new[]
             {
-                var detail = ReadString(value, "message");
-                if (detail.Length > 0) message = detail;
+                ReadNestedString(root, "error", "message"),
+                ReadNestedString(root, "debug_info", "message"),
+                ReadString(root, "message"),
+                ReadString(root, "error_description"),
+                ReadString(root, "error_summary"),
+            })
+            {
+                if (detail.Length > 0) return detail;
             }
         }
         catch (JsonException) { }
-        throw new InvalidOperationException($"{message} (HTTP {(int)response.StatusCode}).");
+
+        if (value.Length == 0 || value.StartsWith("<", StringComparison.Ordinal)) return fallback;
+        var plainText = string.Join(' ', value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        return plainText.Length <= 500 ? plainText : plainText[..500] + "…";
     }
+
+    private static string ReadNestedString(JsonElement root, string objectName, string propertyName) =>
+        root.TryGetProperty(objectName, out var value) && value.ValueKind == JsonValueKind.Object
+            ? ReadString(value, propertyName)
+            : "";
 
     private static async Task EnsureSuccessAsync(
         HttpResponseMessage response,
