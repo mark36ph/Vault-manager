@@ -13,25 +13,28 @@ public partial class MainShellWindow
         _quizBankGrid.SelectionMode = DataGridSelectionMode.Extended;
         _quizBankGrid.SelectionUnit = DataGridSelectionUnit.FullRow;
 
+        if (bankActions.Children.OfType<Button>().Any(button =>
+                string.Equals(button.Tag?.ToString(), "QuizBulkAction", StringComparison.Ordinal)))
+            return;
+
         var legacyButtons = bankActions.Children
             .OfType<Button>()
             .Where(button =>
             {
                 var text = button.Content?.ToString() ?? "";
                 return string.Equals(text, "Enable / disable selected", StringComparison.Ordinal) ||
-                       string.Equals(text, "Delete selected", StringComparison.Ordinal);
+                       string.Equals(text, "Delete selected", StringComparison.Ordinal) ||
+                       string.Equals(text, "Enable / disable", StringComparison.Ordinal) ||
+                       string.Equals(text, "Delete", StringComparison.Ordinal);
             })
             .ToArray();
         foreach (var button in legacyButtons)
             bankActions.Children.Remove(button);
 
-        if (bankActions.Children.OfType<Button>().Any(button =>
-                string.Equals(button.Content?.ToString(), "Set category", StringComparison.Ordinal)))
-            return;
-
         var selectAll = new Button
         {
             Content = "Select all",
+            Tag = "QuizBulkAction",
             ToolTip = "Select every question currently visible in the list.",
             Margin = new Thickness(0, 0, 8, 0),
         };
@@ -40,7 +43,8 @@ public partial class MainShellWindow
 
         var enable = new Button
         {
-            Content = "Enable selected",
+            Content = "Enable",
+            Tag = "QuizBulkAction",
             ToolTip = "Enable all selected questions for future random quiz selection.",
             Margin = new Thickness(0, 0, 8, 0),
         };
@@ -49,7 +53,8 @@ public partial class MainShellWindow
 
         var disable = new Button
         {
-            Content = "Disable selected",
+            Content = "Disable",
+            Tag = "QuizBulkAction",
             ToolTip = "Keep selected questions in the bank but exclude them from future random quiz selection.",
             Margin = new Thickness(0, 0, 8, 0),
         };
@@ -58,7 +63,8 @@ public partial class MainShellWindow
 
         var category = new Button
         {
-            Content = "Set category",
+            Content = "Change category",
+            Tag = "QuizBulkAction",
             ToolTip = "Move all selected questions into one category.",
             Margin = new Thickness(0, 0, 8, 0),
         };
@@ -67,7 +73,8 @@ public partial class MainShellWindow
 
         var delete = new Button
         {
-            Content = "Delete selected",
+            Content = "Delete",
+            Tag = "QuizBulkAction",
             ToolTip = "Permanently delete all selected questions from the question bank.",
         };
         delete.Click += DeleteSelectedQuizQuestionsBulk_Click;
