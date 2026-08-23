@@ -56,6 +56,7 @@ public partial class MainShellWindow
         navigation.Children.Add(questions);
         navigation.Children.Add(quizHistory);
         navigation.Children.Add(quizNotes);
+        navigation.Children.Add(NavigationSpacer());
         navigation.Children.Add(youtubeAnalytics);
         navigation.Children.Add(facebookAnalytics);
         navigation.Children.Add(instagramManager);
