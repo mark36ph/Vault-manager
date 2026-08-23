@@ -340,6 +340,16 @@ public partial class MainShellWindow
         StyleQuizHistoryButton(upload, Color.FromRgb(70, 235, 115));
         upload.Click += (_, _) => ShowSelectedQuizUpload();
         actions.Children.Add(upload);
+        var uploadQueue = new Button
+        {
+            Content = "Upload Queue",
+            MinWidth = 108,
+            Margin = new Thickness(8, 0, 0, 0),
+            ToolTip = "Batch upload completed quizzes to their remaining platforms",
+        };
+        StyleQuizHistoryButton(uploadQueue, Color.FromRgb(0, 204, 255));
+        uploadQueue.Click += (_, _) => ShowUploadQueueDialog();
+        actions.Children.Add(uploadQueue);
         var openFolder = new Button { Content = "Folder", MinWidth = 78, Margin = new Thickness(8, 0, 0, 0), ToolTip = "Open the selected quiz export folder" };
         StyleQuizHistoryButton(openFolder, Color.FromRgb(70, 235, 115));
         openFolder.Click += (_, _) => OpenSelectedQuizHistoryFolder();
