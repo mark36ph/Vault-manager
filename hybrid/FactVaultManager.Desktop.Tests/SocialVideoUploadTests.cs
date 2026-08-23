@@ -13,6 +13,46 @@ public sealed class SocialVideoUploadTests
     }
 
     [Fact]
+    public void UploadQueuePlanner_OffersEveryMissingShortDestination()
+    {
+        var remaining = SocialUploadQueuePlanner.RemainingDestinations(History("9:16"));
+
+        Assert.Equal(
+            SocialUploadDestination.YouTube |
+            SocialUploadDestination.Facebook |
+            SocialUploadDestination.Instagram,
+            remaining);
+        Assert.Equal("YouTube + Facebook + Instagram", SocialUploadQueuePlanner.Display(remaining));
+    }
+
+    [Fact]
+    public void UploadQueuePlanner_SkipsPublishedDestinations()
+    {
+        var history = History("9:16") with
+        {
+            PublishedOnYouTube = true,
+            PublishedOnFacebook = true,
+        };
+
+        Assert.Equal(
+            SocialUploadDestination.Instagram,
+            SocialUploadQueuePlanner.RemainingDestinations(history));
+    }
+
+    [Fact]
+    public void UploadQueuePlanner_LimitsFullVideosToYouTube()
+    {
+        var history = History("16:9");
+        Assert.Equal(
+            SocialUploadDestination.YouTube,
+            SocialUploadQueuePlanner.RemainingDestinations(history));
+        Assert.Equal(
+            SocialUploadDestination.None,
+            SocialUploadQueuePlanner.RemainingDestinations(
+                history with { PublishedOnYouTube = true }));
+    }
+
+    [Fact]
     public void UploadDescription_AppendsSavedHashtagsOnce()
     {
         var history = History("9:16") with

@@ -153,6 +153,7 @@ public partial class MainShellWindow
         var destinationContent = new Grid();
         destinationContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         destinationContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        destinationContent.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         destinationContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         destinationContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         destinationContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -234,6 +235,26 @@ public partial class MainShellWindow
         Grid.SetColumn(instagramPanel, 2);
         destinationContent.Children.Add(instagramPanel);
 
+        var selectRemaining = new Button
+        {
+            Content = "Select remaining platforms",
+            MinWidth = 176,
+            MinHeight = 32,
+            Margin = new Thickness(0, 14, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            ToolTip = "Select only platforms where this quiz has not already been published",
+        };
+        StyleQuizHistoryButton(selectRemaining, Color.FromRgb(0, 204, 255));
+        selectRemaining.Click += (_, _) =>
+        {
+            youtube.IsChecked = youtube.IsEnabled && !history.PublishedOnYouTube;
+            facebook.IsChecked = facebook.IsEnabled && !history.PublishedOnFacebook;
+            instagram.IsChecked = instagram.IsEnabled && !history.PublishedOnInstagram;
+        };
+        Grid.SetRow(selectRemaining, 1);
+        Grid.SetColumnSpan(selectRemaining, 3);
+        destinationContent.Children.Add(selectRemaining);
+
         var schedulePanel = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -283,7 +304,7 @@ public partial class MainShellWindow
         schedulePanel.Children.Add(scheduleAt);
         schedulePanel.Children.Add(scheduleTime);
         schedulePanel.Children.Add(scheduleZone);
-        Grid.SetRow(schedulePanel, 1);
+        Grid.SetRow(schedulePanel, 2);
         Grid.SetColumnSpan(schedulePanel, 3);
         destinationContent.Children.Add(schedulePanel);
         schedule.Checked += (_, _) =>
