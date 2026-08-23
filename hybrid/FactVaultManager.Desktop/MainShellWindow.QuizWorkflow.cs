@@ -580,8 +580,9 @@ public partial class MainShellWindow
             if (_quizBankStatusText is not null)
             {
                 _quizBankStatusText.Text = search.Trim().Length == 0
-                    ? $"{total:N0} matching • {enabled:N0} enabled • {disabled:N0} disabled • click column headers to sort"
+                    ? $"{total:N0} questions • {enabled:N0} enabled • {disabled:N0} disabled"
                     : $"Showing {questions.Count:N0} search results • {enabled:N0} enabled • {disabled:N0} disabled";
+                _quizBankStatusText.ToolTip = "Click any column heading to sort the question list.";
             }
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = $"Question bank: {_data.GetQuizQuestionCount():N0}";

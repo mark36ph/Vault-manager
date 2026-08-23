@@ -56,7 +56,7 @@ public partial class MainShellWindow
             return;
 
         browseRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(6) });
-        browseRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(190) });
+        browseRoot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(165), MinHeight = 120 });
 
         var splitter = new GridSplitter
         {
@@ -76,8 +76,8 @@ public partial class MainShellWindow
             BorderBrush = new SolidColorBrush(Color.FromRgb(0, 204, 255)),
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(8),
-            Padding = new Thickness(14, 12, 14, 12),
-            Margin = new Thickness(0, 5, 0, 0),
+            Padding = new Thickness(12, 10, 12, 10),
+            Margin = new Thickness(0, 4, 0, 0),
         };
         Grid.SetRow(detailsBorder, 3);
         browseRoot.Children.Add(detailsBorder);
@@ -108,8 +108,8 @@ public partial class MainShellWindow
         };
         var editQuestion = new Button
         {
-            Content = "Edit",
-            MinWidth = 72,
+            Content = "Edit question",
+            MinWidth = 104,
             Padding = new Thickness(10, 4, 10, 4),
             FontWeight = FontWeights.SemiBold,
         };
@@ -123,8 +123,8 @@ public partial class MainShellWindow
 
         var openFullView = new Button
         {
-            Content = "Open",
-            MinWidth = 72,
+            Content = "Full view",
+            MinWidth = 88,
             Padding = new Thickness(10, 4, 10, 4),
             Margin = new Thickness(8, 0, 0, 0),
         };
