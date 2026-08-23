@@ -96,9 +96,9 @@ public sealed class SocialVideoUploadTests
         {
             var history = History("9:16") with
             {
-                Title = "Space Quiz - Short - 001",
-                Categories = "Space",
-                SeriesName = "Space Quiz",
+                Title = "General Knowledge Quiz - Short - 001",
+                Categories = "General Knowledge",
+                SeriesName = "General Knowledge Quiz",
                 YouTubeTitle = "Can You Get 1/1? | Space Quiz #001",
                 ProjectFolder = @"Z:\OldFactVault\Quizzes\General Knowledge Quiz - Short - 001",
             };

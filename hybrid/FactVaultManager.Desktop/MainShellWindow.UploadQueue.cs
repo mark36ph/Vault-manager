@@ -95,17 +95,27 @@ public static class SocialUploadQueuePathFinder
     {
         var folderName = Path.GetFileName(folder.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         var searchable = Normalize(folderName + " " + Path.GetFileNameWithoutExtension(video));
-        var identityScore = new[]
-            {
-                Normalize(history.SeriesName),
-                Normalize(history.Categories),
-                Normalize(history.Title),
-            }
-            .Where(identity => identity.Length >= 3)
-            .Where(identity => ContainsPhrase(searchable, identity))
-            .Select(identity => identity.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length * 10)
-            .DefaultIfEmpty(0)
-            .Max();
+        var uploadTitleIdentity = UploadTitleIdentity(history.YouTubeTitle);
+        int identityScore;
+        if (uploadTitleIdentity.Length >= 3)
+        {
+            if (!ContainsPhrase(searchable, uploadTitleIdentity)) return 0;
+            identityScore = 100 + uploadTitleIdentity.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length * 10;
+        }
+        else
+        {
+            identityScore = new[]
+                {
+                    Normalize(history.SeriesName),
+                    Normalize(history.Categories),
+                    Normalize(history.Title),
+                }
+                .Where(identity => identity.Length >= 3)
+                .Where(identity => ContainsPhrase(searchable, identity))
+                .Select(identity => identity.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length * 10)
+                .DefaultIfEmpty(0)
+                .Max();
+        }
         if (identityScore == 0) return 0;
 
         var score = 100 + identityScore;
@@ -115,6 +125,17 @@ public static class SocialUploadQueuePathFinder
         if (folderName.Contains(history.EpisodeNumber.ToString("000"), StringComparison.Ordinal))
             score += 20;
         return score;
+    }
+
+    private static string UploadTitleIdentity(string? title)
+    {
+        var value = (title ?? "").Trim();
+        var separator = value.LastIndexOf('|');
+        if (separator < 0) return "";
+        value = value[(separator + 1)..];
+        var episodeMarker = value.LastIndexOf('#');
+        if (episodeMarker >= 0) value = value[..episodeMarker];
+        return Normalize(value);
     }
 
     private static bool ContainsPhrase(string searchable, string identity) =>
