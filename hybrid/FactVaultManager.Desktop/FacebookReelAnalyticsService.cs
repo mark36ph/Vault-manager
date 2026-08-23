@@ -92,15 +92,24 @@ public sealed class FacebookReelAnalyticsService
             throw new InvalidOperationException("The saved token did not identify a Facebook Page. Use the Page access token returned by /me/accounts.");
 
         var pageName = ReadString(page.RootElement, "name");
-        var videos = await ListVideoEdgeAsync(pageId, token, "video_reels", cancellationToken);
+        List<FacebookPageVideo> videos;
+        try
+        {
+            videos = await ListVideoEdgeAsync("me", token, "video_reels", cancellationToken);
+        }
+        catch (InvalidOperationException error) when (
+            error.Message.Contains("nonexisting field (video_reels)", StringComparison.OrdinalIgnoreCase))
+        {
+            videos = [];
+        }
         if (videos.Count == 0)
-            videos = await ListVideoEdgeAsync(pageId, token, "videos", cancellationToken);
+            videos = await ListVideoEdgeAsync("me", token, "videos", cancellationToken);
 
         return new FacebookPageVideos(pageId, pageName, videos);
     }
 
     private async Task<List<FacebookPageVideo>> ListVideoEdgeAsync(
-        string pageId,
+        string objectId,
         string escapedToken,
         string edge,
         CancellationToken cancellationToken)
@@ -110,7 +119,7 @@ public sealed class FacebookReelAnalyticsService
         do
         {
             var fields = "id,title,description,permalink_url,created_time";
-            var url = $"{GraphRoot}/{Uri.EscapeDataString(pageId)}/{edge}" +
+            var url = $"{GraphRoot}/{Uri.EscapeDataString(objectId)}/{edge}" +
                       $"?fields={Uri.EscapeDataString(fields)}&limit=100&access_token={escapedToken}";
             if (!string.IsNullOrWhiteSpace(after))
                 url += $"&after={Uri.EscapeDataString(after)}";
