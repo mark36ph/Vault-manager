@@ -991,6 +991,7 @@ public partial class MainShellWindow
             _youtubePlaylistsGrid.ItemsSource = playlists;
             _youtubeQuizVideoChoice!.ItemsSource = _data.GetQuizHistory()
                 .Where(item => item.PublishedOnYouTube)
+                .Where(item => string.Equals(item.VideoType, "Video", StringComparison.OrdinalIgnoreCase))
                 .Select(item => new YouTubeQuizChoice(
                     YouTubeVideoAnalyticsService.TryGetVideoId(item.YouTubeUrl) ?? "",
                     item.YouTubeTitle.Length > 0 ? item.YouTubeTitle : item.Title))
