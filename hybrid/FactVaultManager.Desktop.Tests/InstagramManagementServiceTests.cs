@@ -67,10 +67,11 @@ public sealed class InstagramManagementServiceTests
             Assert.Equal("0", upload.Offset);
             Assert.Equal("4", upload.FileSize);
             Assert.Equal("video/mp4", upload.ContentType);
-            var create = Assert.Single(handler.Requests.Where(request => request.Url.EndsWith("/17890000000000000/media", StringComparison.Ordinal)));
+            var create = Assert.Single(handler.Requests.Where(request =>
+                new Uri(request.Url).AbsolutePath.EndsWith("/17890000000000000/media", StringComparison.Ordinal)));
             Assert.Equal("application/json", create.ContentType);
-            Assert.Contains("\"media_type\":\"REELS\"", create.Body);
-            Assert.Contains("\"upload_type\":\"resumable\"", create.Body);
+            Assert.Contains("media_type=REELS", create.Url);
+            Assert.Contains("upload_type=resumable", create.Url);
             Assert.Contains("\"caption\":\"Can you get 1/1? #Quiz\"", create.Body);
             Assert.Contains("\"share_to_feed\":true", create.Body);
         }
@@ -108,7 +109,8 @@ public sealed class InstagramManagementServiceTests
                 return Json("{\"data\":[{\"id\":\"ig-media-1\",\"caption\":\"Quiz caption\",\"media_type\":\"VIDEO\",\"media_product_type\":\"REELS\",\"permalink\":\"https://www.instagram.com/reel/ABC123/\",\"timestamp\":\"2026-08-23T12:00:00+0000\",\"like_count\":35,\"comments_count\":8}]}");
             if (url.Contains("/ig-media-1/insights", StringComparison.Ordinal))
                 return Json("{\"data\":[{\"name\":\"views\",\"values\":[{\"value\":1200}]},{\"name\":\"reach\",\"values\":[{\"value\":900}]},{\"name\":\"saved\",\"values\":[{\"value\":12}]},{\"name\":\"shares\",\"values\":[{\"value\":9}]},{\"name\":\"total_interactions\",\"values\":[{\"value\":64}]}]}");
-            if (request.Method == HttpMethod.Post && url.EndsWith("/17890000000000000/media", StringComparison.Ordinal))
+            if (request.Method == HttpMethod.Post &&
+                new Uri(url).AbsolutePath.EndsWith("/17890000000000000/media", StringComparison.Ordinal))
                 return Json("{\"id\":\"ig-container-1\",\"uri\":\"https://rupload.facebook.com/ig-api-upload/v26.0/ig-container-1\"}");
             if (request.Method == HttpMethod.Post && captured.Host == "rupload.facebook.com")
                 return Json("{\"success\":true}");
