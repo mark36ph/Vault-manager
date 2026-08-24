@@ -76,6 +76,18 @@ public sealed class FacebookCommentManagementService
             new Dictionary<string, string> { ["message"] = message.Trim() }, cancellationToken);
     }
 
+    public async Task<string> PostTopLevelCommentAsync(
+        string pageAccessToken,
+        string videoId,
+        string message,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateCommentId(videoId);
+        if (string.IsNullOrWhiteSpace(message)) throw new ArgumentException("Enter a first comment first.");
+        return await SendFormForIdAsync(videoId + "/comments", pageAccessToken,
+            new Dictionary<string, string> { ["message"] = message.Trim() }, cancellationToken);
+    }
+
     public Task SetLikedAsync(
         string pageAccessToken,
         string commentId,
@@ -168,6 +180,29 @@ public sealed class FacebookCommentManagementService
         using var response = await _client.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
             throw await ApiErrorAsync(response, cancellationToken);
+    }
+
+    private async Task<string> SendFormForIdAsync(
+        string path,
+        string pageAccessToken,
+        IReadOnlyDictionary<string, string> values,
+        CancellationToken cancellationToken)
+    {
+        ValidateToken(pageAccessToken);
+        var form = new Dictionary<string, string>(values)
+        {
+            ["access_token"] = pageAccessToken.Trim(),
+        };
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{GraphRoot}/{path}")
+        {
+            Content = new FormUrlEncodedContent(form),
+        };
+        using var response = await _client.SendAsync(request, cancellationToken);
+        using var document = await ReadDocumentAsync(response, cancellationToken);
+        var id = ReadString(document.RootElement, "id");
+        if (id.Length == 0)
+            throw new InvalidOperationException("Facebook created the first comment but did not return its ID.");
+        return id;
     }
 
     private static IReadOnlyList<FacebookCommentItem> ParseComments(
