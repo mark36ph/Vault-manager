@@ -91,6 +91,60 @@ public sealed class QuizQuestionBankTests
     }
 
     [Fact]
+    public void Parse_AllowsRepeatedGenericPromptForDifferentIcons()
+    {
+        const string json = """
+        {
+          "questions": [
+            {
+              "question": "Who does this icon belong to?",
+              "answers": ["McDonald's", "KFC", "Burger King", "Subway"],
+              "correct_answer": "A",
+              "category": "Icons"
+            },
+            {
+              "question": "Who does this icon belong to?",
+              "answers": ["Adidas", "Nike", "Puma", "Reebok"],
+              "correct_answer": "B",
+              "category": "Icons"
+            }
+          ]
+        }
+        """;
+
+        var questions = QuizQuestionImportParser.Parse(json);
+
+        Assert.Equal(2, questions.Count);
+        Assert.Equal(new[] { "McDonald's", "Nike" },
+            questions.Select(question => question.Answers[question.CorrectIndex]));
+    }
+
+    [Fact]
+    public void Parse_StillRejectsRepeatedGenericPromptForStandardQuestions()
+    {
+        const string json = """
+        {
+          "questions": [
+            {
+              "question": "Which answer is correct?",
+              "answers": ["One", "Two", "Three", "Four"],
+              "correct_answer": "A",
+              "category": "Mathematics"
+            },
+            {
+              "question": "Which answer is correct?",
+              "answers": ["Red", "Blue", "Green", "Yellow"],
+              "correct_answer": "B",
+              "category": "General Knowledge"
+            }
+          ]
+        }
+        """;
+
+        Assert.Single(QuizQuestionImportParser.Parse(json));
+    }
+
+    [Fact]
     public void Parse_PreservesQuestionLogoOrIconImagePath()
     {
         var imagePath = Path.Combine(Path.GetTempPath(), $"factvault-question-icon-{Guid.NewGuid():N}.png");
