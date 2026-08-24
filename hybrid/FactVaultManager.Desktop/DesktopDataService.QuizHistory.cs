@@ -32,7 +32,9 @@ public sealed record QuizHistorySummary(
     string FacebookUploadDate = "",
     bool PublishedOnInstagram = false,
     string InstagramUrl = "",
-    string InstagramUploadDate = "")
+    string InstagramUploadDate = "",
+    string YouTubeFirstCommentId = "",
+    string FacebookFirstCommentId = "")
 {
     public string EpisodeLabel => EpisodeNumber > 0 ? $"#{EpisodeNumber:000}" : "";
     public string CreatedDisplay => QuizHistoryDate.Format(Created);
@@ -437,7 +439,8 @@ public sealed partial class DesktopDataService
                    youtube_views, youtube_likes, youtube_upload_date,
                    published_on_facebook, facebook_url, facebook_views, facebook_reactions,
                    facebook_comments, facebook_shares, facebook_upload_date,
-                   published_on_instagram, instagram_url, instagram_upload_date
+                   published_on_instagram, instagram_url, instagram_upload_date,
+                   youtube_first_comment_id, facebook_first_comment_id
             FROM quiz_history
             ORDER BY id DESC
             LIMIT $limit
@@ -478,7 +481,9 @@ public sealed partial class DesktopDataService
                 reader.GetString(26),
                 reader.GetInt32(27) != 0,
                 reader.GetString(28),
-                reader.GetString(29)));
+                reader.GetString(29),
+                reader.GetString(30),
+                reader.GetString(31)));
         }
         return results;
     }
@@ -618,6 +623,34 @@ public sealed partial class DesktopDataService
         return command.ExecuteNonQuery() == 1;
     }
 
+    public bool UpdateQuizHistoryYouTubeFirstComment(int historyId, string commentId)
+    {
+        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
+        commentId = (commentId ?? "").Trim();
+        if (commentId.Length == 0) throw new ArgumentException("The YouTube comment ID is missing.", nameof(commentId));
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE quiz_history SET youtube_first_comment_id = $commentId WHERE id = $historyId";
+        command.Parameters.AddWithValue("$commentId", commentId);
+        command.Parameters.AddWithValue("$historyId", historyId);
+        return command.ExecuteNonQuery() == 1;
+    }
+
+    public bool UpdateQuizHistoryFacebookFirstComment(int historyId, string commentId)
+    {
+        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
+        commentId = (commentId ?? "").Trim();
+        if (commentId.Length == 0) throw new ArgumentException("The Facebook comment ID is missing.", nameof(commentId));
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE quiz_history SET facebook_first_comment_id = $commentId WHERE id = $historyId";
+        command.Parameters.AddWithValue("$commentId", commentId);
+        command.Parameters.AddWithValue("$historyId", historyId);
+        return command.ExecuteNonQuery() == 1;
+    }
+
     public bool UpdateQuizHistoryInstagramPublication(
         int historyId,
         bool published,
@@ -729,7 +762,9 @@ public sealed partial class DesktopDataService
                     facebook_upload_date TEXT NOT NULL DEFAULT '',
                     published_on_instagram INTEGER NOT NULL DEFAULT 0,
                     instagram_url TEXT NOT NULL DEFAULT '',
-                    instagram_upload_date TEXT NOT NULL DEFAULT ''
+                    instagram_upload_date TEXT NOT NULL DEFAULT '',
+                    youtube_first_comment_id TEXT NOT NULL DEFAULT '',
+                    facebook_first_comment_id TEXT NOT NULL DEFAULT ''
                 );
 
                 CREATE TABLE IF NOT EXISTS quiz_history_questions (
@@ -772,6 +807,8 @@ public sealed partial class DesktopDataService
         EnsureQuizHistoryColumn(connection, "published_on_instagram", "INTEGER NOT NULL DEFAULT 0");
         EnsureQuizHistoryColumn(connection, "instagram_url", "TEXT NOT NULL DEFAULT ''");
         EnsureQuizHistoryColumn(connection, "instagram_upload_date", "TEXT NOT NULL DEFAULT ''");
+        EnsureQuizHistoryColumn(connection, "youtube_first_comment_id", "TEXT NOT NULL DEFAULT ''");
+        EnsureQuizHistoryColumn(connection, "facebook_first_comment_id", "TEXT NOT NULL DEFAULT ''");
         using var seriesIndex = connection.CreateCommand();
         seriesIndex.CommandText = """
             CREATE INDEX IF NOT EXISTS ix_quiz_history_series_episode

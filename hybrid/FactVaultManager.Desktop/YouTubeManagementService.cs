@@ -170,6 +170,31 @@ public sealed class YouTubeManagementService
         await EnsureSuccessAsync(response, cancellationToken);
     }
 
+    public async Task<string> PostTopLevelCommentAsync(
+        string accessToken,
+        string videoId,
+        string text,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(videoId)) throw new ArgumentException("The YouTube video ID is missing.");
+        if (string.IsNullOrWhiteSpace(text)) throw new ArgumentException("Enter a first comment first.");
+        var json = JsonSerializer.Serialize(new
+        {
+            snippet = new
+            {
+                videoId = videoId.Trim(),
+                topLevelComment = new { snippet = new { textOriginal = text.Trim() } },
+            },
+        });
+        using var response = await SendAsync(HttpMethod.Post, "/commentThreads?part=snippet", accessToken, json, cancellationToken);
+        using var document = await ReadDocumentAsync(response, cancellationToken);
+        var snippet = document.RootElement.GetProperty("snippet");
+        var commentId = ReadString(snippet.GetProperty("topLevelComment"), "id");
+        if (commentId.Length == 0)
+            throw new InvalidOperationException("YouTube created the first comment but did not return its ID.");
+        return commentId;
+    }
+
     public async Task SetModerationStatusAsync(
         string accessToken,
         string commentId,

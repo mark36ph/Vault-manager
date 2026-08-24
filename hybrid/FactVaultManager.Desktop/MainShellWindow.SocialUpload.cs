@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -183,6 +184,15 @@ public partial class MainShellWindow
         youtubePanel.Children.Add(privacy);
         var notify = new CheckBox { Content = "Notify subscribers", IsChecked = true, Margin = new Thickness(22, 0, 0, 0) };
         youtubePanel.Children.Add(notify);
+        var postYouTubeComment = new CheckBox
+        {
+            Content = history.YouTubeFirstCommentId.Length > 0 ? "First comment already posted" : "Post first comment (unlisted/public)",
+            IsChecked = false,
+            IsEnabled = false,
+            Margin = new Thickness(22, 8, 0, 0),
+            ToolTip = "Posts the saved first comment after upload. Pinning is completed on YouTube.",
+        };
+        youtubePanel.Children.Add(postYouTubeComment);
         destinationContent.Children.Add(youtubePanel);
 
         var facebookPanel = new StackPanel { Margin = new Thickness(14, 0, 0, 0) };
@@ -207,6 +217,15 @@ public partial class MainShellWindow
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(22, 4, 0, 0),
         });
+        var postFacebookComment = new CheckBox
+        {
+            Content = history.FacebookFirstCommentId.Length > 0 ? "First comment already posted" : "Post first comment",
+            IsChecked = history.FacebookFirstCommentId.Length == 0 && history.PinnedComment.Length > 0,
+            IsEnabled = history.FacebookFirstCommentId.Length == 0 && history.PinnedComment.Length > 0 && facebook.IsChecked == true,
+            Margin = new Thickness(22, 8, 0, 0),
+            ToolTip = "Posts the saved first comment after upload. Pinning is completed on Facebook.",
+        };
+        facebookPanel.Children.Add(postFacebookComment);
         Grid.SetColumn(facebookPanel, 1);
         destinationContent.Children.Add(facebookPanel);
 
@@ -307,18 +326,45 @@ public partial class MainShellWindow
         Grid.SetRow(schedulePanel, 2);
         Grid.SetColumnSpan(schedulePanel, 3);
         destinationContent.Children.Add(schedulePanel);
+        void UpdateYouTubeFirstCommentOption()
+        {
+            var canPost = history.YouTubeFirstCommentId.Length == 0 && history.PinnedComment.Length > 0 &&
+                youtube.IsChecked == true && schedule.IsChecked != true &&
+                !string.Equals(Convert.ToString(privacy.SelectedItem), "private", StringComparison.Ordinal);
+            postYouTubeComment.IsEnabled = canPost;
+            if (!canPost) postYouTubeComment.IsChecked = false;
+        }
+        youtube.Checked += (_, _) => postYouTubeComment.IsEnabled =
+            history.YouTubeFirstCommentId.Length == 0 && history.PinnedComment.Length > 0 && schedule.IsChecked != true &&
+            !string.Equals(Convert.ToString(privacy.SelectedItem), "private", StringComparison.Ordinal);
+        youtube.Unchecked += (_, _) => postYouTubeComment.IsEnabled = false;
+        privacy.SelectionChanged += (_, _) =>
+        {
+            UpdateYouTubeFirstCommentOption();
+            if (postYouTubeComment.IsEnabled) postYouTubeComment.IsChecked = true;
+        };
+        facebook.Checked += (_, _) => postFacebookComment.IsEnabled =
+            history.FacebookFirstCommentId.Length == 0 && history.PinnedComment.Length > 0 && schedule.IsChecked != true;
+        facebook.Unchecked += (_, _) => postFacebookComment.IsEnabled = false;
         schedule.Checked += (_, _) =>
         {
             scheduleDate.IsEnabled = true;
             scheduleTime.IsEnabled = true;
             privacy.SelectedItem = "private";
             privacy.IsEnabled = false;
+            postYouTubeComment.IsChecked = false;
+            postYouTubeComment.IsEnabled = false;
+            postFacebookComment.IsChecked = false;
+            postFacebookComment.IsEnabled = false;
         };
         schedule.Unchecked += (_, _) =>
         {
             scheduleDate.IsEnabled = false;
             scheduleTime.IsEnabled = false;
             privacy.IsEnabled = youtube.IsEnabled;
+            UpdateYouTubeFirstCommentOption();
+            postFacebookComment.IsEnabled = facebook.IsChecked == true &&
+                history.FacebookFirstCommentId.Length == 0 && history.PinnedComment.Length > 0;
         };
         destinations.Child = destinationContent;
         Grid.SetRow(destinations, 3);
@@ -329,6 +375,8 @@ public partial class MainShellWindow
         metadataPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         metadataPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         metadataPanel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        metadataPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        metadataPanel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         metadataPanel.Children.Add(new TextBlock
         {
             Text = "Upload title",
@@ -369,6 +417,28 @@ public partial class MainShellWindow
         };
         Grid.SetRow(descriptionBox, 3);
         metadataPanel.Children.Add(descriptionBox);
+        var firstCommentLabel = new TextBlock
+        {
+            Text = "First comment (posted automatically; pin manually)",
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)),
+            Margin = new Thickness(0, 10, 0, 5),
+        };
+        Grid.SetRow(firstCommentLabel, 4);
+        metadataPanel.Children.Add(firstCommentLabel);
+        var firstCommentBox = new TextBox
+        {
+            Text = history.PinnedComment,
+            AcceptsReturn = true,
+            TextWrapping = TextWrapping.Wrap,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            MinHeight = 64,
+            MaxHeight = 90,
+            Padding = new Thickness(10),
+            ToolTip = "Posted as the first top-level comment on selected platforms.",
+        };
+        Grid.SetRow(firstCommentBox, 5);
+        metadataPanel.Children.Add(firstCommentBox);
         Grid.SetRow(metadataPanel, 4);
         root.Children.Add(metadataPanel);
 
@@ -406,6 +476,7 @@ public partial class MainShellWindow
 
             var completed = new List<string>();
             var thumbnailWarnings = new List<string>();
+            var firstCommentLinks = new List<(string Platform, string Url)>();
             try
             {
                 var file = SocialVideoUploadRules.ValidateVideoFile(videoPath.Text);
@@ -458,6 +529,18 @@ public partial class MainShellWindow
                         try { await _youtubeVideoUpload.SetThumbnailAsync(accessToken, result.VideoId, thumbnail); }
                         catch (Exception error) { thumbnailWarnings.Add("YouTube thumbnail: " + error.Message); }
                     }
+                    if (postYouTubeComment.IsChecked == true && firstCommentBox.Text.Trim().Length > 0)
+                    {
+                        statusText.Text = "Posting the first YouTube comment...";
+                        try
+                        {
+                            var commentId = await _youtubeManagement.PostTopLevelCommentAsync(
+                                accessToken, result.VideoId, firstCommentBox.Text);
+                            _data.UpdateQuizHistoryYouTubeFirstComment(history.Id, commentId);
+                            firstCommentLinks.Add(("YouTube", YouTubeManagementService.BuildCommentUrl(result.VideoId, commentId)));
+                        }
+                        catch (Exception error) { thumbnailWarnings.Add("YouTube first comment: " + error.Message); }
+                    }
                     youtube.IsChecked = false;
                     youtube.IsEnabled = false;
                     youtube.Content = "YouTube (uploaded)";
@@ -487,6 +570,18 @@ public partial class MainShellWindow
                         statusText.Text = "Setting the Facebook Reel cover...";
                         try { await _facebookReelUpload.SetThumbnailAsync(pageToken, result.VideoId, thumbnail); }
                         catch (Exception error) { thumbnailWarnings.Add("Facebook Reel cover: " + error.Message); }
+                    }
+                    if (postFacebookComment.IsChecked == true && firstCommentBox.Text.Trim().Length > 0)
+                    {
+                        statusText.Text = "Posting the first Facebook comment...";
+                        try
+                        {
+                            var commentId = await _facebookComments.PostTopLevelCommentAsync(
+                                pageToken, result.VideoId, firstCommentBox.Text);
+                            _data.UpdateQuizHistoryFacebookFirstComment(history.Id, commentId);
+                            firstCommentLinks.Add(("Facebook", result.Url));
+                        }
+                        catch (Exception error) { thumbnailWarnings.Add("Facebook first comment: " + error.Message); }
                     }
                     facebook.IsChecked = false;
                     facebook.IsEnabled = false;
@@ -543,6 +638,15 @@ public partial class MainShellWindow
                     $"{completion} on {string.Join(" and ", completed)}.{archiveText}{warningText}",
                     scheduledFor is null ? "Upload Complete" : "Upload Scheduled", MessageBoxButton.OK,
                     thumbnailWarnings.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+                foreach (var firstComment in firstCommentLinks)
+                {
+                    if (MessageBox.Show(dialog,
+                            $"The first {firstComment.Platform} comment was posted. Open {firstComment.Platform} now to pin it?",
+                            "Pin First Comment", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                    {
+                        Process.Start(new ProcessStartInfo(firstComment.Url) { UseShellExecute = true });
+                    }
+                }
                 dialog.DialogResult = true;
             }
             catch (Exception error)

@@ -864,6 +864,22 @@ public partial class MainShellWindow
                         warnings.Add("YouTube thumbnail: " + error.Message);
                     }
                 }
+                if (!string.Equals(privacy, "private", StringComparison.Ordinal) &&
+                    history.YouTubeFirstCommentId.Length == 0 && history.PinnedComment.Trim().Length > 0)
+                {
+                    setStatus("Posting first YouTube comment...");
+                    try
+                    {
+                        var commentId = await _youtubeManagement.PostTopLevelCommentAsync(
+                            accessToken, result.VideoId, history.PinnedComment, cancellationToken);
+                        _data.UpdateQuizHistoryYouTubeFirstComment(history.Id, commentId);
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception error)
+                    {
+                        warnings.Add("YouTube first comment: " + error.Message);
+                    }
+                }
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception error)
@@ -899,6 +915,21 @@ public partial class MainShellWindow
                     catch (Exception error)
                     {
                         warnings.Add("Facebook Reel cover: " + error.Message);
+                    }
+                }
+                if (history.FacebookFirstCommentId.Length == 0 && history.PinnedComment.Trim().Length > 0)
+                {
+                    setStatus("Posting first Facebook comment...");
+                    try
+                    {
+                        var commentId = await _facebookComments.PostTopLevelCommentAsync(
+                            pageToken, result.VideoId, history.PinnedComment, cancellationToken);
+                        _data.UpdateQuizHistoryFacebookFirstComment(history.Id, commentId);
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception error)
+                    {
+                        warnings.Add("Facebook first comment: " + error.Message);
                     }
                 }
             }

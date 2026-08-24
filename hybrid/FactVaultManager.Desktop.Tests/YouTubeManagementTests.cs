@@ -282,6 +282,28 @@ public sealed class YouTubeManagementTests
     }
 
     [Fact]
+    public async Task PostTopLevelComment_CreatesACommentThreadAndReturnsTheCommentId()
+    {
+        const string json = """
+            {"id":"thread-1","snippet":{"topLevelComment":{"id":"comment-1","snippet":{"textOriginal":"How did you score?"}}}}
+            """;
+        var handler = new StubHttpHandler(_ => new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        {
+            Content = new StringContent(json),
+        });
+        var service = new YouTubeManagementService(new HttpClient(handler));
+
+        var commentId = await service.PostTopLevelCommentAsync(
+            "token", "video-1", "How did you score?");
+
+        Assert.Equal("comment-1", commentId);
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.Contains("/commentThreads?part=snippet", handler.RequestUri);
+        Assert.Contains("\"videoId\":\"video-1\"", handler.Body);
+        Assert.Contains("\"textOriginal\":\"How did you score?\"", handler.Body);
+    }
+
+    [Fact]
     public async Task ModerationQueueConfirmation_FindsTheCommentInYouTubesTargetQueue()
     {
         const string json = """
@@ -337,6 +359,7 @@ public sealed class YouTubeManagementTests
         public HttpMethod? Method { get; private set; }
         public string RequestUri { get; private set; } = "";
         public bool HadContent { get; private set; }
+        public string Body { get; private set; } = "";
 
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
@@ -345,6 +368,7 @@ public sealed class YouTubeManagementTests
             Method = request.Method;
             RequestUri = request.RequestUri?.ToString() ?? "";
             HadContent = request.Content is not null;
+            Body = request.Content?.ReadAsStringAsync(cancellationToken).GetAwaiter().GetResult() ?? "";
             return Task.FromResult(respond(request));
         }
     }
