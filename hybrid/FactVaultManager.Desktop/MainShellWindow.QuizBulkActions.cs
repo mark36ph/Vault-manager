@@ -61,6 +61,16 @@ public partial class MainShellWindow
         disable.Click += (_, _) => SetSelectedQuizQuestionsEnabled(false);
         bankActions.Children.Add(disable);
 
+        var findIcons = new Button
+        {
+            Content = "Find icon images",
+            Tag = "QuizBulkAction",
+            ToolTip = "Download matching Simple Icons images for selected Icons questions that do not have an image.",
+            Margin = new Thickness(0, 0, 8, 0),
+        };
+        findIcons.Click += FindSelectedQuizQuestionIcons_Click;
+        bankActions.Children.Add(findIcons);
+
         var category = new Button
         {
             Content = "Change category",
@@ -79,6 +89,151 @@ public partial class MainShellWindow
         };
         delete.Click += DeleteSelectedQuizQuestionsBulk_Click;
         bankActions.Children.Add(delete);
+    }
+
+    private async void FindSelectedQuizQuestionIcons_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = SelectedQuizQuestionsBulk();
+        var questions = selected
+            .Where(question => QuizTypeCatalog.FromCategory(question.Category) == QuizTypeCatalog.Logo)
+            .Where(question => !question.HasImage)
+            .ToList();
+        if (questions.Count == 0)
+        {
+            MessageBox.Show(
+                this,
+                "Select one or more Icons questions that do not yet have an image.",
+                "Find Icon Images",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var colourMode = ChooseSimpleIconColourMode(questions.Count);
+        if (colourMode is null)
+            return;
+
+        var button = sender as Button;
+        if (button is not null)
+            button.IsEnabled = false;
+        var displayOrder = CurrentQuizQuestionDisplayOrder();
+        var selectedIds = selected.Select(question => question.Id).ToArray();
+        var downloaded = 0;
+        var missing = new List<string>();
+        var failed = new List<string>();
+
+        try
+        {
+            foreach (var question in questions)
+            {
+                if (_quizPageStatusText is not null)
+                    _quizPageStatusText.Text = $"Finding icon {downloaded + missing.Count + failed.Count + 1:N0}/{questions.Count:N0}: {question.CorrectAnswer}";
+                try
+                {
+                    var result = await SimpleIconsService.DownloadPngAsync(question.CorrectAnswer, colourMode.Value);
+                    if (!result.Found)
+                    {
+                        missing.Add(question.CorrectAnswer);
+                        continue;
+                    }
+
+                    _data.UpdateQuizQuestion(question.Id, new QuizQuestionEditRequest(
+                        question.Question,
+                        question.OptionA,
+                        question.OptionB,
+                        question.OptionC,
+                        question.OptionD,
+                        question.CorrectIndex,
+                        question.Explanation,
+                        question.Category,
+                        question.Difficulty,
+                        question.IsEnabled,
+                        result.ImagePath));
+                    downloaded++;
+                }
+                catch (Exception error)
+                {
+                    failed.Add($"{question.CorrectAnswer}: {error.Message}");
+                }
+            }
+
+            RefreshQuizBank();
+            RestoreEditedQuizQuestionDisplayOrder(displayOrder);
+            RefreshQuizCategorySection();
+            RestoreQuizBulkSelection(selectedIds);
+
+            var summary = $"Attached {downloaded:N0} icon image{(downloaded == 1 ? "" : "s")}.";
+            if (missing.Count > 0)
+                summary += $"\n\nNot available from Simple Icons ({missing.Count:N0}):\n" + string.Join("\n", missing.Distinct(StringComparer.OrdinalIgnoreCase).Take(15));
+            if (failed.Count > 0)
+                summary += $"\n\nCould not download ({failed.Count:N0}):\n" + string.Join("\n", failed.Take(8));
+            if (missing.Count > 0 || failed.Count > 0)
+                summary += "\n\nUse Edit → Browse to attach those images manually.";
+
+            MessageBox.Show(
+                this,
+                summary,
+                "Find Icon Images",
+                MessageBoxButton.OK,
+                missing.Count == 0 && failed.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            if (_quizPageStatusText is not null)
+                _quizPageStatusText.Text = $"Attached {downloaded:N0} Simple Icons image{(downloaded == 1 ? "" : "s")}";
+        }
+        finally
+        {
+            if (button is not null)
+                button.IsEnabled = true;
+        }
+    }
+
+    private SimpleIconColourMode? ChooseSimpleIconColourMode(int questionCount)
+    {
+        var choice = new ComboBox { MinHeight = 34, MinWidth = 240, SelectedIndex = 0 };
+        choice.Items.Add("Brand colours");
+        choice.Items.Add("Black");
+
+        var panel = new StackPanel { Margin = new Thickness(20) };
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"Choose the colour style for {questionCount:N0} icon image{(questionCount == 1 ? "" : "s")}:",
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 10),
+        });
+        panel.Children.Add(choice);
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Brand colours are recommended. Questions without an exact Simple Icons match will be left for manual selection.",
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 10, 0, 0),
+        });
+
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 18, 0, 0),
+        };
+        var cancel = new Button { Content = "Cancel", MinWidth = 90, Height = 34, Margin = new Thickness(0, 0, 8, 0) };
+        var download = new Button { Content = "Find images", MinWidth = 110, Height = 34, FontWeight = FontWeights.SemiBold };
+        actions.Children.Add(cancel);
+        actions.Children.Add(download);
+        panel.Children.Add(actions);
+
+        var dialog = new Window
+        {
+            Owner = this,
+            Title = "Find Icon Images",
+            Width = 460,
+            Height = 245,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Content = panel,
+        };
+        cancel.Click += (_, _) => dialog.Close();
+        download.Click += (_, _) => dialog.DialogResult = true;
+        if (dialog.ShowDialog() != true)
+            return null;
+        return choice.SelectedIndex == 1 ? SimpleIconColourMode.Black : SimpleIconColourMode.Brand;
     }
 
     private IReadOnlyList<QuizQuestion> SelectedQuizQuestionsBulk()
