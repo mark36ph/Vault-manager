@@ -151,7 +151,7 @@ public partial class MainShellWindow
         commentsButton.Click += (_, _) =>
         {
             if (_uploadManagerGrid.SelectedItem is QuizHistorySummary history)
-                ShowQuizPublishingMetadata(history);
+                ShowQuizPublishingMetadata(history, manageComments: true);
         };
         actions.Children.Add(commentsButton);
         var upload = new Button { Content = "Upload Selected", MinWidth = 118, Margin = new Thickness(8, 0, 0, 0) };
