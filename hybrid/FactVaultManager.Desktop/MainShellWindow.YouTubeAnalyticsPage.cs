@@ -973,7 +973,22 @@ public partial class MainShellWindow
         {
             var token = await GetYouTubeManagementAccessTokenAsync();
             await _youtubeManagement.SetModerationStatusAsync(token, comment.Id, status);
-            await RefreshYouTubeCommentsAsync(true);
+            var selection = _youtubeCommentStatus?.SelectedItem?.ToString() ?? "Published";
+            var visibleStatus = selection switch
+            {
+                "Needs approval" => "heldForReview",
+                "Likely spam" => "likelySpam",
+                _ => "published",
+            };
+            var displayed = _youtubeCommentsGrid.ItemsSource is IEnumerable<YouTubeCommentItem> rows
+                ? rows
+                : Array.Empty<YouTubeCommentItem>();
+            _youtubeCommentsGrid.ItemsSource = YouTubeCommentInbox.ApplyModeration(
+                displayed, comment.Id, status, visibleStatus);
+            var updated = comment with { ModerationStatus = status };
+            SetYouTubeCommentsStatus(
+                $"Comment from {comment.Author} moved to {updated.StatusDisplay}. " +
+                "Use Refresh comments after a few seconds to confirm with YouTube.");
         }
         catch (Exception error)
         {

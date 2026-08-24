@@ -158,6 +158,32 @@ public sealed class YouTubeManagementTests
     }
 
     [Fact]
+    public void Moderation_RemovesHeldCommentFromPublishedViewImmediately()
+    {
+        var comment = new YouTubeCommentItem(
+            "viewer", "thread", "video", "Viewer", "Please reply", DateTime.UtcNow,
+            0, 0, "published");
+
+        var result = YouTubeCommentInbox.ApplyModeration(
+            [comment], comment.Id, "heldForReview", "published");
+
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public void Moderation_KeepsCommentWhenMovedIntoCurrentApprovalView()
+    {
+        var comment = new YouTubeCommentItem(
+            "viewer", "thread", "video", "Viewer", "Please review", DateTime.UtcNow,
+            0, 0, "published");
+
+        var result = Assert.Single(YouTubeCommentInbox.ApplyModeration(
+            [comment], comment.Id, "heldForReview", "heldForReview"));
+
+        Assert.Equal("Needs approval", result.StatusDisplay);
+    }
+
+    [Fact]
     public void PlaylistsResponse_ParsesPrivacyAndVideoCount()
     {
         const string json = """
