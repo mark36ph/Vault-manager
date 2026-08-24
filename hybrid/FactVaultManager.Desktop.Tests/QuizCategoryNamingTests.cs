@@ -15,4 +15,14 @@ public sealed class QuizCategoryNamingTests
     {
         Assert.Equal(expected, QuizPublishMetadataGenerator.SuggestSeriesName(category));
     }
+
+    [Theory]
+    [InlineData("Arts & Literature Quiz", "Arts & Literature")]
+    [InlineData("Science Quiz #003", "Science")]
+    [InlineData("General Knowledge Quiz", "General Knowledge")]
+    [InlineData("Movie Trivia", "Movie Trivia")]
+    public void DisplayName_RemovesOnlyQuizSuffixAndEpisode(string seriesName, string expected)
+    {
+        Assert.Equal(expected, QuizPublishMetadataGenerator.DisplayName(seriesName));
+    }
 }
