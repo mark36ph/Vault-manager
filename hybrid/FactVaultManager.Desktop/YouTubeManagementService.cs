@@ -178,10 +178,12 @@ public sealed class YouTubeManagementService
     {
         if (string.IsNullOrWhiteSpace(videoId)) throw new ArgumentException("The YouTube video ID is missing.");
         if (string.IsNullOrWhiteSpace(text)) throw new ArgumentException("Enter a first comment first.");
+        var channel = await GetMyChannelAsync(accessToken, cancellationToken);
         var json = JsonSerializer.Serialize(new
         {
             snippet = new
             {
+                channelId = channel.Id,
                 videoId = videoId.Trim(),
                 topLevelComment = new { snippet = new { textOriginal = text.Trim() } },
             },
