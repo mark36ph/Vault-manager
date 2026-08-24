@@ -34,7 +34,10 @@ public sealed record QuizHistorySummary(
     string InstagramUrl = "",
     string InstagramUploadDate = "",
     string YouTubeFirstCommentId = "",
-    string FacebookFirstCommentId = "")
+    string FacebookFirstCommentId = "",
+    string YouTubePrivacy = "",
+    string YouTubeScheduledFor = "",
+    string FacebookScheduledFor = "")
 {
     public string EpisodeLabel => EpisodeNumber > 0 ? $"#{EpisodeNumber:000}" : "";
     public string CreatedDisplay => QuizHistoryDate.Format(Created);
@@ -43,6 +46,46 @@ public sealed record QuizHistorySummary(
     public string FacebookUploadDateDisplay => QuizFacebookAnalytics.FormatUploadDate(FacebookUploadDate);
     public string InstagramUploadDateDisplay => QuizYouTubeAnalytics.FormatUploadDate(InstagramUploadDate);
     public string AnalyticsCategory => QuizYouTubeAnalytics.CategoryName(this);
+    public string UploadTitleDisplay => YouTubeTitle.Trim().Length > 0 ? YouTubeTitle : Title;
+    public bool YouTubeIsScheduled => FutureSchedule(YouTubeScheduledFor) is not null;
+    public bool FacebookIsScheduled => FutureSchedule(FacebookScheduledFor) is not null;
+    public string YouTubePublicationDisplay => !PublishedOnYouTube
+        ? "Not uploaded"
+        : FutureSchedule(YouTubeScheduledFor) is { } youtubeSchedule
+            ? $"Scheduled {youtubeSchedule:dd-MM-yyyy HH:mm}"
+            : YouTubeScheduledFor.Length > 0
+                ? "Published"
+                : YouTubePrivacy.Trim().ToLowerInvariant() switch
+                {
+                    "private" => "Private",
+                    "unlisted" => "Unlisted",
+                    "public" => "Published",
+                    _ => "Uploaded",
+                };
+    public string FacebookPublicationDisplay => !PublishedOnFacebook
+        ? "Not uploaded"
+        : FutureSchedule(FacebookScheduledFor) is { } facebookSchedule
+            ? $"Scheduled {facebookSchedule:dd-MM-yyyy HH:mm}"
+            : FacebookScheduledFor.Length > 0 ? "Published" : "Uploaded";
+    public string InstagramPublicationDisplay => PublishedOnInstagram ? "Uploaded" : "Not uploaded";
+    public string FirstCommentDisplay
+    {
+        get
+        {
+            if (PinnedComment.Trim().Length == 0) return "No comment text";
+            if (YouTubeIsScheduled || FacebookIsScheduled) return "Waiting for publication";
+            var youtubeMissing = PublishedOnYouTube && YouTubeFirstCommentId.Length == 0;
+            var facebookMissing = PublishedOnFacebook && FacebookFirstCommentId.Length == 0;
+            if (youtubeMissing || facebookMissing) return "Ready to post";
+            return PublishedOnYouTube || PublishedOnFacebook ? "Posted" : "Waiting for upload";
+        }
+    }
+
+    private static DateTimeOffset? FutureSchedule(string value) =>
+        DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var scheduled) &&
+        scheduled > DateTimeOffset.Now
+            ? scheduled
+            : null;
 }
 
 public sealed record QuizHistoryStats(
@@ -65,7 +108,7 @@ public static class QuizHistoryStatistics
         return new QuizHistoryStats(
             Videos: history.Count - shorts,
             Shorts: shorts,
-            Published: history.Count(item => item.PublishedOnYouTube),
+            Published: history.Count(item => item.PublishedOnYouTube && !item.YouTubeIsScheduled),
             QuestionsUsed: history.Sum(item => Math.Max(0, item.QuestionCount)),
             Views: categoryPerformance.Sum(item => item.Views),
             Likes: categoryPerformance.Sum(item => item.Likes),
@@ -440,7 +483,8 @@ public sealed partial class DesktopDataService
                    published_on_facebook, facebook_url, facebook_views, facebook_reactions,
                    facebook_comments, facebook_shares, facebook_upload_date,
                    published_on_instagram, instagram_url, instagram_upload_date,
-                   youtube_first_comment_id, facebook_first_comment_id
+                   youtube_first_comment_id, facebook_first_comment_id,
+                   youtube_privacy, youtube_scheduled_for, facebook_scheduled_for
             FROM quiz_history
             ORDER BY id DESC
             LIMIT $limit
@@ -483,7 +527,10 @@ public sealed partial class DesktopDataService
                 reader.GetString(28),
                 reader.GetString(29),
                 reader.GetString(30),
-                reader.GetString(31)));
+                reader.GetString(31),
+                reader.GetString(32),
+                reader.GetString(33),
+                reader.GetString(34)));
         }
         return results;
     }
@@ -651,6 +698,42 @@ public sealed partial class DesktopDataService
         return command.ExecuteNonQuery() == 1;
     }
 
+    public bool UpdateQuizHistoryYouTubeUploadState(
+        int historyId,
+        string privacy,
+        DateTimeOffset? scheduledFor)
+    {
+        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
+        privacy = (privacy ?? "").Trim().ToLowerInvariant();
+        if (privacy is not ("private" or "unlisted" or "public"))
+            throw new ArgumentException("The YouTube privacy setting is not supported.", nameof(privacy));
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE quiz_history
+            SET youtube_privacy = $privacy,
+                youtube_scheduled_for = $scheduledFor
+            WHERE id = $historyId
+            """;
+        command.Parameters.AddWithValue("$privacy", privacy);
+        command.Parameters.AddWithValue("$scheduledFor", scheduledFor?.ToString("O", CultureInfo.InvariantCulture) ?? "");
+        command.Parameters.AddWithValue("$historyId", historyId);
+        return command.ExecuteNonQuery() == 1;
+    }
+
+    public bool UpdateQuizHistoryFacebookSchedule(int historyId, DateTimeOffset? scheduledFor)
+    {
+        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE quiz_history SET facebook_scheduled_for = $scheduledFor WHERE id = $historyId";
+        command.Parameters.AddWithValue("$scheduledFor", scheduledFor?.ToString("O", CultureInfo.InvariantCulture) ?? "");
+        command.Parameters.AddWithValue("$historyId", historyId);
+        return command.ExecuteNonQuery() == 1;
+    }
+
     public bool UpdateQuizHistoryInstagramPublication(
         int historyId,
         bool published,
@@ -764,7 +847,10 @@ public sealed partial class DesktopDataService
                     instagram_url TEXT NOT NULL DEFAULT '',
                     instagram_upload_date TEXT NOT NULL DEFAULT '',
                     youtube_first_comment_id TEXT NOT NULL DEFAULT '',
-                    facebook_first_comment_id TEXT NOT NULL DEFAULT ''
+                    facebook_first_comment_id TEXT NOT NULL DEFAULT '',
+                    youtube_privacy TEXT NOT NULL DEFAULT '',
+                    youtube_scheduled_for TEXT NOT NULL DEFAULT '',
+                    facebook_scheduled_for TEXT NOT NULL DEFAULT ''
                 );
 
                 CREATE TABLE IF NOT EXISTS quiz_history_questions (
@@ -809,6 +895,9 @@ public sealed partial class DesktopDataService
         EnsureQuizHistoryColumn(connection, "instagram_upload_date", "TEXT NOT NULL DEFAULT ''");
         EnsureQuizHistoryColumn(connection, "youtube_first_comment_id", "TEXT NOT NULL DEFAULT ''");
         EnsureQuizHistoryColumn(connection, "facebook_first_comment_id", "TEXT NOT NULL DEFAULT ''");
+        EnsureQuizHistoryColumn(connection, "youtube_privacy", "TEXT NOT NULL DEFAULT ''");
+        EnsureQuizHistoryColumn(connection, "youtube_scheduled_for", "TEXT NOT NULL DEFAULT ''");
+        EnsureQuizHistoryColumn(connection, "facebook_scheduled_for", "TEXT NOT NULL DEFAULT ''");
         using var seriesIndex = connection.CreateCommand();
         seriesIndex.CommandText = """
             CREATE INDEX IF NOT EXISTS ix_quiz_history_series_episode
