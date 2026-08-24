@@ -408,7 +408,9 @@ public partial class MainShellWindow
     private void SyncQuizCategorySeriesName()
     {
         var suggested = QuizPublishMetadataGenerator.SuggestSeriesName(SelectedQuizCategory());
+        var suggestedTitle = QuizPublishMetadataGenerator.DisplayName(suggested);
         var previousAuto = _quizAutoSeriesName;
+        var previousAutoTitle = QuizPublishMetadataGenerator.DisplayName(previousAuto);
         var currentSeries = (_quizSeriesComboBox?.Text ?? "").Trim();
         if (_quizSeriesComboBox is not null &&
             (currentSeries.Length == 0 ||
@@ -423,10 +425,12 @@ public partial class MainShellWindow
             var currentTitle = _quizTitleTextBox.Text.Trim();
             if (currentTitle.Length == 0 ||
                 string.Equals(currentTitle, previousAuto, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(currentTitle, previousAutoTitle, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(currentTitle, "General Knowledge Quiz", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(currentTitle, "General Knowledge", StringComparison.OrdinalIgnoreCase) ||
                 currentTitle.StartsWith(previousAuto + " #", StringComparison.OrdinalIgnoreCase))
             {
-                _quizTitleTextBox.Text = suggested;
+                _quizTitleTextBox.Text = suggestedTitle;
             }
         }
 
@@ -477,9 +481,12 @@ public partial class MainShellWindow
             if (_quizTitleTextBox is not null &&
                 (previousResolveTitle.Length == 0 ||
                  string.Equals(previousResolveTitle, "General Knowledge Quiz", StringComparison.OrdinalIgnoreCase) ||
-                 string.Equals(previousResolveTitle, series, StringComparison.OrdinalIgnoreCase)))
+                 string.Equals(previousResolveTitle, "General Knowledge", StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(previousResolveTitle, series, StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(previousResolveTitle, QuizPublishMetadataGenerator.DisplayName(series), StringComparison.OrdinalIgnoreCase) ||
+                 previousResolveTitle.StartsWith(series + " #", StringComparison.OrdinalIgnoreCase)))
             {
-                _quizTitleTextBox.Text = $"{metadata.SeriesName} {metadata.EpisodeLabel}";
+                _quizTitleTextBox.Text = QuizPublishMetadataGenerator.DisplayName(metadata.SeriesName);
             }
             EnsureQuizThumbnailDefaults(metadata);
             GenerateQuizThumbnailPreview(showErrors: false);
@@ -535,7 +542,7 @@ public partial class MainShellWindow
             if (_quizTitleTextBox is not null &&
                 !QuizPublishMetadataGenerator.TitleMatchesSeries(_quizTitleTextBox.Text, series))
             {
-                _quizTitleTextBox.Text = $"{generated.SeriesName} {generated.EpisodeLabel}";
+                _quizTitleTextBox.Text = QuizPublishMetadataGenerator.DisplayName(generated.SeriesName);
             }
             _quizAutoSeriesName = series;
             return generated;
