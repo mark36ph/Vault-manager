@@ -60,4 +60,45 @@ public sealed class QuizQuestionTopicCategorizerTests
 
         Assert.Equal("Space", category);
     }
+
+    [Theory]
+    [InlineData("Which scientist developed the theory of general relativity?", "Albert Einstein developed the theory of relativity.", "Science")]
+    [InlineData("What was boxer Muhammad Ali's birth name?", "Muhammad Ali was born Cassius Clay.", "Sports")]
+    [InlineData("Which company did Steve Jobs co-found in 1976?", "Steve Jobs co-founded Apple.", "Technology")]
+    [InlineData("Which television personality hosted The Oprah Winfrey Show?", "Oprah Winfrey hosted the show.", "Entertainment")]
+    [InlineData("Cleopatra VII belonged to which ruling dynasty of Egypt?", "Cleopatra was a Ptolemaic ruler.", "History")]
+    public void NormalizeImportedCategory_MovesTextOnlyFamousPeopleOutOfIcons(
+        string question,
+        string explanation,
+        string expected)
+    {
+        var category = QuizQuestionTopicCategorizer.NormalizeImportedCategory(
+            "Icons",
+            question,
+            explanation: explanation);
+
+        Assert.Equal(expected, category);
+    }
+
+    [Fact]
+    public void NormalizeImportedCategory_KeepsActualLogoQuestionInIcons()
+    {
+        var category = QuizQuestionTopicCategorizer.NormalizeImportedCategory(
+            "Icons",
+            "Which company uses this logo?",
+            ["Apple", "Microsoft", "Google", "Amazon"]);
+
+        Assert.Equal("Icons", category);
+    }
+
+    [Fact]
+    public void NormalizeImportedCategory_KeepsImageQuestionInIcons()
+    {
+        var category = QuizQuestionTopicCategorizer.NormalizeImportedCategory(
+            "Icons",
+            "Which person is pictured?",
+            imagePath: "question.png");
+
+        Assert.Equal("Icons", category);
+    }
 }
