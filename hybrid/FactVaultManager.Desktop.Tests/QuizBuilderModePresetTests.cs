@@ -11,6 +11,7 @@ public sealed class QuizBuilderModePresetTests
         Assert.Equal(10, preset.QuestionCount);
         Assert.Equal(8, preset.SecondsPerQuestion);
         Assert.False(preset.Vertical);
+        Assert.Null(preset.Difficulty);
     }
 
     [Fact]
@@ -22,5 +23,6 @@ public sealed class QuizBuilderModePresetTests
         Assert.Equal(1, preset.QuestionCount);
         Assert.Equal(3, preset.SecondsPerQuestion);
         Assert.True(preset.Vertical);
+        Assert.Equal("easy", preset.Difficulty);
     }
 }

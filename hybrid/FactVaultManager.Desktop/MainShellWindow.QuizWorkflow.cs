@@ -815,6 +815,8 @@ public partial class MainShellWindow
         _quizSecondsPerQuestion = preset.SecondsPerQuestion;
         if (_quizFormatComboBox is not null)
             _quizFormatComboBox.SelectedIndex = preset.Vertical ? 1 : 0;
+        if (preset.Difficulty is not null && _quizDifficultyComboBox is not null)
+            _quizDifficultyComboBox.SelectedItem = preset.Difficulty;
 
         InvalidateQuizThumbnailPreview();
         InvalidateQuizPublishingExportCompletion();
