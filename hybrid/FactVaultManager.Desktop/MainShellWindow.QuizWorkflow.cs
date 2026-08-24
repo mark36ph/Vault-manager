@@ -460,7 +460,8 @@ public partial class MainShellWindow
         _quizPromptCategoryComboBox.Items.Add("All categories");
         var promptCategories = QuizQuestionTopicCategorizer.Categories
             .Concat(_data.GetQuizCategories())
-            .Distinct(StringComparer.OrdinalIgnoreCase);
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(category => category, StringComparer.OrdinalIgnoreCase);
         foreach (var category in promptCategories)
             _quizPromptCategoryComboBox.Items.Add(category);
         _quizPromptCategoryComboBox.SelectedItem = "All categories";
@@ -564,6 +565,7 @@ public partial class MainShellWindow
             var categories = QuizQuestionTopicCategorizer.Categories
                 .Concat(_data.GetQuizCategories())
                 .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(category => category, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
             _quizCategoryComboBox.Items.Clear();
             _quizCategoryComboBox.Items.Add("All categories");
