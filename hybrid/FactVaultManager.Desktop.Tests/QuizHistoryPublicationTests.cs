@@ -184,6 +184,28 @@ public sealed class QuizHistoryPublicationTests
         Assert.Equal("Video", recommendation.VideoType);
     }
 
+    [Fact]
+    public void NextQuizRecommendation_ExcludesIconsAndParanormal()
+    {
+        var recommendation = YouTubeNextQuizPlanner.Recommend(
+            [],
+            ["Icons", "Paranormal", "History"]);
+
+        Assert.Equal("History", recommendation.Category);
+        Assert.Equal("Video", recommendation.VideoType);
+    }
+
+    [Fact]
+    public void NextQuizRecommendation_UsesFallbackWhenOnlyExcludedCategoriesAreAvailable()
+    {
+        var recommendation = YouTubeNextQuizPlanner.Recommend(
+            [],
+            ["Icons", "Paranormal"]);
+
+        Assert.Equal("General Knowledge", recommendation.Category);
+        Assert.Equal("Video", recommendation.VideoType);
+    }
+
     private static QuizHistorySummary History(
         string format,
         int questionCount,
