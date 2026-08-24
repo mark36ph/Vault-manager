@@ -148,6 +148,18 @@ public static class QuizPublishMetadataGenerator
         return text;
     }
 
+    public static string DisplayName(string? value)
+    {
+        var text = NormalizeSeriesName(value);
+        var episodeStart = text.LastIndexOf(" #", StringComparison.Ordinal);
+        if (episodeStart > 0 && int.TryParse(text[(episodeStart + 2)..], out _))
+            text = text[..episodeStart].TrimEnd();
+        const string quizSuffix = " Quiz";
+        if (text.EndsWith(quizSuffix, StringComparison.OrdinalIgnoreCase))
+            text = text[..^quizSuffix.Length].TrimEnd();
+        return text.Length == 0 ? "General Knowledge" : text;
+    }
+
     public static string NormalizeFullQuizUrl(string? value)
     {
         var url = QuizYouTubePublication.NormalizeUrl(value);
