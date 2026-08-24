@@ -72,13 +72,22 @@ public sealed class FacebookCommentManagementTests
         var handler = new FacebookCommentHandler();
         var service = new FacebookCommentManagementService(new HttpClient(handler));
 
+        var firstCommentId = await service.PostTopLevelCommentAsync(
+            "page-token", "video-1", "How did you score?");
         await service.ReplyAsync("page-token", "comment-1", "Thanks!");
         await service.SetLikedAsync("page-token", "comment-1", true);
         await service.SetLikedAsync("page-token", "comment-1", false);
         await service.SetHiddenAsync("page-token", "comment-1", true);
         await service.DeleteAsync("page-token", "comment-1");
 
+        Assert.Equal("facebook-comment-1", firstCommentId);
         Assert.Collection(handler.Requests,
+            request =>
+            {
+                Assert.Equal(HttpMethod.Post, request.Method);
+                Assert.EndsWith("/video-1/comments", request.Path);
+                Assert.Contains("message=How+did+you+score%3F", request.Form);
+            },
             request =>
             {
                 Assert.Equal(HttpMethod.Post, request.Method);
@@ -130,7 +139,10 @@ public sealed class FacebookCommentManagementTests
                 request.Method,
                 request.RequestUri?.AbsolutePath ?? "",
                 request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken)));
-            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"id\":\"facebook-comment-1\"}"),
+            };
         }
     }
 
