@@ -878,18 +878,23 @@ public partial class MainShellWindow
         AddQuizHistoryPublishingField(stack, "Hashtags", history.Hashtags, 58);
         AddQuizHistoryPublishingField(stack, "First comment", history.PinnedComment, 95);
 
+        var youtubeFirstCommentId = history.YouTubeFirstCommentId;
+        var facebookFirstCommentId = history.FacebookFirstCommentId;
         stack.Children.Add(new TextBlock
         {
             Text = "First-comment status",
             FontWeight = FontWeights.SemiBold,
             Margin = new Thickness(0, 12, 0, 4),
         });
-        stack.Children.Add(new TextBlock
+        var firstCommentStatus = new TextBlock
         {
-            Text = $"YouTube: {(history.YouTubeFirstCommentId.Length > 0 ? "Posted — ready to pin" : "Not posted")}   •   " +
-                   $"Facebook: {(history.FacebookFirstCommentId.Length > 0 ? "Posted — ready to pin" : "Not posted")}",
             Foreground = QuizMutedBrush(),
-        });
+        };
+        void UpdateFirstCommentStatus() => firstCommentStatus.Text =
+            $"YouTube: {(youtubeFirstCommentId.Length > 0 ? "Posted — ready to pin" : "Not posted")}   •   " +
+            $"Facebook: {(facebookFirstCommentId.Length > 0 ? "Posted — ready to pin" : "Not posted")}";
+        UpdateFirstCommentStatus();
+        stack.Children.Add(firstCommentStatus);
         var pinActions = new StackPanel
         {
             Orientation = Orientation.Horizontal,
@@ -901,14 +906,14 @@ public partial class MainShellWindow
             Content = "Open YouTube to pin",
             MinHeight = 34,
             Padding = new Thickness(12, 0, 12, 0),
-            IsEnabled = history.YouTubeFirstCommentId.Length > 0 && history.YouTubeUrl.Length > 0,
+            IsEnabled = youtubeFirstCommentId.Length > 0 && history.YouTubeUrl.Length > 0,
         };
         openYouTubeToPin.Click += (_, _) =>
         {
             var videoId = YouTubeVideoAnalyticsService.TryGetVideoId(history.YouTubeUrl);
             if (videoId is not null)
                 Process.Start(new ProcessStartInfo(
-                    YouTubeManagementService.BuildCommentUrl(videoId, history.YouTubeFirstCommentId)) { UseShellExecute = true });
+                    YouTubeManagementService.BuildCommentUrl(videoId, youtubeFirstCommentId)) { UseShellExecute = true });
         };
         pinActions.Children.Add(openYouTubeToPin);
         var openFacebookToPin = new Button
@@ -917,12 +922,97 @@ public partial class MainShellWindow
             MinHeight = 34,
             Padding = new Thickness(12, 0, 12, 0),
             Margin = new Thickness(8, 0, 0, 0),
-            IsEnabled = history.FacebookFirstCommentId.Length > 0 && history.FacebookUrl.Length > 0,
+            IsEnabled = facebookFirstCommentId.Length > 0 && history.FacebookUrl.Length > 0,
         };
         openFacebookToPin.Click += (_, _) =>
             Process.Start(new ProcessStartInfo(history.FacebookUrl) { UseShellExecute = true });
         pinActions.Children.Add(openFacebookToPin);
         stack.Children.Add(pinActions);
+
+        var postMissingComments = new Button
+        {
+            Content = "Post missing first comments",
+            MinHeight = 36,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Padding = new Thickness(14, 0, 14, 0),
+            Margin = new Thickness(0, 10, 0, 0),
+            IsEnabled = history.PinnedComment.Trim().Length > 0 &&
+                (history.PublishedOnYouTube && youtubeFirstCommentId.Length == 0 ||
+                 history.PublishedOnFacebook && facebookFirstCommentId.Length == 0),
+            ToolTip = "Posts the saved first comment only where this quiz is already published and no comment ID is recorded.",
+        };
+        StyleQuizHistoryButton(postMissingComments, Color.FromRgb(70, 235, 115));
+        postMissingComments.Click += async (_, _) =>
+        {
+            postMissingComments.IsEnabled = false;
+            var posted = new List<string>();
+            var errors = new List<string>();
+
+            if (history.PublishedOnYouTube && youtubeFirstCommentId.Length == 0)
+            {
+                var videoId = YouTubeVideoAnalyticsService.TryGetVideoId(history.YouTubeUrl);
+                if (videoId is null)
+                {
+                    errors.Add("YouTube: the saved video URL does not contain a usable video ID.");
+                }
+                else
+                {
+                    try
+                    {
+                        firstCommentStatus.Text = "Posting the first YouTube comment...";
+                        var token = await GetYouTubeManagementAccessTokenAsync();
+                        youtubeFirstCommentId = await _youtubeManagement.PostTopLevelCommentAsync(
+                            token, videoId, history.PinnedComment);
+                        _data.UpdateQuizHistoryYouTubeFirstComment(history.Id, youtubeFirstCommentId);
+                        posted.Add("YouTube");
+                    }
+                    catch (Exception error)
+                    {
+                        errors.Add("YouTube: " + error.Message);
+                    }
+                }
+            }
+
+            if (history.PublishedOnFacebook && facebookFirstCommentId.Length == 0)
+            {
+                var videoId = FacebookReelAnalyticsService.TryGetReelId(history.FacebookUrl);
+                if (videoId is null)
+                {
+                    errors.Add("Facebook: the saved Reel URL does not contain a usable video ID.");
+                }
+                else
+                {
+                    try
+                    {
+                        firstCommentStatus.Text = "Posting the first Facebook comment...";
+                        facebookFirstCommentId = await _facebookComments.PostTopLevelCommentAsync(
+                            FacebookPageToken(), videoId, history.PinnedComment);
+                        _data.UpdateQuizHistoryFacebookFirstComment(history.Id, facebookFirstCommentId);
+                        posted.Add("Facebook");
+                    }
+                    catch (Exception error)
+                    {
+                        errors.Add("Facebook: " + error.Message);
+                    }
+                }
+            }
+
+            UpdateFirstCommentStatus();
+            openYouTubeToPin.IsEnabled = youtubeFirstCommentId.Length > 0 && history.YouTubeUrl.Length > 0;
+            openFacebookToPin.IsEnabled = facebookFirstCommentId.Length > 0 && history.FacebookUrl.Length > 0;
+            postMissingComments.IsEnabled = history.PinnedComment.Trim().Length > 0 &&
+                (history.PublishedOnYouTube && youtubeFirstCommentId.Length == 0 ||
+                 history.PublishedOnFacebook && facebookFirstCommentId.Length == 0);
+            RefreshQuizHistory();
+
+            var resultText = posted.Count > 0
+                ? "Posted successfully to " + string.Join(" and ", posted) + "."
+                : "No first comments were posted.";
+            if (errors.Count > 0) resultText += "\n\n" + string.Join("\n", errors);
+            MessageBox.Show(dialog, resultText, "Post First Comments", MessageBoxButton.OK,
+                errors.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        };
+        stack.Children.Add(postMissingComments);
 
         var copy = new Button
         {
