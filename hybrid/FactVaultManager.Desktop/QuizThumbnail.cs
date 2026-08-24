@@ -51,7 +51,7 @@ public static class QuizThumbnailDefaults
 
         return new QuizThumbnailSettings(
             $"CAN YOU GET {questionCount}/{questionCount}?",
-            metadata.SeriesName.ToUpperInvariant()).Normalize();
+            QuizPublishMetadataGenerator.DisplayName(metadata.SeriesName).ToUpperInvariant()).Normalize();
     }
 }
 
