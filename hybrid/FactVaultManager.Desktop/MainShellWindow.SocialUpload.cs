@@ -511,17 +511,19 @@ public partial class MainShellWindow
                         ? "Uploading to YouTube... Keep this window open."
                         : "Uploading to YouTube for scheduled publication... Keep this window open.";
                     var accessToken = await GetYouTubeManagementAccessTokenAsync();
+                    var youtubePrivacy = Convert.ToString(privacy.SelectedItem) ?? "private";
                     var result = await _youtubeVideoUpload.UploadAsync(
                         accessToken,
                         file,
                         new YouTubeVideoUpload(
                             title,
                             description,
-                            Convert.ToString(privacy.SelectedItem) ?? "private",
+                            youtubePrivacy,
                             notify.IsChecked == true,
                             scheduledFor));
                     _data.UpdateQuizHistoryYouTubeAnalytics(
                         history.Id, true, result.Url, 0, 0, scheduledFor?.LocalDateTime.Date ?? DateTime.Today);
+                    _data.UpdateQuizHistoryYouTubeUploadState(history.Id, youtubePrivacy, scheduledFor);
                     completed.Add("YouTube");
                     if (thumbnail is not null)
                     {
@@ -564,6 +566,7 @@ public partial class MainShellWindow
                         scheduledFor);
                     _data.UpdateQuizHistoryFacebookAnalytics(
                         history.Id, true, result.Url, 0, 0, 0, 0, scheduledFor?.LocalDateTime.Date ?? DateTime.Today);
+                    _data.UpdateQuizHistoryFacebookSchedule(history.Id, scheduledFor);
                     completed.Add("Facebook");
                     if (thumbnail is not null)
                     {
