@@ -70,6 +70,25 @@ public sealed class YouTubeManagementTests
         Assert.Equal(expected, comment.StatusDisplay);
     }
 
+    [Theory]
+    [InlineData("published", "Active")]
+    [InlineData("heldForReview", "Needs approval")]
+    [InlineData("likelySpam", "Needs approval (spam)")]
+    public void CommentStatus_UsesRequestedFilterWhenYouTubeOmitsTheField(
+        string requestedStatus,
+        string expected)
+    {
+        var comment = new YouTubeCommentItem(
+            "comment", "thread", "video", "Viewer", "Text", DateTime.UtcNow,
+            0, 0, "");
+
+        var result = Assert.Single(YouTubeManagementService.ApplyRequestedModerationStatus(
+            [comment], requestedStatus));
+
+        Assert.Equal(requestedStatus, result.ModerationStatus);
+        Assert.Equal(expected, result.StatusDisplay);
+    }
+
     [Fact]
     public void CommentsResponse_UsesAuthorChannelIdWhenProfileUrlIsMissing()
     {
