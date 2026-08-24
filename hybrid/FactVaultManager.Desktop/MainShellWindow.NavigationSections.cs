@@ -34,6 +34,8 @@ public partial class MainShellWindow
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _quizHistoryTabIndex.ToString(), StringComparison.Ordinal));
         var quizNotes = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _quizNotesTabIndex.ToString(), StringComparison.Ordinal));
+        var uploadManager = FindVisualChildren<Button>(root)
+            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _uploadManagerTabIndex.ToString(), StringComparison.Ordinal));
         var youtubeAnalytics = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _youtubeAnalyticsTabIndex.ToString(), StringComparison.Ordinal));
         var facebookAnalytics = FindVisualChildren<Button>(root)
@@ -43,7 +45,7 @@ public partial class MainShellWindow
 
         if (dashboard?.Parent is not StackPanel navigation ||
             projects is null || production is null || media is null ||
-            settings is null || quizzes is null || questions is null || quizHistory is null || quizNotes is null ||
+            settings is null || quizzes is null || questions is null || quizHistory is null || quizNotes is null || uploadManager is null ||
             youtubeAnalytics is null || facebookAnalytics is null || instagramManager is null)
         {
             return;
@@ -57,6 +59,7 @@ public partial class MainShellWindow
         navigation.Children.Add(quizHistory);
         navigation.Children.Add(quizNotes);
         navigation.Children.Add(NavigationSpacer());
+        navigation.Children.Add(uploadManager);
         navigation.Children.Add(youtubeAnalytics);
         navigation.Children.Add(facebookAnalytics);
         navigation.Children.Add(instagramManager);
