@@ -43,6 +43,12 @@ public sealed record YouTubeNextQuizRecommendation(string Category, string Video
 
 public static class YouTubeNextQuizPlanner
 {
+    private static readonly HashSet<string> ExcludedRecommendationCategories = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Icons",
+        "Paranormal",
+    };
+
     public static YouTubeNextQuizRecommendation Recommend(
         IReadOnlyList<QuizHistorySummary> history,
         IEnumerable<string> availableCategories)
@@ -50,6 +56,7 @@ public static class YouTubeNextQuizPlanner
         var categories = availableCategories
             .Where(category => !string.IsNullOrWhiteSpace(category))
             .Select(category => category.Trim())
+            .Where(category => !ExcludedRecommendationCategories.Contains(category))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         if (categories.Count == 0)
