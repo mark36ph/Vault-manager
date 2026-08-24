@@ -26,13 +26,15 @@ public static class QuizQuestionTopicCategorizer
         [
             "world wide web", "invented", "inventor", "invention", "morse", "telephone",
             "binary", "cpu", "html", "gps", "usb", "computer", "internet", "wright brothers",
-            "powered flight", "printing press",
+            "powered flight", "printing press", "computer programmer", "analytical engine",
+            "steve jobs",
         ]),
         new("Arts & Literature",
         [
             "wrote", "novel", "play", "poet", "shakespeare", "austen", "orwell", "odyssey",
             "hamlet", "pride and prejudice", "book", "author", "painted", "painting", "artist",
             "mona lisa", "starry night", "sculpture", "michelangelo", "guernica", "the scream", "museum",
+            "fashion designer", "chanel", "picasso",
         ]),
         new("Music",
         [
@@ -47,11 +49,13 @@ public static class QuizQuestionTopicCategorizer
         new("Entertainment",
         [
             "television", "tv show", "series", "sitcom", "actor", "actress", "celebrity", "emmy",
+            "oprah winfrey",
         ]),
         new("Sports",
         [
             "football", "basketball", "tennis", "wimbledon", "olympic", "marathon",
             "free throw", "fifa", "cricket", "rugby", "golf", "players on the field",
+            "footballer", "boxer", "sprinter", "athlete", "usain bolt", "pelé", "pele", "muhammad ali",
         ]),
         new("Mathematics",
         [
@@ -62,7 +66,8 @@ public static class QuizQuestionTopicCategorizer
         [
             "chemical", "atomic", "atom", "oxygen", "hydrogen", "electric current", "si unit",
             "photosynthesis", "gravity", "particle", "electron", "dna", "boils", "celsius",
-            "formula", "molecule", "ph value", "human body", "organ",
+            "formula", "molecule", "ph value", "human body", "organ", "scientist", "physics",
+            "chemistry", "relativity", "vaccine", "evolution", "natural selection", "naturalist",
         ]),
         new("Geography",
         [
@@ -75,7 +80,9 @@ public static class QuizQuestionTopicCategorizer
         [
             "magna carta", "great fire", "revolution", "world war", "declaration of independence",
             "emperor", "renaissance", "ancient civilization", "pompeii", "roman empire", "century",
-            "bc", "ad", "historical",
+            "bc", "ad", "historical", "civil rights", "prime minister", "president", "dynasty",
+            "independence leader", "activist", "nobel peace prize", "south pole", "crimean war",
+            "amelia earhart", "aviation pioneer", "charles lindbergh", "rosa parks", "nelson mandela",
         ]),
     ];
 
@@ -117,6 +124,26 @@ public static class QuizQuestionTopicCategorizer
         }
 
         return bestCategory;
+    }
+
+    public static string NormalizeImportedCategory(
+        string? category,
+        string question,
+        IEnumerable<string>? answers = null,
+        string? explanation = null,
+        string? imagePath = null)
+    {
+        var normalized = QuizQuestionCategoryNormalizer.Normalize(category);
+        if (!string.Equals(normalized, "Icons", StringComparison.OrdinalIgnoreCase) ||
+            !string.IsNullOrWhiteSpace(imagePath))
+        {
+            return normalized;
+        }
+
+        var detected = Categorize(question, answers, explanation);
+        return string.Equals(detected, "Icons", StringComparison.OrdinalIgnoreCase)
+            ? normalized
+            : detected;
     }
 
     private static string Normalize(string value)
