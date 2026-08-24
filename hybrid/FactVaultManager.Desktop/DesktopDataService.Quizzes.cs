@@ -33,10 +33,16 @@ public sealed partial class DesktopDataService
 
         foreach (var parsedQuestion in questions)
         {
+            var managedImagePath = ManageQuizQuestionImage(parsedQuestion.ImagePath);
             var question = parsedQuestion with
             {
-                Category = QuizQuestionCategoryNormalizer.Normalize(parsedQuestion.Category),
-                ImagePath = ManageQuizQuestionImage(parsedQuestion.ImagePath),
+                Category = QuizQuestionTopicCategorizer.NormalizeImportedCategory(
+                    parsedQuestion.Category,
+                    parsedQuestion.Question,
+                    parsedQuestion.Answers,
+                    parsedQuestion.Explanation,
+                    managedImagePath),
+                ImagePath = managedImagePath,
             };
             var duplicateKey = QuizQuestionDuplicateKey.Create(question.Question);
             var correctAnswer = question.Answers[question.CorrectIndex];
@@ -297,6 +303,7 @@ public sealed partial class DesktopDataService
         enabledIndex.ExecuteNonQuery();
         NormalizeStoredQuizCategories(connection);
         MigrateStoredQuizQuestionImages(connection);
+        RepairStoredTextOnlyIconCategories(connection);
     }
 
     private string ManageQuizQuestionImage(string? imagePath) =>
@@ -358,6 +365,52 @@ public sealed partial class DesktopDataService
             update.CommandText = "UPDATE quiz_questions SET category = $normalized WHERE category = $stored COLLATE NOCASE";
             update.Parameters.AddWithValue("$normalized", normalized);
             update.Parameters.AddWithValue("$stored", stored);
+            update.ExecuteNonQuery();
+        }
+    }
+
+    private static void RepairStoredTextOnlyIconCategories(SqliteConnection connection)
+    {
+        var questions = new List<(int Id, string Question, string[] Answers, string Explanation)>();
+        using (var read = connection.CreateCommand())
+        {
+            read.CommandText = """
+                SELECT id, question, option_a, option_b, option_c, option_d, explanation
+                FROM quiz_questions
+                WHERE category = 'Icons' COLLATE NOCASE
+                  AND TRIM(image_path) = ''
+                """;
+            using var reader = read.ExecuteReader();
+            while (reader.Read())
+            {
+                questions.Add((
+                    reader.GetInt32(0),
+                    reader.GetString(1),
+                    [reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetString(5)],
+                    reader.GetString(6)));
+            }
+        }
+
+        foreach (var question in questions)
+        {
+            var category = QuizQuestionTopicCategorizer.NormalizeImportedCategory(
+                "Icons",
+                question.Question,
+                question.Answers,
+                question.Explanation);
+            if (string.Equals(category, "Icons", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            using var update = connection.CreateCommand();
+            update.CommandText = """
+                UPDATE quiz_questions
+                SET category = $category
+                WHERE id = $id
+                  AND category = 'Icons' COLLATE NOCASE
+                  AND TRIM(image_path) = ''
+                """;
+            update.Parameters.AddWithValue("$category", category);
+            update.Parameters.AddWithValue("$id", question.Id);
             update.ExecuteNonQuery();
         }
     }
