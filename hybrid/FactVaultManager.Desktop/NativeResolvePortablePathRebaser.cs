@@ -67,10 +67,13 @@ public static class NativeResolvePortablePathRebaser
         var newForward = newFolder.Replace('\\', '/');
         var oldUri = new Uri(oldFolder + Path.DirectorySeparatorChar).AbsoluteUri.TrimEnd('/');
         var newUri = new Uri(newFolder + Path.DirectorySeparatorChar).AbsoluteUri.TrimEnd('/');
+        var oldXmlUri = System.Security.SecurityElement.Escape(oldUri) ?? oldUri;
+        var newXmlUri = System.Security.SecurityElement.Escape(newUri) ?? newUri;
 
         return new (string, string)[]
         {
             (oldJson, newJson),
+            (oldXmlUri, newXmlUri),
             (oldUri, newUri),
             (oldForward, newForward),
             (oldFolder, newFolder),

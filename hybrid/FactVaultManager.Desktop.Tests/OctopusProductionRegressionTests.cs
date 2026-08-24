@@ -158,6 +158,44 @@ public sealed class OctopusProductionRegressionTests
         }
     }
 
+    [Fact]
+    public void PortableResolveFiles_RebaseXmlEscapedAmpersandUris()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "factvault-rebase-" + Guid.NewGuid().ToString("N"));
+        var oldFolder = Path.Combine(root, "projects", "In Progress", "Nature & Animals - 001");
+        var newFolder = Path.Combine(root, "projects", "Completed", "Nature & Animals - 001");
+        var portable = Path.Combine(newFolder, "Resolve", "Portable", "Nature _ Animals");
+        Directory.CreateDirectory(portable);
+
+        try
+        {
+            var mediaPath = Path.Combine(
+                oldFolder,
+                "Resolve",
+                "Portable",
+                "Nature _ Animals",
+                "Media",
+                "Images",
+                "quizcard.png");
+            var escapedUri = new Uri(mediaPath).AbsoluteUri.Replace("&", "&amp;", StringComparison.Ordinal);
+            var fcpxml = Path.Combine(portable, "Nature & Animals.fcpxml");
+            File.WriteAllText(fcpxml, $"<asset src=\"{escapedUri}\" />");
+
+            var changed = NativeResolvePortablePathRebaser.Rebase(oldFolder, newFolder);
+            var rebasedXml = File.ReadAllText(fcpxml);
+
+            Assert.Equal(1, changed);
+            Assert.DoesNotContain("In%20Progress", rebasedXml, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Completed", rebasedXml, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("&amp;", rebasedXml, StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+                Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static NativeAssetCandidate Candidate(
         string title,
         string sourcePage,
