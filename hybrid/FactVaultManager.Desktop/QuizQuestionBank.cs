@@ -188,16 +188,26 @@ public sealed record QuizQuestionImportItem(
 {
     public IReadOnlyList<string> Answers => [OptionA, OptionB, OptionC, OptionD];
 
-    public string Fingerprint => QuizQuestionFingerprint.Create(Question, Answers);
+    public string Fingerprint => QuizQuestionFingerprint.Create(
+        Question,
+        Answers,
+        QuizTypeCatalog.FromCategory(Category) == QuizTypeCatalog.Logo
+            ? Answers[CorrectIndex]
+            : null);
 }
 
 public sealed record QuizQuestionImportResult(int Parsed, int Inserted, int Duplicates);
 
 public static class QuizQuestionFingerprint
 {
-    public static string Create(string question, IEnumerable<string> answers)
+    public static string Create(
+        string question,
+        IEnumerable<string> answers,
+        string? distinguishingAnswer = null)
     {
         var normalized = Normalize(question) + "\n" + string.Join("\n", answers.Select(Normalize));
+        if (!string.IsNullOrWhiteSpace(distinguishingAnswer))
+            normalized += "\ncorrect-answer\n" + Normalize(distinguishingAnswer);
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized))).ToLowerInvariant();
     }
 
