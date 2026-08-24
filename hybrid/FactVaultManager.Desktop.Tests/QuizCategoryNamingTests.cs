@@ -18,6 +18,7 @@ public sealed class QuizCategoryNamingTests
 
     [Theory]
     [InlineData("Arts & Literature Quiz", "Arts & Literature")]
+    [InlineData("Arts & Literature Quiz #001", "Arts & Literature")]
     [InlineData("Science Quiz #003", "Science")]
     [InlineData("General Knowledge Quiz", "General Knowledge")]
     [InlineData("Movie Trivia", "Movie Trivia")]

@@ -63,7 +63,7 @@ public partial class MainShellWindow
             if (_quizDraftGrid is not null)
                 _quizDraftGrid.ItemsSource = QuizDraftRows(_quizDraftQuestions);
             if (_quizTitleTextBox is not null && !string.IsNullOrWhiteSpace(history.Title))
-                _quizTitleTextBox.Text = history.Title;
+                _quizTitleTextBox.Text = QuizPublishMetadataGenerator.DisplayName(history.Title);
             if (_quizFormatComboBox is not null)
                 _quizFormatComboBox.SelectedIndex = string.Equals(history.Format, "9:16", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
             var restoredCategories = restored.Questions
