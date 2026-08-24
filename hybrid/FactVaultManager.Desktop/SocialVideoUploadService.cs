@@ -190,10 +190,24 @@ public sealed class YouTubeVideoUploadService
 {
     private const string UploadEndpoint = "https://www.googleapis.com/upload/youtube/v3/videos";
     private const string ThumbnailEndpoint = "https://www.googleapis.com/upload/youtube/v3/thumbnails/set";
+    private static readonly TimeSpan[] ThumbnailRetryDelays =
+    {
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(5),
+        TimeSpan.FromSeconds(10),
+        TimeSpan.FromSeconds(20),
+    };
     private static readonly HttpClient SharedClient = new() { Timeout = TimeSpan.FromHours(4) };
     private readonly HttpClient _client;
+    private readonly Func<TimeSpan, CancellationToken, Task> _delay;
 
-    public YouTubeVideoUploadService(HttpClient? client = null) => _client = client ?? SharedClient;
+    public YouTubeVideoUploadService(
+        HttpClient? client = null,
+        Func<TimeSpan, CancellationToken, Task>? delay = null)
+    {
+        _client = client ?? SharedClient;
+        _delay = delay ?? ((duration, cancellationToken) => Task.Delay(duration, cancellationToken));
+    }
 
     public async Task<YouTubeVideoUploadResult> UploadAsync(
         string accessToken,
@@ -273,19 +287,38 @@ public sealed class YouTubeVideoUploadService
             throw new InvalidOperationException("Connect YouTube in Settings first.");
         if (string.IsNullOrWhiteSpace(videoId)) throw new ArgumentException("YouTube did not return a video ID.");
         var path = SocialVideoUploadRules.ValidateThumbnailFile(thumbnailPath)!;
-        await using var stream = File.OpenRead(path);
-        using var content = new StreamContent(stream);
-        content.Headers.ContentType = new MediaTypeHeaderValue(ImageMimeType(path));
-        content.Headers.ContentLength = stream.Length;
-        using var request = new HttpRequestMessage(
-            HttpMethod.Post,
-            ThumbnailEndpoint + "?videoId=" + Uri.EscapeDataString(videoId) + "&uploadType=media")
+        for (var attempt = 0; ; attempt++)
         {
-            Content = content,
-        };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.Trim());
-        using var response = await _client.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode) throw await YouTubeErrorAsync(response, cancellationToken);
+            await using var stream = File.OpenRead(path);
+            using var content = new StreamContent(stream);
+            content.Headers.ContentType = new MediaTypeHeaderValue(ImageMimeType(path));
+            content.Headers.ContentLength = stream.Length;
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                ThumbnailEndpoint + "?videoId=" + Uri.EscapeDataString(videoId) + "&uploadType=media")
+            {
+                Content = content,
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.Trim());
+            using var response = await _client.SendAsync(request, cancellationToken);
+            if (response.IsSuccessStatusCode) return;
+
+            var errorJson = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (attempt >= ThumbnailRetryDelays.Length || !ThumbnailFailureMayBeTemporary(response, errorJson))
+                throw YouTubeError(response, errorJson);
+
+            await _delay(ThumbnailRetryDelays[attempt], cancellationToken);
+        }
+    }
+
+    private static bool ThumbnailFailureMayBeTemporary(HttpResponseMessage response, string errorJson)
+    {
+        var status = (int)response.StatusCode;
+        if (status is 404 or 408 or 409 or 425 or 429 || status >= 500) return true;
+        if (status != 400) return false;
+        return errorJson.Contains("processing", StringComparison.OrdinalIgnoreCase) ||
+               errorJson.Contains("not ready", StringComparison.OrdinalIgnoreCase) ||
+               errorJson.Contains("video not found", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string VideoMimeType(string path) => Path.GetExtension(path).ToLowerInvariant() switch
