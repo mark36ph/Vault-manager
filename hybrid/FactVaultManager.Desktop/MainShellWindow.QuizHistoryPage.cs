@@ -243,12 +243,12 @@ public partial class MainShellWindow
             SortMemberPath = nameof(QuizHistorySummary.Format),
             Width = new DataGridLength(72),
         });
-        _quizHistoryGrid.Columns.Add(new DataGridCheckBoxColumn
+        _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
-            Header = "Published",
-            Binding = new Binding(nameof(QuizHistorySummary.PublishedOnYouTube)),
-            SortMemberPath = nameof(QuizHistorySummary.PublishedOnYouTube),
-            Width = new DataGridLength(82),
+            Header = "YouTube",
+            Binding = new Binding(nameof(QuizHistorySummary.YouTubePublicationDisplay)),
+            SortMemberPath = nameof(QuizHistorySummary.YouTubeScheduledFor),
+            Width = new DataGridLength(142),
         });
         _quizHistoryGrid.Columns.Add(new DataGridTextColumn
         {
@@ -331,7 +331,7 @@ public partial class MainShellWindow
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         footer.Children.Add(new TextBlock
         {
-            Text = "Select a quiz to review metadata, upload the completed video, or update publication details.",
+            Text = "Select a quiz to review its questions, metadata, export folder, or history record.",
             Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             VerticalAlignment = VerticalAlignment.Center,
         });
@@ -345,7 +345,7 @@ public partial class MainShellWindow
         StyleQuizHistoryButton(view, Color.FromRgb(0, 204, 255));
         view.Click += (_, _) => ShowSelectedQuizHistoryQuestions();
         actions.Children.Add(view);
-        var publishing = new Button { Content = "Publishing", MinWidth = 92, Margin = new Thickness(8, 0, 0, 0), ToolTip = "View saved YouTube publishing metadata" };
+        var publishing = new Button { Content = "Metadata", MinWidth = 92, Margin = new Thickness(8, 0, 0, 0), ToolTip = "View saved publishing metadata" };
         StyleQuizHistoryButton(publishing, Color.FromRgb(204, 70, 255));
         publishing.Click += (_, _) => ShowSelectedQuizPublishingMetadata();
         actions.Children.Add(publishing);
@@ -353,20 +353,6 @@ public partial class MainShellWindow
         StyleQuizHistoryButton(youtube, Color.FromRgb(255, 202, 45));
         youtube.Click += (_, _) => ShowSelectedQuizYouTubePublication();
         actions.Children.Add(youtube);
-        var upload = new Button { Content = "Upload", MinWidth = 82, Margin = new Thickness(8, 0, 0, 0), ToolTip = "Upload the completed video to YouTube and, for Shorts, Facebook" };
-        StyleQuizHistoryButton(upload, Color.FromRgb(70, 235, 115));
-        upload.Click += (_, _) => ShowSelectedQuizUpload();
-        actions.Children.Add(upload);
-        var uploadQueue = new Button
-        {
-            Content = "Upload Queue",
-            MinWidth = 108,
-            Margin = new Thickness(8, 0, 0, 0),
-            ToolTip = "Batch upload completed quizzes to their remaining platforms",
-        };
-        StyleQuizHistoryButton(uploadQueue, Color.FromRgb(0, 204, 255));
-        uploadQueue.Click += (_, _) => ShowUploadQueueDialog();
-        actions.Children.Add(uploadQueue);
         var openFolder = new Button { Content = "Folder", MinWidth = 78, Margin = new Thickness(8, 0, 0, 0), ToolTip = "Open the selected quiz export folder" };
         StyleQuizHistoryButton(openFolder, Color.FromRgb(70, 235, 115));
         openFolder.Click += (_, _) => OpenSelectedQuizHistoryFolder();
@@ -633,6 +619,7 @@ public partial class MainShellWindow
         {
             Debug.WriteLine($"Quiz history: {error.Message}");
         }
+        RefreshUploadManager();
     }
 
     private async Task RefreshQuizYouTubeAnalyticsAsync(bool showErrors)
@@ -845,6 +832,12 @@ public partial class MainShellWindow
             return;
         }
 
+        ShowQuizPublishingMetadata(history);
+    }
+
+    private void ShowQuizPublishingMetadata(QuizHistorySummary history)
+    {
+
         var dialog = new Window
         {
             Title = $"Publishing — {history.SeriesName} {history.EpisodeLabel}",
@@ -937,8 +930,8 @@ public partial class MainShellWindow
             Padding = new Thickness(14, 0, 14, 0),
             Margin = new Thickness(0, 10, 0, 0),
             IsEnabled = history.PinnedComment.Trim().Length > 0 &&
-                (history.PublishedOnYouTube && youtubeFirstCommentId.Length == 0 ||
-                 history.PublishedOnFacebook && facebookFirstCommentId.Length == 0),
+                (history.PublishedOnYouTube && !history.YouTubeIsScheduled && youtubeFirstCommentId.Length == 0 ||
+                 history.PublishedOnFacebook && !history.FacebookIsScheduled && facebookFirstCommentId.Length == 0),
             ToolTip = "Posts the saved first comment only where this quiz is already published and no comment ID is recorded.",
         };
         StyleQuizHistoryButton(postMissingComments, Color.FromRgb(70, 235, 115));
@@ -948,7 +941,7 @@ public partial class MainShellWindow
             var posted = new List<string>();
             var errors = new List<string>();
 
-            if (history.PublishedOnYouTube && youtubeFirstCommentId.Length == 0)
+            if (history.PublishedOnYouTube && !history.YouTubeIsScheduled && youtubeFirstCommentId.Length == 0)
             {
                 var videoId = YouTubeVideoAnalyticsService.TryGetVideoId(history.YouTubeUrl);
                 if (videoId is null)
@@ -973,7 +966,7 @@ public partial class MainShellWindow
                 }
             }
 
-            if (history.PublishedOnFacebook && facebookFirstCommentId.Length == 0)
+            if (history.PublishedOnFacebook && !history.FacebookIsScheduled && facebookFirstCommentId.Length == 0)
             {
                 var videoId = FacebookReelAnalyticsService.TryGetReelId(history.FacebookUrl);
                 if (videoId is null)
@@ -1001,8 +994,8 @@ public partial class MainShellWindow
             openYouTubeToPin.IsEnabled = youtubeFirstCommentId.Length > 0 && history.YouTubeUrl.Length > 0;
             openFacebookToPin.IsEnabled = facebookFirstCommentId.Length > 0 && history.FacebookUrl.Length > 0;
             postMissingComments.IsEnabled = history.PinnedComment.Trim().Length > 0 &&
-                (history.PublishedOnYouTube && youtubeFirstCommentId.Length == 0 ||
-                 history.PublishedOnFacebook && facebookFirstCommentId.Length == 0);
+                (history.PublishedOnYouTube && !history.YouTubeIsScheduled && youtubeFirstCommentId.Length == 0 ||
+                 history.PublishedOnFacebook && !history.FacebookIsScheduled && facebookFirstCommentId.Length == 0);
             RefreshQuizHistory();
 
             var resultText = posted.Count > 0
