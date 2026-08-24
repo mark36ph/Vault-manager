@@ -294,6 +294,36 @@ public sealed class QuizQuestionBankTests
         Assert.Equal(QuizTypeCatalog.Standard, Question(1).QuizType);
     }
 
+    [Theory]
+    [InlineData("Icons", "", false)]
+    [InlineData("Icons", "logo.png", true)]
+    [InlineData("Science", "", true)]
+    public void ImportEnablement_RequiresAnImageOnlyForIcons(
+        string category,
+        string imagePath,
+        bool expected)
+    {
+        Assert.Equal(expected, QuizQuestionEnablement.ForImport(category, imagePath));
+    }
+
+    [Fact]
+    public void EditEnablement_EnablesIconWhenImageIsFirstAttached()
+    {
+        Assert.True(QuizQuestionEnablement.ForEdit("Icons", "", "logo.png", requestedEnabled: false));
+    }
+
+    [Fact]
+    public void EditEnablement_DisablesIconWhenImageIsRemoved()
+    {
+        Assert.False(QuizQuestionEnablement.ForEdit("Icons", "logo.png", "", requestedEnabled: true));
+    }
+
+    [Fact]
+    public void EditEnablement_PreservesManualDisableWhenIconAlreadyHasImage()
+    {
+        Assert.False(QuizQuestionEnablement.ForEdit("Icons", "logo.png", "logo.png", requestedEnabled: false));
+    }
+
     [Fact]
     public void StandardRandomPool_ExcludesIcons_ButIconsPoolDoesNot()
     {
