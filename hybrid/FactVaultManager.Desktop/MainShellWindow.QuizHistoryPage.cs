@@ -835,12 +835,14 @@ public partial class MainShellWindow
         ShowQuizPublishingMetadata(history);
     }
 
-    private void ShowQuizPublishingMetadata(QuizHistorySummary history)
+    private void ShowQuizPublishingMetadata(QuizHistorySummary history, bool manageComments = false)
     {
 
         var dialog = new Window
         {
-            Title = $"Publishing — {history.SeriesName} {history.EpisodeLabel}",
+            Title = manageComments
+                ? $"First Comments — {history.SeriesName} {history.EpisodeLabel}"
+                : $"Publishing Metadata — {history.SeriesName} {history.EpisodeLabel}",
             Owner = this,
             Width = 760,
             Height = 680,
@@ -862,7 +864,9 @@ public partial class MainShellWindow
         });
         stack.Children.Add(new TextBlock
         {
-            Text = "Publishing metadata saved with this successful quiz export.",
+            Text = manageComments
+                ? "Post the saved first comment when each platform is ready, then open it to pin manually."
+                : "Publishing metadata saved with this successful quiz export.",
             Foreground = QuizMutedBrush(),
             Margin = new Thickness(0, 3, 0, 12),
         });
@@ -873,15 +877,18 @@ public partial class MainShellWindow
 
         var youtubeFirstCommentId = history.YouTubeFirstCommentId;
         var facebookFirstCommentId = history.FacebookFirstCommentId;
-        stack.Children.Add(new TextBlock
+        var firstCommentStatusHeading = new TextBlock
         {
             Text = "First-comment status",
             FontWeight = FontWeights.SemiBold,
             Margin = new Thickness(0, 12, 0, 4),
-        });
+            Visibility = manageComments ? Visibility.Visible : Visibility.Collapsed,
+        };
+        stack.Children.Add(firstCommentStatusHeading);
         var firstCommentStatus = new TextBlock
         {
             Foreground = QuizMutedBrush(),
+            Visibility = manageComments ? Visibility.Visible : Visibility.Collapsed,
         };
         void UpdateFirstCommentStatus() => firstCommentStatus.Text =
             $"YouTube: {(youtubeFirstCommentId.Length > 0 ? "Posted — ready to pin" : "Not posted")}   •   " +
@@ -893,6 +900,7 @@ public partial class MainShellWindow
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,
             Margin = new Thickness(0, 10, 0, 0),
+            Visibility = manageComments ? Visibility.Visible : Visibility.Collapsed,
         };
         var openYouTubeToPin = new Button
         {
@@ -933,6 +941,7 @@ public partial class MainShellWindow
                 (history.PublishedOnYouTube && !history.YouTubeIsScheduled && youtubeFirstCommentId.Length == 0 ||
                  history.PublishedOnFacebook && !history.FacebookIsScheduled && facebookFirstCommentId.Length == 0),
             ToolTip = "Posts the saved first comment only where this quiz is already published and no comment ID is recorded.",
+            Visibility = manageComments ? Visibility.Visible : Visibility.Collapsed,
         };
         StyleQuizHistoryButton(postMissingComments, Color.FromRgb(70, 235, 115));
         postMissingComments.Click += async (_, _) =>
