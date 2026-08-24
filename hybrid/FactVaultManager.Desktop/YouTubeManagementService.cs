@@ -111,7 +111,9 @@ public sealed class YouTubeManagementService
             + "&order=time&textFormat=plainText&maxResults=100";
         using var response = await SendAsync(HttpMethod.Get, url, accessToken, null, cancellationToken);
         using var document = await ReadDocumentAsync(response, cancellationToken);
-        var comments = ParseComments(document.RootElement);
+        var comments = ApplyRequestedModerationStatus(
+            ParseComments(document.RootElement),
+            moderationStatus);
         var titles = await ListVideoTitlesAsync(accessToken, comments.Select(comment => comment.VideoId), cancellationToken);
         return MarkOwnComments(AttachVideoTitles(comments, titles), channelId);
     }
@@ -298,6 +300,16 @@ public sealed class YouTubeManagementService
                 ? title
                 : comment.VideoId,
         }).ToList();
+
+    public static IReadOnlyList<YouTubeCommentItem> ApplyRequestedModerationStatus(
+        IEnumerable<YouTubeCommentItem> comments,
+        string requestedStatus)
+    {
+        ValidateModerationStatus(requestedStatus, allowSpam: true);
+        return comments.Select(comment => string.IsNullOrWhiteSpace(comment.ModerationStatus)
+            ? comment with { ModerationStatus = requestedStatus }
+            : comment).ToList();
+    }
 
     public static string BuildCommentUrl(string videoId, string commentId)
     {
