@@ -300,6 +300,37 @@ public sealed class YouTubeManagementTests
         Assert.Contains("moderationStatus=heldForReview", handler.RequestUri);
     }
 
+    [Fact]
+    public void RejectedCommentStore_PersistsRestoresAndSeparatesAccounts()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "FactVaultManagerTests", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var databasePath = Path.Combine(directory, "factvault.db");
+            var store = new YouTubeRejectedCommentStore(databasePath);
+            var comment = new YouTubeCommentItem(
+                "comment-1", "thread-1", "video-1", "Viewer", "Text", DateTime.UtcNow,
+                2, 0, "published", "Video title");
+
+            store.Save("account-one", comment, new DateTime(2026, 8, 24, 12, 0, 0, DateTimeKind.Utc));
+            store.Save("account-one", comment with { Text = "Updated text" }, new DateTime(2026, 8, 24, 13, 0, 0, DateTimeKind.Utc));
+
+            var reloaded = new YouTubeRejectedCommentStore(databasePath);
+            var result = Assert.Single(reloaded.List("account-one"));
+            Assert.Equal("comment-1", result.Id);
+            Assert.Equal("Updated text", result.Text);
+            Assert.Equal("rejected", result.ModerationStatus);
+            Assert.Empty(reloaded.List("account-two"));
+
+            reloaded.Remove("account-one", "comment-1");
+            Assert.Empty(new YouTubeRejectedCommentStore(databasePath).List("account-one"));
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
     private sealed class StubHttpHandler(
         Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
     {
