@@ -15,6 +15,24 @@ public sealed partial class DesktopDataService
         EnsureQuizSchema();
 
         using var connection = OpenConnection();
+        using (var previousImage = connection.CreateCommand())
+        {
+            previousImage.CommandText = "SELECT image_path FROM quiz_questions WHERE id = $id";
+            previousImage.Parameters.AddWithValue("$id", id);
+            var previousImagePath = previousImage.ExecuteScalar() as string;
+            if (previousImagePath is null)
+                throw new KeyNotFoundException($"Quiz question #{id} no longer exists.");
+
+            edited = edited with
+            {
+                IsEnabled = QuizQuestionEnablement.ForEdit(
+                    edited.Category,
+                    previousImagePath,
+                    edited.ImagePath,
+                    edited.IsEnabled),
+            };
+        }
+
         using var command = connection.CreateCommand();
         command.CommandText = """
             UPDATE quiz_questions
