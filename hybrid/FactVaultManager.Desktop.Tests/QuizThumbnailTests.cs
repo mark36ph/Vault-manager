@@ -43,7 +43,7 @@ public sealed class QuizThumbnailTests
 
         var thumbnail = QuizThumbnailDefaults.Create(metadata, 2);
 
-        Assert.Equal("HISTORY QUIZ", thumbnail.Subtitle);
+        Assert.Equal("HISTORY", thumbnail.Subtitle);
     }
 
     [Fact]

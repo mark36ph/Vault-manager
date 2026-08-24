@@ -134,7 +134,7 @@ public static class QuizOpeningSequence
         });
         content.Children.Add(new TextBlock
         {
-            Text = options.Title,
+            Text = QuizPublishMetadataGenerator.DisplayName(options.Title),
             Foreground = Brushes.White,
             FontSize = options.Vertical ? 96 : 90,
             FontWeight = FontWeights.Bold,

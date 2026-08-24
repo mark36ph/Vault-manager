@@ -249,7 +249,7 @@ public sealed class QuizThemedCardRenderer
         });
         var heading = new TextBlock
         {
-            Text = options.Title.ToUpperInvariant(),
+            Text = QuizPublishMetadataGenerator.DisplayName(options.Title).ToUpperInvariant(),
             Foreground = Brushes.White,
             FontSize = options.Vertical ? 30 : 28,
             FontWeight = FontWeights.Bold,
@@ -404,7 +404,7 @@ public sealed class QuizThemedCardRenderer
             Effect = Glow(NeonGold, 24, 0.55),
             Child = new TextBlock
             {
-                Text = options.Title.ToUpperInvariant(),
+                Text = QuizPublishMetadataGenerator.DisplayName(options.Title).ToUpperInvariant(),
                 Foreground = Brushes.White,
                 FontSize = 40,
                 FontWeight = FontWeights.Bold,
@@ -783,7 +783,7 @@ public sealed class QuizThemedCardRenderer
             Padding = new Thickness(24, 8, 24, 8),
             Child = new TextBlock
             {
-                Text = options.Title.ToUpperInvariant(),
+                Text = QuizPublishMetadataGenerator.DisplayName(options.Title).ToUpperInvariant(),
                 Foreground = Brushes.White,
                 FontSize = 34,
                 FontWeight = FontWeights.Bold,
@@ -942,7 +942,7 @@ public sealed class QuizThemedCardRenderer
 
         content.Children.Add(new TextBlock
         {
-            Text = title,
+            Text = QuizPublishMetadataGenerator.DisplayName(title),
             Foreground = Brushes.White,
             FontSize = options.Vertical ? 76 : 70,
             FontWeight = FontWeights.Bold,

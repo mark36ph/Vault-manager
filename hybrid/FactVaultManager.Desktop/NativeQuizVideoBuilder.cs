@@ -391,7 +391,7 @@ public sealed class NativeQuizVideoBuilder
         });
         content.Children.Add(new TextBlock
         {
-            Text = title,
+            Text = QuizPublishMetadataGenerator.DisplayName(title),
             Foreground = Brushes.White,
             FontSize = options.Vertical ? 72 : 70,
             FontWeight = FontWeights.Bold,
