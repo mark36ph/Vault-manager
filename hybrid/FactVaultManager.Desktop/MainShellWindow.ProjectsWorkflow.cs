@@ -34,6 +34,7 @@ public partial class MainShellWindow
         InitializeQuizQuestionBankPage();
         InitializeQuizHistoryPage();
         InitializeQuizNotesPage();
+        InitializeUploadManagerPage();
         InitializeYouTubeAnalyticsPage();
         InitializeFacebookAnalyticsPage();
         InitializeInstagramManagerPage();
