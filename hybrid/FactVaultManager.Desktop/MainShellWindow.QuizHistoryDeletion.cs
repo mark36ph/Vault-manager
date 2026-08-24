@@ -88,6 +88,35 @@ public partial class MainShellWindow
             RefreshQuizBank();
             MessageBox.Show(this, error.Message, "Delete Quiz", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            var deleteRecordOnly = MessageBox.Show(
+                this,
+                error.Message +
+                $"\n\nWindows could not move or delete the project folder. Do you want to remove only the Quiz History entry and leave this folder untouched?\n\n{history.ProjectFolder}",
+                "Delete Quiz History Only",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning,
+                MessageBoxResult.Yes);
+            if (deleteRecordOnly != MessageBoxResult.Yes)
+                return;
+
+            try
+            {
+                if (!_data.DeleteQuizHistory(history.Id, deleteFolder: false))
+                {
+                    MessageBox.Show(this, "The selected quiz no longer exists in Quiz History.", "Delete Quiz", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                RefreshQuizHistory();
+                RefreshQuizBank();
+                if (_quizPageStatusText is not null)
+                    _quizPageStatusText.Text = "Quiz History entry removed. Its locked project folder was left on disk.";
+            }
+            catch (Exception recordError)
+            {
+                MessageBox.Show(this, recordError.Message, "Delete Quiz", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
         catch (Exception error)
         {
             MessageBox.Show(this, error.Message, "Delete Quiz", MessageBoxButton.OK, MessageBoxImage.Error);
