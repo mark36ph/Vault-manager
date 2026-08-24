@@ -12,6 +12,7 @@ public partial class MainShellWindow
     private bool _quizWorkflowInitialized;
     private bool _quizRefreshing;
     private int _quizTabIndex = -1;
+    private ComboBox? _quizModeComboBox;
     private TextBox? _quizQuestionCountTextBox;
     private TextBox? _quizSecondsPerQuestionTextBox;
     private TextBox? _quizSearchTextBox;
@@ -88,23 +89,38 @@ public partial class MainShellWindow
         root.Children.Add(settingsCard);
 
         var settings = new Grid();
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(105) });
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(85) });
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(115) });
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(180) });
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
         settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
-        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
-        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
-        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
-        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(230) });
-        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
-        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
         settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         settings.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         settingsCard.Child = settings;
 
-        _quizQuestionCountTextBox = QuizTextField(settings, 0, "QUESTIONS", "10", "Number of random questions to use in a quiz");
-        _quizSecondsPerQuestionTextBox = QuizTextField(settings, 2, "SECONDS / QUESTION", "8", "How long viewers get to answer each question");
+        _quizModeComboBox = new ComboBox
+        {
+            Margin = new Thickness(0, 4, 0, 0),
+            MinHeight = 34,
+            ItemsSource = QuizBuilderModePresets.All,
+            SelectedItem = QuizBuilderModePresets.Full,
+            ToolTip = "Choose Full or Shorts defaults for question count, timer, and video format.",
+        };
+        var modeStack = QuizLabeledControl("VIDEO TYPE", _quizModeComboBox);
+        Grid.SetColumn(modeStack, 0);
+        settings.Children.Add(modeStack);
+
+        _quizQuestionCountTextBox = QuizTextField(settings, 2, "QUESTIONS", "10", "Number of random questions to use in a quiz");
+        _quizSecondsPerQuestionTextBox = QuizTextField(settings, 4, "SECONDS / QUESTION", "8", "How long viewers get to answer each question");
+        _quizModeComboBox.SelectionChanged += (_, _) => ApplyQuizBuilderModePreset();
 
         _quizCategoryComboBox = new ComboBox { Margin = new Thickness(0, 4, 0, 0), MinHeight = 34 };
         var categoryStack = QuizLabeledControl("CATEGORY", _quizCategoryComboBox);
-        Grid.SetColumn(categoryStack, 4);
+        Grid.SetColumn(categoryStack, 6);
         settings.Children.Add(categoryStack);
         _quizCategoryComboBox.SelectionChanged += (_, _) =>
         {
@@ -125,7 +141,7 @@ public partial class MainShellWindow
         _quizDifficultyComboBox.Items.Add("hard");
         _quizDifficultyComboBox.SelectedIndex = 0;
         var difficultyStack = QuizLabeledControl("DIFFICULTY", _quizDifficultyComboBox);
-        Grid.SetColumn(difficultyStack, 6);
+        Grid.SetColumn(difficultyStack, 8);
         settings.Children.Add(difficultyStack);
         _quizDifficultyComboBox.SelectionChanged += (_, _) =>
         {
@@ -146,7 +162,7 @@ public partial class MainShellWindow
             Margin = new Thickness(10, 18, 0, 0),
         };
         pickRandom.Click += PickRandomQuizQuestions_Click;
-        Grid.SetColumn(pickRandom, 8);
+        Grid.SetColumn(pickRandom, 10);
         settings.Children.Add(pickRandom);
         InitializeQuizRotationWorkflow(settings, pickRandom);
 
@@ -785,6 +801,30 @@ public partial class MainShellWindow
     {
         var value = _quizDifficultyComboBox?.SelectedItem?.ToString()?.Trim() ?? "";
         return value.StartsWith("All ", StringComparison.OrdinalIgnoreCase) ? "" : value;
+    }
+
+    private void ApplyQuizBuilderModePreset()
+    {
+        if (_quizModeComboBox?.SelectedItem is not QuizBuilderModePreset preset ||
+            _quizQuestionCountTextBox is null ||
+            _quizSecondsPerQuestionTextBox is null)
+            return;
+
+        _quizQuestionCountTextBox.Text = preset.QuestionCount.ToString();
+        _quizSecondsPerQuestionTextBox.Text = preset.SecondsPerQuestion.ToString();
+        _quizSecondsPerQuestion = preset.SecondsPerQuestion;
+        if (_quizFormatComboBox is not null)
+            _quizFormatComboBox.SelectedIndex = preset.Vertical ? 1 : 0;
+
+        InvalidateQuizThumbnailPreview();
+        InvalidateQuizPublishingExportCompletion();
+        RefreshQuizPreview();
+        UpdateQuizPublishingChecklist();
+        if (_quizDraftQuestions.Count > 0 && _quizDraftStatusText is not null)
+        {
+            _quizDraftStatusText.Text =
+                $"{preset.Name} defaults applied: {preset.QuestionCount} question{(preset.QuestionCount == 1 ? "" : "s")} and {preset.SecondsPerQuestion} seconds. Build the quiz draft again to apply the new question count.";
+        }
     }
 
     private static TextBox QuizTextField(Grid parent, int column, string label, string value, string tooltip)
