@@ -45,6 +45,23 @@ public static class YouTubeCommentInbox
                 !(handledCommentIds?.Contains(comment.Id) ?? false))
             .OrderByDescending(comment => comment.PublishedAt)
             .ToList();
+
+    public static IReadOnlyList<YouTubeCommentItem> ApplyModeration(
+        IEnumerable<YouTubeCommentItem> comments,
+        string commentId,
+        string newStatus,
+        string visibleStatus)
+    {
+        YouTubeManagementService.ValidateModerationStatus(newStatus, allowSpam: false);
+        YouTubeManagementService.ValidateModerationStatus(visibleStatus, allowSpam: true);
+        return comments
+            .Select(comment => string.Equals(comment.Id, commentId, StringComparison.Ordinal)
+                ? comment with { ModerationStatus = newStatus }
+                : comment)
+            .Where(comment => string.Equals(comment.ModerationStatus, visibleStatus, StringComparison.Ordinal))
+            .OrderByDescending(comment => comment.PublishedAt)
+            .ToList();
+    }
 }
 
 public sealed record YouTubePlaylistItem(string Id, string Title, string Description, string Privacy, long VideoCount);
