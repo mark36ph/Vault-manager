@@ -153,10 +153,12 @@ public partial class MainShellWindow
     private DataGrid? _youtubeCommentsGrid;
     private ComboBox? _youtubeCommentStatus;
     private TextBox? _youtubeReplyText;
+    private Button? _youtubeApproveCommentButton;
     private Button? _youtubeHoldCommentButton;
     private TextBlock? _youtubeNeedsReplyCountText;
     private readonly HashSet<string> _youtubeHandledCommentIds = new(StringComparer.Ordinal);
     private TextBlock? _youtubeCommentsStatus;
+    private YouTubeRejectedCommentStore? _youtubeRejectedCommentStore;
     private DataGrid? _youtubePlaylistsGrid;
     private DataGrid? _youtubePlaylistVideosGrid;
     private ComboBox? _youtubeQuizVideoChoice;
@@ -650,6 +652,7 @@ public partial class MainShellWindow
         _youtubeCommentStatus.Items.Add("Published");
         _youtubeCommentStatus.Items.Add("Needs approval");
         _youtubeCommentStatus.Items.Add("Likely spam");
+        _youtubeCommentStatus.Items.Add("Rejected history");
         _youtubeCommentStatus.SelectedIndex = 1;
         _youtubeCommentStatus.SelectionChanged += async (_, _) => await RefreshYouTubeCommentsAsync(false);
         Grid.SetColumn(_youtubeCommentStatus, 2);
@@ -679,7 +682,7 @@ public partial class MainShellWindow
         });
         _youtubeCommentsGrid.Columns.Add(NumberColumn("Likes", nameof(YouTubeCommentItem.LikeCount), 62));
         _youtubeCommentsGrid.Columns.Add(NumberColumn("Replies", nameof(YouTubeCommentItem.ReplyCount), 68));
-        _youtubeCommentsGrid.SelectionChanged += (_, _) => UpdateYouTubeHoldAvailability();
+        _youtubeCommentsGrid.SelectionChanged += (_, _) => UpdateYouTubeCommentActionAvailability();
         var commentsCard = ManagerCard(_youtubeCommentsGrid);
         Grid.SetRow(commentsCard, 1);
         root.Children.Add(commentsCard);
@@ -695,10 +698,10 @@ public partial class MainShellWindow
             return Task.CompletedTask;
         });
         AddCommentAction(actionRow, 2, "Reply", Color.FromRgb(0, 204, 255), () => ReplyToSelectedCommentAsync());
-        AddCommentAction(actionRow, 3, "Approve", Color.FromRgb(70, 235, 115), () => ModerateSelectedCommentAsync("published"));
+        _youtubeApproveCommentButton = AddCommentAction(actionRow, 3, "Approve", Color.FromRgb(70, 235, 115), () => ModerateSelectedCommentAsync("published"));
         _youtubeHoldCommentButton = AddCommentAction(actionRow, 4, "Hold", Color.FromRgb(255, 202, 45), () => ModerateSelectedCommentAsync("heldForReview"));
         ToolTipService.SetShowOnDisabled(_youtubeHoldCommentButton, true);
-        UpdateYouTubeHoldAvailability();
+        UpdateYouTubeCommentActionAvailability();
         AddCommentAction(actionRow, 5, "Reject", Color.FromRgb(248, 90, 105), () => ModerateSelectedCommentAsync("rejected"));
         Grid.SetRow(actionRow, 2);
         root.Children.Add(actionRow);
@@ -876,10 +879,16 @@ public partial class MainShellWindow
         return button;
     }
 
-    private void UpdateYouTubeHoldAvailability()
+    private void UpdateYouTubeCommentActionAvailability()
     {
-        if (_youtubeHoldCommentButton is null) return;
         var selected = _youtubeCommentsGrid?.SelectedItem as YouTubeCommentItem;
+        if (_youtubeApproveCommentButton is not null)
+        {
+            _youtubeApproveCommentButton.Content = selected?.ModerationStatus == "rejected"
+                ? "Restore"
+                : "Approve";
+        }
+        if (_youtubeHoldCommentButton is null) return;
         _youtubeHoldCommentButton.IsEnabled = selected is not null &&
             YouTubeCommentInbox.CanMoveToHeldForReview(selected);
         _youtubeHoldCommentButton.ToolTip = selected switch
@@ -929,6 +938,10 @@ public partial class MainShellWindow
             {
                 comments = YouTubeCommentInbox.Filter(published, needsReply: false);
             }
+            else if (selection == "Rejected history")
+            {
+                comments = YouTubeRejectedComments.List(CurrentYouTubeCacheAccountKey());
+            }
             else
             {
                 var status = selection == "Needs approval" ? "heldForReview" : "likelySpam";
@@ -937,7 +950,7 @@ public partial class MainShellWindow
             }
 
             _youtubeCommentsGrid.ItemsSource = comments;
-            UpdateYouTubeHoldAvailability();
+            UpdateYouTubeCommentActionAvailability();
             SetYouTubeCommentsStatus(selection == "Needs reply"
                 ? $"{channel.Title} • {comments.Count:N0} viewer comments need a reply"
                 : $"{channel.Title} • {comments.Count:N0} {selection.ToLowerInvariant()} comments");
@@ -1019,16 +1032,23 @@ public partial class MainShellWindow
             {
                 "Needs approval" => "heldForReview",
                 "Likely spam" => "likelySpam",
+                "Rejected history" => "rejected",
                 _ => "published",
             };
+            var accountKey = CurrentYouTubeCacheAccountKey();
+            if (status == "rejected")
+                YouTubeRejectedComments.Save(accountKey, comment, DateTime.UtcNow);
+            else if (status == "published" && comment.ModerationStatus == "rejected")
+                YouTubeRejectedComments.Remove(accountKey, comment.Id);
             var displayed = _youtubeCommentsGrid.ItemsSource is IEnumerable<YouTubeCommentItem> rows
                 ? rows
                 : Array.Empty<YouTubeCommentItem>();
             _youtubeCommentsGrid.ItemsSource = YouTubeCommentInbox.ApplyModeration(
                 displayed, comment.Id, status, visibleStatus);
             var updated = comment with { ModerationStatus = status };
-            SetYouTubeCommentsStatus(
-                $"Comment from {comment.Author} moved to {updated.StatusDisplay}. Confirmed by YouTube.");
+            SetYouTubeCommentsStatus(status == "rejected"
+                ? $"Comment from {comment.Author} was rejected and saved in Rejected history."
+                : $"Comment from {comment.Author} moved to {updated.StatusDisplay}. Confirmed by YouTube.");
         }
         catch (Exception error)
         {
@@ -1162,6 +1182,9 @@ public partial class MainShellWindow
 
     private YouTubeManagerCacheStore YouTubeManagerCacheStoreInstance =>
         _youtubeManagerCacheStore ??= new YouTubeManagerCacheStore(_data.DatabasePath);
+
+    private YouTubeRejectedCommentStore YouTubeRejectedComments =>
+        _youtubeRejectedCommentStore ??= new YouTubeRejectedCommentStore(_data.DatabasePath);
 
     private string CurrentYouTubeCacheAccountKey()
     {
