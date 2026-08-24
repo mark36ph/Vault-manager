@@ -179,8 +179,38 @@ public sealed class YouTubeManagementService
         var url = "/comments/setModerationStatus?id=" + Uri.EscapeDataString(commentId)
             + "&moderationStatus=" + Uri.EscapeDataString(moderationStatus)
             + (banAuthor ? "&banAuthor=true" : "");
-        using var response = await SendAsync(HttpMethod.Post, url, accessToken, "", cancellationToken);
+        using var response = await SendAsync(HttpMethod.Post, url, accessToken, null, cancellationToken);
         await EnsureSuccessAsync(response, cancellationToken);
+    }
+
+    public async Task<bool> IsCommentInModerationQueueAsync(
+        string accessToken,
+        string channelId,
+        string moderationStatus,
+        string commentId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(channelId)) throw new ArgumentException("The YouTube channel ID is missing.");
+        if (string.IsNullOrWhiteSpace(commentId)) throw new ArgumentException("The YouTube comment ID is missing.");
+        if (moderationStatus is not ("published" or "heldForReview" or "likelySpam"))
+            throw new ArgumentException("This YouTube moderation queue cannot be checked.");
+
+        var pageToken = "";
+        do
+        {
+            var url = "/commentThreads?part=snippet&allThreadsRelatedToChannelId=" + Uri.EscapeDataString(channelId)
+                + "&moderationStatus=" + Uri.EscapeDataString(moderationStatus)
+                + "&order=time&textFormat=plainText&maxResults=100"
+                + (pageToken.Length == 0 ? "" : "&pageToken=" + Uri.EscapeDataString(pageToken));
+            using var response = await SendAsync(HttpMethod.Get, url, accessToken, null, cancellationToken);
+            using var document = await ReadDocumentAsync(response, cancellationToken);
+            if (ParseComments(document.RootElement).Any(comment =>
+                    string.Equals(comment.Id, commentId, StringComparison.Ordinal)))
+                return true;
+            pageToken = ReadString(document.RootElement, "nextPageToken");
+        } while (pageToken.Length > 0);
+
+        return false;
     }
 
     public async Task<IReadOnlyList<YouTubePlaylistItem>> ListPlaylistsAsync(string accessToken, CancellationToken cancellationToken = default)

@@ -252,4 +252,55 @@ public sealed class YouTubeManagementTests
         Assert.Throws<ArgumentException>(() =>
             YouTubeManagementService.ValidateModerationStatus("likelySpam", allowSpam: false));
     }
+
+    [Fact]
+    public async Task SetModerationStatus_SendsABodylessPost()
+    {
+        var handler = new StubHttpHandler(_ => new HttpResponseMessage(System.Net.HttpStatusCode.NoContent));
+        var service = new YouTubeManagementService(new HttpClient(handler));
+
+        await service.SetModerationStatusAsync("token", "comment-1", "heldForReview");
+
+        Assert.Equal(HttpMethod.Post, handler.Method);
+        Assert.False(handler.HadContent);
+        Assert.Contains("id=comment-1", handler.RequestUri);
+        Assert.Contains("moderationStatus=heldForReview", handler.RequestUri);
+    }
+
+    [Fact]
+    public async Task ModerationQueueConfirmation_FindsTheCommentInYouTubesTargetQueue()
+    {
+        const string json = """
+            {"items":[{"id":"thread-1","snippet":{"totalReplyCount":0,"topLevelComment":{"id":"comment-1","snippet":{"videoId":"video-1","authorDisplayName":"Viewer","textDisplay":"Review me","publishedAt":"2026-08-24T12:30:00Z","likeCount":0}}}}]}
+            """;
+        var handler = new StubHttpHandler(_ => new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        {
+            Content = new StringContent(json),
+        });
+        var service = new YouTubeManagementService(new HttpClient(handler));
+
+        var found = await service.IsCommentInModerationQueueAsync(
+            "token", "channel-1", "heldForReview", "comment-1");
+
+        Assert.True(found);
+        Assert.Contains("moderationStatus=heldForReview", handler.RequestUri);
+    }
+
+    private sealed class StubHttpHandler(
+        Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        public HttpMethod? Method { get; private set; }
+        public string RequestUri { get; private set; } = "";
+        public bool HadContent { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Method = request.Method;
+            RequestUri = request.RequestUri?.ToString() ?? "";
+            HadContent = request.Content is not null;
+            return Task.FromResult(respond(request));
+        }
+    }
 }
