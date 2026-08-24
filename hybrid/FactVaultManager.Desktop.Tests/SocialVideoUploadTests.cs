@@ -307,6 +307,30 @@ public sealed class SocialVideoUploadTests
     }
 
     [Fact]
+    public async Task YouTubeThumbnail_RetriesUntilNewUploadIsReady()
+    {
+        var path = TemporaryThumbnail();
+        try
+        {
+            var handler = new YouTubeThumbnailRetryHandler(2);
+            var delays = new List<TimeSpan>();
+            var service = new YouTubeVideoUploadService(
+                new HttpClient(handler),
+                (delay, _) =>
+                {
+                    delays.Add(delay);
+                    return Task.CompletedTask;
+                });
+
+            await service.SetThumbnailAsync("youtube-token", "yt-video-1", path);
+
+            Assert.Equal(3, handler.Attempts);
+            Assert.Equal(new[] { TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5) }, delays);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public async Task YouTubeUpload_SendsPrivateUtcPublishTimeWhenScheduled()
     {
         var path = TemporaryVideo();
@@ -442,6 +466,29 @@ public sealed class SocialVideoUploadTests
                 return response;
             }
             return Json("{\"id\":\"yt-video-1\"}");
+        }
+    }
+
+    private sealed class YouTubeThumbnailRetryHandler(int failuresBeforeSuccess) : HttpMessageHandler
+    {
+        public int Attempts { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Attempts++;
+            if (Attempts <= failuresBeforeSuccess)
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)
+                {
+                    Content = new StringContent(
+                        "{\"error\":{\"message\":\"Video is still processing\"}}",
+                        Encoding.UTF8,
+                        "application/json"),
+                });
+            }
+            return Task.FromResult(Json("{\"items\":[{}]}"));
         }
     }
 
