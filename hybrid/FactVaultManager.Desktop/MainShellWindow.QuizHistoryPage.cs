@@ -876,7 +876,53 @@ public partial class MainShellWindow
         AddQuizHistoryPublishingField(stack, "YouTube title", history.YouTubeTitle, 58);
         AddQuizHistoryPublishingField(stack, "Description", history.YouTubeDescription, 180);
         AddQuizHistoryPublishingField(stack, "Hashtags", history.Hashtags, 58);
-        AddQuizHistoryPublishingField(stack, "Pinned comment", history.PinnedComment, 95);
+        AddQuizHistoryPublishingField(stack, "First comment", history.PinnedComment, 95);
+
+        stack.Children.Add(new TextBlock
+        {
+            Text = "First-comment status",
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(0, 12, 0, 4),
+        });
+        stack.Children.Add(new TextBlock
+        {
+            Text = $"YouTube: {(history.YouTubeFirstCommentId.Length > 0 ? "Posted — ready to pin" : "Not posted")}   •   " +
+                   $"Facebook: {(history.FacebookFirstCommentId.Length > 0 ? "Posted — ready to pin" : "Not posted")}",
+            Foreground = QuizMutedBrush(),
+        });
+        var pinActions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Margin = new Thickness(0, 10, 0, 0),
+        };
+        var openYouTubeToPin = new Button
+        {
+            Content = "Open YouTube to pin",
+            MinHeight = 34,
+            Padding = new Thickness(12, 0, 12, 0),
+            IsEnabled = history.YouTubeFirstCommentId.Length > 0 && history.YouTubeUrl.Length > 0,
+        };
+        openYouTubeToPin.Click += (_, _) =>
+        {
+            var videoId = YouTubeVideoAnalyticsService.TryGetVideoId(history.YouTubeUrl);
+            if (videoId is not null)
+                Process.Start(new ProcessStartInfo(
+                    YouTubeManagementService.BuildCommentUrl(videoId, history.YouTubeFirstCommentId)) { UseShellExecute = true });
+        };
+        pinActions.Children.Add(openYouTubeToPin);
+        var openFacebookToPin = new Button
+        {
+            Content = "Open Facebook to pin",
+            MinHeight = 34,
+            Padding = new Thickness(12, 0, 12, 0),
+            Margin = new Thickness(8, 0, 0, 0),
+            IsEnabled = history.FacebookFirstCommentId.Length > 0 && history.FacebookUrl.Length > 0,
+        };
+        openFacebookToPin.Click += (_, _) =>
+            Process.Start(new ProcessStartInfo(history.FacebookUrl) { UseShellExecute = true });
+        pinActions.Children.Add(openFacebookToPin);
+        stack.Children.Add(pinActions);
 
         var copy = new Button
         {
@@ -889,7 +935,7 @@ public partial class MainShellWindow
         copy.Click += (_, _) =>
         {
             Clipboard.SetText(
-                $"TITLE\n{history.YouTubeTitle}\n\nDESCRIPTION\n{history.YouTubeDescription}\n\nHASHTAGS\n{history.Hashtags}\n\nPINNED COMMENT\n{history.PinnedComment}");
+                $"TITLE\n{history.YouTubeTitle}\n\nDESCRIPTION\n{history.YouTubeDescription}\n\nHASHTAGS\n{history.Hashtags}\n\nFIRST COMMENT\n{history.PinnedComment}");
         };
         stack.Children.Add(copy);
         dialog.ShowDialog();
