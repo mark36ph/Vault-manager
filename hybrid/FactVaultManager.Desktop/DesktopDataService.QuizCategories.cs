@@ -52,7 +52,16 @@ public sealed partial class DesktopDataService
         EnsureQuizSchema();
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "UPDATE quiz_questions SET category = $category WHERE id = $id";
+        command.CommandText = """
+            UPDATE quiz_questions
+            SET category = $category,
+                enabled = CASE
+                    WHEN $category = 'Icons' COLLATE NOCASE
+                     AND TRIM(image_path) = '' THEN 0
+                    ELSE enabled
+                END
+            WHERE id = $id
+            """;
         command.Parameters.AddWithValue("$category", category);
         command.Parameters.AddWithValue("$id", questionId);
         if (command.ExecuteNonQuery() == 0)

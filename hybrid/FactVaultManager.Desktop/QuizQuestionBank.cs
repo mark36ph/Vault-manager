@@ -63,6 +63,31 @@ public static class QuizTypeCatalog
         FromCategory(selectedCategory) == Logo ? "" : "Icons";
 }
 
+public static class QuizQuestionEnablement
+{
+    public static bool IsMissingRequiredImage(string? category, string? imagePath) =>
+        QuizTypeCatalog.FromCategory(category) == QuizTypeCatalog.Logo &&
+        string.IsNullOrWhiteSpace(imagePath);
+
+    public static bool ForImport(string? category, string? imagePath) =>
+        !IsMissingRequiredImage(category, imagePath);
+
+    public static bool ForEdit(
+        string? category,
+        string? previousImagePath,
+        string? newImagePath,
+        bool requestedEnabled)
+    {
+        if (IsMissingRequiredImage(category, newImagePath))
+            return false;
+
+        var imageWasJustAttached = QuizTypeCatalog.FromCategory(category) == QuizTypeCatalog.Logo &&
+                                   string.IsNullOrWhiteSpace(previousImagePath) &&
+                                   !string.IsNullOrWhiteSpace(newImagePath);
+        return imageWasJustAttached || requestedEnabled;
+    }
+}
+
 public static class QuizQuestionImage
 {
     private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
