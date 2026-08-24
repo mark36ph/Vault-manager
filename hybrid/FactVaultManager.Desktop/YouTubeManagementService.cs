@@ -34,6 +34,9 @@ public sealed record YouTubeCommentItem(
 
 public static class YouTubeCommentInbox
 {
+    public static bool CanMoveToHeldForReview(YouTubeCommentItem comment) =>
+        string.Equals(comment.ModerationStatus, "likelySpam", StringComparison.Ordinal);
+
     public static IReadOnlyList<YouTubeCommentItem> Filter(
         IEnumerable<YouTubeCommentItem> comments,
         bool needsReply,

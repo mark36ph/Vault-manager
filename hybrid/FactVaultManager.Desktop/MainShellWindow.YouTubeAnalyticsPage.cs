@@ -153,6 +153,7 @@ public partial class MainShellWindow
     private DataGrid? _youtubeCommentsGrid;
     private ComboBox? _youtubeCommentStatus;
     private TextBox? _youtubeReplyText;
+    private Button? _youtubeHoldCommentButton;
     private TextBlock? _youtubeNeedsReplyCountText;
     private readonly HashSet<string> _youtubeHandledCommentIds = new(StringComparer.Ordinal);
     private TextBlock? _youtubeCommentsStatus;
@@ -678,6 +679,7 @@ public partial class MainShellWindow
         });
         _youtubeCommentsGrid.Columns.Add(NumberColumn("Likes", nameof(YouTubeCommentItem.LikeCount), 62));
         _youtubeCommentsGrid.Columns.Add(NumberColumn("Replies", nameof(YouTubeCommentItem.ReplyCount), 68));
+        _youtubeCommentsGrid.SelectionChanged += (_, _) => UpdateYouTubeHoldAvailability();
         var commentsCard = ManagerCard(_youtubeCommentsGrid);
         Grid.SetRow(commentsCard, 1);
         root.Children.Add(commentsCard);
@@ -694,7 +696,9 @@ public partial class MainShellWindow
         });
         AddCommentAction(actionRow, 2, "Reply", Color.FromRgb(0, 204, 255), () => ReplyToSelectedCommentAsync());
         AddCommentAction(actionRow, 3, "Approve", Color.FromRgb(70, 235, 115), () => ModerateSelectedCommentAsync("published"));
-        AddCommentAction(actionRow, 4, "Hold", Color.FromRgb(255, 202, 45), () => ModerateSelectedCommentAsync("heldForReview"));
+        _youtubeHoldCommentButton = AddCommentAction(actionRow, 4, "Hold", Color.FromRgb(255, 202, 45), () => ModerateSelectedCommentAsync("heldForReview"));
+        ToolTipService.SetShowOnDisabled(_youtubeHoldCommentButton, true);
+        UpdateYouTubeHoldAvailability();
         AddCommentAction(actionRow, 5, "Reject", Color.FromRgb(248, 90, 105), () => ModerateSelectedCommentAsync("rejected"));
         Grid.SetRow(actionRow, 2);
         root.Children.Add(actionRow);
@@ -862,13 +866,32 @@ public partial class MainShellWindow
         Child = content,
     };
 
-    private void AddCommentAction(Grid row, int column, string label, Color colour, Func<Task> action)
+    private Button AddCommentAction(Grid row, int column, string label, Color colour, Func<Task> action)
     {
         var button = new Button { Content = label, MinWidth = 82, MinHeight = 36, Margin = new Thickness(0, 0, 8, 0) };
         StyleQuizHistoryButton(button, colour);
         button.Click += async (_, _) => await action();
         Grid.SetColumn(button, column);
         row.Children.Add(button);
+        return button;
+    }
+
+    private void UpdateYouTubeHoldAvailability()
+    {
+        if (_youtubeHoldCommentButton is null) return;
+        var selected = _youtubeCommentsGrid?.SelectedItem as YouTubeCommentItem;
+        _youtubeHoldCommentButton.IsEnabled = selected is not null &&
+            YouTubeCommentInbox.CanMoveToHeldForReview(selected);
+        _youtubeHoldCommentButton.ToolTip = selected switch
+        {
+            null => "Select a comment first.",
+            { ModerationStatus: "published" } =>
+                "YouTube does not allow an active comment to be moved back to held for review. Use Reject to hide it.",
+            { ModerationStatus: "heldForReview" } => "This comment is already held for review.",
+            _ when YouTubeCommentInbox.CanMoveToHeldForReview(selected) =>
+                "Move this likely-spam comment into the held-for-review queue.",
+            _ => "YouTube does not allow this comment to be moved to held for review.",
+        };
     }
 
     private async Task<string> GetYouTubeManagementAccessTokenAsync()
@@ -914,6 +937,7 @@ public partial class MainShellWindow
             }
 
             _youtubeCommentsGrid.ItemsSource = comments;
+            UpdateYouTubeHoldAvailability();
             SetYouTubeCommentsStatus(selection == "Needs reply"
                 ? $"{channel.Title} • {comments.Count:N0} viewer comments need a reply"
                 : $"{channel.Title} • {comments.Count:N0} {selection.ToLowerInvariant()} comments");
@@ -964,6 +988,16 @@ public partial class MainShellWindow
         if (_youtubeCommentsGrid?.SelectedItem is not YouTubeCommentItem comment)
         {
             MessageBox.Show(this, "Select a comment first.", "YouTube Comments", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        if (status == "heldForReview" && !YouTubeCommentInbox.CanMoveToHeldForReview(comment))
+        {
+            MessageBox.Show(
+                this,
+                "YouTube does not allow an active or previously approved comment to be moved back to held for review. Use Reject to hide an active comment.",
+                "Hold Comment",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
             return;
         }
         var action = status switch { "published" => "approve", "heldForReview" => "hold for review", _ => "reject" };
