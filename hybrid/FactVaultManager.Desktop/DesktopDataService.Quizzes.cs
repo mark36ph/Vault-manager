@@ -63,11 +63,11 @@ public sealed partial class DesktopDataService
                 INSERT OR IGNORE INTO quiz_questions(
                     question, option_a, option_b, option_c, option_d,
                     correct_index, explanation, category, difficulty,
-                    source, fingerprint, created, times_used, image_path)
+                    source, fingerprint, created, times_used, enabled, image_path)
                 VALUES(
                     $question, $a, $b, $c, $d,
                     $correct, $explanation, $category, $difficulty,
-                    $source, $fingerprint, $created, 0, $imagePath)
+                    $source, $fingerprint, $created, 0, $enabled, $imagePath)
                 """;
             command.Parameters.AddWithValue("$question", question.Question);
             command.Parameters.AddWithValue("$a", question.OptionA);
@@ -81,6 +81,7 @@ public sealed partial class DesktopDataService
             command.Parameters.AddWithValue("$source", question.Source);
             command.Parameters.AddWithValue("$fingerprint", question.Fingerprint);
             command.Parameters.AddWithValue("$created", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
+            command.Parameters.AddWithValue("$enabled", QuizQuestionEnablement.ForImport(question.Category, question.ImagePath) ? 1 : 0);
             command.Parameters.AddWithValue("$imagePath", question.ImagePath);
             var added = command.ExecuteNonQuery();
             inserted += added;
@@ -240,7 +241,16 @@ public sealed partial class DesktopDataService
         EnsureQuizSchema();
         using var connection = OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "UPDATE quiz_questions SET enabled=$enabled WHERE id=$id";
+        command.CommandText = """
+            UPDATE quiz_questions
+            SET enabled = CASE
+                WHEN $enabled <> 0
+                 AND category = 'Icons' COLLATE NOCASE
+                 AND TRIM(image_path) = '' THEN 0
+                ELSE $enabled
+            END
+            WHERE id = $id
+            """;
         command.Parameters.AddWithValue("$enabled", enabled ? 1 : 0);
         command.Parameters.AddWithValue("$id", id);
         command.ExecuteNonQuery();
@@ -305,6 +315,7 @@ public sealed partial class DesktopDataService
         NormalizeStoredQuizCategories(connection);
         MigrateStoredQuizQuestionImages(connection);
         RepairStoredTextOnlyIconCategories(connection);
+        DisableIconQuestionsWithoutImages(connection);
     }
 
     private string ManageQuizQuestionImage(string? imagePath) =>
@@ -414,6 +425,19 @@ public sealed partial class DesktopDataService
             update.Parameters.AddWithValue("$id", question.Id);
             update.ExecuteNonQuery();
         }
+    }
+
+    private static void DisableIconQuestionsWithoutImages(SqliteConnection connection)
+    {
+        using var update = connection.CreateCommand();
+        update.CommandText = """
+            UPDATE quiz_questions
+            SET enabled = 0
+            WHERE category = 'Icons' COLLATE NOCASE
+              AND TRIM(image_path) = ''
+              AND enabled <> 0
+            """;
+        update.ExecuteNonQuery();
     }
 
     private static void EnsureQuizColumn(SqliteConnection connection, string columnName, string definition)
