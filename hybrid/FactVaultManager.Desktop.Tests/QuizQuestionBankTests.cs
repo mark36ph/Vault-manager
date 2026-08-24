@@ -226,6 +226,21 @@ public sealed class QuizQuestionBankTests
     }
 
     [Fact]
+    public void QuestionQuizType_UsesIconsCategoryBeforeImageIsAttached()
+    {
+        var question = Question(1) with { Category = "Icons", ImagePath = "" };
+
+        Assert.False(question.HasImage);
+        Assert.Equal(QuizTypeCatalog.Logo, question.QuizType);
+    }
+
+    [Fact]
+    public void QuestionQuizType_RemainsStandardForTextOnlyStandardQuestion()
+    {
+        Assert.Equal(QuizTypeCatalog.Standard, Question(1).QuizType);
+    }
+
+    [Fact]
     public void StandardRandomPool_ExcludesIcons_ButIconsPoolDoesNot()
     {
         Assert.Equal("Icons", QuizTypeCatalog.ExcludedRandomCategory("All categories"));
