@@ -11,7 +11,12 @@ public sealed partial class DesktopDataService
 
         var edited = QuizQuestionEditValidator.Validate(request);
         edited = edited with { ImagePath = ManageQuizQuestionImage(edited.ImagePath) };
-        var fingerprint = QuizQuestionFingerprint.Create(edited.Question, edited.Answers);
+        var fingerprint = QuizQuestionFingerprint.Create(
+            edited.Question,
+            edited.Answers,
+            QuizTypeCatalog.FromCategory(edited.Category) == QuizTypeCatalog.Logo
+                ? edited.Answers[edited.CorrectIndex]
+                : null);
         EnsureQuizSchema();
 
         using var connection = OpenConnection();
