@@ -183,6 +183,20 @@ public sealed class YouTubeManagementTests
         Assert.Equal("Needs approval", result.StatusDisplay);
     }
 
+    [Theory]
+    [InlineData("published", false)]
+    [InlineData("heldForReview", false)]
+    [InlineData("likelySpam", true)]
+    [InlineData("rejected", false)]
+    public void HoldForReview_IsOnlyOfferedForLikelySpam(string status, bool expected)
+    {
+        var comment = new YouTubeCommentItem(
+            "comment", "thread", "video", "Viewer", "Text", DateTime.UtcNow,
+            0, 0, status);
+
+        Assert.Equal(expected, YouTubeCommentInbox.CanMoveToHeldForReview(comment));
+    }
+
     [Fact]
     public void PlaylistsResponse_ParsesPrivacyAndVideoCount()
     {
