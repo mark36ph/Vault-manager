@@ -89,15 +89,15 @@ public partial class MainShellWindow
         root.Children.Add(settingsCard);
 
         var settings = new Grid();
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(105) });
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(85) });
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(115) });
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(180) });
+        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
         settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
-        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
-        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120) });
-        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
-        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
-        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
-        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(230) });
-        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
-        settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
         settings.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         settings.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         settingsCard.Child = settings;
