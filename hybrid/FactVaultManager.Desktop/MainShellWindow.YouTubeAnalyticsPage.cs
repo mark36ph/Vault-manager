@@ -973,6 +973,13 @@ public partial class MainShellWindow
         {
             var token = await GetYouTubeManagementAccessTokenAsync();
             await _youtubeManagement.SetModerationStatusAsync(token, comment.Id, status);
+            if ((status is "published" or "heldForReview") &&
+                !await ConfirmYouTubeModerationAsync(token, comment.Id, status))
+            {
+                throw new InvalidOperationException(
+                    $"YouTube accepted the request, but the comment did not move to {ModerationStatusDisplay(status)}. " +
+                    "The change was not confirmed, so the app has left the comment unchanged. Please try again.");
+            }
             var selection = _youtubeCommentStatus?.SelectedItem?.ToString() ?? "Published";
             var visibleStatus = selection switch
             {
@@ -987,14 +994,34 @@ public partial class MainShellWindow
                 displayed, comment.Id, status, visibleStatus);
             var updated = comment with { ModerationStatus = status };
             SetYouTubeCommentsStatus(
-                $"Comment from {comment.Author} moved to {updated.StatusDisplay}. " +
-                "Use Refresh comments after a few seconds to confirm with YouTube.");
+                $"Comment from {comment.Author} moved to {updated.StatusDisplay}. Confirmed by YouTube.");
         }
         catch (Exception error)
         {
             MessageBox.Show(this, error.Message, "Moderate Comment", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
+
+    private async Task<bool> ConfirmYouTubeModerationAsync(string token, string commentId, string status)
+    {
+        var channel = await _youtubeManagement.GetMyChannelAsync(token);
+        var delays = new[] { 0, 1000, 2000, 4000 };
+        foreach (var delay in delays)
+        {
+            if (delay > 0) await Task.Delay(delay);
+            if (await _youtubeManagement.IsCommentInModerationQueueAsync(
+                    token, channel.Id, status, commentId))
+                return true;
+        }
+        return false;
+    }
+
+    private static string ModerationStatusDisplay(string status) => status switch
+    {
+        "published" => "Active",
+        "heldForReview" => "Needs approval",
+        _ => status,
+    };
 
     private async Task RefreshYouTubePlaylistsAsync(bool showErrors)
     {
