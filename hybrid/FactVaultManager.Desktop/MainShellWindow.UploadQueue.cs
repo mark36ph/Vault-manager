@@ -849,6 +849,7 @@ public partial class MainShellWindow
                     cancellationToken);
                 _data.UpdateQuizHistoryYouTubeAnalytics(
                     history.Id, true, result.Url, 0, 0, DateTime.Today);
+                _data.UpdateQuizHistoryYouTubeUploadState(history.Id, privacy, null);
                 completed.Add("YouTube");
                 if (thumbnail is not null)
                 {
@@ -902,6 +903,7 @@ public partial class MainShellWindow
                     pageToken, file, title, description, cancellationToken: cancellationToken);
                 _data.UpdateQuizHistoryFacebookAnalytics(
                     history.Id, true, result.Url, 0, 0, 0, 0, DateTime.Today);
+                _data.UpdateQuizHistoryFacebookSchedule(history.Id, null);
                 completed.Add("Facebook");
                 if (thumbnail is not null)
                 {
