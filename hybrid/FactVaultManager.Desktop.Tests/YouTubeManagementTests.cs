@@ -287,9 +287,11 @@ public sealed class YouTubeManagementTests
         const string json = """
             {"id":"thread-1","snippet":{"topLevelComment":{"id":"comment-1","snippet":{"textOriginal":"How did you score?"}}}}
             """;
-        var handler = new StubHttpHandler(_ => new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        var handler = new StubHttpHandler(request => new HttpResponseMessage(System.Net.HttpStatusCode.OK)
         {
-            Content = new StringContent(json),
+            Content = new StringContent(request.RequestUri?.AbsolutePath.EndsWith("/channels", StringComparison.Ordinal) == true
+                ? "{\"items\":[{\"id\":\"channel-1\",\"snippet\":{\"title\":\"Factburst Quiz\"}}]}"
+                : json),
         });
         var service = new YouTubeManagementService(new HttpClient(handler));
 
@@ -299,6 +301,7 @@ public sealed class YouTubeManagementTests
         Assert.Equal("comment-1", commentId);
         Assert.Equal(HttpMethod.Post, handler.Method);
         Assert.Contains("/commentThreads?part=snippet", handler.RequestUri);
+        Assert.Contains("\"channelId\":\"channel-1\"", handler.Body);
         Assert.Contains("\"videoId\":\"video-1\"", handler.Body);
         Assert.Contains("\"textOriginal\":\"How did you score?\"", handler.Body);
     }
