@@ -51,8 +51,23 @@ public sealed class YouTubeManagementTests
         Assert.Equal(3, result.LikeCount);
         Assert.Equal(2, result.ReplyCount);
         Assert.Equal("published", result.ModerationStatus);
+        Assert.Equal("Active", result.StatusDisplay);
         Assert.Equal("https://www.youtube.com/channel/viewer-channel", result.AuthorProfileUrl.TrimEnd('/'));
         Assert.Equal("viewer-channel", result.AuthorChannelId);
+    }
+
+    [Theory]
+    [InlineData("published", "Active")]
+    [InlineData("heldForReview", "Needs approval")]
+    [InlineData("likelySpam", "Needs approval (spam)")]
+    [InlineData("rejected", "Rejected")]
+    public void CommentStatus_UsesReadableModerationLabels(string status, string expected)
+    {
+        var comment = new YouTubeCommentItem(
+            "comment", "thread", "video", "Viewer", "Text", DateTime.UtcNow,
+            0, 0, status);
+
+        Assert.Equal(expected, comment.StatusDisplay);
     }
 
     [Fact]

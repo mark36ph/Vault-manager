@@ -647,7 +647,7 @@ public partial class MainShellWindow
         _youtubeCommentStatus = new ComboBox { Width = 150, Height = 34, Margin = new Thickness(8, 0, 8, 0) };
         _youtubeCommentStatus.Items.Add("Needs reply");
         _youtubeCommentStatus.Items.Add("Published");
-        _youtubeCommentStatus.Items.Add("Held for review");
+        _youtubeCommentStatus.Items.Add("Needs approval");
         _youtubeCommentStatus.Items.Add("Likely spam");
         _youtubeCommentStatus.SelectedIndex = 1;
         _youtubeCommentStatus.SelectionChanged += async (_, _) => await RefreshYouTubeCommentsAsync(false);
@@ -669,6 +669,7 @@ public partial class MainShellWindow
             "Comment",
             nameof(YouTubeCommentItem.Text),
             new DataGridLength(1, DataGridLengthUnitType.Star)));
+        _youtubeCommentsGrid.Columns.Add(TextColumn("Status", nameof(YouTubeCommentItem.StatusDisplay), 124));
         _youtubeCommentsGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Published",
@@ -907,7 +908,7 @@ public partial class MainShellWindow
             }
             else
             {
-                var status = selection == "Held for review" ? "heldForReview" : "likelySpam";
+                var status = selection == "Needs approval" ? "heldForReview" : "likelySpam";
                 var moderated = await _youtubeManagement.ListCommentsAsync(token, channel.Id, status);
                 comments = YouTubeCommentInbox.Filter(moderated, needsReply: false);
             }
