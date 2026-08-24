@@ -55,8 +55,8 @@ public partial class MainShellWindow
 
         _quizTitleTextBox = new TextBox
         {
-            Text = "General Knowledge Quiz",
-            ToolTip = "Quiz title and Resolve project name",
+            Text = "General Knowledge",
+            ToolTip = "Category title and Resolve project name",
         };
         _quizTitleTextBox.TextChanged += (_, _) =>
         {
