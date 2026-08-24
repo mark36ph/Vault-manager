@@ -219,6 +219,30 @@ public sealed class QuizQuestionBankTests
     }
 
     [Fact]
+    public void IconFingerprint_DistinguishesCorrectBrandWithSamePromptAndChoices()
+    {
+        var first = new QuizQuestionImportItem(
+            "Who does this icon belong to?",
+            "Acer", "Fujifilm", "Kodak", "JBL",
+            0, "", "Icons", "easy", "Test");
+        var second = first with { CorrectIndex = 1 };
+
+        Assert.NotEqual(first.Fingerprint, second.Fingerprint);
+    }
+
+    [Fact]
+    public void StandardFingerprint_RemainsIndependentOfCorrectAnswer()
+    {
+        var first = new QuizQuestionImportItem(
+            "Pick the correct answer.",
+            "One", "Two", "Three", "Four",
+            0, "", "General Knowledge", "easy", "Test");
+        var second = first with { CorrectIndex = 1 };
+
+        Assert.Equal(first.Fingerprint, second.Fingerprint);
+    }
+
+    [Fact]
     public void SelectRandom_ReturnsRequestedUniqueQuestions()
     {
         var questions = Enumerable.Range(1, 20)
