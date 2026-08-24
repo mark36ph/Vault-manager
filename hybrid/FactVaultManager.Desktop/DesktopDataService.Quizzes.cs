@@ -46,7 +46,8 @@ public sealed partial class DesktopDataService
             };
             var duplicateKey = QuizQuestionDuplicateKey.Create(question.Question);
             var correctAnswer = question.Answers[question.CorrectIndex];
-            if (existingQuestionKeys.Contains(duplicateKey) ||
+            var repeatedIconPrompt = QuizTypeCatalog.FromCategory(question.Category) == QuizTypeCatalog.Logo;
+            if ((!repeatedIconPrompt && existingQuestionKeys.Contains(duplicateKey)) ||
                 existingQuestions.Any(existing => QuizQuestionDuplicateDetector.IsLikelyDuplicate(
                     question.Question,
                     correctAnswer,
