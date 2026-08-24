@@ -39,6 +39,17 @@ public sealed class QuizHistoryPublicationTests
         Assert.Equal("Music", statistics.TopCategory);
     }
 
+    [Fact]
+    public void HistoryStatistics_DoesNotCountFutureSchedulesAsPublished()
+    {
+        var scheduled = History("9:16", 1, published: true) with
+        {
+            YouTubeScheduledFor = DateTimeOffset.Now.AddHours(1).ToString("O"),
+        };
+
+        Assert.Equal(0, QuizHistoryStatistics.Calculate([scheduled]).Published);
+    }
+
     [Theory]
     [InlineData("https://youtu.be/qJAMsHFhlDA")]
     [InlineData("https://www.youtube.com/watch?v=qJAMsHFhlDA")]
@@ -88,6 +99,36 @@ public sealed class QuizHistoryPublicationTests
 
         Assert.Equal("2026-08-22", QuizYouTubeAnalytics.NormalizeUploadDate(date));
         Assert.Equal("22-08-2026", QuizYouTubeAnalytics.FormatUploadDate("2026-08-22"));
+    }
+
+    [Fact]
+    public void PublicationDisplay_DistinguishesScheduledPrivateAndPublishedVideos()
+    {
+        var scheduled = History("9:16", 1, published: true) with
+        {
+            YouTubePrivacy = "private",
+            YouTubeScheduledFor = DateTimeOffset.Now.AddHours(2).ToString("O"),
+        };
+        var privateVideo = History("9:16", 1, published: true) with { YouTubePrivacy = "private" };
+        var publicVideo = History("9:16", 1, published: true) with { YouTubePrivacy = "public" };
+
+        Assert.StartsWith("Scheduled ", scheduled.YouTubePublicationDisplay);
+        Assert.Equal("Private", privateVideo.YouTubePublicationDisplay);
+        Assert.Equal("Published", publicVideo.YouTubePublicationDisplay);
+    }
+
+    [Fact]
+    public void FirstCommentDisplay_WaitsForScheduledPublicationThenBecomesReady()
+    {
+        var scheduled = History("9:16", 1, published: true) with
+        {
+            PinnedComment = "How did you score?",
+            YouTubeScheduledFor = DateTimeOffset.Now.AddHours(2).ToString("O"),
+        };
+        var ready = scheduled with { YouTubeScheduledFor = DateTimeOffset.Now.AddMinutes(-1).ToString("O") };
+
+        Assert.Equal("Waiting for publication", scheduled.FirstCommentDisplay);
+        Assert.Equal("Ready to post", ready.FirstCommentDisplay);
     }
 
     [Theory]
