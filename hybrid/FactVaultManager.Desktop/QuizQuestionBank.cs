@@ -39,7 +39,9 @@ public sealed record QuizQuestion(
 
     public bool HasImage => !string.IsNullOrWhiteSpace(ImagePath);
 
-    public string QuizType => HasImage ? QuizTypeCatalog.Logo : QuizTypeCatalog.Standard;
+    public string QuizType => HasImage || QuizTypeCatalog.FromCategory(Category) == QuizTypeCatalog.Logo
+        ? QuizTypeCatalog.Logo
+        : QuizTypeCatalog.Standard;
 }
 
 public static class QuizTypeCatalog
