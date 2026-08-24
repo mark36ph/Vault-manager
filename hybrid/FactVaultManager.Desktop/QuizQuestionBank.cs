@@ -280,7 +280,7 @@ public static class QuizQuestionImportParser
                     source,
                     imagePath);
 
-                if (seenQuestions.Add(QuizQuestionDuplicateKey.Create(item.Question)))
+                if (seenQuestions.Add(ImportDuplicateKey(item)))
                     results.Add(item);
             }
 
@@ -363,6 +363,16 @@ __CATEGORY_RULES__- Avoid trick questions, ambiguous wording, duplicate question
             questions.ValueKind == JsonValueKind.Array)
             return questions;
         throw new InvalidDataException("Quiz JSON must be an array or an object containing a 'questions' array.");
+    }
+
+    private static string ImportDuplicateKey(QuizQuestionImportItem item)
+    {
+        var questionKey = QuizQuestionDuplicateKey.Create(item.Question);
+        if (QuizTypeCatalog.FromCategory(item.Category) != QuizTypeCatalog.Logo)
+            return "standard\n" + questionKey;
+
+        var correctAnswerKey = QuizQuestionDuplicateKey.Create(item.Answers[item.CorrectIndex]);
+        return "icons\n" + questionKey + "\n" + correctAnswerKey;
     }
 
     private static List<string> ReadAnswers(JsonElement element)
