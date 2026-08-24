@@ -20,7 +20,17 @@ public sealed record YouTubeCommentItem(
     string VideoTitle = "",
     string AuthorProfileUrl = "",
     string AuthorChannelId = "",
-    bool IsOwnComment = false);
+    bool IsOwnComment = false)
+{
+    public string StatusDisplay => ModerationStatus switch
+    {
+        "published" => "Active",
+        "heldForReview" => "Needs approval",
+        "likelySpam" => "Needs approval (spam)",
+        "rejected" => "Rejected",
+        _ => "Unknown",
+    };
+}
 
 public static class YouTubeCommentInbox
 {
