@@ -17,6 +17,20 @@ public sealed record YouTubeVideoUploadResult(string VideoId, string Url);
 
 public sealed record FacebookReelUploadResult(string VideoId, string Url);
 
+public static class SocialPublishingAccountGuard
+{
+    public static void EnsureMatches(string platform, string? approvedAccountId, string connectedAccountId)
+    {
+        if (string.IsNullOrWhiteSpace(connectedAccountId))
+            throw new InvalidOperationException($"{platform} did not return the connected account ID.");
+        if (string.IsNullOrWhiteSpace(approvedAccountId)) return;
+        if (string.Equals(approvedAccountId.Trim(), connectedAccountId.Trim(), StringComparison.Ordinal)) return;
+        throw new InvalidOperationException(
+            $"Upload blocked: the connected {platform} account ({connectedAccountId.Trim()}) does not match " +
+            $"the approved account ({approvedAccountId.Trim()}). Reset the approved account in Settings only if you intend to switch destinations.");
+    }
+}
+
 public static class SocialVideoUploadRules
 {
     public const long MaximumThumbnailBytes = 2 * 1024 * 1024;
@@ -459,6 +473,23 @@ public sealed class FacebookReelUploadService
             content,
             cancellationToken);
         if (!response.IsSuccessStatusCode) throw await FacebookErrorAsync(response, cancellationToken);
+    }
+
+    public async Task VerifyUploadedReelAsync(
+        string pageAccessToken,
+        string videoId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(pageAccessToken))
+            throw new InvalidOperationException("Add the Facebook Page access token in Settings first.");
+        if (string.IsNullOrWhiteSpace(videoId)) throw new ArgumentException("Facebook did not return a video ID.");
+        var url = $"{GraphRoot}/{Uri.EscapeDataString(videoId.Trim())}?fields=id%2Cpermalink_url" +
+                  $"&access_token={Uri.EscapeDataString(pageAccessToken.Trim())}";
+        using var response = await _client.GetAsync(url, cancellationToken);
+        using var document = await ReadDocumentAsync(response, cancellationToken);
+        var returnedId = ReadString(document.RootElement, "id");
+        if (!string.Equals(returnedId, videoId.Trim(), StringComparison.Ordinal))
+            throw new InvalidOperationException("Facebook returned an upload ID, but the Reel could not be verified on the connected Page yet.");
     }
 
     private async Task<string> GetPageIdAsync(string token, CancellationToken cancellationToken)
