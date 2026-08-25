@@ -118,7 +118,7 @@ public partial class MainShellWindow
         AddQuizAiField(form, 2, "CATEGORY", _quizAiCategoryComboBox);
 
         _quizAiDifficultyComboBox = new ComboBox { MinHeight = 34 };
-        foreach (var difficulty in new[] { "mixed", "easy", "medium", "hard" })
+        foreach (var difficulty in new[] { "mixed", "easy", "medium", "hard", "insane" })
             _quizAiDifficultyComboBox.Items.Add(difficulty);
         _quizAiDifficultyComboBox.Background = new SolidColorBrush(Color.FromRgb(20, 32, 72));
         _quizAiDifficultyComboBox.Foreground = new SolidColorBrush(Color.FromRgb(225, 235, 255));
