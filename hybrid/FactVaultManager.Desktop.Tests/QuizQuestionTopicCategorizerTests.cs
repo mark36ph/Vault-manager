@@ -15,7 +15,7 @@ public sealed class QuizQuestionTopicCategorizerTests
     [InlineData("Which gas is released during photosynthesis?", "Science")]
     [InlineData("Which composer wrote Symphony No. 5?", "Music")]
     [InlineData("Which film won the Academy Award for Best Picture?", "Film")]
-    [InlineData("Which company uses this logo?", "Icons")]
+    [InlineData("Which company uses this logo?", "Logos")]
     [InlineData("Which television sitcom features the Bluth family?", "Entertainment")]
     [InlineData("The Great Fire of London occurred in which year?", "History")]
     public void Categorize_AssignsExpectedTopic(string question, string expected)
@@ -31,7 +31,7 @@ public sealed class QuizQuestionTopicCategorizerTests
         Assert.Contains("Arts & Literature", QuizQuestionTopicCategorizer.Categories);
         Assert.Contains("Music", QuizQuestionTopicCategorizer.Categories);
         Assert.Contains("Film", QuizQuestionTopicCategorizer.Categories);
-        Assert.Contains("Icons", QuizQuestionTopicCategorizer.Categories);
+        Assert.Contains("Logos", QuizQuestionTopicCategorizer.Categories);
         Assert.Contains("Sports", QuizQuestionTopicCategorizer.Categories);
         Assert.Contains("Entertainment", QuizQuestionTopicCategorizer.Categories);
         Assert.DoesNotContain("Sport", QuizQuestionTopicCategorizer.Categories);
@@ -43,8 +43,8 @@ public sealed class QuizQuestionTopicCategorizerTests
     [InlineData("movies", "Film")]
     [InlineData("cinema", "Film")]
     [InlineData("film & tv", "Entertainment")]
-    [InlineData("logo", "Icons")]
-    [InlineData("icons", "Icons")]
+    [InlineData("logo", "Logos")]
+    [InlineData("icons", "Logos")]
     public void CategoryNormalizer_SeparatesFilmFromTelevision(string value, string expected)
     {
         Assert.Equal(expected, QuizQuestionCategoryNormalizer.Normalize(value));
@@ -73,7 +73,7 @@ public sealed class QuizQuestionTopicCategorizerTests
         string expected)
     {
         var category = QuizQuestionTopicCategorizer.NormalizeImportedCategory(
-            "Icons",
+            "Logos",
             question,
             explanation: explanation);
 
@@ -84,21 +84,21 @@ public sealed class QuizQuestionTopicCategorizerTests
     public void NormalizeImportedCategory_KeepsActualLogoQuestionInIcons()
     {
         var category = QuizQuestionTopicCategorizer.NormalizeImportedCategory(
-            "Icons",
+            "Logos",
             "Which company uses this logo?",
             ["Apple", "Microsoft", "Google", "Amazon"]);
 
-        Assert.Equal("Icons", category);
+        Assert.Equal("Logos", category);
     }
 
     [Fact]
     public void NormalizeImportedCategory_KeepsImageQuestionInIcons()
     {
         var category = QuizQuestionTopicCategorizer.NormalizeImportedCategory(
-            "Icons",
+            "Logos",
             "Which person is pictured?",
             imagePath: "question.png");
 
-        Assert.Equal("Icons", category);
+        Assert.Equal("Logos", category);
     }
 }

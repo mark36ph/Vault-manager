@@ -45,7 +45,7 @@ public static class YouTubeNextQuizPlanner
 {
     private static readonly HashSet<string> ExcludedRecommendationCategories = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Icons",
+        "Logos",
         "Paranormal",
     };
 

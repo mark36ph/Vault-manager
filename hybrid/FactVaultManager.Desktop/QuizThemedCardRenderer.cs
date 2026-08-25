@@ -67,9 +67,10 @@ public sealed class QuizThemedCardRenderer
     internal static string LogoQuizDisplayName(string title)
     {
         var displayName = QuizPublishMetadataGenerator.DisplayName(title);
-        return string.Equals(displayName, "Icons", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(displayName, "Icon", StringComparison.OrdinalIgnoreCase) ||
-               string.Equals(displayName, "Logo", StringComparison.OrdinalIgnoreCase)
+        return string.Equals(
+                QuizQuestionCategoryNormalizer.Normalize(displayName),
+                "Logos",
+                StringComparison.OrdinalIgnoreCase)
             ? "LOGOS"
             : displayName.ToUpperInvariant();
     }

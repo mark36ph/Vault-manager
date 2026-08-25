@@ -100,13 +100,13 @@ public sealed class QuizQuestionBankTests
               "question": "Who does this icon belong to?",
               "answers": ["McDonald's", "KFC", "Burger King", "Subway"],
               "correct_answer": "A",
-              "category": "Icons"
+              "category": "Logos"
             },
             {
               "question": "Who does this icon belong to?",
               "answers": ["Adidas", "Nike", "Puma", "Reebok"],
               "correct_answer": "B",
-              "category": "Icons"
+              "category": "Logos"
             }
           ]
         }
@@ -162,7 +162,7 @@ public sealed class QuizQuestionBankTests
                         question = "Which company uses this icon?",
                         answers = new[] { "Company A", "Company B", "Company C", "Company D" },
                         correct_answer = "B",
-                        category = "Icons",
+                        category = "Logos",
                         image_path = imagePath,
                     },
                 },
@@ -171,7 +171,7 @@ public sealed class QuizQuestionBankTests
             var question = Assert.Single(QuizQuestionImportParser.Parse(json, "Manual entry"));
 
             Assert.Equal(Path.GetFullPath(imagePath), question.ImagePath);
-            Assert.Equal("Icons", question.Category);
+            Assert.Equal("Logos", question.Category);
         }
         finally
         {
@@ -224,7 +224,7 @@ public sealed class QuizQuestionBankTests
         var first = new QuizQuestionImportItem(
             "Who does this icon belong to?",
             "Acer", "Fujifilm", "Kodak", "JBL",
-            0, "", "Icons", "easy", "Test");
+            0, "", "Logos", "easy", "Test");
         var second = first with { CorrectIndex = 1 };
 
         Assert.NotEqual(first.Fingerprint, second.Fingerprint);
@@ -294,7 +294,7 @@ public sealed class QuizQuestionBankTests
     }
 
     [Theory]
-    [InlineData("Icons", QuizTypeCatalog.Logo)]
+    [InlineData("Logos", QuizTypeCatalog.Logo)]
     [InlineData("icons", QuizTypeCatalog.Logo)]
     [InlineData("History", QuizTypeCatalog.Standard)]
     [InlineData("", QuizTypeCatalog.Standard)]
@@ -306,7 +306,7 @@ public sealed class QuizQuestionBankTests
     [Fact]
     public void QuestionQuizType_UsesIconsCategoryBeforeImageIsAttached()
     {
-        var question = Question(1) with { Category = "Icons", ImagePath = "" };
+        var question = Question(1) with { Category = "Logos", ImagePath = "" };
 
         Assert.False(question.HasImage);
         Assert.Equal(QuizTypeCatalog.Logo, question.QuizType);
@@ -319,8 +319,8 @@ public sealed class QuizQuestionBankTests
     }
 
     [Theory]
-    [InlineData("Icons", "", false)]
-    [InlineData("Icons", "logo.png", true)]
+    [InlineData("Logos", "", false)]
+    [InlineData("Logos", "logo.png", true)]
     [InlineData("Science", "", true)]
     public void ImportEnablement_RequiresAnImageOnlyForIcons(
         string category,
@@ -333,27 +333,27 @@ public sealed class QuizQuestionBankTests
     [Fact]
     public void EditEnablement_EnablesIconWhenImageIsFirstAttached()
     {
-        Assert.True(QuizQuestionEnablement.ForEdit("Icons", "", "logo.png", requestedEnabled: false));
+        Assert.True(QuizQuestionEnablement.ForEdit("Logos", "", "logo.png", requestedEnabled: false));
     }
 
     [Fact]
     public void EditEnablement_DisablesIconWhenImageIsRemoved()
     {
-        Assert.False(QuizQuestionEnablement.ForEdit("Icons", "logo.png", "", requestedEnabled: true));
+        Assert.False(QuizQuestionEnablement.ForEdit("Logos", "logo.png", "", requestedEnabled: true));
     }
 
     [Fact]
     public void EditEnablement_PreservesManualDisableWhenIconAlreadyHasImage()
     {
-        Assert.False(QuizQuestionEnablement.ForEdit("Icons", "logo.png", "logo.png", requestedEnabled: false));
+        Assert.False(QuizQuestionEnablement.ForEdit("Logos", "logo.png", "logo.png", requestedEnabled: false));
     }
 
     [Fact]
     public void StandardRandomPool_ExcludesIcons_ButIconsPoolDoesNot()
     {
-        Assert.Equal("Icons", QuizTypeCatalog.ExcludedRandomCategory("All categories"));
-        Assert.Equal("Icons", QuizTypeCatalog.ExcludedRandomCategory("History"));
-        Assert.Equal("", QuizTypeCatalog.ExcludedRandomCategory("Icons"));
+        Assert.Equal("Logos", QuizTypeCatalog.ExcludedRandomCategory("All categories"));
+        Assert.Equal("Logos", QuizTypeCatalog.ExcludedRandomCategory("History"));
+        Assert.Equal("", QuizTypeCatalog.ExcludedRandomCategory("Logos"));
     }
 
     [Fact]

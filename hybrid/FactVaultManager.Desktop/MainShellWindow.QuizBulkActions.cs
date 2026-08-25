@@ -65,7 +65,7 @@ public partial class MainShellWindow
         {
             Content = "Find icon images",
             Tag = "QuizBulkAction",
-            ToolTip = "Download matching Simple Icons images for selected Icons questions that do not have an image.",
+            ToolTip = "Download matching Simple Icons images for selected Logos questions that do not have an image.",
             Margin = new Thickness(0, 0, 8, 0),
         };
         findIcons.Click += FindSelectedQuizQuestionIcons_Click;
@@ -102,7 +102,7 @@ public partial class MainShellWindow
         {
             MessageBox.Show(
                 this,
-                "Select one or more Icons questions that do not yet have an image.",
+                "Select one or more Logos questions that do not yet have an image.",
                 "Find Icon Images",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);

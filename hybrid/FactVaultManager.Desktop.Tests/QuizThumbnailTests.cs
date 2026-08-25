@@ -21,6 +21,8 @@ public sealed class QuizThumbnailTests
     [InlineData("", "GENERAL KNOWLEDGE QUIZ", true)]
     [InlineData("GENERAL KNOWLEDGE QUIZ", "GENERAL KNOWLEDGE QUIZ", true)]
     [InlineData("SCIENCE QUIZ", "SCIENCE QUIZ", true)]
+    [InlineData("ICONS", "GENERAL KNOWLEDGE QUIZ", true)]
+    [InlineData("ICONS QUIZ", "GENERAL KNOWLEDGE QUIZ", true)]
     [InlineData("THE PAST AWAITS", "GENERAL KNOWLEDGE QUIZ", false)]
     public void Defaults_ReplacesOnlyBlankOrPreviouslyAutomaticSubtitle(
         string current,
@@ -44,6 +46,21 @@ public sealed class QuizThumbnailTests
         var thumbnail = QuizThumbnailDefaults.Create(metadata, 2);
 
         Assert.Equal("HISTORY", thumbnail.Subtitle);
+    }
+
+    [Fact]
+    public void Defaults_LogoQuizUsesLogoSubtitle()
+    {
+        var metadata = QuizPublishMetadataGenerator.Generate(
+            "Logos",
+            1,
+            [Question(1), Question(2)],
+            vertical: false,
+            logoQuiz: true);
+
+        var thumbnail = QuizThumbnailDefaults.Create(metadata, 2, logoQuiz: true);
+
+        Assert.Equal("LOGOS", thumbnail.Subtitle);
     }
 
     [Fact]

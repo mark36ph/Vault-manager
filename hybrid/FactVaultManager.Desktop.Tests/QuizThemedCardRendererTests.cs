@@ -20,8 +20,8 @@ public sealed class QuizThemedCardRendererTests
     }
 
     [Theory]
-    [InlineData("Icons", "LOGOS")]
-    [InlineData("Icons Quiz", "LOGOS")]
+    [InlineData("Logos", "LOGOS")]
+    [InlineData("Logos Quiz", "LOGOS")]
     [InlineData("Logo Quiz", "LOGOS")]
     public void LogoQuizDisplay_UsesLogosTerminology(string title, string expected)
     {

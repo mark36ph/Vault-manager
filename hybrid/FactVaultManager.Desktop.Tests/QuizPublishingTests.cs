@@ -4,6 +4,28 @@ namespace FactVaultManager.Desktop.Tests;
 
 public sealed class QuizPublishingTests
 {
+    [Theory]
+    [InlineData("Icons Quiz", "General Knowledge Quiz", "Logos", true)]
+    [InlineData("Logos Quiz", "General Knowledge Quiz", "Logos", true)]
+    [InlineData("Custom Brand Challenge", "General Knowledge Quiz", "Logos", false)]
+    [InlineData("History Quiz", "History Quiz", "Logos", true)]
+    public void ShouldReplaceSeriesName_UpdatesAutomaticLogoSeriesButPreservesCustomText(
+        string current,
+        string previousAuto,
+        string category,
+        bool expected)
+    {
+        Assert.Equal(
+            expected,
+            QuizPublishMetadataGenerator.ShouldReplaceSeriesName(current, previousAuto, category));
+    }
+
+    [Fact]
+    public void SuggestSeriesName_LogosCategoryUsesLogosQuizSeries()
+    {
+        Assert.Equal("Logos Quiz", QuizPublishMetadataGenerator.SuggestSeriesName("Logos"));
+    }
+
     [Fact]
     public void SuggestSeriesNameForQuestions_UsesSingleDraftCategory()
     {

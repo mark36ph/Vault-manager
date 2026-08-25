@@ -20,6 +20,32 @@ public sealed class QuizHistoryPublicationTests
         Assert.Equal(expected, QuizHistoryVideoType.DisplayName(format));
     }
 
+    [Theory]
+    [InlineData("Icons Quiz", true, "Logos Quiz")]
+    [InlineData("Logos Quiz", true, "Logos Quiz")]
+    [InlineData("Custom Brand Challenge", true, "Custom Brand Challenge")]
+    [InlineData("Icons Quiz", false, "Icons Quiz")]
+    public void Reopen_NormalizesOnlyLegacyLogoSeries(
+        string stored,
+        bool logoQuiz,
+        string expected)
+    {
+        Assert.Equal(expected, QuizHistoryDraftRestorer.NormalizeReopenedSeries(stored, logoQuiz));
+    }
+
+    [Theory]
+    [InlineData("Icons Quiz", true, "Logos")]
+    [InlineData("Logos Quiz", true, "Logos")]
+    [InlineData("Custom Brand Challenge", true, "Custom Brand Challenge")]
+    [InlineData("Icons Quiz", false, "Icons")]
+    public void Reopen_NormalizesOnlyLegacyLogoTitles(
+        string stored,
+        bool logoQuiz,
+        string expected)
+    {
+        Assert.Equal(expected, QuizHistoryDraftRestorer.NormalizeReopenedTitle(stored, logoQuiz));
+    }
+
     [Fact]
     public void HistoryStatistics_CountsVideosShortsAndQuestionUses()
     {
@@ -262,7 +288,7 @@ public sealed class QuizHistoryPublicationTests
     {
         var recommendation = YouTubeNextQuizPlanner.Recommend(
             [],
-            ["Icons", "Paranormal", "History"]);
+            ["Logos", "Paranormal", "History"]);
 
         Assert.Equal("History", recommendation.Category);
         Assert.Equal("Video", recommendation.VideoType);
@@ -273,7 +299,7 @@ public sealed class QuizHistoryPublicationTests
     {
         var recommendation = YouTubeNextQuizPlanner.Recommend(
             [],
-            ["Icons", "Paranormal"]);
+            ["Logos", "Paranormal"]);
 
         Assert.Equal("General Knowledge", recommendation.Category);
         Assert.Equal("Video", recommendation.VideoType);

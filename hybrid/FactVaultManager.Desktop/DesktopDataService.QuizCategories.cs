@@ -56,7 +56,7 @@ public sealed partial class DesktopDataService
             UPDATE quiz_questions
             SET category = $category,
                 enabled = CASE
-                    WHEN $category = 'Icons' COLLATE NOCASE
+                    WHEN $category = 'Logos' COLLATE NOCASE
                      AND TRIM(image_path) = '' THEN 0
                     ELSE enabled
                 END

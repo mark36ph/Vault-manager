@@ -38,6 +38,24 @@ public static class QuizPublishMetadataGenerator
         return NormalizeSeriesName($"{category} Quiz");
     }
 
+    public static bool ShouldReplaceSeriesName(
+        string? currentSeries,
+        string? previousAutoSeries,
+        string? selectedCategory)
+    {
+        var current = (currentSeries ?? "").Trim();
+        var previousAuto = (previousAutoSeries ?? "").Trim();
+        if (current.Length == 0 ||
+            string.Equals(current, previousAuto, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(current, "General Knowledge Quiz", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return QuizTypeCatalog.FromCategory(selectedCategory) == QuizTypeCatalog.Logo &&
+               QuizTypeCatalog.FromCategory(DisplayName(current)) == QuizTypeCatalog.Logo;
+    }
+
     public static string SuggestSeriesNameForQuestions(IReadOnlyList<QuizQuestion> questions)
     {
         ArgumentNullException.ThrowIfNull(questions);

@@ -6,7 +6,7 @@ public static class QuizQuestionTopicCategorizer
 
     private static readonly TopicRule[] Rules =
     [
-        new("Icons",
+        new("Logos",
         [
             "logo", "logos", "icon", "icons", "brand logo", "company logo", "app icon",
         ]),
@@ -134,14 +134,14 @@ public static class QuizQuestionTopicCategorizer
         string? imagePath = null)
     {
         var normalized = QuizQuestionCategoryNormalizer.Normalize(category);
-        if (!string.Equals(normalized, "Icons", StringComparison.OrdinalIgnoreCase) ||
+        if (!string.Equals(normalized, "Logos", StringComparison.OrdinalIgnoreCase) ||
             !string.IsNullOrWhiteSpace(imagePath))
         {
             return normalized;
         }
 
         var detected = Categorize(question, answers, explanation);
-        return string.Equals(detected, "Icons", StringComparison.OrdinalIgnoreCase)
+        return string.Equals(detected, "Logos", StringComparison.OrdinalIgnoreCase)
             ? normalized
             : detected;
     }
