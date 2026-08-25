@@ -39,6 +39,8 @@ public sealed record QuizQuestion(
 
     public bool HasImage => !string.IsNullOrWhiteSpace(ImagePath);
 
+    public QuizDifficulty DifficultyLevel => QuizDifficultyCatalog.Parse(Difficulty);
+
     public string QuizType => HasImage || QuizTypeCatalog.FromCategory(Category) == QuizTypeCatalog.Logo
         ? QuizTypeCatalog.Logo
         : QuizTypeCatalog.Standard;
@@ -333,7 +335,7 @@ public static class QuizQuestionImportParser
         count = Math.Clamp(count, 1, 500);
         category = string.IsNullOrWhiteSpace(category) ? "General Knowledge" : category.Trim();
         difficulty = difficulty?.Trim().ToLowerInvariant() ?? "mixed";
-        if (difficulty is not ("easy" or "medium" or "hard"))
+        if (difficulty is not ("easy" or "medium" or "hard" or "insane"))
             difficulty = "mixed";
         var mixedCategories = string.Equals(category, "General Knowledge", StringComparison.OrdinalIgnoreCase) ||
                               string.Equals(category, "All categories", StringComparison.OrdinalIgnoreCase);
@@ -350,7 +352,7 @@ public static class QuizQuestionImportParser
             : $"- Set the category field to '{category}' for every question.\n";
         var difficultyExample = difficulty == "mixed" ? "easy" : difficulty;
         var difficultyRule = difficulty == "mixed"
-            ? "- Mix easy, medium, and hard difficulty."
+            ? "- Mix easy, medium, hard, and insane difficulty."
             : $"- Set the difficulty field to '{difficulty}' for every question.";
 
         var prompt = """
@@ -515,15 +517,7 @@ __CATEGORY_RULES__- Avoid trick questions, ambiguous wording, duplicate question
 
     private static string NormalizeDifficulty(string value)
     {
-        var normalized = value.Trim().ToLowerInvariant();
-        return normalized switch
-        {
-            "" => "medium",
-            "easy" or "beginner" => "easy",
-            "medium" or "normal" or "intermediate" => "medium",
-            "hard" or "difficult" or "expert" => "hard",
-            _ => normalized,
-        };
+        return QuizDifficultyCatalog.Normalize(value);
     }
 
     private static bool TryProperty(JsonElement element, IEnumerable<string> names, out JsonElement value)
