@@ -307,6 +307,43 @@ public sealed class YouTubeManagementTests
     }
 
     [Fact]
+    public async Task VerifyUploadedVideo_ConfirmsChannelTitlePrivacyAndStatus()
+    {
+        const string json = """
+            {"items":[{"id":"video-1","snippet":{"channelId":"channel-1","title":"Film Quiz"},"status":{"privacyStatus":"unlisted","uploadStatus":"processed"}}]}
+            """;
+        var handler = new StubHttpHandler(_ => new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        {
+            Content = new StringContent(json),
+        });
+        var service = new YouTubeManagementService(new HttpClient(handler));
+
+        var video = await service.VerifyUploadedVideoAsync(
+            "token", "video-1", "channel-1", "Film Quiz", "unlisted");
+
+        Assert.Equal("video-1", video.Id);
+        Assert.Equal("processed", video.UploadStatus);
+        Assert.Contains("/videos?", handler.RequestUri);
+        Assert.Contains("id=video-1", handler.RequestUri);
+    }
+
+    [Fact]
+    public async Task VerifyUploadedVideo_RejectsAWrongDestinationChannel()
+    {
+        const string json = """
+            {"items":[{"id":"video-1","snippet":{"channelId":"wrong-channel","title":"Film Quiz"},"status":{"privacyStatus":"private","uploadStatus":"uploaded"}}]}
+            """;
+        var service = new YouTubeManagementService(new HttpClient(new StubHttpHandler(_ =>
+            new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(json) })));
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            service.VerifyUploadedVideoAsync("token", "video-1", "channel-1", "Film Quiz", "private"));
+
+        Assert.Contains("wrong-channel", error.Message);
+        Assert.Contains("channel-1", error.Message);
+    }
+
+    [Fact]
     public async Task PostTopLevelComment_ReusesAnExistingCommentByTheChannel()
     {
         const string commentsJson = """
@@ -333,7 +370,7 @@ public sealed class YouTubeManagementTests
     }
 
     [Fact]
-    public async Task PostTopLevelComment_ReusesMatchingTextWhenYouTubeDoesNotReturnTheAuthorIdentity()
+    public async Task PostTopLevelComment_DoesNotTreatAnotherViewersMatchingTextAsTheChannelsComment()
     {
         const string commentsJson = """
             {"items":[{"id":"thread-existing","snippet":{"totalReplyCount":0,"topLevelComment":{"id":"comment-existing","snippet":{"videoId":"video-1","authorDisplayName":"Another viewer","textDisplay":"How did you score?\n\nShare your result!","publishedAt":"2026-08-25T10:00:00Z","likeCount":0,"moderationStatus":"published"}}}}]}
@@ -346,7 +383,9 @@ public sealed class YouTubeManagementTests
             {
                 Content = new StringContent(request.RequestUri?.AbsolutePath.EndsWith("/channels", StringComparison.Ordinal) == true
                     ? "{\"items\":[{\"id\":\"channel-1\",\"snippet\":{\"title\":\"Factburst Quiz\"}}]}"
-                    : commentsJson),
+                    : request.Method == HttpMethod.Get
+                        ? commentsJson
+                        : "{\"id\":\"thread-created\",\"snippet\":{\"topLevelComment\":{\"id\":\"comment-created\"}}}"),
             };
         });
         var service = new YouTubeManagementService(new HttpClient(handler));
@@ -354,8 +393,8 @@ public sealed class YouTubeManagementTests
         var commentId = await service.PostTopLevelCommentAsync(
             "token", "video-1", "  How did you score?\r\n Share your result!  ");
 
-        Assert.Equal("comment-existing", commentId);
-        Assert.Equal([HttpMethod.Get, HttpMethod.Get], methods);
+        Assert.Equal("comment-created", commentId);
+        Assert.Equal([HttpMethod.Get, HttpMethod.Get, HttpMethod.Post], methods);
     }
 
     [Fact]
