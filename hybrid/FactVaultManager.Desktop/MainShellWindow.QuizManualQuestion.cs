@@ -287,7 +287,7 @@ public partial class MainShellWindow
         AddManualQuizField(form, 3, 0, 1, "CORRECT ANSWER", _manualQuizCorrectAnswerComboBox);
 
         _manualQuizDifficultyComboBox = new ComboBox { MinHeight = 34 };
-        foreach (var value in new[] { "easy", "medium", "hard" })
+        foreach (var value in QuizDifficultyCatalog.StorageValues)
             _manualQuizDifficultyComboBox.Items.Add(value);
         _manualQuizDifficultyComboBox.SelectedIndex = 1;
         AddManualQuizField(form, 3, 2, 1, "DIFFICULTY", _manualQuizDifficultyComboBox);
