@@ -162,6 +162,14 @@ public partial class MainShellWindow
                 ShowQuizPublishingMetadata(history, manageComments: true);
         };
         actions.Children.Add(commentsButton);
+        var resetUpload = new Button { Content = "Reset Upload State", MinWidth = 126, Margin = new Thickness(8, 0, 0, 0) };
+        StyleQuizHistoryButton(resetUpload, Color.FromRgb(255, 190, 0));
+        resetUpload.Click += (_, _) =>
+        {
+            if (_uploadManagerGrid.SelectedItem is QuizHistorySummary history)
+                ShowResetUploadStateDialog(history);
+        };
+        actions.Children.Add(resetUpload);
         var upload = new Button { Content = "Upload Selected", MinWidth = 118, Margin = new Thickness(8, 0, 0, 0) };
         StyleQuizHistoryButton(upload, Color.FromRgb(70, 235, 115));
         upload.Click += (_, _) =>
@@ -189,6 +197,79 @@ public partial class MainShellWindow
                 new Point(0, 0), new Point(1, 1)),
             Child = root,
         };
+    }
+
+    private void ShowResetUploadStateDialog(QuizHistorySummary history)
+    {
+        if (!history.PublishedOnYouTube && !history.PublishedOnFacebook && !history.PublishedOnInstagram)
+        {
+            MessageBox.Show(this, "This quiz is not marked as uploaded on any platform.",
+                "Reset Upload State", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new Window
+        {
+            Title = "Reset Upload State",
+            Owner = this,
+            Width = 470,
+            SizeToContent = SizeToContent.Height,
+            ResizeMode = ResizeMode.NoResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Background = Brushes.White,
+        };
+        var content = new StackPanel { Margin = new Thickness(24) };
+        content.Children.Add(new TextBlock
+        {
+            Text = history.UploadTitleDisplay,
+            FontSize = 18,
+            FontWeight = FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap,
+        });
+        content.Children.Add(new TextBlock
+        {
+            Text = "Choose the platform records to clear. This does not delete anything from the platform; it allows the video to be uploaded again.",
+            Foreground = QuizMutedBrush(),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 8, 0, 14),
+        });
+        var youtube = new CheckBox { Content = "YouTube", IsEnabled = history.PublishedOnYouTube, IsChecked = history.PublishedOnYouTube, Margin = new Thickness(0, 4, 0, 4) };
+        var facebook = new CheckBox { Content = "Facebook", IsEnabled = history.PublishedOnFacebook, IsChecked = false, Margin = new Thickness(0, 4, 0, 4) };
+        var instagram = new CheckBox { Content = "Instagram", IsEnabled = history.PublishedOnInstagram, IsChecked = false, Margin = new Thickness(0, 4, 0, 14) };
+        content.Children.Add(youtube);
+        content.Children.Add(facebook);
+        content.Children.Add(instagram);
+
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var cancel = new Button { Content = "Cancel", MinWidth = 82, IsCancel = true };
+        var reset = new Button { Content = "Reset selected", MinWidth = 110, Margin = new Thickness(8, 0, 0, 0), IsDefault = true };
+        StyleQuizHistoryButton(reset, Color.FromRgb(255, 190, 0));
+        reset.Click += (_, _) =>
+        {
+            if (youtube.IsChecked != true && facebook.IsChecked != true && instagram.IsChecked != true)
+            {
+                MessageBox.Show(dialog, "Select at least one platform.", "Reset Upload State",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (MessageBox.Show(dialog,
+                    "Clear the selected local upload records? The remote videos will not be deleted.",
+                    "Confirm Reset", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+            if (youtube.IsChecked == true) _data.ResetQuizHistoryYouTubePublication(history.Id);
+            if (facebook.IsChecked == true) _data.ResetQuizHistoryFacebookPublication(history.Id);
+            if (instagram.IsChecked == true) _data.ResetQuizHistoryInstagramPublication(history.Id);
+            dialog.DialogResult = true;
+        };
+        actions.Children.Add(cancel);
+        actions.Children.Add(reset);
+        content.Children.Add(actions);
+        dialog.Content = content;
+        if (dialog.ShowDialog() == true)
+        {
+            RefreshQuizHistory();
+            RefreshUploadManager();
+        }
     }
 
     private void RefreshUploadManager()
