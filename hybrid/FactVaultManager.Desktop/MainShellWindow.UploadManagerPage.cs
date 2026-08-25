@@ -225,6 +225,7 @@ public partial class MainShellWindow
         var buttonContent = new FrameworkElementFactory(typeof(ContentPresenter));
         buttonContent.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Left);
         buttonContent.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+        buttonContent.SetValue(FrameworkElement.MarginProperty, new Thickness(9, 0, 9, 0));
         buttonContent.SetBinding(ContentPresenter.ContentProperty, new Binding(nameof(ContentControl.Content))
         {
             RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent),
