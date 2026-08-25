@@ -84,9 +84,83 @@ public sealed class FacebookCommentManagementService
     {
         ValidateCommentId(videoId);
         if (string.IsNullOrWhiteSpace(message)) throw new ArgumentException("Enter a first comment first.");
-        return await SendFormForIdAsync(videoId + "/comments", pageAccessToken,
+        var normalizedVideoId = videoId.Trim();
+        var existingCommentId = await FindExistingPageCommentAsync(
+            pageAccessToken, normalizedVideoId, message, cancellationToken);
+        if (existingCommentId.Length > 0) return existingCommentId;
+        return await SendFormForIdAsync(normalizedVideoId + "/comments", pageAccessToken,
             new Dictionary<string, string> { ["message"] = message.Trim() }, cancellationToken);
     }
+
+    private async Task<string> FindExistingPageCommentAsync(
+        string pageAccessToken,
+        string videoId,
+        string expectedMessage,
+        CancellationToken cancellationToken)
+    {
+        ValidateToken(pageAccessToken);
+        var page = await GetPageIdentityAsync(pageAccessToken, cancellationToken);
+        var normalizedPageName = NormalizeIdentity(page.Name);
+        var normalizedExpectedMessage = NormalizeMessage(expectedMessage);
+        string? after = null;
+        do
+        {
+            const string fields = "id,message,from";
+            var url = $"{GraphRoot}/{Uri.EscapeDataString(videoId)}/comments" +
+                      $"?fields={Uri.EscapeDataString(fields)}&filter=toplevel&order=reverse_chronological&limit=100" +
+                      $"&access_token={Uri.EscapeDataString(pageAccessToken.Trim())}";
+            if (!string.IsNullOrWhiteSpace(after)) url += $"&after={Uri.EscapeDataString(after)}";
+            using var response = await _client.GetAsync(url, cancellationToken);
+            using var document = await ReadDocumentAsync(response, cancellationToken);
+            if (document.RootElement.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var comment in data.EnumerateArray())
+                {
+                    var commentId = ReadString(comment, "id");
+                    if (commentId.Length == 0) continue;
+                    var authorId = "";
+                    var authorName = "";
+                    if (comment.TryGetProperty("from", out var from) && from.ValueKind == JsonValueKind.Object)
+                    {
+                        authorId = ReadString(from, "id");
+                        authorName = ReadString(from, "name");
+                    }
+
+                    if (string.Equals(authorId, page.Id, StringComparison.Ordinal) ||
+                        normalizedPageName.Length > 0 && string.Equals(
+                            NormalizeIdentity(authorName), normalizedPageName, StringComparison.Ordinal) ||
+                        normalizedExpectedMessage.Length > 0 && string.Equals(
+                            NormalizeMessage(ReadString(comment, "message")), normalizedExpectedMessage,
+                            StringComparison.Ordinal))
+                        return commentId;
+                }
+            }
+
+            after = ReadAfterCursor(document.RootElement);
+        }
+        while (!string.IsNullOrWhiteSpace(after));
+
+        return "";
+    }
+
+    private async Task<(string Id, string Name)> GetPageIdentityAsync(
+        string pageAccessToken,
+        CancellationToken cancellationToken)
+    {
+        var url = $"{GraphRoot}/me?fields=id%2Cname&access_token={Uri.EscapeDataString(pageAccessToken.Trim())}";
+        using var response = await _client.GetAsync(url, cancellationToken);
+        using var document = await ReadDocumentAsync(response, cancellationToken);
+        var id = ReadString(document.RootElement, "id");
+        if (id.Length == 0)
+            throw new InvalidOperationException("The saved Facebook token does not identify a Page.");
+        return (id, ReadString(document.RootElement, "name"));
+    }
+
+    private static string NormalizeMessage(string value) =>
+        string.Join(" ", value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private static string NormalizeIdentity(string value) =>
+        new string(value.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
 
     public Task SetLikedAsync(
         string pageAccessToken,
