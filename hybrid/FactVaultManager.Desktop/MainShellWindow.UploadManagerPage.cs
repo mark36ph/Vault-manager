@@ -137,6 +137,12 @@ public partial class MainShellWindow
             "Instagram", nameof(QuizHistorySummary.InstagramPublicationDisplay), nameof(QuizHistorySummary.InstagramUrl),
             nameof(QuizHistorySummary.InstagramPlatformLinkAvailable), 110));
         _uploadManagerGrid.Columns.Add(new DataGridTextColumn { Header = "First comment", Binding = new Binding(nameof(QuizHistorySummary.FirstCommentDisplay)), Width = new DataGridLength(155) });
+        _uploadManagerGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Current step",
+            Binding = new Binding(nameof(QuizHistorySummary.UploadJournalDisplay)),
+            Width = new DataGridLength(250),
+        });
         var table = new Border
         {
             Background = new SolidColorBrush(Color.FromRgb(8, 14, 62)),
@@ -170,6 +176,16 @@ public partial class MainShellWindow
                 ShowResetUploadStateDialog(history);
         };
         actions.Children.Add(resetUpload);
+        var retryFailed = new Button { Content = "Retry Failed Step", MinWidth = 126, Margin = new Thickness(8, 0, 0, 0) };
+        StyleQuizHistoryButton(retryFailed, Color.FromRgb(0, 204, 255));
+        retryFailed.Click += async (_, _) =>
+        {
+            if (_uploadManagerGrid.SelectedItem is QuizHistorySummary history)
+                await RetryFailedUploadStepsAsync(history);
+            else
+                MessageBox.Show(this, "Select a quiz first.", "Retry Failed Step", MessageBoxButton.OK, MessageBoxImage.Information);
+        };
+        actions.Children.Add(retryFailed);
         var upload = new Button { Content = "Upload Selected", MinWidth = 118, Margin = new Thickness(8, 0, 0, 0) };
         StyleQuizHistoryButton(upload, Color.FromRgb(70, 235, 115));
         upload.Click += (_, _) =>
@@ -256,9 +272,21 @@ public partial class MainShellWindow
                     "Clear the selected local upload records? The remote videos will not be deleted.",
                     "Confirm Reset", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
                 return;
-            if (youtube.IsChecked == true) _data.ResetQuizHistoryYouTubePublication(history.Id);
-            if (facebook.IsChecked == true) _data.ResetQuizHistoryFacebookPublication(history.Id);
-            if (instagram.IsChecked == true) _data.ResetQuizHistoryInstagramPublication(history.Id);
+            if (youtube.IsChecked == true)
+            {
+                _data.ResetQuizHistoryYouTubePublication(history.Id);
+                _data.SocialUploadJournal.Reset(history.Id, "YouTube");
+            }
+            if (facebook.IsChecked == true)
+            {
+                _data.ResetQuizHistoryFacebookPublication(history.Id);
+                _data.SocialUploadJournal.Reset(history.Id, "Facebook");
+            }
+            if (instagram.IsChecked == true)
+            {
+                _data.ResetQuizHistoryInstagramPublication(history.Id);
+                _data.SocialUploadJournal.Reset(history.Id, "Instagram");
+            }
             dialog.DialogResult = true;
         };
         actions.Children.Add(cancel);
@@ -275,7 +303,17 @@ public partial class MainShellWindow
     private void RefreshUploadManager()
     {
         if (!_uploadManagerPageInitialized || _uploadManagerGrid is null) return;
-        var history = _data.GetQuizHistory();
+        var journal = _data.SocialUploadJournal.List()
+            .GroupBy(entry => entry.HistoryId)
+            .ToDictionary(group => group.Key, group => group.ToList());
+        var history = _data.GetQuizHistory()
+            .Select(item => item with
+            {
+                UploadJournalDisplay = journal.TryGetValue(item.Id, out var entries)
+                    ? SocialUploadJournalSummary.Display(entries)
+                    : "No activity",
+            })
+            .ToList();
         _uploadManagerGrid.ItemsSource = history;
         _uploadManagerNeedsUploadText!.Text = history.Count(item =>
             SocialUploadQueuePlanner.RemainingDestinations(item) != SocialUploadDestination.None).ToString("N0");
