@@ -179,12 +179,16 @@ public sealed class YouTubeManagementService
         if (string.IsNullOrWhiteSpace(videoId)) throw new ArgumentException("The YouTube video ID is missing.");
         if (string.IsNullOrWhiteSpace(text)) throw new ArgumentException("Enter a first comment first.");
         var channel = await GetMyChannelAsync(accessToken, cancellationToken);
+        var normalizedVideoId = videoId.Trim();
+        var existingCommentId = await FindOwnTopLevelCommentAsync(
+            accessToken, normalizedVideoId, channel.Id, cancellationToken);
+        if (existingCommentId.Length > 0) return existingCommentId;
         var json = JsonSerializer.Serialize(new
         {
             snippet = new
             {
                 channelId = channel.Id,
-                videoId = videoId.Trim(),
+                videoId = normalizedVideoId,
                 topLevelComment = new { snippet = new { textOriginal = text.Trim() } },
             },
         });
@@ -195,6 +199,30 @@ public sealed class YouTubeManagementService
         if (commentId.Length == 0)
             throw new InvalidOperationException("YouTube created the first comment but did not return its ID.");
         return commentId;
+    }
+
+    private async Task<string> FindOwnTopLevelCommentAsync(
+        string accessToken,
+        string videoId,
+        string channelId,
+        CancellationToken cancellationToken)
+    {
+        var pageToken = "";
+        do
+        {
+            var url = "/commentThreads?part=snippet&videoId=" + Uri.EscapeDataString(videoId)
+                + "&order=time&textFormat=plainText&maxResults=100"
+                + (pageToken.Length > 0 ? "&pageToken=" + Uri.EscapeDataString(pageToken) : "");
+            using var response = await SendAsync(HttpMethod.Get, url, accessToken, null, cancellationToken);
+            using var document = await ReadDocumentAsync(response, cancellationToken);
+            var existing = ParseComments(document.RootElement).FirstOrDefault(comment =>
+                string.Equals(comment.AuthorChannelId, channelId, StringComparison.Ordinal));
+            if (existing is not null && existing.Id.Length > 0) return existing.Id;
+            pageToken = ReadString(document.RootElement, "nextPageToken");
+        }
+        while (pageToken.Length > 0);
+
+        return "";
     }
 
     public async Task SetModerationStatusAsync(
