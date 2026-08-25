@@ -55,12 +55,15 @@ public static class QuizTypeCatalog
             : Standard;
 
     public static string FromCategory(string? category) =>
-        string.Equals((category ?? "").Trim(), "Icons", StringComparison.OrdinalIgnoreCase)
+        string.Equals(
+            QuizQuestionCategoryNormalizer.Normalize(category),
+            "Logos",
+            StringComparison.OrdinalIgnoreCase)
             ? Logo
             : Standard;
 
     public static string ExcludedRandomCategory(string? selectedCategory) =>
-        FromCategory(selectedCategory) == Logo ? "" : "Icons";
+        FromCategory(selectedCategory) == Logo ? "" : "Logos";
 }
 
 public static class QuizQuestionEnablement
@@ -341,7 +344,7 @@ public static class QuizQuestionImportParser
         var categoryRules = mixedCategories
             ? """
 - Assign every question one specific broad category that matches its subject.
-- Use a balanced mix from these stable category names: Science, History, Geography, Space, Nature & Animals, Technology, Arts & Literature, Music, Film, Icons, Sports, Entertainment, Mathematics, and General Knowledge.
+- Use a balanced mix from these stable category names: Science, History, Geography, Space, Nature & Animals, Technology, Arts & Literature, Music, Film, Logos, Sports, Entertainment, Mathematics, and General Knowledge.
 - Spread the batch across as many of those categories as practical; do not label most questions as General Knowledge when a more specific category applies.
 """
             : $"- Set the category field to '{category}' for every question.\n";
@@ -407,7 +410,7 @@ __CATEGORY_RULES__- Avoid trick questions, ambiguous wording, duplicate question
             return "standard\n" + questionKey;
 
         var correctAnswerKey = QuizQuestionDuplicateKey.Create(item.Answers[item.CorrectIndex]);
-        return "icons\n" + questionKey + "\n" + correctAnswerKey;
+        return "logos\n" + questionKey + "\n" + correctAnswerKey;
     }
 
     private static List<string> ReadAnswers(JsonElement element)

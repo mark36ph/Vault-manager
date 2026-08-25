@@ -262,7 +262,7 @@ public sealed class QuizHistoryPublicationTests
     {
         var recommendation = YouTubeNextQuizPlanner.Recommend(
             [],
-            ["Icons", "Paranormal", "History"]);
+            ["Logos", "Paranormal", "History"]);
 
         Assert.Equal("History", recommendation.Category);
         Assert.Equal("Video", recommendation.VideoType);
@@ -273,7 +273,7 @@ public sealed class QuizHistoryPublicationTests
     {
         var recommendation = YouTubeNextQuizPlanner.Recommend(
             [],
-            ["Icons", "Paranormal"]);
+            ["Logos", "Paranormal"]);
 
         Assert.Equal("General Knowledge", recommendation.Category);
         Assert.Equal("Video", recommendation.VideoType);

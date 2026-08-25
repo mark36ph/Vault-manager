@@ -50,7 +50,7 @@ public sealed class QuizThumbnailTests
     public void Defaults_LogoQuizUsesLogoSubtitle()
     {
         var metadata = QuizPublishMetadataGenerator.Generate(
-            "Icons",
+            "Logos",
             1,
             [Question(1), Question(2)],
             vertical: false,

@@ -52,7 +52,7 @@ public static class QuizThumbnailDefaults
         return new QuizThumbnailSettings(
             $"CAN YOU GET {questionCount}/{questionCount}?",
             logoQuiz
-                ? "LOGO"
+                ? "LOGOS"
                 : QuizPublishMetadataGenerator.DisplayName(metadata.SeriesName).ToUpperInvariant()).Normalize();
     }
 }

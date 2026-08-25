@@ -336,7 +336,7 @@ public partial class MainShellWindow
             if (string.IsNullOrWhiteSpace(_manualQuizCategoryComboBox.Text) ||
                 string.Equals(_manualQuizCategoryComboBox.Text, "General Knowledge", StringComparison.OrdinalIgnoreCase))
             {
-                _manualQuizCategoryComboBox.SelectedItem = "Icons";
+                _manualQuizCategoryComboBox.SelectedItem = "Logos";
             }
         };
         Grid.SetColumn(browseImage, 1);

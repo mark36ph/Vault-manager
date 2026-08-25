@@ -73,7 +73,7 @@ public partial class MainShellWindow
             var restoredCategory = restoredCategories.Length == 1
                 ? restoredCategories[0]
                 : LoadQuizTypeFromExport(history.ProjectFolder) == QuizTypeCatalog.Logo
-                    ? "Icons"
+                    ? "Logos"
                     : "All categories";
             SelectQuizComboValue(_quizCategoryComboBox, restoredCategory, "All categories");
             if (_quizShuffleAnswersCheckBox is not null)

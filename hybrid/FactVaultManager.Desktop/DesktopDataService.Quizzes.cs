@@ -245,7 +245,7 @@ public sealed partial class DesktopDataService
             UPDATE quiz_questions
             SET enabled = CASE
                 WHEN $enabled <> 0
-                 AND category = 'Icons' COLLATE NOCASE
+                 AND category = 'Logos' COLLATE NOCASE
                  AND TRIM(image_path) = '' THEN 0
                 ELSE $enabled
             END
@@ -389,7 +389,7 @@ public sealed partial class DesktopDataService
             read.CommandText = """
                 SELECT id, question, option_a, option_b, option_c, option_d, explanation
                 FROM quiz_questions
-                WHERE category = 'Icons' COLLATE NOCASE
+                WHERE category = 'Logos' COLLATE NOCASE
                   AND TRIM(image_path) = ''
                 """;
             using var reader = read.ExecuteReader();
@@ -406,11 +406,11 @@ public sealed partial class DesktopDataService
         foreach (var question in questions)
         {
             var category = QuizQuestionTopicCategorizer.NormalizeImportedCategory(
-                "Icons",
+                "Logos",
                 question.Question,
                 question.Answers,
                 question.Explanation);
-            if (string.Equals(category, "Icons", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(category, "Logos", StringComparison.OrdinalIgnoreCase))
                 continue;
 
             using var update = connection.CreateCommand();
@@ -418,7 +418,7 @@ public sealed partial class DesktopDataService
                 UPDATE quiz_questions
                 SET category = $category
                 WHERE id = $id
-                  AND category = 'Icons' COLLATE NOCASE
+                  AND category = 'Logos' COLLATE NOCASE
                   AND TRIM(image_path) = ''
                 """;
             update.Parameters.AddWithValue("$category", category);
@@ -433,7 +433,7 @@ public sealed partial class DesktopDataService
         update.CommandText = """
             UPDATE quiz_questions
             SET enabled = 0
-            WHERE category = 'Icons' COLLATE NOCASE
+            WHERE category = 'Logos' COLLATE NOCASE
               AND TRIM(image_path) = ''
               AND enabled <> 0
             """;
