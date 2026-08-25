@@ -40,7 +40,11 @@ public static class QuizThumbnailDefaults
         return current.Length == 0 ||
                (previousAuto.Length > 0 &&
                 string.Equals(current, previousAuto, StringComparison.OrdinalIgnoreCase)) ||
-               string.Equals(current, "General Knowledge Quiz", StringComparison.OrdinalIgnoreCase);
+               string.Equals(current, "General Knowledge Quiz", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(current, "ICON", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(current, "ICONS", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(current, "ICON QUIZ", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(current, "ICONS QUIZ", StringComparison.OrdinalIgnoreCase);
     }
 
     public static QuizThumbnailSettings Create(QuizPublishMetadata metadata, int questionCount, bool logoQuiz = false)
