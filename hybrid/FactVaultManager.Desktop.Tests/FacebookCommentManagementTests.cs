@@ -84,6 +84,18 @@ public sealed class FacebookCommentManagementTests
         Assert.Collection(handler.Requests,
             request =>
             {
+                Assert.Equal(HttpMethod.Get, request.Method);
+                Assert.EndsWith("/me", request.Path);
+                Assert.Contains("fields=id%2Cname", request.Query);
+            },
+            request =>
+            {
+                Assert.Equal(HttpMethod.Get, request.Method);
+                Assert.EndsWith("/video-1/comments", request.Path);
+                Assert.Contains("filter=toplevel", request.Query);
+            },
+            request =>
+            {
                 Assert.Equal(HttpMethod.Post, request.Method);
                 Assert.EndsWith("/video-1/comments", request.Path);
                 Assert.Contains("message=How+did+you+score%3F", request.Form);
@@ -115,7 +127,56 @@ public sealed class FacebookCommentManagementTests
                 Assert.Equal(HttpMethod.Delete, request.Method);
                 Assert.EndsWith("/comment-1", request.Path);
             });
-        Assert.All(handler.Requests, request => Assert.Contains("access_token=page-token", request.Form));
+        Assert.All(handler.Requests.Where(request => request.Method == HttpMethod.Get),
+            request => Assert.Contains("access_token=page-token", request.Query));
+        Assert.All(handler.Requests.Where(request => request.Method != HttpMethod.Get),
+            request => Assert.Contains("access_token=page-token", request.Form));
+    }
+
+    [Fact]
+    public async Task PostTopLevelComment_ReusesAnExistingPageCommentAcrossPages()
+    {
+        var commentPage = 0;
+        var handler = new FacebookCommentHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath.EndsWith("/me", StringComparison.Ordinal) == true)
+                return "{\"id\":\"page-1\",\"name\":\"Factburst Quiz\"}";
+            if (request.Method == HttpMethod.Get)
+            {
+                commentPage++;
+                return commentPage == 1
+                    ? "{\"data\":[{\"id\":\"viewer-comment\",\"message\":\"Hello\",\"from\":{\"id\":\"viewer-1\",\"name\":\"Viewer\"}}],\"paging\":{\"cursors\":{\"after\":\"page-2\"}}}"
+                    : "{\"data\":[{\"id\":\"existing-page-comment\",\"message\":\"Already here\",\"from\":{\"id\":\"page-1\",\"name\":\"Factburst Quiz\"}}]}";
+            }
+            return "{\"id\":\"unexpected-new-comment\"}";
+        });
+        var service = new FacebookCommentManagementService(new HttpClient(handler));
+
+        var commentId = await service.PostTopLevelCommentAsync(
+            "page-token", "video-1", "How did you score?");
+
+        Assert.Equal("existing-page-comment", commentId);
+        Assert.Equal(3, handler.Requests.Count);
+        Assert.All(handler.Requests, request => Assert.Equal(HttpMethod.Get, request.Method));
+        Assert.Contains("after=page-2", handler.Requests[2].Query);
+    }
+
+    [Fact]
+    public async Task PostTopLevelComment_ReusesMatchingTextWhenFacebookOmitsTheAuthor()
+    {
+        var handler = new FacebookCommentHandler(request =>
+            request.RequestUri?.AbsolutePath.EndsWith("/me", StringComparison.Ordinal) == true
+                ? "{\"id\":\"page-1\",\"name\":\"Factburst Quiz\"}"
+                : "{\"data\":[{\"id\":\"existing-page-comment\",\"message\":\"How did you score?\\n\\nShare your result!\"}]}"
+        );
+        var service = new FacebookCommentManagementService(new HttpClient(handler));
+
+        var commentId = await service.PostTopLevelCommentAsync(
+            "page-token", "video-1", "  How did you score?\r\n Share your result!  ");
+
+        Assert.Equal("existing-page-comment", commentId);
+        Assert.Equal(2, handler.Requests.Count);
+        Assert.All(handler.Requests, request => Assert.Equal(HttpMethod.Get, request.Method));
     }
 
     private static FacebookCommentItem Comment(
@@ -127,7 +188,8 @@ public sealed class FacebookCommentManagementTests
         new(id, "reel", "Reel", "https://www.facebook.com/reel/123", "Viewer", "123",
             "Comment", created, 0, replies, false, hidden, pageComment);
 
-    private sealed class FacebookCommentHandler : HttpMessageHandler
+    private sealed class FacebookCommentHandler(
+        Func<HttpRequestMessage, string>? responseJson = null) : HttpMessageHandler
     {
         public List<CapturedRequest> Requests { get; } = new();
 
@@ -138,13 +200,21 @@ public sealed class FacebookCommentManagementTests
             Requests.Add(new CapturedRequest(
                 request.Method,
                 request.RequestUri?.AbsolutePath ?? "",
+                request.RequestUri?.Query.TrimStart('?') ?? "",
                 request.Content is null ? "" : await request.Content.ReadAsStringAsync(cancellationToken)));
+            var json = responseJson?.Invoke(request) ??
+                (request.Method == HttpMethod.Get &&
+                 request.RequestUri?.AbsolutePath.EndsWith("/me", StringComparison.Ordinal) == true
+                    ? "{\"id\":\"page-1\",\"name\":\"Factburst Quiz\"}"
+                    : request.Method == HttpMethod.Get
+                        ? "{\"data\":[]}"
+                        : "{\"id\":\"facebook-comment-1\"}");
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("{\"id\":\"facebook-comment-1\"}"),
+                Content = new StringContent(json),
             };
         }
     }
 
-    private sealed record CapturedRequest(HttpMethod Method, string Path, string Form);
+    private sealed record CapturedRequest(HttpMethod Method, string Path, string Query, string Form);
 }
