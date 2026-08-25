@@ -181,7 +181,7 @@ public sealed class YouTubeManagementService
         var channel = await GetMyChannelAsync(accessToken, cancellationToken);
         var normalizedVideoId = videoId.Trim();
         var existingCommentId = await FindOwnTopLevelCommentAsync(
-            accessToken, normalizedVideoId, channel.Id, cancellationToken);
+            accessToken, normalizedVideoId, channel.Id, channel.Title, text, cancellationToken);
         if (existingCommentId.Length > 0) return existingCommentId;
         var json = JsonSerializer.Serialize(new
         {
@@ -205,8 +205,12 @@ public sealed class YouTubeManagementService
         string accessToken,
         string videoId,
         string channelId,
+        string channelTitle,
+        string expectedText,
         CancellationToken cancellationToken)
     {
+        var normalizedChannelTitle = NormalizeChannelIdentity(channelTitle);
+        var normalizedExpectedText = NormalizeCommentText(expectedText);
         var pageToken = "";
         do
         {
@@ -216,7 +220,11 @@ public sealed class YouTubeManagementService
             using var response = await SendAsync(HttpMethod.Get, url, accessToken, null, cancellationToken);
             using var document = await ReadDocumentAsync(response, cancellationToken);
             var existing = ParseComments(document.RootElement).FirstOrDefault(comment =>
-                string.Equals(comment.AuthorChannelId, channelId, StringComparison.Ordinal));
+                string.Equals(comment.AuthorChannelId, channelId, StringComparison.Ordinal) ||
+                normalizedChannelTitle.Length > 0 && string.Equals(
+                    NormalizeChannelIdentity(comment.Author), normalizedChannelTitle, StringComparison.Ordinal) ||
+                normalizedExpectedText.Length > 0 && string.Equals(
+                    NormalizeCommentText(comment.Text), normalizedExpectedText, StringComparison.Ordinal));
             if (existing is not null && existing.Id.Length > 0) return existing.Id;
             pageToken = ReadString(document.RootElement, "nextPageToken");
         }
@@ -224,6 +232,12 @@ public sealed class YouTubeManagementService
 
         return "";
     }
+
+    private static string NormalizeCommentText(string value) =>
+        string.Join(" ", value.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+
+    private static string NormalizeChannelIdentity(string value) =>
+        new string(value.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
 
     public async Task SetModerationStatusAsync(
         string accessToken,
