@@ -70,8 +70,8 @@ public sealed class NativeQuizSpeechProvider : IDisposable
         var identity = $"{_model}\n{_voice}\n{input}";
         var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))
             .ToLowerInvariant()[..16];
-        var destination = Path.Combine(voiceFolder, $"question_{number:000}_{digest}.mp3");
-        var scriptCopy = Path.Combine(voiceFolder, $"question_{number:000}_{digest}.txt");
+        var destination = Path.Combine(voiceFolder, $"narration_{_voice}_{digest}.mp3");
+        var scriptCopy = Path.Combine(voiceFolder, $"narration_{_voice}_{digest}.txt");
 
         if (File.Exists(destination) && new FileInfo(destination).Length > 0)
             return destination;
