@@ -127,8 +127,9 @@ public sealed class FacebookCommentManagementService
                     }
 
                     if (string.Equals(authorId, page.Id, StringComparison.Ordinal) ||
-                        normalizedPageName.Length > 0 && string.Equals(
+                        authorId.Length == 0 && normalizedPageName.Length > 0 && string.Equals(
                             NormalizeIdentity(authorName), normalizedPageName, StringComparison.Ordinal) ||
+                        authorId.Length == 0 && NormalizeIdentity(authorName).Length == 0 &&
                         normalizedExpectedMessage.Length > 0 && string.Equals(
                             NormalizeMessage(ReadString(comment, "message")), normalizedExpectedMessage,
                             StringComparison.Ordinal))

@@ -179,6 +179,27 @@ public sealed class FacebookCommentManagementTests
         Assert.All(handler.Requests, request => Assert.Equal(HttpMethod.Get, request.Method));
     }
 
+    [Fact]
+    public async Task PostTopLevelComment_DoesNotTreatAnotherUsersMatchingTextAsThePageComment()
+    {
+        var handler = new FacebookCommentHandler(request =>
+        {
+            if (request.RequestUri?.AbsolutePath.EndsWith("/me", StringComparison.Ordinal) == true)
+                return "{\"id\":\"page-1\",\"name\":\"Factburst Quiz\"}";
+            if (request.Method == HttpMethod.Get)
+                return "{\"data\":[{\"id\":\"viewer-comment\",\"message\":\"How did you score?\",\"from\":{\"id\":\"viewer-1\",\"name\":\"Viewer\"}}]}";
+            return "{\"id\":\"facebook-comment-created\"}";
+        });
+        var service = new FacebookCommentManagementService(new HttpClient(handler));
+
+        var commentId = await service.PostTopLevelCommentAsync(
+            "page-token", "video-1", "How did you score?");
+
+        Assert.Equal("facebook-comment-created", commentId);
+        Assert.Equal([HttpMethod.Get, HttpMethod.Get, HttpMethod.Post],
+            handler.Requests.Select(request => request.Method));
+    }
+
     private static FacebookCommentItem Comment(
         string id,
         DateTime created,

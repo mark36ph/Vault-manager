@@ -743,6 +743,68 @@ public sealed partial class DesktopDataService
         return command.ExecuteNonQuery() == 1;
     }
 
+    public bool ResetQuizHistoryYouTubePublication(int historyId)
+    {
+        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE quiz_history
+            SET published_on_youtube = 0,
+                youtube_url = '',
+                youtube_views = 0,
+                youtube_likes = 0,
+                youtube_upload_date = '',
+                youtube_first_comment_id = '',
+                youtube_privacy = '',
+                youtube_scheduled_for = ''
+            WHERE id = $historyId
+            """;
+        command.Parameters.AddWithValue("$historyId", historyId);
+        return command.ExecuteNonQuery() == 1;
+    }
+
+    public bool ResetQuizHistoryFacebookPublication(int historyId)
+    {
+        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE quiz_history
+            SET published_on_facebook = 0,
+                facebook_url = '',
+                facebook_views = 0,
+                facebook_reactions = 0,
+                facebook_comments = 0,
+                facebook_shares = 0,
+                facebook_upload_date = '',
+                facebook_first_comment_id = '',
+                facebook_scheduled_for = ''
+            WHERE id = $historyId
+            """;
+        command.Parameters.AddWithValue("$historyId", historyId);
+        return command.ExecuteNonQuery() == 1;
+    }
+
+    public bool ResetQuizHistoryInstagramPublication(int historyId)
+    {
+        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
+        EnsureQuizHistorySchema();
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            UPDATE quiz_history
+            SET published_on_instagram = 0,
+                instagram_url = '',
+                instagram_upload_date = ''
+            WHERE id = $historyId
+            """;
+        command.Parameters.AddWithValue("$historyId", historyId);
+        return command.ExecuteNonQuery() == 1;
+    }
+
     public bool UpdateQuizHistoryInstagramPublication(
         int historyId,
         bool published,

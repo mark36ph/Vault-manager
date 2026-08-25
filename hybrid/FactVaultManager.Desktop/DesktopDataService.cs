@@ -280,7 +280,11 @@ public sealed partial class DesktopDataService
             YouTubeOAuthClientId = node["youtube"]?["oauth_client_id"]?.GetValue<string>() ?? "",
             YouTubeOAuthClientSecret = LocalSecretProtector.Unprotect(youtubeClientSecretStored),
             YouTubeOAuthRefreshToken = LocalSecretProtector.Unprotect(youtubeRefreshTokenStored),
+            ApprovedYouTubeChannelId = node["youtube"]?["approved_channel_id"]?.GetValue<string>() ?? "",
+            ApprovedYouTubeChannelName = node["youtube"]?["approved_channel_name"]?.GetValue<string>() ?? "",
             FacebookPageAccessToken = LocalSecretProtector.Unprotect(facebookAccessTokenStored),
+            ApprovedFacebookPageId = node["facebook"]?["approved_page_id"]?.GetValue<string>() ?? "",
+            ApprovedFacebookPageName = node["facebook"]?["approved_page_name"]?.GetValue<string>() ?? "",
             InstagramAccessToken = LocalSecretProtector.Unprotect(instagramAccessTokenStored),
             ResolvePath = node["resolve"]?["application_path"]?.GetValue<string>() ?? "",
             TimelineWidth = node["resolve"]?["timeline_width"]?.GetValue<int>() ?? 1080,
@@ -320,7 +324,11 @@ public sealed partial class DesktopDataService
         youtube["oauth_client_id"] = settings.YouTubeOAuthClientId;
         youtube["oauth_client_secret"] = LocalSecretProtector.Protect(settings.YouTubeOAuthClientSecret);
         youtube["oauth_refresh_token"] = LocalSecretProtector.Protect(settings.YouTubeOAuthRefreshToken);
+        youtube["approved_channel_id"] = settings.ApprovedYouTubeChannelId;
+        youtube["approved_channel_name"] = settings.ApprovedYouTubeChannelName;
         facebook["page_access_token"] = LocalSecretProtector.Protect(settings.FacebookPageAccessToken);
+        facebook["approved_page_id"] = settings.ApprovedFacebookPageId;
+        facebook["approved_page_name"] = settings.ApprovedFacebookPageName;
         instagram["access_token"] = LocalSecretProtector.Protect(settings.InstagramAccessToken);
         resolve["application_path"] = settings.ResolvePath;
         resolve["timeline_width"] = settings.TimelineWidth;
@@ -456,7 +464,11 @@ public sealed class AppSettingsModel
     public string YouTubeOAuthClientId { get; set; } = "";
     public string YouTubeOAuthClientSecret { get; set; } = "";
     public string YouTubeOAuthRefreshToken { get; set; } = "";
+    public string ApprovedYouTubeChannelId { get; set; } = "";
+    public string ApprovedYouTubeChannelName { get; set; } = "";
     public string FacebookPageAccessToken { get; set; } = "";
+    public string ApprovedFacebookPageId { get; set; } = "";
+    public string ApprovedFacebookPageName { get; set; } = "";
     public string InstagramAccessToken { get; set; } = "";
     public string ResolvePath { get; set; } = "";
     public int TimelineWidth { get; set; } = 1080;
