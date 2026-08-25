@@ -19,6 +19,16 @@ public sealed class QuizThemedCardRendererTests
         Assert.Equal(new System.Windows.Thickness(18, 6, 18, 6), landscape.Padding);
     }
 
+    [Theory]
+    [InlineData("Icons", "LOGOS")]
+    [InlineData("Icons Quiz", "LOGOS")]
+    [InlineData("Logo Quiz", "LOGOS")]
+    public void LogoQuizDisplay_UsesLogosTerminology(string title, string expected)
+    {
+        Assert.Equal(expected, QuizThemedCardRenderer.LogoQuizDisplayName(title));
+        Assert.Equal("LOGOS 1 / 10", QuizThemedCardRenderer.LogoCounterText(1, 10));
+    }
+
     [Fact]
     public void LongQuestionText_ScalesDownToFitLandscapePanel()
     {
