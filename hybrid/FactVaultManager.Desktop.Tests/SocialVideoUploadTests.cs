@@ -6,6 +6,24 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class SocialVideoUploadTests
 {
     [Fact]
+    public void AccountGuard_AllowsTheApprovedDestinationAndFirstUse()
+    {
+        SocialPublishingAccountGuard.EnsureMatches("YouTube channel", "", "channel-1");
+        SocialPublishingAccountGuard.EnsureMatches("YouTube channel", "channel-1", "channel-1");
+    }
+
+    [Fact]
+    public void AccountGuard_BlocksADifferentConnectedDestination()
+    {
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            SocialPublishingAccountGuard.EnsureMatches("YouTube channel", "approved-channel", "wrong-channel"));
+
+        Assert.Contains("Upload blocked", error.Message);
+        Assert.Contains("wrong-channel", error.Message);
+        Assert.Contains("approved-channel", error.Message);
+    }
+
+    [Fact]
     public void UploadRules_AllowAllVideosOnYouTubeButOnlyShortsOnFacebook()
     {
         Assert.True(SocialVideoUploadRules.CanUploadToFacebook(History("9:16")));
@@ -407,6 +425,18 @@ public sealed class SocialVideoUploadTests
     }
 
     [Fact]
+    public async Task FacebookVerification_ConfirmsTheReturnedReelId()
+    {
+        var handler = new FacebookReelVerificationHandler("1051847137549312");
+        var service = new FacebookReelUploadService(new HttpClient(handler));
+
+        await service.VerifyUploadedReelAsync("page-token", "1051847137549312");
+
+        Assert.Contains("/1051847137549312?fields=", handler.RequestUrl);
+        Assert.Contains("access_token=page-token", handler.RequestUrl);
+    }
+
+    [Fact]
     public async Task FacebookUpload_SendsScheduledStateAndUnixPublishTime()
     {
         var path = TemporaryVideo();
@@ -507,6 +537,19 @@ public sealed class SocialVideoUploadTests
             if (captured.Body.Contains("upload_phase=start", StringComparison.Ordinal))
                 return Json("{\"video_id\":\"1051847137549312\",\"upload_url\":\"https://rupload.facebook.com/video-upload/v26.0/1051847137549312\"}");
             return Json("{\"success\":true}");
+        }
+    }
+
+    private sealed class FacebookReelVerificationHandler(string videoId) : HttpMessageHandler
+    {
+        public string RequestUrl { get; private set; } = "";
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            RequestUrl = request.RequestUri?.AbsoluteUri ?? "";
+            return Task.FromResult(Json($"{{\"id\":\"{videoId}\"}}"));
         }
     }
 
