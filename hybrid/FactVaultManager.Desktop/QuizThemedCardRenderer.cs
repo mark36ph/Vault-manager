@@ -53,6 +53,17 @@ public sealed class QuizThemedCardRenderer
             ? (220, 80, new Thickness(24, 10, 24, 10))
             : (210, 90, new Thickness(18, 6, 18, 6));
 
+    internal static Image BuildLogoArtwork(string imagePath, bool vertical) => new()
+    {
+        Source = LoadBitmap(imagePath),
+        Stretch = Stretch.Uniform,
+        HorizontalAlignment = HorizontalAlignment.Center,
+        VerticalAlignment = VerticalAlignment.Center,
+        MaxWidth = vertical ? 620 : 520,
+        MaxHeight = vertical ? 460 : 250,
+        Margin = new Thickness(vertical ? 20 : 16),
+    };
+
     public void OverwriteCards(
         string projectFolder,
         IReadOnlyList<QuizQuestion> questions,
@@ -278,26 +289,9 @@ public sealed class QuizThemedCardRenderer
         Grid.SetRow(status, 1);
         page.Children.Add(status);
 
-        var image = new Image
-        {
-            Source = LoadBitmap(imagePath),
-            Stretch = Stretch.Uniform,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            VerticalAlignment = VerticalAlignment.Stretch,
-            Margin = new Thickness(18),
-        };
-        var imagePanel = new Border
-        {
-            Background = Brush(Color.FromArgb(242, 245, 247, 255)),
-            BorderBrush = Brush(NeonGold),
-            BorderThickness = new Thickness(options.Vertical ? 5 : 4),
-            CornerRadius = new CornerRadius(34),
-            Margin = new Thickness(options.Vertical ? 26 : 170, 8, options.Vertical ? 26 : 170, 8),
-            Effect = Glow(NeonGold, 28, 0.55),
-            Child = image,
-        };
-        Grid.SetRow(imagePanel, 2);
-        page.Children.Add(imagePanel);
+        var image = BuildLogoArtwork(imagePath, options.Vertical);
+        Grid.SetRow(image, 2);
+        page.Children.Add(image);
 
         var questionPanel = new Border
         {

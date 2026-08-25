@@ -131,6 +131,49 @@ public sealed class QuizThemedCardRendererTests
     }
 
     [Fact]
+    public void LogoArtwork_RendersAsTheImageWithoutASurroundingPanel()
+    {
+        var imagePath = Path.Combine(Path.GetTempPath(), $"factvault-logo-artwork-{Guid.NewGuid():N}.png");
+        File.WriteAllBytes(imagePath, Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z2S8AAAAASUVORK5CYII="));
+        try
+        {
+            Exception? renderError = null;
+            double maxWidth = 0;
+            double maxHeight = 0;
+            System.Windows.HorizontalAlignment horizontalAlignment = default;
+            var hasParent = true;
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    var artwork = QuizThemedCardRenderer.BuildLogoArtwork(imagePath, vertical: false);
+                    maxWidth = artwork.MaxWidth;
+                    maxHeight = artwork.MaxHeight;
+                    horizontalAlignment = artwork.HorizontalAlignment;
+                    hasParent = artwork.Parent is not null;
+                }
+                catch (Exception error) { renderError = error; }
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+
+            if (renderError is not null)
+                ExceptionDispatchInfo.Capture(renderError).Throw();
+
+            Assert.Equal(520, maxWidth);
+            Assert.Equal(250, maxHeight);
+            Assert.Equal(System.Windows.HorizontalAlignment.Center, horizontalAlignment);
+            Assert.False(hasParent);
+        }
+        finally
+        {
+            File.Delete(imagePath);
+        }
+    }
+
+    [Fact]
     public void LogoQuestionPreview_RendersFeaturedImageAndBrandLogoAtVerticalShortsSize()
     {
         var featuredImagePath = Path.Combine(Path.GetTempPath(), $"factvault-featured-logo-{Guid.NewGuid():N}.png");
