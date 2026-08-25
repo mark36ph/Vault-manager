@@ -131,6 +131,40 @@ public sealed class QuizThemedCardRendererTests
     }
 
     [Fact]
+    public void LogoArtwork_RendersAsTheImageWithoutASurroundingPanel()
+    {
+        var imagePath = Path.Combine(Path.GetTempPath(), $"factvault-logo-artwork-{Guid.NewGuid():N}.png");
+        File.WriteAllBytes(imagePath, Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z2S8AAAAASUVORK5CYII="));
+        try
+        {
+            Exception? renderError = null;
+            System.Windows.Controls.Image? artwork = null;
+            var thread = new Thread(() =>
+            {
+                try { artwork = QuizThemedCardRenderer.BuildLogoArtwork(imagePath, vertical: false); }
+                catch (Exception error) { renderError = error; }
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+
+            if (renderError is not null)
+                ExceptionDispatchInfo.Capture(renderError).Throw();
+
+            Assert.NotNull(artwork);
+            Assert.Equal(520, artwork.MaxWidth);
+            Assert.Equal(250, artwork.MaxHeight);
+            Assert.Equal(System.Windows.HorizontalAlignment.Center, artwork.HorizontalAlignment);
+            Assert.Null(artwork.Parent);
+        }
+        finally
+        {
+            File.Delete(imagePath);
+        }
+    }
+
+    [Fact]
     public void LogoQuestionPreview_RendersFeaturedImageAndBrandLogoAtVerticalShortsSize()
     {
         var featuredImagePath = Path.Combine(Path.GetTempPath(), $"factvault-featured-logo-{Guid.NewGuid():N}.png");
