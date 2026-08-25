@@ -267,6 +267,7 @@ public partial class MainShellWindow
             var easy = _data.GetQuizQuestionCount(difficulty: "easy");
             var medium = _data.GetQuizQuestionCount(difficulty: "medium");
             var hard = _data.GetQuizQuestionCount(difficulty: "hard");
+            var insane = _data.GetQuizQuestionCount(difficulty: "insane");
             var generalKnowledge = summaries.FirstOrDefault(item =>
                 string.Equals(item.Category, "General Knowledge", StringComparison.OrdinalIgnoreCase));
             if (_quizCategoriesStatusText is not null)
@@ -275,7 +276,7 @@ public partial class MainShellWindow
                     ? $"{total:N0} questions across {populated:N0} populated categories • {generalKnowledge.QuestionCount:N0} General Knowledge"
                     : $"{total:N0} questions across {populated:N0} populated categories";
                 _quizCategoriesStatusText.Text =
-                    $"{categorySummary}\nEasy {easy:N0} • Medium {medium:N0} • Hard {hard:N0}";
+                    $"{categorySummary}\nEasy {easy:N0} • Medium {medium:N0} • Hard {hard:N0} • Insane {insane:N0}";
             }
 
             var selectedItem = summaries.FirstOrDefault(item =>
