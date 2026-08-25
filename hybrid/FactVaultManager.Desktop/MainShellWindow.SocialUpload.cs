@@ -496,6 +496,13 @@ public partial class MainShellWindow
                     scheduleTime.Text,
                     DateTimeOffset.Now,
                     uploadFacebook);
+                var selectedDestinations = (uploadYouTube ? SocialUploadDestination.YouTube : SocialUploadDestination.None) |
+                                           (uploadFacebook ? SocialUploadDestination.Facebook : SocialUploadDestination.None) |
+                                           (uploadInstagram ? SocialUploadDestination.Instagram : SocialUploadDestination.None);
+                var youtubePrivacy = Convert.ToString(privacy.SelectedItem) ?? "private";
+                var preflight = await ConfirmSocialPublishingPreflightAsync(
+                    dialog, selectedDestinations, file, title, youtubePrivacy, scheduledFor);
+                if (preflight is null) return;
                 uploadButton.IsEnabled = false;
                 browse.IsEnabled = false;
                 browseThumbnail.IsEnabled = false;
@@ -510,8 +517,7 @@ public partial class MainShellWindow
                     statusText.Text = scheduledFor is null
                         ? "Uploading to YouTube... Keep this window open."
                         : "Uploading to YouTube for scheduled publication... Keep this window open.";
-                    var accessToken = await GetYouTubeManagementAccessTokenAsync();
-                    var youtubePrivacy = Convert.ToString(privacy.SelectedItem) ?? "private";
+                    var accessToken = preflight.YouTubeAccessToken;
                     var result = await _youtubeVideoUpload.UploadAsync(
                         accessToken,
                         file,
@@ -521,6 +527,16 @@ public partial class MainShellWindow
                             youtubePrivacy,
                             notify.IsChecked == true,
                             scheduledFor));
+                    statusText.Text = "Verifying the YouTube upload...";
+                    try
+                    {
+                        await _youtubeManagement.VerifyUploadedVideoAsync(
+                            accessToken, result.VideoId, preflight.YouTubeChannel!.Id, title, youtubePrivacy);
+                    }
+                    catch (Exception error)
+                    {
+                        thumbnailWarnings.Add("YouTube verification: " + error.Message);
+                    }
                     _data.UpdateQuizHistoryYouTubeAnalytics(
                         history.Id, true, result.Url, 0, 0, scheduledFor?.LocalDateTime.Date ?? DateTime.Today);
                     _data.UpdateQuizHistoryYouTubeUploadState(history.Id, youtubePrivacy, scheduledFor);
@@ -557,13 +573,16 @@ public partial class MainShellWindow
                     statusText.Text = scheduledFor is null
                         ? "Uploading the Short to Facebook... Keep this window open."
                         : "Uploading the Short to Facebook for scheduled publication... Keep this window open.";
-                    var pageToken = FacebookPageToken();
+                    var pageToken = preflight.FacebookPageToken;
                     var result = await _facebookReelUpload.UploadAsync(
                         pageToken,
                         file,
                         title,
                         description,
                         scheduledFor);
+                    statusText.Text = "Verifying the Facebook Reel...";
+                    try { await _facebookReelUpload.VerifyUploadedReelAsync(pageToken, result.VideoId); }
+                    catch (Exception error) { thumbnailWarnings.Add("Facebook verification: " + error.Message); }
                     _data.UpdateQuizHistoryFacebookAnalytics(
                         history.Id, true, result.Url, 0, 0, 0, 0, scheduledFor?.LocalDateTime.Date ?? DateTime.Today);
                     _data.UpdateQuizHistoryFacebookSchedule(history.Id, scheduledFor);
@@ -598,7 +617,7 @@ public partial class MainShellWindow
                     var duration = await new NativeFfmpegTimelineService().MediaDurationAsync(file);
                     SocialVideoUploadRules.ValidateInstagramDuration(duration);
                     statusText.Text = "Uploading the Short to Instagram... Keep this window open.";
-                    var pageToken = FacebookPageToken();
+                    var pageToken = preflight.FacebookPageToken;
                     var instagramCaption = SocialVideoUploadRules.InstagramCaption(description);
                     var result = await _instagramReelUpload.UploadReelAsync(
                         pageToken,
