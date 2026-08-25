@@ -215,18 +215,32 @@ public partial class MainShellWindow
         button.SetBinding(ContentControl.ContentProperty, new Binding(displayProperty));
         button.SetBinding(FrameworkElement.TagProperty, new Binding(urlProperty));
         button.SetBinding(UIElement.IsEnabledProperty, new Binding(linkAvailableProperty));
-        button.SetValue(Control.BackgroundProperty, Brushes.Transparent);
-        button.SetValue(Control.BorderThicknessProperty, new Thickness(0));
-        button.SetValue(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0, 204, 255)));
-        button.SetValue(Control.PaddingProperty, new Thickness(0));
-        button.SetValue(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Left);
+        var buttonStyle = new Style(typeof(Button));
+        buttonStyle.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
+        buttonStyle.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(0)));
+        buttonStyle.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0, 204, 255))));
+        buttonStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(0)));
+        buttonStyle.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Left));
+        var notApplicableText = new Trigger { Property = ContentControl.ContentProperty, Value = "N/A" };
+        notApplicableText.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(120, 24, 24))));
+        buttonStyle.Triggers.Add(notApplicableText);
+        button.SetValue(FrameworkElement.StyleProperty, buttonStyle);
         button.SetValue(FrameworkElement.CursorProperty, Cursors.Hand);
         button.SetValue(FrameworkElement.ToolTipProperty, "Open this video on its platform");
         button.AddHandler(Button.ClickEvent, new RoutedEventHandler(UploadPlatformLink_Click));
+        var cellStyle = new Style(typeof(DataGridCell), _uploadManagerGrid?.CellStyle);
+        var notApplicableCell = new DataTrigger { Binding = new Binding(displayProperty), Value = "N/A" };
+        notApplicableCell.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(255, 218, 218))));
+        cellStyle.Triggers.Add(notApplicableCell);
+        var selectedCell = new Trigger { Property = DataGridCell.IsSelectedProperty, Value = true };
+        selectedCell.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(25, 86, 170))));
+        selectedCell.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+        cellStyle.Triggers.Add(selectedCell);
         return new DataGridTemplateColumn
         {
             Header = header,
             CellTemplate = new DataTemplate { VisualTree = button },
+            CellStyle = cellStyle,
             Width = new DataGridLength(width),
         };
     }
