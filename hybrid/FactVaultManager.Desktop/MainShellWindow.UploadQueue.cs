@@ -585,6 +585,31 @@ public partial class MainShellWindow
                 return;
             }
 
+            SocialPublishingPreflightSession? publishingPreflight;
+            try
+            {
+                var selectedDestinations = selected.Aggregate(
+                    SocialUploadDestination.None,
+                    (current, item) => current | item.Remaining);
+                var firstHistory = _data.GetQuizHistory()
+                    .First(history => history.Id == selected[0].HistoryId);
+                publishingPreflight = await ConfirmSocialPublishingPreflightAsync(
+                    dialog,
+                    selectedDestinations,
+                    selected[0].VideoPath,
+                    firstHistory.UploadTitleDisplay,
+                    Convert.ToString(privacy.SelectedItem) ?? "private",
+                    null,
+                    selected.Count);
+                if (publishingPreflight is null) return;
+            }
+            catch (Exception error)
+            {
+                MessageBox.Show(dialog, error.Message, "Publishing Preflight",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
             cancellation = new CancellationTokenSource();
             start.IsEnabled = false;
             close.IsEnabled = false;
@@ -629,6 +654,7 @@ public partial class MainShellWindow
                         notify.IsChecked == true,
                         remaining,
                         status => item.Status = status,
+                        publishingPreflight,
                         cancellation.Token);
 
                     var updated = _data.GetQuizHistory().First(history => history.Id == item.HistoryId);
@@ -802,6 +828,7 @@ public partial class MainShellWindow
         bool notifySubscribers,
         SocialUploadDestination destinations,
         Action<string> setStatus,
+        SocialPublishingPreflightSession publishingPreflight,
         CancellationToken cancellationToken)
     {
         var completed = new List<string>();
@@ -841,12 +868,28 @@ public partial class MainShellWindow
                 SocialVideoUploadRules.ValidateUploadMetadata(
                     history.VideoType, title, description, requireFullYouTubeVideoLink: true);
                 setStatus("Uploading to YouTube...");
-                var accessToken = await GetYouTubeManagementAccessTokenAsync();
+                var accessToken = publishingPreflight.YouTubeAccessToken;
                 var result = await _youtubeVideoUpload.UploadAsync(
                     accessToken,
                     file,
                     new YouTubeVideoUpload(title, description, privacy, notifySubscribers),
                     cancellationToken);
+                setStatus("Verifying YouTube upload...");
+                try
+                {
+                    await _youtubeManagement.VerifyUploadedVideoAsync(
+                        accessToken,
+                        result.VideoId,
+                        publishingPreflight.YouTubeChannel!.Id,
+                        title,
+                        privacy,
+                        cancellationToken);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception error)
+                {
+                    warnings.Add("YouTube verification: " + error.Message);
+                }
                 _data.UpdateQuizHistoryYouTubeAnalytics(
                     history.Id, true, result.Url, 0, 0, DateTime.Today);
                 _data.UpdateQuizHistoryYouTubeUploadState(history.Id, privacy, null);
@@ -898,9 +941,20 @@ public partial class MainShellWindow
                     history.VideoType, title, description, requireFullYouTubeVideoLink: true);
                 SocialVideoUploadRules.ValidateFacebookDuration(await DurationAsync());
                 setStatus("Uploading to Facebook...");
-                var pageToken = FacebookPageToken();
+                var pageToken = publishingPreflight.FacebookPageToken;
                 var result = await _facebookReelUpload.UploadAsync(
                     pageToken, file, title, description, cancellationToken: cancellationToken);
+                setStatus("Verifying Facebook Reel...");
+                try
+                {
+                    await _facebookReelUpload.VerifyUploadedReelAsync(
+                        pageToken, result.VideoId, cancellationToken);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception error)
+                {
+                    warnings.Add("Facebook verification: " + error.Message);
+                }
                 _data.UpdateQuizHistoryFacebookAnalytics(
                     history.Id, true, result.Url, 0, 0, 0, 0, DateTime.Today);
                 _data.UpdateQuizHistoryFacebookSchedule(history.Id, null);
@@ -950,7 +1004,7 @@ public partial class MainShellWindow
                 cancellationToken.ThrowIfCancellationRequested();
                 SocialVideoUploadRules.ValidateInstagramDuration(await DurationAsync());
                 setStatus("Uploading to Instagram...");
-                var pageToken = FacebookPageToken();
+                var pageToken = publishingPreflight.FacebookPageToken;
                 var result = await _instagramReelUpload.UploadReelAsync(
                     pageToken,
                     file,
