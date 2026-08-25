@@ -118,6 +118,38 @@ public sealed class QuizHistoryPublicationTests
     }
 
     [Fact]
+    public void FullVideos_MarkShortOnlyPlatformsAsNotApplicable()
+    {
+        var video = History("16:9", 10) with
+        {
+            FacebookUrl = "https://www.facebook.com/reel/123",
+            InstagramUrl = "https://www.instagram.com/reel/test/",
+        };
+
+        Assert.Equal("N/A", video.FacebookPublicationDisplay);
+        Assert.Equal("N/A", video.InstagramPublicationDisplay);
+        Assert.False(video.FacebookPlatformLinkAvailable);
+        Assert.False(video.InstagramPlatformLinkAvailable);
+    }
+
+    [Fact]
+    public void UploadedPlatform_WithSavedUrl_IsAvailableAsALink()
+    {
+        var shortVideo = History("9:16", 1, published: true) with
+        {
+            YouTubeUrl = "https://www.youtube.com/watch?v=test123",
+            PublishedOnFacebook = true,
+            FacebookUrl = "https://www.facebook.com/reel/123",
+            PublishedOnInstagram = true,
+            InstagramUrl = "https://www.instagram.com/reel/test/",
+        };
+
+        Assert.True(shortVideo.YouTubePlatformLinkAvailable);
+        Assert.True(shortVideo.FacebookPlatformLinkAvailable);
+        Assert.True(shortVideo.InstagramPlatformLinkAvailable);
+    }
+
+    [Fact]
     public void FirstCommentDisplay_WaitsForScheduledPublicationThenBecomesReady()
     {
         var scheduled = History("9:16", 1, published: true) with

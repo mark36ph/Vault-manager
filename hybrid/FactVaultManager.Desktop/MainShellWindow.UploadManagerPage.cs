@@ -1,6 +1,8 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 
 namespace FactVaultManager.Desktop;
@@ -125,9 +127,15 @@ public partial class MainShellWindow
         _uploadManagerGrid.ColumnHeaderStyle = headerStyle;
         _uploadManagerGrid.Columns.Add(new DataGridTextColumn { Header = "Quiz", Binding = new Binding(nameof(QuizHistorySummary.UploadTitleDisplay)), Width = new DataGridLength(1, DataGridLengthUnitType.Star) });
         _uploadManagerGrid.Columns.Add(new DataGridTextColumn { Header = "Type", Binding = new Binding(nameof(QuizHistorySummary.VideoType)), Width = new DataGridLength(72) });
-        _uploadManagerGrid.Columns.Add(new DataGridTextColumn { Header = "YouTube", Binding = new Binding(nameof(QuizHistorySummary.YouTubePublicationDisplay)), Width = new DataGridLength(175) });
-        _uploadManagerGrid.Columns.Add(new DataGridTextColumn { Header = "Facebook", Binding = new Binding(nameof(QuizHistorySummary.FacebookPublicationDisplay)), Width = new DataGridLength(175) });
-        _uploadManagerGrid.Columns.Add(new DataGridTextColumn { Header = "Instagram", Binding = new Binding(nameof(QuizHistorySummary.InstagramPublicationDisplay)), Width = new DataGridLength(110) });
+        _uploadManagerGrid.Columns.Add(BuildUploadPlatformLinkColumn(
+            "YouTube", nameof(QuizHistorySummary.YouTubePublicationDisplay), nameof(QuizHistorySummary.YouTubeUrl),
+            nameof(QuizHistorySummary.YouTubePlatformLinkAvailable), 175));
+        _uploadManagerGrid.Columns.Add(BuildUploadPlatformLinkColumn(
+            "Facebook", nameof(QuizHistorySummary.FacebookPublicationDisplay), nameof(QuizHistorySummary.FacebookUrl),
+            nameof(QuizHistorySummary.FacebookPlatformLinkAvailable), 175));
+        _uploadManagerGrid.Columns.Add(BuildUploadPlatformLinkColumn(
+            "Instagram", nameof(QuizHistorySummary.InstagramPublicationDisplay), nameof(QuizHistorySummary.InstagramUrl),
+            nameof(QuizHistorySummary.InstagramPlatformLinkAvailable), 110));
         _uploadManagerGrid.Columns.Add(new DataGridTextColumn { Header = "First comment", Binding = new Binding(nameof(QuizHistorySummary.FirstCommentDisplay)), Width = new DataGridLength(155) });
         var table = new Border
         {
@@ -194,6 +202,43 @@ public partial class MainShellWindow
         _uploadManagerCommentReadyText!.Text = history.Count(item => item.FirstCommentDisplay == "Ready to post").ToString("N0");
         _uploadManagerCompleteText!.Text = history.Count(item =>
             SocialUploadQueuePlanner.RemainingDestinations(item) == SocialUploadDestination.None).ToString("N0");
+    }
+
+    private DataGridTemplateColumn BuildUploadPlatformLinkColumn(
+        string header,
+        string displayProperty,
+        string urlProperty,
+        string linkAvailableProperty,
+        double width)
+    {
+        var button = new FrameworkElementFactory(typeof(Button));
+        button.SetBinding(ContentControl.ContentProperty, new Binding(displayProperty));
+        button.SetBinding(FrameworkElement.TagProperty, new Binding(urlProperty));
+        button.SetBinding(UIElement.IsEnabledProperty, new Binding(linkAvailableProperty));
+        button.SetValue(Control.BackgroundProperty, Brushes.Transparent);
+        button.SetValue(Control.BorderThicknessProperty, new Thickness(0));
+        button.SetValue(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0, 204, 255)));
+        button.SetValue(Control.PaddingProperty, new Thickness(0));
+        button.SetValue(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Left);
+        button.SetValue(FrameworkElement.CursorProperty, Cursors.Hand);
+        button.SetValue(FrameworkElement.ToolTipProperty, "Open this video on its platform");
+        button.AddHandler(Button.ClickEvent, new RoutedEventHandler(UploadPlatformLink_Click));
+        return new DataGridTemplateColumn
+        {
+            Header = header,
+            CellTemplate = new DataTemplate { VisualTree = button },
+            Width = new DataGridLength(width),
+        };
+    }
+
+    private void UploadPlatformLink_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        if (sender is not Button { Tag: string value } ||
+            !Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri) ||
+            !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            return;
+        Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+        eventArgs.Handled = true;
     }
 
     private void AddUploadManagerNavigationButton(int tabIndex)
