@@ -25,6 +25,8 @@ public sealed record FacebookPageVideos(
     string PageName,
     IReadOnlyList<FacebookPageVideo> Videos);
 
+public sealed record FacebookPageIdentity(string PageId, string PageName);
+
 public sealed class FacebookReelAnalyticsService
 {
     private const string GraphRoot = "https://graph.facebook.com/v26.0";
@@ -32,6 +34,24 @@ public sealed class FacebookReelAnalyticsService
     private readonly HttpClient _client;
 
     public FacebookReelAnalyticsService(HttpClient? client = null) => _client = client ?? SharedClient;
+
+    public async Task<FacebookPageIdentity> GetPageIdentityAsync(
+        string pageAccessToken,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(pageAccessToken))
+            throw new InvalidOperationException("Add the Facebook Page access token in Settings first.");
+
+        var token = Uri.EscapeDataString(pageAccessToken.Trim());
+        using var response = await _client.GetAsync(
+            $"{GraphRoot}/me?fields=id%2Cname&access_token={token}", cancellationToken);
+        using var page = await ReadDocumentAsync(response, cancellationToken);
+        var pageId = ReadString(page.RootElement, "id");
+        if (pageId.Length == 0 || !pageId.All(char.IsDigit))
+            throw new InvalidOperationException(
+                "The saved token did not identify a Facebook Page. Use the Page access token returned by /me/accounts.");
+        return new FacebookPageIdentity(pageId, ReadString(page.RootElement, "name"));
+    }
 
     public static string? TryGetReelId(string? url)
     {
@@ -83,15 +103,8 @@ public sealed class FacebookReelAnalyticsService
         if (string.IsNullOrWhiteSpace(pageAccessToken))
             throw new InvalidOperationException("Add the Facebook Page access token in Settings first.");
 
+        var identity = await GetPageIdentityAsync(pageAccessToken, cancellationToken);
         var token = Uri.EscapeDataString(pageAccessToken.Trim());
-        using var pageResponse = await _client.GetAsync(
-            $"{GraphRoot}/me?fields=id%2Cname&access_token={token}", cancellationToken);
-        using var page = await ReadDocumentAsync(pageResponse, cancellationToken);
-        var pageId = ReadString(page.RootElement, "id");
-        if (pageId.Length == 0 || !pageId.All(char.IsDigit))
-            throw new InvalidOperationException("The saved token did not identify a Facebook Page. Use the Page access token returned by /me/accounts.");
-
-        var pageName = ReadString(page.RootElement, "name");
         List<FacebookPageVideo> videos;
         try
         {
@@ -105,7 +118,7 @@ public sealed class FacebookReelAnalyticsService
         if (videos.Count == 0)
             videos = await ListVideoEdgeAsync("me", token, "videos", cancellationToken);
 
-        return new FacebookPageVideos(pageId, pageName, videos);
+        return new FacebookPageVideos(identity.PageId, identity.PageName, videos);
     }
 
     private async Task<List<FacebookPageVideo>> ListVideoEdgeAsync(
