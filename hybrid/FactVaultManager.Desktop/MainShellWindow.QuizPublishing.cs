@@ -413,9 +413,10 @@ public partial class MainShellWindow
         var previousAutoTitle = QuizPublishMetadataGenerator.DisplayName(previousAuto);
         var currentSeries = (_quizSeriesComboBox?.Text ?? "").Trim();
         if (_quizSeriesComboBox is not null &&
-            (currentSeries.Length == 0 ||
-             string.Equals(currentSeries, previousAuto, StringComparison.OrdinalIgnoreCase) ||
-             string.Equals(currentSeries, "General Knowledge Quiz", StringComparison.OrdinalIgnoreCase)))
+            QuizPublishMetadataGenerator.ShouldReplaceSeriesName(
+                currentSeries,
+                previousAuto,
+                SelectedQuizCategory()))
         {
             _quizSeriesComboBox.Text = suggested;
         }
