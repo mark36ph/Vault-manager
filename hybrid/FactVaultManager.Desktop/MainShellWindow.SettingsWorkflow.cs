@@ -406,6 +406,29 @@ public partial class MainShellWindow
         connectionRow.Children.Add(disconnect);
         managementStack.Children.Add(connectionRow);
 
+        var approvedYouTube = _data.LoadSettings();
+        var approvedYouTubeText = new TextBlock
+        {
+            Text = approvedYouTube.ApprovedYouTubeChannelId.Length == 0
+                ? "Approved upload destination: set on the next confirmed upload"
+                : $"Approved upload destination: {approvedYouTube.ApprovedYouTubeChannelName} ({approvedYouTube.ApprovedYouTubeChannelId})",
+            Foreground = SettingsMutedBrush(),
+            Margin = new Thickness(0, 10, 0, 5),
+            TextWrapping = TextWrapping.Wrap,
+        };
+        managementStack.Children.Add(approvedYouTubeText);
+        var resetYouTubeDestination = new Button
+        {
+            Content = "Reset approved upload channel",
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        resetYouTubeDestination.Click += (_, _) =>
+        {
+            ResetApprovedYouTubeAccount();
+            approvedYouTubeText.Text = "Approved upload destination: set on the next confirmed upload";
+        };
+        managementStack.Children.Add(resetYouTubeDestination);
+
         var behaviour = SettingsSection("Automatic updates");
         page.Children.Add(behaviour);
         ((StackPanel)behaviour.Child).Children.Add(new TextBlock
@@ -439,6 +462,28 @@ public partial class MainShellWindow
             Margin = new Thickness(0, 7, 0, 0),
             TextWrapping = TextWrapping.Wrap,
         });
+        var approvedFacebook = _data.LoadSettings();
+        var approvedFacebookText = new TextBlock
+        {
+            Text = approvedFacebook.ApprovedFacebookPageId.Length == 0
+                ? "Approved upload destination: set on the next confirmed upload"
+                : $"Approved upload destination: {approvedFacebook.ApprovedFacebookPageName} ({approvedFacebook.ApprovedFacebookPageId})",
+            Foreground = SettingsMutedBrush(),
+            Margin = new Thickness(0, 10, 0, 5),
+            TextWrapping = TextWrapping.Wrap,
+        };
+        stack.Children.Add(approvedFacebookText);
+        var resetFacebookDestination = new Button
+        {
+            Content = "Reset approved upload Page",
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        resetFacebookDestination.Click += (_, _) =>
+        {
+            ResetApprovedFacebookAccount();
+            approvedFacebookText.Text = "Approved upload destination: set on the next confirmed upload";
+        };
+        stack.Children.Add(resetFacebookDestination);
 
         var behaviour = SettingsSection("Automatic updates");
         page.Children.Add(behaviour);
@@ -593,7 +638,11 @@ public partial class MainShellWindow
                 YouTubeOAuthClientId = _settingsYouTubeClientId?.Text.Trim() ?? existingSettings.YouTubeOAuthClientId,
                 YouTubeOAuthClientSecret = _settingsYouTubeClientSecret?.Password.Trim() ?? existingSettings.YouTubeOAuthClientSecret,
                 YouTubeOAuthRefreshToken = refreshTokenOverride ?? existingSettings.YouTubeOAuthRefreshToken,
+                ApprovedYouTubeChannelId = existingSettings.ApprovedYouTubeChannelId,
+                ApprovedYouTubeChannelName = existingSettings.ApprovedYouTubeChannelName,
                 FacebookPageAccessToken = _settingsFacebookPageAccessToken?.Password.Trim() ?? existingSettings.FacebookPageAccessToken,
+                ApprovedFacebookPageId = existingSettings.ApprovedFacebookPageId,
+                ApprovedFacebookPageName = existingSettings.ApprovedFacebookPageName,
                 InstagramAccessToken = _settingsInstagramAccessToken?.Password.Trim() ?? existingSettings.InstagramAccessToken,
                 ResolvePath = ResolvePathTextBox.Text.Trim(),
                 TimelineWidth = width,
