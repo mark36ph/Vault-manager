@@ -222,7 +222,7 @@ public partial class MainShellWindow
         buttonStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(0)));
         buttonStyle.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Left));
         var notApplicableText = new Trigger { Property = ContentControl.ContentProperty, Value = "N/A" };
-        notApplicableText.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(120, 24, 24))));
+        notApplicableText.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(255, 184, 192))));
         buttonStyle.Triggers.Add(notApplicableText);
         button.SetValue(FrameworkElement.StyleProperty, buttonStyle);
         button.SetValue(FrameworkElement.CursorProperty, Cursors.Hand);
@@ -230,7 +230,7 @@ public partial class MainShellWindow
         button.AddHandler(Button.ClickEvent, new RoutedEventHandler(UploadPlatformLink_Click));
         var cellStyle = new Style(typeof(DataGridCell), _uploadManagerGrid?.CellStyle);
         var notApplicableCell = new DataTrigger { Binding = new Binding(displayProperty), Value = "N/A" };
-        notApplicableCell.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(255, 218, 218))));
+        notApplicableCell.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(88, 34, 46))));
         cellStyle.Triggers.Add(notApplicableCell);
         var selectedCell = new Trigger { Property = DataGridCell.IsSelectedProperty, Value = true };
         selectedCell.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(25, 86, 170))));
