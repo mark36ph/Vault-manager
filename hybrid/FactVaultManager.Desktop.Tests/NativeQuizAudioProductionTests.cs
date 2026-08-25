@@ -1,4 +1,5 @@
 using System.Text;
+using System.Net;
 
 namespace FactVaultManager.Desktop.Tests;
 
@@ -16,6 +17,35 @@ public sealed class NativeQuizAudioProductionTests
     public void VoiceCatalog_RejectsUnknownVoice()
     {
         Assert.Throws<ArgumentException>(() => QuizVoiceCatalog.Validate("not-a-voice"));
+    }
+
+    [Fact]
+    public async Task SpeechProvider_UsesSelectedVoiceAndReusesIdenticalNarration()
+    {
+        var root = NewTempFolder();
+        try
+        {
+            var handler = new SpeechRequestHandler();
+            using var provider = new NativeQuizSpeechProvider(
+                "test-key",
+                voice: "nova",
+                client: new HttpClient(handler));
+            var first = Question(1);
+            var second = Question(2) with { Question = first.Question };
+
+            var firstPath = await provider.GenerateQuestionAsync(first, 1, includeAnswers: false, root);
+            var secondPath = await provider.GenerateQuestionAsync(second, 2, includeAnswers: false, root);
+
+            Assert.Equal(firstPath, secondPath);
+            Assert.Contains("narration_nova_", Path.GetFileName(firstPath), StringComparison.Ordinal);
+            Assert.Single(handler.RequestBodies);
+            Assert.Contains("\"voice\":\"nova\"", handler.RequestBodies[0], StringComparison.Ordinal);
+            Assert.Contains("\"input\":\"" + first.Question, handler.RequestBodies[0], StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -171,5 +201,23 @@ public sealed class NativeQuizAudioProductionTests
         var path = Path.Combine(Path.GetTempPath(), "FactVaultManager.Tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(path);
         return path;
+    }
+
+    private sealed class SpeechRequestHandler : HttpMessageHandler
+    {
+        public List<string> RequestBodies { get; } = new();
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            RequestBodies.Add(request.Content is null
+                ? ""
+                : await request.Content.ReadAsStringAsync(cancellationToken));
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent([1, 2, 3, 4]),
+            };
+        }
     }
 }
