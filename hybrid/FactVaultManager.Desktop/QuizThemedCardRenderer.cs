@@ -64,6 +64,18 @@ public sealed class QuizThemedCardRenderer
         Margin = new Thickness(vertical ? 20 : 16),
     };
 
+    internal static string LogoQuizDisplayName(string title)
+    {
+        var displayName = QuizPublishMetadataGenerator.DisplayName(title);
+        return string.Equals(displayName, "Icons", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(displayName, "Icon", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(displayName, "Logo", StringComparison.OrdinalIgnoreCase)
+            ? "LOGOS"
+            : displayName.ToUpperInvariant();
+    }
+
+    internal static string LogoCounterText(int number, int total) => $"LOGOS {number} / {total}";
+
     public void OverwriteCards(
         string projectFolder,
         IReadOnlyList<QuizQuestion> questions,
@@ -243,7 +255,7 @@ public sealed class QuizThemedCardRenderer
         status.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         status.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         status.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        status.Children.Add(new Border
+        var logoCounter = new Border
         {
             Background = Brush(Color.FromArgb(242, DeepPanel.R, DeepPanel.G, DeepPanel.B)),
             BorderBrush = Brush(NeonBlue),
@@ -252,15 +264,17 @@ public sealed class QuizThemedCardRenderer
             Padding = new Thickness(24, 8, 24, 8),
             Child = new TextBlock
             {
-                Text = $"LOGO {number} / {total}",
+                Text = LogoCounterText(number, total),
                 Foreground = Brushes.White,
                 FontSize = options.Vertical ? 28 : 24,
                 FontWeight = FontWeights.Bold,
             },
-        });
+        };
+        Panel.SetZIndex(logoCounter, 1);
+        status.Children.Add(logoCounter);
         var heading = new TextBlock
         {
-            Text = QuizPublishMetadataGenerator.DisplayName(options.Title).ToUpperInvariant(),
+            Text = LogoQuizDisplayName(options.Title),
             Foreground = Brushes.White,
             FontSize = options.Vertical ? 30 : 28,
             FontWeight = FontWeights.Bold,
@@ -271,7 +285,8 @@ public sealed class QuizThemedCardRenderer
             Margin = new Thickness(18, 0, 18, 0),
             Effect = Glow(NeonBlue, 16, 0.45),
         };
-        Grid.SetColumn(heading, 1);
+        Grid.SetColumn(heading, 0);
+        Grid.SetColumnSpan(heading, 3);
         status.Children.Add(heading);
         var phaseText = revealAnswer
             ? "✓"
@@ -285,6 +300,7 @@ public sealed class QuizThemedCardRenderer
         phase.Width = options.Vertical ? 82 : 72;
         phase.Height = options.Vertical ? 82 : 72;
         Grid.SetColumn(phase, 2);
+        Panel.SetZIndex(phase, 1);
         status.Children.Add(phase);
         Grid.SetRow(status, 1);
         page.Children.Add(status);
@@ -936,7 +952,9 @@ public sealed class QuizThemedCardRenderer
 
         content.Children.Add(new TextBlock
         {
-            Text = QuizPublishMetadataGenerator.DisplayName(title),
+            Text = visual.QuizType == QuizTypeCatalog.Logo
+                ? LogoQuizDisplayName(title)
+                : QuizPublishMetadataGenerator.DisplayName(title),
             Foreground = Brushes.White,
             FontSize = options.Vertical ? 76 : 70,
             FontWeight = FontWeights.Bold,
