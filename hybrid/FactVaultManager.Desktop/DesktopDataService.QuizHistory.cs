@@ -62,12 +62,21 @@ public sealed record QuizHistorySummary(
                     "public" => "Published",
                     _ => "Uploaded",
                 };
-    public string FacebookPublicationDisplay => !PublishedOnFacebook
+    public string FacebookPublicationDisplay => !string.Equals(VideoType, "Short", StringComparison.Ordinal)
+        ? "N/A"
+        : !PublishedOnFacebook
         ? "Not uploaded"
         : FutureSchedule(FacebookScheduledFor) is { } facebookSchedule
             ? $"Scheduled {facebookSchedule:dd-MM-yyyy HH:mm}"
             : FacebookScheduledFor.Length > 0 ? "Published" : "Uploaded";
-    public string InstagramPublicationDisplay => PublishedOnInstagram ? "Uploaded" : "Not uploaded";
+    public string InstagramPublicationDisplay => !string.Equals(VideoType, "Short", StringComparison.Ordinal)
+        ? "N/A"
+        : PublishedOnInstagram ? "Uploaded" : "Not uploaded";
+    public bool YouTubePlatformLinkAvailable => PublishedOnYouTube && YouTubeUrl.Trim().Length > 0;
+    public bool FacebookPlatformLinkAvailable => string.Equals(VideoType, "Short", StringComparison.Ordinal) &&
+        PublishedOnFacebook && FacebookUrl.Trim().Length > 0;
+    public bool InstagramPlatformLinkAvailable => string.Equals(VideoType, "Short", StringComparison.Ordinal) &&
+        PublishedOnInstagram && InstagramUrl.Trim().Length > 0;
     public string FirstCommentDisplay
     {
         get
