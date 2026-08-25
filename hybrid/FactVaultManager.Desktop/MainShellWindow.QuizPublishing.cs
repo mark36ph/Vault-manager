@@ -425,6 +425,10 @@ public partial class MainShellWindow
         {
             var currentTitle = _quizTitleTextBox.Text.Trim();
             if (currentTitle.Length == 0 ||
+                QuizPublishMetadataGenerator.ShouldReplaceSeriesName(
+                    currentTitle,
+                    previousAuto,
+                    SelectedQuizCategory()) ||
                 string.Equals(currentTitle, previousAuto, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(currentTitle, previousAutoTitle, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(currentTitle, "General Knowledge Quiz", StringComparison.OrdinalIgnoreCase) ||
@@ -481,6 +485,10 @@ public partial class MainShellWindow
             ApplyQuizPublishingMetadata(metadata);
             if (_quizTitleTextBox is not null &&
                 (previousResolveTitle.Length == 0 ||
+                 QuizPublishMetadataGenerator.ShouldReplaceSeriesName(
+                     previousResolveTitle,
+                     _quizAutoSeriesName,
+                     SelectedQuizCategory()) ||
                  string.Equals(previousResolveTitle, "General Knowledge Quiz", StringComparison.OrdinalIgnoreCase) ||
                  string.Equals(previousResolveTitle, "General Knowledge", StringComparison.OrdinalIgnoreCase) ||
                  string.Equals(previousResolveTitle, series, StringComparison.OrdinalIgnoreCase) ||
