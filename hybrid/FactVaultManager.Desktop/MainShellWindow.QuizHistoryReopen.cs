@@ -22,11 +22,33 @@ public static class QuizHistoryDraftRestorer
         foreach (var history in historyQuestions.OrderBy(item => item.Position))
         {
             if (bank.TryGetValue(history.QuestionId, out var question))
-                restored.Add(question);
+            {
+                restored.Add(question with
+                {
+                    Category = QuizQuestionCategoryNormalizer.Normalize(question.Category),
+                });
+            }
             else
                 missing.Add(history.QuestionId);
         }
         return new QuizHistoryDraftRestoreResult(restored, missing);
+    }
+
+    public static string NormalizeReopenedSeries(string? seriesName, bool logoQuiz)
+    {
+        var series = QuizPublishMetadataGenerator.NormalizeSeriesName(seriesName);
+        return logoQuiz &&
+               QuizTypeCatalog.FromCategory(QuizPublishMetadataGenerator.DisplayName(series)) == QuizTypeCatalog.Logo
+            ? "Logos Quiz"
+            : series;
+    }
+
+    public static string NormalizeReopenedTitle(string? title, bool logoQuiz)
+    {
+        var display = QuizPublishMetadataGenerator.DisplayName(title);
+        return logoQuiz && QuizTypeCatalog.FromCategory(display) == QuizTypeCatalog.Logo
+            ? "Logos"
+            : display;
     }
 }
 
@@ -62,20 +84,28 @@ public partial class MainShellWindow
                 _quizSecondsPerQuestionTextBox.Text = history.QuestionSeconds.ToString();
             if (_quizDraftGrid is not null)
                 _quizDraftGrid.ItemsSource = QuizDraftRows(_quizDraftQuestions);
-            if (_quizTitleTextBox is not null && !string.IsNullOrWhiteSpace(history.Title))
-                _quizTitleTextBox.Text = QuizPublishMetadataGenerator.DisplayName(history.Title);
             if (_quizFormatComboBox is not null)
                 _quizFormatComboBox.SelectedIndex = string.Equals(history.Format, "9:16", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+            var restoredQuizType = LoadQuizTypeFromExport(history.ProjectFolder);
             var restoredCategories = restored.Questions
                 .Select(question => question.Category)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
+            var logoQuiz = restoredQuizType == QuizTypeCatalog.Logo ||
+                           restored.Questions.All(question =>
+                               QuizTypeCatalog.FromCategory(question.Category) == QuizTypeCatalog.Logo);
             var restoredCategory = restoredCategories.Length == 1
                 ? restoredCategories[0]
-                : LoadQuizTypeFromExport(history.ProjectFolder) == QuizTypeCatalog.Logo
+                : logoQuiz
                     ? "Logos"
                     : "All categories";
             SelectQuizComboValue(_quizCategoryComboBox, restoredCategory, "All categories");
+            var reopenedSeries = QuizHistoryDraftRestorer.NormalizeReopenedSeries(history.SeriesName, logoQuiz);
+            var reopenedTitle = QuizHistoryDraftRestorer.NormalizeReopenedTitle(history.Title, logoQuiz);
+            if (_quizSeriesComboBox is not null)
+                _quizSeriesComboBox.Text = reopenedSeries;
+            if (_quizTitleTextBox is not null)
+                _quizTitleTextBox.Text = reopenedTitle;
             if (_quizShuffleAnswersCheckBox is not null)
                 _quizShuffleAnswersCheckBox.IsChecked = history.ShuffleAnswers;
 
@@ -83,7 +113,7 @@ public partial class MainShellWindow
             if (_quizDraftStatusText is not null)
                 _quizDraftStatusText.Text = $"Reopened Quiz History #{history.Id} • {restored.Questions.Count} questions • ready to review or export again.";
             if (_quizPageStatusText is not null)
-                _quizPageStatusText.Text = $"Reopened {history.Title} from Quiz History";
+                _quizPageStatusText.Text = $"Reopened {reopenedTitle} from Quiz History";
 
             MainTabs.SelectedIndex = _quizTabIndex;
             RefreshQuizPreview();
