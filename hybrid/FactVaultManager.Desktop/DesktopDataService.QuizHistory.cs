@@ -89,6 +89,7 @@ public sealed record QuizHistorySummary(
             return PublishedOnYouTube || PublishedOnFacebook ? "Posted" : "Waiting for upload";
         }
     }
+    public string UploadJournalDisplay { get; init; } = "No activity";
 
     private static DateTimeOffset? FutureSchedule(string value) =>
         DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var scheduled) &&

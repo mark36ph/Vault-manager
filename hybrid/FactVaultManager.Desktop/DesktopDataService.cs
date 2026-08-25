@@ -25,6 +25,7 @@ public sealed partial class DesktopDataService
     public string RuntimeRoot => _runtimeRoot;
     public string DatabasePath => _databasePath;
     public string SettingsPath => _settingsPath;
+    public SocialUploadJournalStore SocialUploadJournal => new(_databasePath);
 
     public IReadOnlyList<DesktopProject> GetProjects()
     {

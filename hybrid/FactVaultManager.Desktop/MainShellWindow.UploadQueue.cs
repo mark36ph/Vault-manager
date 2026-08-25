@@ -841,6 +841,7 @@ public partial class MainShellWindow
         SocialVideoUploadRules.ValidateUploadMetadata(
             history.VideoType, title, description, requireFullYouTubeVideoLink: false);
         SocialVideoUploadRules.ValidatePrivacy(privacy);
+        var uploadJournal = _data.SocialUploadJournal;
 
         string? thumbnail = null;
         try
@@ -869,12 +870,26 @@ public partial class MainShellWindow
                     history.VideoType, title, description, requireFullYouTubeVideoLink: true);
                 setStatus("Uploading to YouTube...");
                 var accessToken = publishingPreflight.YouTubeAccessToken;
-                var result = await _youtubeVideoUpload.UploadAsync(
-                    accessToken,
-                    file,
-                    new YouTubeVideoUpload(title, description, privacy, notifySubscribers),
-                    cancellationToken);
+                var commentRequested = !string.Equals(privacy, "private", StringComparison.Ordinal) &&
+                                       history.YouTubeFirstCommentId.Length == 0 && history.PinnedComment.Trim().Length > 0;
+                uploadJournal.Begin(history.Id, "YouTube", true, thumbnail is not null, commentRequested);
+                YouTubeVideoUploadResult result;
+                try
+                {
+                    result = await _youtubeVideoUpload.UploadAsync(
+                        accessToken,
+                        file,
+                        new YouTubeVideoUpload(title, description, privacy, notifySubscribers),
+                        cancellationToken);
+                    uploadJournal.RecordUploadCompleted(history.Id, "YouTube", result.VideoId, result.Url);
+                }
+                catch (Exception error)
+                {
+                    uploadJournal.RecordFailure(history.Id, "YouTube", SocialUploadJournalStep.Upload, error.Message);
+                    throw;
+                }
                 setStatus("Verifying YouTube upload...");
+                uploadJournal.RecordStepStarted(history.Id, "YouTube", SocialUploadJournalStep.Verification);
                 try
                 {
                     await _youtubeManagement.VerifyUploadedVideoAsync(
@@ -884,10 +899,16 @@ public partial class MainShellWindow
                         title,
                         privacy,
                         cancellationToken);
+                    uploadJournal.RecordStepCompleted(history.Id, "YouTube", SocialUploadJournalStep.Verification);
                 }
-                catch (OperationCanceledException) { throw; }
+                catch (OperationCanceledException error)
+                {
+                    uploadJournal.RecordFailure(history.Id, "YouTube", SocialUploadJournalStep.Verification, error.Message);
+                    throw;
+                }
                 catch (Exception error)
                 {
+                    uploadJournal.RecordFailure(history.Id, "YouTube", SocialUploadJournalStep.Verification, error.Message);
                     warnings.Add("YouTube verification: " + error.Message);
                 }
                 _data.UpdateQuizHistoryYouTubeAnalytics(
@@ -897,30 +918,43 @@ public partial class MainShellWindow
                 if (thumbnail is not null)
                 {
                     setStatus("Setting YouTube thumbnail...");
+                    uploadJournal.RecordStepStarted(history.Id, "YouTube", SocialUploadJournalStep.Thumbnail);
                     try
                     {
                         await _youtubeVideoUpload.SetThumbnailAsync(
                             accessToken, result.VideoId, thumbnail, cancellationToken);
+                        uploadJournal.RecordStepCompleted(history.Id, "YouTube", SocialUploadJournalStep.Thumbnail);
                     }
-                    catch (OperationCanceledException) { throw; }
+                    catch (OperationCanceledException error)
+                    {
+                        uploadJournal.RecordFailure(history.Id, "YouTube", SocialUploadJournalStep.Thumbnail, error.Message);
+                        throw;
+                    }
                     catch (Exception error)
                     {
+                        uploadJournal.RecordFailure(history.Id, "YouTube", SocialUploadJournalStep.Thumbnail, error.Message);
                         warnings.Add("YouTube thumbnail: " + error.Message);
                     }
                 }
-                if (!string.Equals(privacy, "private", StringComparison.Ordinal) &&
-                    history.YouTubeFirstCommentId.Length == 0 && history.PinnedComment.Trim().Length > 0)
+                if (commentRequested)
                 {
                     setStatus("Posting first YouTube comment...");
+                    uploadJournal.RecordStepStarted(history.Id, "YouTube", SocialUploadJournalStep.Comment);
                     try
                     {
                         var commentId = await _youtubeManagement.PostTopLevelCommentAsync(
                             accessToken, result.VideoId, history.PinnedComment, cancellationToken);
                         _data.UpdateQuizHistoryYouTubeFirstComment(history.Id, commentId);
+                        uploadJournal.RecordStepCompleted(history.Id, "YouTube", SocialUploadJournalStep.Comment);
                     }
-                    catch (OperationCanceledException) { throw; }
+                    catch (OperationCanceledException error)
+                    {
+                        uploadJournal.RecordFailure(history.Id, "YouTube", SocialUploadJournalStep.Comment, error.Message);
+                        throw;
+                    }
                     catch (Exception error)
                     {
+                        uploadJournal.RecordFailure(history.Id, "YouTube", SocialUploadJournalStep.Comment, error.Message);
                         warnings.Add("YouTube first comment: " + error.Message);
                     }
                 }
@@ -942,17 +976,36 @@ public partial class MainShellWindow
                 SocialVideoUploadRules.ValidateFacebookDuration(await DurationAsync());
                 setStatus("Uploading to Facebook...");
                 var pageToken = publishingPreflight.FacebookPageToken;
-                var result = await _facebookReelUpload.UploadAsync(
-                    pageToken, file, title, description, cancellationToken: cancellationToken);
+                var commentRequested = history.FacebookFirstCommentId.Length == 0 && history.PinnedComment.Trim().Length > 0;
+                uploadJournal.Begin(history.Id, "Facebook", true, thumbnail is not null, commentRequested);
+                FacebookReelUploadResult result;
+                try
+                {
+                    result = await _facebookReelUpload.UploadAsync(
+                        pageToken, file, title, description, cancellationToken: cancellationToken);
+                    uploadJournal.RecordUploadCompleted(history.Id, "Facebook", result.VideoId, result.Url);
+                }
+                catch (Exception error)
+                {
+                    uploadJournal.RecordFailure(history.Id, "Facebook", SocialUploadJournalStep.Upload, error.Message);
+                    throw;
+                }
                 setStatus("Verifying Facebook Reel...");
+                uploadJournal.RecordStepStarted(history.Id, "Facebook", SocialUploadJournalStep.Verification);
                 try
                 {
                     await _facebookReelUpload.VerifyUploadedReelAsync(
                         pageToken, result.VideoId, cancellationToken);
+                    uploadJournal.RecordStepCompleted(history.Id, "Facebook", SocialUploadJournalStep.Verification);
                 }
-                catch (OperationCanceledException) { throw; }
+                catch (OperationCanceledException error)
+                {
+                    uploadJournal.RecordFailure(history.Id, "Facebook", SocialUploadJournalStep.Verification, error.Message);
+                    throw;
+                }
                 catch (Exception error)
                 {
+                    uploadJournal.RecordFailure(history.Id, "Facebook", SocialUploadJournalStep.Verification, error.Message);
                     warnings.Add("Facebook verification: " + error.Message);
                 }
                 _data.UpdateQuizHistoryFacebookAnalytics(
@@ -962,29 +1015,43 @@ public partial class MainShellWindow
                 if (thumbnail is not null)
                 {
                     setStatus("Setting Facebook Reel cover...");
+                    uploadJournal.RecordStepStarted(history.Id, "Facebook", SocialUploadJournalStep.Thumbnail);
                     try
                     {
                         await _facebookReelUpload.SetThumbnailAsync(
                             pageToken, result.VideoId, thumbnail, cancellationToken);
+                        uploadJournal.RecordStepCompleted(history.Id, "Facebook", SocialUploadJournalStep.Thumbnail);
                     }
-                    catch (OperationCanceledException) { throw; }
+                    catch (OperationCanceledException error)
+                    {
+                        uploadJournal.RecordFailure(history.Id, "Facebook", SocialUploadJournalStep.Thumbnail, error.Message);
+                        throw;
+                    }
                     catch (Exception error)
                     {
+                        uploadJournal.RecordFailure(history.Id, "Facebook", SocialUploadJournalStep.Thumbnail, error.Message);
                         warnings.Add("Facebook Reel cover: " + error.Message);
                     }
                 }
-                if (history.FacebookFirstCommentId.Length == 0 && history.PinnedComment.Trim().Length > 0)
+                if (commentRequested)
                 {
                     setStatus("Posting first Facebook comment...");
+                    uploadJournal.RecordStepStarted(history.Id, "Facebook", SocialUploadJournalStep.Comment);
                     try
                     {
                         var commentId = await _facebookComments.PostTopLevelCommentAsync(
                             pageToken, result.VideoId, history.PinnedComment, cancellationToken);
                         _data.UpdateQuizHistoryFacebookFirstComment(history.Id, commentId);
+                        uploadJournal.RecordStepCompleted(history.Id, "Facebook", SocialUploadJournalStep.Comment);
                     }
-                    catch (OperationCanceledException) { throw; }
+                    catch (OperationCanceledException error)
+                    {
+                        uploadJournal.RecordFailure(history.Id, "Facebook", SocialUploadJournalStep.Comment, error.Message);
+                        throw;
+                    }
                     catch (Exception error)
                     {
+                        uploadJournal.RecordFailure(history.Id, "Facebook", SocialUploadJournalStep.Comment, error.Message);
                         warnings.Add("Facebook first comment: " + error.Message);
                     }
                 }
@@ -1005,11 +1072,22 @@ public partial class MainShellWindow
                 SocialVideoUploadRules.ValidateInstagramDuration(await DurationAsync());
                 setStatus("Uploading to Instagram...");
                 var pageToken = publishingPreflight.FacebookPageToken;
-                var result = await _instagramReelUpload.UploadReelAsync(
-                    pageToken,
-                    file,
-                    SocialVideoUploadRules.InstagramCaption(description),
-                    cancellationToken: cancellationToken);
+                uploadJournal.Begin(history.Id, "Instagram", false, false, false);
+                InstagramReelUploadResult result;
+                try
+                {
+                    result = await _instagramReelUpload.UploadReelAsync(
+                        pageToken,
+                        file,
+                        SocialVideoUploadRules.InstagramCaption(description),
+                        cancellationToken: cancellationToken);
+                    uploadJournal.RecordUploadCompleted(history.Id, "Instagram", result.MediaId, result.Url);
+                }
+                catch (Exception error)
+                {
+                    uploadJournal.RecordFailure(history.Id, "Instagram", SocialUploadJournalStep.Upload, error.Message);
+                    throw;
+                }
                 _data.UpdateQuizHistoryInstagramPublication(
                     history.Id, true, result.Url, DateTime.Today);
                 completed.Add("Instagram");
