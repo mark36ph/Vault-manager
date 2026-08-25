@@ -139,6 +139,7 @@ public partial class MainShellWindow
         _quizDifficultyComboBox.Items.Add("easy");
         _quizDifficultyComboBox.Items.Add("medium");
         _quizDifficultyComboBox.Items.Add("hard");
+        _quizDifficultyComboBox.Items.Add("insane");
         _quizDifficultyComboBox.SelectedIndex = 0;
         var difficultyStack = QuizLabeledControl("DIFFICULTY", _quizDifficultyComboBox);
         Grid.SetColumn(difficultyStack, 8);
@@ -490,7 +491,7 @@ public partial class MainShellWindow
             Margin = new Thickness(0, 4, 0, 0),
             ToolTip = "Choose a difficulty or request a mixed batch",
         };
-        foreach (var difficulty in new[] { "mixed", "easy", "medium", "hard" })
+        foreach (var difficulty in new[] { "mixed", "easy", "medium", "hard", "insane" })
             _quizPromptDifficultyComboBox.Items.Add(difficulty);
         _quizPromptDifficultyComboBox.SelectedItem = "mixed";
         var difficultyStack = QuizLabeledControl("DIFFICULTY", _quizPromptDifficultyComboBox);
@@ -718,7 +719,10 @@ public partial class MainShellWindow
             if (_quizDraftStatusText is not null)
             {
                 var thinkingSeconds = count * seconds;
-                _quizDraftStatusText.Text = $"{count} random enabled {(logoQuiz ? "logo " : "")}questions • {seconds} seconds per question • {thinkingSeconds / 60}:{thinkingSeconds % 60:00} total answer time. Pick again for a different random set.";
+                var progression = count == 10 && QuizDifficultyProgressionSelector.Applies(count, SelectedQuizDifficulty())
+                    ? $" • {QuizDifficultyProgressionSelector.FullDescription}"
+                    : "";
+                _quizDraftStatusText.Text = $"{count} random enabled {(logoQuiz ? "logo " : "")}questions{progression} • {seconds} seconds per question • {thinkingSeconds / 60}:{thinkingSeconds % 60:00} total answer time. Pick again for a different random set.";
             }
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Random quiz draft created";
@@ -815,8 +819,8 @@ public partial class MainShellWindow
         _quizSecondsPerQuestion = preset.SecondsPerQuestion;
         if (_quizFormatComboBox is not null)
             _quizFormatComboBox.SelectedIndex = preset.Vertical ? 1 : 0;
-        if (preset.Difficulty is not null && _quizDifficultyComboBox is not null)
-            _quizDifficultyComboBox.SelectedItem = preset.Difficulty;
+        if (_quizDifficultyComboBox is not null)
+            _quizDifficultyComboBox.SelectedItem = preset.Difficulty ?? "All difficulties";
 
         InvalidateQuizThumbnailPreview();
         InvalidateQuizPublishingExportCompletion();

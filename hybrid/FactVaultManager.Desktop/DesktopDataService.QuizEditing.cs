@@ -136,15 +136,7 @@ public static class QuizQuestionEditValidator
 
         var explanation = Optional(request.Explanation, "Explanation", 2_000);
         var category = Required(request.Category, "Category", 100);
-        var difficulty = Required(request.Difficulty, "Difficulty", 50).ToLowerInvariant() switch
-        {
-            "beginner" => "easy",
-            "normal" or "intermediate" => "medium",
-            "difficult" or "expert" => "hard",
-            var value => value,
-        };
-        if (difficulty is not ("easy" or "medium" or "hard"))
-            throw new InvalidDataException("Difficulty must be easy, medium, or hard.");
+        var difficulty = QuizDifficultyCatalog.Normalize(Required(request.Difficulty, "Difficulty", 50));
 
         return new QuizQuestionEditRequest(
             question,

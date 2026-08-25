@@ -26,8 +26,8 @@ public sealed record QuizAiGenerationRequest(
         var normalizedDifficulty = (difficulty ?? "mixed").Trim().ToLowerInvariant();
         if (normalizedDifficulty.Length == 0)
             normalizedDifficulty = "mixed";
-        if (normalizedDifficulty is not ("mixed" or "easy" or "medium" or "hard"))
-            throw new ArgumentException("Difficulty must be mixed, easy, medium, or hard.", nameof(difficulty));
+        if (normalizedDifficulty is not ("mixed" or "easy" or "medium" or "hard" or "insane"))
+            throw new ArgumentException("Difficulty must be mixed, easy, medium, hard, or insane.", nameof(difficulty));
 
         var normalizedTopic = (topic ?? "").Trim();
         if (normalizedTopic.Length > 200)
@@ -72,7 +72,7 @@ public static class QuizAiQuestionGeneration
         ArgumentNullException.ThrowIfNull(request);
 
         var difficultyRule = request.Difficulty == "mixed"
-            ? "Use a useful mix of easy, medium, and hard questions."
+            ? "Use a useful mix of easy, medium, hard, and insane questions."
             : $"Every question must have difficulty '{request.Difficulty}'.";
         var topicRule = string.IsNullOrWhiteSpace(request.Topic)
             ? ""

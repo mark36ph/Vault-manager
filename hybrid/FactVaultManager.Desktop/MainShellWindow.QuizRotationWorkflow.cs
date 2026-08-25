@@ -131,11 +131,12 @@ public partial class MainShellWindow
                 ? _data.GetRecentQuizQuestionIds(recentQuizCount)
                 : new HashSet<int>();
 
-            _quizDraftQuestions = QuizRotationSelector.Select(
-                    matching,
-                    count,
-                    preferLeastUsed,
-                    recentIds)
+            var difficulty = SelectedQuizDifficulty();
+            _quizDraftQuestions = (QuizDifficultyProgressionSelector.Applies(count, difficulty)
+                    ? QuizDifficultyProgressionSelector.Select(
+                        matching, count, preferLeastUsed, recentIds)
+                    : QuizRotationSelector.Select(
+                        matching, count, preferLeastUsed, recentIds))
                 .ToList();
             _quizSecondsPerQuestion = seconds;
             RefreshQuizDraftEditorGrid(_quizDraftQuestions.FirstOrDefault()?.Id);
@@ -151,8 +152,11 @@ public partial class MainShellWindow
             if (_quizDraftStatusText is not null)
             {
                 var thinkingSeconds = count * seconds;
+                var progression = count == 10 && QuizDifficultyProgressionSelector.Applies(count, difficulty)
+                    ? $" • {QuizDifficultyProgressionSelector.FullDescription}"
+                    : "";
                 _quizDraftStatusText.Text =
-                    $"{count} enabled {(IsLogoQuizSelected() ? "logo " : "")}questions • {selectionMode} • {recentStatus} • {seconds} sec/question • {thinkingSeconds / 60}:{thinkingSeconds % 60:00} answer time.";
+                    $"{count} enabled {(IsLogoQuizSelected() ? "logo " : "")}questions • {selectionMode}{progression} • {recentStatus} • {seconds} sec/question • {thinkingSeconds / 60}:{thinkingSeconds % 60:00} answer time.";
             }
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = "Quiz draft built with rotation rules";

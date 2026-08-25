@@ -29,6 +29,16 @@ public sealed class QuizThemedCardRendererTests
         Assert.Equal("LOGOS 1 / 10", QuizThemedCardRenderer.LogoCounterText(1, 10));
     }
 
+    [Theory]
+    [InlineData("easy", "ROUND 1: EASY")]
+    [InlineData("medium", "ROUND 2: MEDIUM")]
+    [InlineData("hard", "ROUND 3: HARD")]
+    [InlineData("insane", "ROUND 4: INSANE")]
+    public void DifficultyRoundBanner_UsesProgressiveRoundNumber(string difficulty, string expected)
+    {
+        Assert.Equal(expected, QuizThemedCardRenderer.DifficultyRoundText(difficulty));
+    }
+
     [Fact]
     public void LongQuestionText_ScalesDownToFitLandscapePanel()
     {

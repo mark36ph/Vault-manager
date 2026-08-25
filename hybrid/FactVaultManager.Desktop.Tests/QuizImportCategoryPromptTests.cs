@@ -36,7 +36,7 @@ public sealed class QuizImportCategoryPromptTests
         Assert.Contains("Set the category field to 'Paranormal' for every question", prompt);
         Assert.Contains("Set the difficulty field to 'hard' for every question", prompt);
         Assert.Contains("\"difficulty\": \"hard\"", prompt);
-        Assert.DoesNotContain("Mix easy, medium, and hard difficulty", prompt);
+        Assert.DoesNotContain("Mix easy, medium, hard, and insane difficulty", prompt);
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public sealed class QuizImportCategoryPromptTests
     {
         var prompt = QuizQuestionImportParser.ChatGptPrompt(50, "History", "mixed");
 
-        Assert.Contains("Mix easy, medium, and hard difficulty", prompt);
+        Assert.Contains("Mix easy, medium, hard, and insane difficulty", prompt);
         Assert.Contains("\"difficulty\": \"easy\"", prompt);
     }
 

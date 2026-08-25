@@ -77,6 +77,9 @@ public sealed class QuizThemedCardRenderer
 
     internal static string LogoCounterText(int number, int total) => $"LOGOS {number} / {total}";
 
+    internal static string DifficultyRoundText(string difficulty) =>
+        QuizDifficultyCatalog.RoundBanner(difficulty);
+
     public void OverwriteCards(
         string projectFolder,
         IReadOnlyList<QuizQuestion> questions,
@@ -263,12 +266,28 @@ public sealed class QuizThemedCardRenderer
             BorderThickness = new Thickness(3),
             CornerRadius = new CornerRadius(22),
             Padding = new Thickness(24, 8, 24, 8),
-            Child = new TextBlock
+            Child = new StackPanel
             {
-                Text = LogoCounterText(number, total),
-                Foreground = Brushes.White,
-                FontSize = options.Vertical ? 28 : 24,
-                FontWeight = FontWeights.Bold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = DifficultyRoundText(question.Difficulty),
+                        Foreground = Brush(NeonGold),
+                        FontSize = options.Vertical ? 16 : 14,
+                        FontWeight = FontWeights.Bold,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                    },
+                    new TextBlock
+                    {
+                        Text = LogoCounterText(number, total),
+                        Foreground = Brushes.White,
+                        FontSize = options.Vertical ? 25 : 21,
+                        FontWeight = FontWeights.Bold,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                    },
+                },
             },
         };
         Panel.SetZIndex(logoCounter, 1);
@@ -453,9 +472,9 @@ public sealed class QuizThemedCardRenderer
                 {
                     new TextBlock
                     {
-                        Text = "QUESTION",
+                        Text = DifficultyRoundText(question.Difficulty),
                         Foreground = Brush(NeonGold),
-                        FontSize = 18,
+                        FontSize = 15,
                         FontWeight = FontWeights.Bold,
                         HorizontalAlignment = HorizontalAlignment.Center,
                     },
@@ -820,14 +839,28 @@ public sealed class QuizThemedCardRenderer
             BorderBrush = Brush(NeonBlue),
             BorderThickness = new Thickness(3),
             CornerRadius = new CornerRadius(22),
-            Child = new TextBlock
+            Child = new StackPanel
             {
-                Text = $"QUESTION  {number} / {total}",
-                Foreground = Brushes.White,
-                FontSize = 22,
-                FontWeight = FontWeights.Bold,
-                HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = DifficultyRoundText(question.Difficulty),
+                        Foreground = Brush(NeonGold),
+                        FontSize = 15,
+                        FontWeight = FontWeights.Bold,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                    },
+                    new TextBlock
+                    {
+                        Text = $"QUESTION {number} / {total}",
+                        Foreground = Brushes.White,
+                        FontSize = 20,
+                        FontWeight = FontWeights.Bold,
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                    },
+                },
             },
         };
         status.Children.Add(badge);

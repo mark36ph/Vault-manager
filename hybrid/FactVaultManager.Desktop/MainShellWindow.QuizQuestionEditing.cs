@@ -45,9 +45,9 @@ public partial class MainShellWindow
         }
 
         var difficulty = new ComboBox { MinHeight = 34 };
-        foreach (var value in new[] { "easy", "medium", "hard" })
+        foreach (var value in QuizDifficultyCatalog.StorageValues)
             difficulty.Items.Add(value);
-        difficulty.SelectedItem = new[] { "easy", "medium", "hard" }
+        difficulty.SelectedItem = QuizDifficultyCatalog.StorageValues
             .FirstOrDefault(value => string.Equals(value, question.Difficulty, StringComparison.OrdinalIgnoreCase)) ?? "medium";
 
         var explanation = EditQuizTextBox(question.Explanation, multiline: true);

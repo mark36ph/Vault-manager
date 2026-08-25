@@ -54,6 +54,23 @@ public sealed class QuizQuestionEditingTests
     }
 
     [Fact]
+    public void Validate_AllowsInsaneDifficulty()
+    {
+        var request = new QuizQuestionEditRequest(
+            "Which answer is correct?",
+            "A", "B", "C", "D",
+            0,
+            "A is correct.",
+            "General Knowledge",
+            "insane",
+            true);
+
+        var result = QuizQuestionEditValidator.Validate(request);
+
+        Assert.Equal("insane", result.Difficulty);
+    }
+
+    [Fact]
     public void EditingQuestionContentProducesNewFingerprint()
     {
         var before = QuizQuestionFingerprint.Create(

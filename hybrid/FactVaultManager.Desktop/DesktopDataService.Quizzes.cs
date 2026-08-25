@@ -165,7 +165,9 @@ public sealed partial class DesktopDataService
             enabledOnly: true,
             imageOnly: imageOnly || logoQuiz,
             excludeCategory: QuizTypeCatalog.ExcludedRandomCategory(category));
-        return QuizQuestionSelector.SelectRandom(matching, count, random);
+        return QuizDifficultyProgressionSelector.Applies(count, difficulty)
+            ? QuizDifficultyProgressionSelector.Select(matching, count, random: random)
+            : QuizQuestionSelector.SelectRandom(matching, count, random);
     }
 
     public IReadOnlyList<string> GetQuizCategories()

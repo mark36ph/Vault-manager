@@ -46,7 +46,7 @@ public sealed record QuizPreset
             throw new InvalidDataException("Preset logo size must be between 50% and 200%.");
 
         var difficulty = (Difficulty ?? "").Trim().ToLowerInvariant();
-        if (difficulty is not ("" or "easy" or "medium" or "hard"))
+        if (difficulty is not ("" or "easy" or "medium" or "hard" or "insane"))
             difficulty = "";
 
         string voice;
