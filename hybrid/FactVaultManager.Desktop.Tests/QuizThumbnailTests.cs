@@ -47,6 +47,21 @@ public sealed class QuizThumbnailTests
     }
 
     [Fact]
+    public void Defaults_LogoQuizUsesLogoSubtitle()
+    {
+        var metadata = QuizPublishMetadataGenerator.Generate(
+            "Icons",
+            1,
+            [Question(1), Question(2)],
+            vertical: false,
+            logoQuiz: true);
+
+        var thumbnail = QuizThumbnailDefaults.Create(metadata, 2, logoQuiz: true);
+
+        Assert.Equal("LOGO", thumbnail.Subtitle);
+    }
+
+    [Fact]
     public void Settings_NormalizeRejectsMissingOrOverlongCopy()
     {
         Assert.Throws<ArgumentException>(() => new QuizThumbnailSettings("", "Subtitle").Normalize());
