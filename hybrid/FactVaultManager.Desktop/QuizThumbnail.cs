@@ -43,7 +43,7 @@ public static class QuizThumbnailDefaults
                string.Equals(current, "General Knowledge Quiz", StringComparison.OrdinalIgnoreCase);
     }
 
-    public static QuizThumbnailSettings Create(QuizPublishMetadata metadata, int questionCount)
+    public static QuizThumbnailSettings Create(QuizPublishMetadata metadata, int questionCount, bool logoQuiz = false)
     {
         metadata = QuizPublishMetadataGenerator.Validate(metadata);
         if (questionCount <= 0)
@@ -51,7 +51,9 @@ public static class QuizThumbnailDefaults
 
         return new QuizThumbnailSettings(
             $"CAN YOU GET {questionCount}/{questionCount}?",
-            QuizPublishMetadataGenerator.DisplayName(metadata.SeriesName).ToUpperInvariant()).Normalize();
+            logoQuiz
+                ? "LOGO"
+                : QuizPublishMetadataGenerator.DisplayName(metadata.SeriesName).ToUpperInvariant()).Normalize();
     }
 }
 
