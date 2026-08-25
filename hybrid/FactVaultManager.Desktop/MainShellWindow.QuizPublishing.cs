@@ -560,7 +560,7 @@ public partial class MainShellWindow
     private QuizThumbnailSettings CurrentQuizThumbnailSettings(QuizPublishMetadata metadata)
     {
         EnsureQuizThumbnailDefaults(metadata);
-        var suggested = QuizThumbnailDefaults.Create(metadata, _quizDraftQuestions.Count);
+        var suggested = QuizThumbnailDefaults.Create(metadata, _quizDraftQuestions.Count, IsLogoQuizSelected());
         return new QuizThumbnailSettings(
             string.IsNullOrWhiteSpace(_quizThumbnailHeadlineTextBox?.Text)
                 ? suggested.Headline
@@ -574,7 +574,7 @@ public partial class MainShellWindow
     {
         if (_quizDraftQuestions.Count == 0)
             return;
-        var suggested = QuizThumbnailDefaults.Create(metadata, _quizDraftQuestions.Count);
+        var suggested = QuizThumbnailDefaults.Create(metadata, _quizDraftQuestions.Count, IsLogoQuizSelected());
         if (_quizThumbnailHeadlineTextBox is not null && string.IsNullOrWhiteSpace(_quizThumbnailHeadlineTextBox.Text))
             _quizThumbnailHeadlineTextBox.Text = suggested.Headline;
         if (_quizThumbnailSubtitleTextBox is not null &&
@@ -594,7 +594,7 @@ public partial class MainShellWindow
             if (_quizDraftQuestions.Count == 0)
                 throw new InvalidOperationException("Build a quiz draft first.");
             var metadata = CurrentQuizPublishMetadata(_quizDraftQuestions, _quizFormatComboBox?.SelectedIndex == 1);
-            var suggested = QuizThumbnailDefaults.Create(metadata, _quizDraftQuestions.Count);
+            var suggested = QuizThumbnailDefaults.Create(metadata, _quizDraftQuestions.Count, IsLogoQuizSelected());
             if (_quizThumbnailHeadlineTextBox is not null)
                 _quizThumbnailHeadlineTextBox.Text = suggested.Headline;
             if (_quizThumbnailSubtitleTextBox is not null)
