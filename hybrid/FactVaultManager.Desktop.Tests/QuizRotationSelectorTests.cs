@@ -79,6 +79,58 @@ public sealed class QuizRotationSelectorTests
         Assert.Equal(new[] { 2, 3 }, selected.Select(question => question.Id).OrderBy(id => id));
     }
 
+    [Fact]
+    public void DifficultyProgression_SelectsThreeThreeThreeOneInAscendingRounds()
+    {
+        var questions = new List<QuizQuestion>();
+        var id = 1;
+        foreach (var difficulty in QuizDifficultyCatalog.StorageValues)
+        {
+            for (var index = 0; index < 5; index++)
+                questions.Add(Question(id++, 0) with { Difficulty = difficulty });
+        }
+
+        var selected = QuizDifficultyProgressionSelector.Select(questions, 10, random: new Random(123));
+
+        Assert.Equal(10, selected.Count);
+        Assert.Equal(3, selected.Count(question => question.DifficultyLevel == QuizDifficulty.Easy));
+        Assert.Equal(3, selected.Count(question => question.DifficultyLevel == QuizDifficulty.Medium));
+        Assert.Equal(3, selected.Count(question => question.DifficultyLevel == QuizDifficulty.Hard));
+        Assert.Equal(1, selected.Count(question => question.DifficultyLevel == QuizDifficulty.Insane));
+        Assert.Equal(selected.OrderBy(question => question.DifficultyLevel).Select(question => question.Id),
+            selected.Select(question => question.Id));
+    }
+
+    [Fact]
+    public void DifficultyProgression_ShortSelectsEasyQuestion()
+    {
+        var questions = new[]
+        {
+            Question(1, 0) with { Difficulty = "hard" },
+            Question(2, 0) with { Difficulty = "easy" },
+        };
+
+        var selected = QuizDifficultyProgressionSelector.Select(questions, 1, random: new Random(123));
+
+        Assert.Single(selected);
+        Assert.Equal(QuizDifficulty.Easy, selected[0].DifficultyLevel);
+    }
+
+    [Fact]
+    public void DifficultyProgression_FillsMissingInsaneSlotWithoutBlockingDraft()
+    {
+        var questions = Enumerable.Range(1, 12)
+            .Select(id => Question(id, 0) with { Difficulty = id <= 4 ? "easy" : id <= 8 ? "medium" : "hard" })
+            .ToList();
+
+        var selected = QuizDifficultyProgressionSelector.Select(questions, 10, random: new Random(123));
+
+        Assert.Equal(10, selected.Count);
+        Assert.Empty(selected.Where(question => question.DifficultyLevel == QuizDifficulty.Insane));
+        Assert.Equal(selected.OrderBy(question => question.DifficultyLevel).Select(question => question.Id),
+            selected.Select(question => question.Id));
+    }
+
     private static QuizQuestion Question(int id, int timesUsed) => new(
         id,
         $"Question {id}?",
