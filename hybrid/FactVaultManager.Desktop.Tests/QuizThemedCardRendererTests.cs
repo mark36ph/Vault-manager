@@ -139,10 +139,20 @@ public sealed class QuizThemedCardRendererTests
         try
         {
             Exception? renderError = null;
-            System.Windows.Controls.Image? artwork = null;
+            double maxWidth = 0;
+            double maxHeight = 0;
+            System.Windows.HorizontalAlignment horizontalAlignment = default;
+            var hasParent = true;
             var thread = new Thread(() =>
             {
-                try { artwork = QuizThemedCardRenderer.BuildLogoArtwork(imagePath, vertical: false); }
+                try
+                {
+                    var artwork = QuizThemedCardRenderer.BuildLogoArtwork(imagePath, vertical: false);
+                    maxWidth = artwork.MaxWidth;
+                    maxHeight = artwork.MaxHeight;
+                    horizontalAlignment = artwork.HorizontalAlignment;
+                    hasParent = artwork.Parent is not null;
+                }
                 catch (Exception error) { renderError = error; }
             });
             thread.SetApartmentState(ApartmentState.STA);
@@ -152,11 +162,10 @@ public sealed class QuizThemedCardRendererTests
             if (renderError is not null)
                 ExceptionDispatchInfo.Capture(renderError).Throw();
 
-            Assert.NotNull(artwork);
-            Assert.Equal(520, artwork.MaxWidth);
-            Assert.Equal(250, artwork.MaxHeight);
-            Assert.Equal(System.Windows.HorizontalAlignment.Center, artwork.HorizontalAlignment);
-            Assert.Null(artwork.Parent);
+            Assert.Equal(520, maxWidth);
+            Assert.Equal(250, maxHeight);
+            Assert.Equal(System.Windows.HorizontalAlignment.Center, horizontalAlignment);
+            Assert.False(hasParent);
         }
         finally
         {
