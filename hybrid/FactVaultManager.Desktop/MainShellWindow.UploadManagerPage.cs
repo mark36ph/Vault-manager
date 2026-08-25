@@ -221,6 +221,16 @@ public partial class MainShellWindow
         buttonStyle.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0, 204, 255))));
         buttonStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(0)));
         buttonStyle.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Left));
+        var buttonTemplate = new ControlTemplate(typeof(Button));
+        var buttonContent = new FrameworkElementFactory(typeof(ContentPresenter));
+        buttonContent.SetValue(FrameworkElement.HorizontalAlignmentProperty, HorizontalAlignment.Left);
+        buttonContent.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+        buttonContent.SetBinding(ContentPresenter.ContentProperty, new Binding(nameof(ContentControl.Content))
+        {
+            RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent),
+        });
+        buttonTemplate.VisualTree = buttonContent;
+        buttonStyle.Setters.Add(new Setter(Control.TemplateProperty, buttonTemplate));
         var notApplicableText = new Trigger { Property = ContentControl.ContentProperty, Value = "N/A" };
         notApplicableText.Setters.Add(new Setter(Control.ForegroundProperty, new SolidColorBrush(Color.FromRgb(255, 184, 192))));
         buttonStyle.Triggers.Add(notApplicableText);
