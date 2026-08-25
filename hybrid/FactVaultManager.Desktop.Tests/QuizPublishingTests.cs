@@ -21,6 +21,12 @@ public sealed class QuizPublishingTests
     }
 
     [Fact]
+    public void SuggestSeriesName_LogosCategoryUsesLogosQuizSeries()
+    {
+        Assert.Equal("Logos Quiz", QuizPublishMetadataGenerator.SuggestSeriesName("Logos"));
+    }
+
+    [Fact]
     public void SuggestSeriesNameForQuestions_UsesSingleDraftCategory()
     {
         var series = QuizPublishMetadataGenerator.SuggestSeriesNameForQuestions(
