@@ -333,6 +333,58 @@ public sealed class YouTubeManagementTests
     }
 
     [Fact]
+    public async Task PostTopLevelComment_ReusesMatchingTextWhenYouTubeDoesNotReturnTheAuthorIdentity()
+    {
+        const string commentsJson = """
+            {"items":[{"id":"thread-existing","snippet":{"totalReplyCount":0,"topLevelComment":{"id":"comment-existing","snippet":{"videoId":"video-1","authorDisplayName":"Another viewer","textDisplay":"How did you score?\n\nShare your result!","publishedAt":"2026-08-25T10:00:00Z","likeCount":0,"moderationStatus":"published"}}}}]}
+            """;
+        var methods = new List<HttpMethod>();
+        var handler = new StubHttpHandler(request =>
+        {
+            methods.Add(request.Method);
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(request.RequestUri?.AbsolutePath.EndsWith("/channels", StringComparison.Ordinal) == true
+                    ? "{\"items\":[{\"id\":\"channel-1\",\"snippet\":{\"title\":\"Factburst Quiz\"}}]}"
+                    : commentsJson),
+            };
+        });
+        var service = new YouTubeManagementService(new HttpClient(handler));
+
+        var commentId = await service.PostTopLevelCommentAsync(
+            "token", "video-1", "  How did you score?\r\n Share your result!  ");
+
+        Assert.Equal("comment-existing", commentId);
+        Assert.Equal([HttpMethod.Get, HttpMethod.Get], methods);
+    }
+
+    [Fact]
+    public async Task PostTopLevelComment_ReusesTheConnectedChannelHandleWhenAuthorIdIsMissing()
+    {
+        const string commentsJson = """
+            {"items":[{"id":"thread-existing","snippet":{"totalReplyCount":0,"topLevelComment":{"id":"comment-existing","snippet":{"videoId":"video-1","authorDisplayName":"@FactburstQuiz","textDisplay":"A different existing comment","publishedAt":"2026-08-25T10:00:00Z","likeCount":0,"moderationStatus":"published"}}}}]}
+            """;
+        var methods = new List<HttpMethod>();
+        var handler = new StubHttpHandler(request =>
+        {
+            methods.Add(request.Method);
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(request.RequestUri?.AbsolutePath.EndsWith("/channels", StringComparison.Ordinal) == true
+                    ? "{\"items\":[{\"id\":\"channel-1\",\"snippet\":{\"title\":\"Factburst Quiz\"}}]}"
+                    : commentsJson),
+            };
+        });
+        var service = new YouTubeManagementService(new HttpClient(handler));
+
+        var commentId = await service.PostTopLevelCommentAsync(
+            "token", "video-1", "How did you score?");
+
+        Assert.Equal("comment-existing", commentId);
+        Assert.Equal([HttpMethod.Get, HttpMethod.Get], methods);
+    }
+
+    [Fact]
     public async Task PostTopLevelComment_ChecksEveryCommentPageBeforePosting()
     {
         const string firstPageJson = """
