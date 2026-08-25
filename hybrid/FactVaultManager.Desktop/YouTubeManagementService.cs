@@ -7,6 +7,13 @@ namespace FactVaultManager.Desktop;
 
 public sealed record YouTubeManagedChannel(string Id, string Title);
 
+public sealed record YouTubeManagedVideo(
+    string Id,
+    string ChannelId,
+    string Title,
+    string PrivacyStatus,
+    string UploadStatus);
+
 public sealed record YouTubeCommentItem(
     string Id,
     string ThreadId,
@@ -119,6 +126,45 @@ public sealed class YouTubeManagementService
         return new YouTubeManagedChannel(id, ReadString(channel.GetProperty("snippet"), "title"));
     }
 
+    public async Task<YouTubeManagedVideo> VerifyUploadedVideoAsync(
+        string accessToken,
+        string videoId,
+        string expectedChannelId,
+        string expectedTitle,
+        string expectedPrivacy,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(videoId)) throw new ArgumentException("The YouTube video ID is missing.");
+        var url = "/videos?part=id%2Csnippet%2Cstatus&id=" + Uri.EscapeDataString(videoId.Trim());
+        using var response = await SendAsync(HttpMethod.Get, url, accessToken, null, cancellationToken);
+        using var document = await ReadDocumentAsync(response, cancellationToken);
+        var item = document.RootElement.TryGetProperty("items", out var items) && items.ValueKind == JsonValueKind.Array
+            ? items.EnumerateArray().FirstOrDefault()
+            : default;
+        var id = ReadString(item, "id");
+        if (id.Length == 0)
+            throw new InvalidOperationException("YouTube returned an upload ID, but the video could not be verified on the connected channel yet.");
+        var snippet = item.TryGetProperty("snippet", out var snippetValue) ? snippetValue : default;
+        var status = item.TryGetProperty("status", out var statusValue) ? statusValue : default;
+        var video = new YouTubeManagedVideo(
+            id,
+            ReadString(snippet, "channelId"),
+            ReadString(snippet, "title"),
+            ReadString(status, "privacyStatus"),
+            ReadString(status, "uploadStatus"));
+        if (!string.Equals(video.ChannelId, expectedChannelId, StringComparison.Ordinal))
+            throw new InvalidOperationException(
+                $"YouTube verification failed: video {video.Id} belongs to channel {video.ChannelId}, not {expectedChannelId}.");
+        if (!string.Equals(video.Title, expectedTitle.Trim(), StringComparison.Ordinal))
+            throw new InvalidOperationException("YouTube verification failed: the uploaded title does not match the requested title.");
+        if (!string.Equals(video.PrivacyStatus, expectedPrivacy.Trim(), StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException(
+                $"YouTube verification failed: visibility is {video.PrivacyStatus}, not {expectedPrivacy.Trim()}.");
+        if (video.UploadStatus is "failed" or "rejected" or "deleted")
+            throw new InvalidOperationException($"YouTube reports the upload status as {video.UploadStatus}.");
+        return video;
+    }
+
     public async Task<IReadOnlyList<YouTubeCommentItem>> ListCommentsAsync(
         string accessToken,
         string channelId,
@@ -221,8 +267,9 @@ public sealed class YouTubeManagementService
             using var document = await ReadDocumentAsync(response, cancellationToken);
             var existing = ParseComments(document.RootElement).FirstOrDefault(comment =>
                 string.Equals(comment.AuthorChannelId, channelId, StringComparison.Ordinal) ||
-                normalizedChannelTitle.Length > 0 && string.Equals(
+                comment.AuthorChannelId.Length == 0 && normalizedChannelTitle.Length > 0 && string.Equals(
                     NormalizeChannelIdentity(comment.Author), normalizedChannelTitle, StringComparison.Ordinal) ||
+                comment.AuthorChannelId.Length == 0 && NormalizeChannelIdentity(comment.Author).Length == 0 &&
                 normalizedExpectedText.Length > 0 && string.Equals(
                     NormalizeCommentText(comment.Text), normalizedExpectedText, StringComparison.Ordinal));
             if (existing is not null && existing.Id.Length > 0) return existing.Id;
