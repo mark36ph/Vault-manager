@@ -10,6 +10,10 @@ public partial class MainShellWindow
         string FacebookPageToken,
         FacebookPageIdentity? FacebookPage);
 
+    private sealed record YouTubeThumbnailPreflightSession(
+        string AccessToken,
+        YouTubeManagedChannel Channel);
+
     private async Task<SocialPublishingPreflightSession?> ConfirmSocialPublishingPreflightAsync(
         Window owner,
         SocialUploadDestination destinations,
@@ -88,6 +92,53 @@ public partial class MainShellWindow
         if (remember) _data.SaveSettings(settings);
 
         return new SocialPublishingPreflightSession(youtubeToken, youtubeChannel, facebookToken, facebookPage);
+    }
+
+    private async Task<YouTubeThumbnailPreflightSession?> ConfirmYouTubeThumbnailUpdatePreflightAsync(
+        Window owner,
+        QuizHistorySummary history,
+        string videoId,
+        string thumbnailPath,
+        bool regenerateFirst)
+    {
+        var settings = _data.LoadSettings();
+        var accessToken = await GetYouTubeManagementAccessTokenAsync();
+        var channel = await _youtubeManagement.GetMyChannelAsync(accessToken);
+        SocialPublishingAccountGuard.EnsureMatches(
+            "YouTube channel", settings.ApprovedYouTubeChannelId, channel.Id);
+
+        var lines = new List<string>
+        {
+            regenerateFirst
+                ? "Regenerate the local thumbnail and replace the thumbnail on this existing YouTube video?"
+                : "Replace the thumbnail on this existing YouTube video?",
+            "",
+            $"Quiz: {history.UploadTitleDisplay}",
+            $"YouTube: {channel.Title} ({channel.Id})",
+            $"Video ID: {videoId}",
+            regenerateFirst
+                ? $"Thumbnail: regenerate {Path.GetFileName(thumbnailPath)}, then upload it"
+                : $"Thumbnail: {thumbnailPath}",
+            "",
+            "Only the custom thumbnail will change on YouTube. The video and local upload records will not be changed.",
+        };
+
+        if (MessageBox.Show(
+                owner,
+                string.Join(Environment.NewLine, lines),
+                "YouTube Thumbnail Update",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question) != MessageBoxResult.Yes)
+            return null;
+
+        if (settings.ApprovedYouTubeChannelId.Length == 0)
+        {
+            settings.ApprovedYouTubeChannelId = channel.Id;
+            settings.ApprovedYouTubeChannelName = channel.Title;
+            _data.SaveSettings(settings);
+        }
+
+        return new YouTubeThumbnailPreflightSession(accessToken, channel);
     }
 
     private void ResetApprovedYouTubeAccount()

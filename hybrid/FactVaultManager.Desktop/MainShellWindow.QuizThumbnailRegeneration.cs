@@ -59,7 +59,7 @@ public partial class MainShellWindow
 
         var toolsButton = BuildUploadManagerMenuButton(
             "Quiz Tools ▾",
-            "Retry/reset upload state or regenerate thumbnails.",
+            "Retry/reset upload state, regenerate thumbnails, or update an existing YouTube thumbnail.",
             Color.FromRgb(0, 204, 255));
         AddUploadManagerMenuItem(toolsButton, "Retry Failed Step", async (_, _) =>
         {
@@ -86,6 +86,23 @@ public partial class MainShellWindow
                 MessageBox.Show(this, "Select a quiz first.", "Regenerate Thumbnail",
                     MessageBoxButton.OK, MessageBoxImage.Information);
         });
+        AddUploadManagerMenuItem(toolsButton, "Update YouTube Thumbnail", async (_, _) =>
+        {
+            if (_uploadManagerGrid?.SelectedItem is QuizHistorySummary history)
+                await UpdateSelectedQuizYouTubeThumbnailAsync(history, regenerateFirst: false);
+            else
+                MessageBox.Show(this, "Select a published long-form quiz first.", "Update YouTube Thumbnail",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+        });
+        AddUploadManagerMenuItem(toolsButton, "Regenerate + Update YouTube", async (_, _) =>
+        {
+            if (_uploadManagerGrid?.SelectedItem is QuizHistorySummary history)
+                await UpdateSelectedQuizYouTubeThumbnailAsync(history, regenerateFirst: true);
+            else
+                MessageBox.Show(this, "Select a published long-form quiz first.", "Regenerate + Update YouTube",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+        });
+        AddUploadManagerMenuSeparator(toolsButton);
         AddUploadManagerMenuItem(toolsButton, "Regenerate All Thumbnails", async (_, _) =>
             await RegenerateAllLongFormQuizThumbnailsAsync(toolsButton));
         actions.Children.Add(toolsButton);
@@ -322,6 +339,69 @@ public partial class MainShellWindow
         }
     }
 
+    private async Task UpdateSelectedQuizYouTubeThumbnailAsync(
+        QuizHistorySummary history,
+        bool regenerateFirst)
+    {
+        var title = regenerateFirst ? "Regenerate + Update YouTube" : "Update YouTube Thumbnail";
+        QuizHistoricalThumbnailResult? regenerated = null;
+        try
+        {
+            history = ResolveThumbnailHistoryEntry(history);
+            if (!QuizHistoricalThumbnailRegenerator.IsBatchEligible(history))
+                throw new InvalidOperationException("YouTube thumbnail updates are available for long-form quizzes only.");
+            if (!history.PublishedOnYouTube || string.IsNullOrWhiteSpace(history.YouTubeUrl))
+                throw new InvalidOperationException("Upload this long-form quiz to YouTube before updating its thumbnail.");
+
+            var videoId = YouTubeVideoReference.ParseVideoId(history.YouTubeUrl);
+            var thumbnailPath = HistoricalThumbnailPath(history);
+            if (!regenerateFirst && !File.Exists(thumbnailPath))
+                throw new FileNotFoundException("Thumbnail.png was not found. Regenerate the thumbnail first.", thumbnailPath);
+
+            var preflight = await ConfirmYouTubeThumbnailUpdatePreflightAsync(
+                this,
+                history,
+                videoId,
+                thumbnailPath,
+                regenerateFirst);
+            if (preflight is null)
+                return;
+
+            if (regenerateFirst)
+            {
+                regenerated = RegenerateHistoricalThumbnail(history, CreateQuizQuestionLookup());
+                thumbnailPath = regenerated.ThumbnailPath;
+                RefreshUploadManager();
+            }
+
+            await new YouTubeThumbnailService().SetAsync(
+                preflight.AccessToken,
+                videoId,
+                thumbnailPath);
+
+            var details = regenerated is null
+                ? $"Uploaded:\n{thumbnailPath}"
+                : $"Featured question: {regenerated.FeaturedQuestionNumber} of {regenerated.QuestionCount}\n" +
+                  $"Hook: {regenerated.Hook}\n\nUploaded:\n{thumbnailPath}";
+            MessageBox.Show(
+                this,
+                (regenerated is null
+                    ? "YouTube thumbnail updated successfully.\n\n"
+                    : "Thumbnail regenerated and YouTube updated successfully.\n\n") +
+                details + "\n\nThe video and local upload records were not changed.",
+                title,
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception error)
+        {
+            var prefix = regenerated is null
+                ? ""
+                : "The local Thumbnail.png was regenerated successfully, but the YouTube thumbnail was not updated.\n\n";
+            MessageBox.Show(this, prefix + error.Message, title, MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     private async Task RegenerateAllLongFormQuizThumbnailsAsync(Button sourceButton)
     {
         ArgumentNullException.ThrowIfNull(sourceButton);
@@ -414,6 +494,15 @@ public partial class MainShellWindow
             questions,
             questionLookup,
             logoPath);
+    }
+
+    private static string HistoricalThumbnailPath(QuizHistorySummary history)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        var folder = history.ProjectFolder.Trim();
+        if (folder.Length == 0)
+            throw new DirectoryNotFoundException("This Quiz History entry does not have a saved project folder.");
+        return Path.Combine(Path.GetFullPath(folder), "Thumbnail.png");
     }
 
     private QuizHistorySummary ResolveThumbnailHistoryEntry(QuizHistorySummary history)
