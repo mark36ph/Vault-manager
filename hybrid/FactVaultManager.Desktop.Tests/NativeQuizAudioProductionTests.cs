@@ -41,6 +41,99 @@ public sealed class NativeQuizAudioProductionTests
             Assert.Single(handler.RequestBodies);
             Assert.Contains("\"voice\":\"nova\"", handler.RequestBodies[0], StringComparison.Ordinal);
             Assert.Contains("\"input\":\"" + first.Question, handler.RequestBodies[0], StringComparison.Ordinal);
+            Assert.Contains("\"instructions\":", handler.RequestBodies[0], StringComparison.Ordinal);
+            Assert.Contains("light controlled suspense", handler.RequestBodies[0], StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("No greeting", handler.RequestBodies[0], StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void NarrationDelivery_ProgressesFromBriskToHighStakesWithoutAddingSpokenFiller()
+    {
+        const string text = "Which planet, despite its size, has the shortest day?";
+        var easy = QuizNarrationScript.CreateDelivery(
+            Question(1) with { Question = text, Difficulty = "easy" },
+            includeAnswers: false);
+        var medium = QuizNarrationScript.CreateDelivery(
+            Question(2) with { Question = text, Difficulty = "medium" },
+            includeAnswers: false);
+        var hard = QuizNarrationScript.CreateDelivery(
+            Question(3) with { Question = text, Difficulty = "hard" },
+            includeAnswers: false);
+        var insane = QuizNarrationScript.CreateDelivery(
+            Question(4) with { Question = text, Difficulty = "insane" },
+            includeAnswers: false);
+
+        Assert.Equal(text, easy.Input);
+        Assert.Equal(text, medium.Input);
+        Assert.Equal("Which planet… despite its size, has the shortest day?", hard.Input);
+        Assert.Equal("Which planet… despite its size… has the shortest day?", insane.Input);
+        Assert.Contains("brisk", easy.Instructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("light controlled suspense", medium.Instructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("high-stakes", hard.Instructions, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("maximum controlled suspense", insane.Instructions, StringComparison.OrdinalIgnoreCase);
+        Assert.All(new[] { easy, medium, hard, insane }, delivery =>
+        {
+            Assert.Contains("Read exactly the supplied quiz text", delivery.Instructions, StringComparison.Ordinal);
+            Assert.Contains("No greeting", delivery.Instructions, StringComparison.Ordinal);
+            Assert.DoesNotContain("Here is your next question", delivery.Input, StringComparison.OrdinalIgnoreCase);
+        });
+    }
+
+    [Fact]
+    public async Task SpeechProvider_DifficultyInstructionsProduceDifferentCachedAudio()
+    {
+        var root = NewTempFolder();
+        try
+        {
+            var handler = new SpeechRequestHandler();
+            using var provider = new NativeQuizSpeechProvider(
+                "test-key",
+                voice: "fable",
+                client: new HttpClient(handler));
+            const string text = "Which planet has the shortest day?";
+            var easy = Question(1) with { Question = text, Difficulty = "easy" };
+            var insane = Question(2) with { Question = text, Difficulty = "insane" };
+
+            var easyPath = await provider.GenerateQuestionAsync(easy, 1, includeAnswers: false, root);
+            var insanePath = await provider.GenerateQuestionAsync(insane, 2, includeAnswers: false, root);
+
+            Assert.NotEqual(easyPath, insanePath);
+            Assert.Equal(2, handler.RequestBodies.Count);
+            Assert.Contains("brisk", handler.RequestBodies[0], StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("maximum controlled suspense", handler.RequestBodies[1], StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task SpeechProvider_LegacyTtsModelsOmitUnsupportedInstructions()
+    {
+        var root = NewTempFolder();
+        try
+        {
+            var handler = new SpeechRequestHandler();
+            using var provider = new NativeQuizSpeechProvider(
+                "test-key",
+                model: "tts-1",
+                voice: "fable",
+                client: new HttpClient(handler));
+
+            await provider.GenerateQuestionAsync(
+                Question(1) with { Difficulty = "insane" },
+                1,
+                includeAnswers: false,
+                root);
+
+            Assert.Single(handler.RequestBodies);
+            Assert.DoesNotContain("\"instructions\":", handler.RequestBodies[0], StringComparison.Ordinal);
         }
         finally
         {
@@ -70,6 +163,7 @@ public sealed class NativeQuizAudioProductionTests
             Assert.Single(handler.RequestBodies);
             Assert.Contains("\"voice\":\"fable\"", handler.RequestBodies[0], StringComparison.Ordinal);
             Assert.Contains("related video", handler.RequestBodies[0], StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("\"instructions\":", handler.RequestBodies[0], StringComparison.Ordinal);
         }
         finally
         {
