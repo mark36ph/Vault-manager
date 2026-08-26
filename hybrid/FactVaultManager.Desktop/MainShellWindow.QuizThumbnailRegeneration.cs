@@ -22,11 +22,7 @@ public partial class MainShellWindow
             MainTabs.Items[_uploadManagerTabIndex] is not TabItem { Content: DependencyObject root })
             return;
 
-        var anchor = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(
-                Convert.ToString(button.Content),
-                "Retry Failed Step",
-                StringComparison.Ordinal));
+        var anchor = FindLogicalButton(root, "Retry Failed Step");
         if (anchor?.Parent is not WrapPanel actions)
             return;
 
@@ -61,6 +57,26 @@ public partial class MainShellWindow
         actions.Children.Insert(insertionIndex, regenerate);
         actions.Children.Insert(insertionIndex + 1, regenerateAll);
         _uploadManagerThumbnailActionsInitialized = true;
+    }
+
+    private static Button? FindLogicalButton(DependencyObject root, string content)
+    {
+        if (root is Button button &&
+            string.Equals(Convert.ToString(button.Content), content, StringComparison.Ordinal))
+        {
+            return button;
+        }
+
+        foreach (var child in LogicalTreeHelper.GetChildren(root))
+        {
+            if (child is DependencyObject dependencyObject &&
+                FindLogicalButton(dependencyObject, content) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     private void RegenerateSelectedQuizThumbnail(QuizHistorySummary history)
