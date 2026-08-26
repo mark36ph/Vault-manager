@@ -64,7 +64,27 @@ public static class QuizDifficultyProgressionSelector
     ];
 
     public static bool Applies(int count, string? difficultyFilter) =>
-        string.IsNullOrWhiteSpace(difficultyFilter) && count is 1 or 10;
+        string.IsNullOrWhiteSpace(difficultyFilter) && count is 1 or 10 or 30 or 50 or 100;
+
+    public static IReadOnlyList<(QuizDifficulty Difficulty, int Count)> TargetsFor(int count) => count switch
+    {
+        1 => [(QuizDifficulty.Easy, 1)],
+        10 => FullTargets,
+        30 => MarathonTargets(30),
+        50 => MarathonTargets(50),
+        100 => MarathonTargets(100),
+        _ => throw new ArgumentOutOfRangeException(nameof(count),
+            "Difficulty progression supports 1, 10, 30, 50, or 100 questions."),
+    };
+
+    public static string DescriptionFor(int count)
+    {
+        if (count == 10)
+            return FullDescription;
+        var targets = TargetsFor(count);
+        return string.Join(" → ", targets.Select(target =>
+            $"{target.Count} {target.Difficulty}"));
+    }
 
     public static IReadOnlyList<QuizQuestion> Select(
         IEnumerable<QuizQuestion> questions,
@@ -74,8 +94,7 @@ public static class QuizDifficultyProgressionSelector
         Random? random = null)
     {
         ArgumentNullException.ThrowIfNull(questions);
-        if (count is not (1 or 10))
-            throw new ArgumentOutOfRangeException(nameof(count), "Difficulty progression supports one-question Shorts or ten-question full quizzes.");
+        var targets = TargetsFor(count);
 
         var pool = questions
             .Where(question => question.IsEnabled)
@@ -87,9 +106,6 @@ public static class QuizDifficultyProgressionSelector
 
         random ??= Random.Shared;
         recentlyUsedQuestionIds ??= new HashSet<int>();
-        IReadOnlyList<(QuizDifficulty Difficulty, int Count)> targets = count == 1
-            ? new[] { (Difficulty: QuizDifficulty.Easy, Count: 1) }
-            : FullTargets;
         var selected = new List<QuizQuestion>(count);
 
         foreach (var target in targets)
@@ -120,5 +136,18 @@ public static class QuizDifficultyProgressionSelector
             .ThenBy(item => item.Index)
             .Select(item => item.Question)
             .ToList();
+    }
+
+    private static IReadOnlyList<(QuizDifficulty Difficulty, int Count)> MarathonTargets(int count)
+    {
+        var standard = (int)Math.Round(count * 0.30, MidpointRounding.AwayFromZero);
+        var insane = count - (standard * 3);
+        return
+        [
+            (QuizDifficulty.Easy, standard),
+            (QuizDifficulty.Medium, standard),
+            (QuizDifficulty.Hard, standard),
+            (QuizDifficulty.Insane, insane),
+        ];
     }
 }
