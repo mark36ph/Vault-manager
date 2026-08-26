@@ -83,7 +83,7 @@ public static class QuizThumbnailIntelligence
     {
         ArgumentNullException.ThrowIfNull(question);
         var difficulty = QuizDifficultyCatalog.Parse(question.Difficulty);
-        var score = difficulty switch
+        double score = difficulty switch
         {
             QuizDifficulty.Insane => 100,
             QuizDifficulty.Hard => 58,
