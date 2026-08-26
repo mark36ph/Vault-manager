@@ -71,7 +71,7 @@ public static class QuizPromoShortPlanner
 public static class QuizPromoShortScript
 {
     public const string DefaultCallToAction =
-        "The next question is almost impossible. Tap the related video below and take the full Factburst Quiz test.";
+        "Think you can beat the full test? Tap the related video.";
 
     public static string Normalize(string? value)
     {
@@ -123,6 +123,9 @@ public sealed class QuizPromoShortRenderer
 {
     public const int Width = 1080;
     public const int Height = 1920;
+    public const double MinimumEndCardDuration = 4.5;
+    public const double MaximumEndCardDuration = 6.0;
+    public const double CallToActionTailPadding = 0.35;
 
     public async Task<QuizPromoShortResult> CreateAsync(
         string sourceVideo,
@@ -154,7 +157,7 @@ public sealed class QuizPromoShortRenderer
 
         var media = new NativeFfmpegTimelineService();
         var ctaDuration = await media.MediaDurationAsync(ctaAudio, cancellationToken);
-        var endCardDuration = Math.Clamp(ctaDuration + 0.6, 3.0, 10.0);
+        var endCardDuration = EndCardDurationFor(ctaDuration);
         var sourceDuration = await media.MediaDurationAsync(sourceVideo, cancellationToken);
         var plan = QuizPromoShortPlanner.Create(timeline, sourceDuration, endCardDuration);
 
@@ -189,12 +192,28 @@ public sealed class QuizPromoShortRenderer
         return
             "[0:v]setpts=PTS-STARTPTS,split=2[base][front];" +
             "[base]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:10[bg];" +
-            "[front]scale=1080:1920:force_original_aspect_ratio=decrease[fg];" +
+            "[front]crop=iw*0.9:ih:(iw-iw*0.9)/2:0,scale=1080:-2[fg];" +
             "[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1,fps=30,format=yuv420p[v0];" +
             $"[1:v]trim=duration={endDuration},setpts=PTS-STARTPTS,scale=1080:1920,setsar=1,fps=30,format=yuv420p[v1];" +
             bodyAudio +
             $"[2:a]atrim=duration={endDuration},asetpts=PTS-STARTPTS,apad=whole_dur={endDuration},aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a1];" +
             "[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]";
+    }
+
+    internal static double EndCardDurationFor(double callToActionDuration)
+    {
+        if (!double.IsFinite(callToActionDuration) || callToActionDuration <= 0)
+            throw new ArgumentOutOfRangeException(nameof(callToActionDuration));
+        if (callToActionDuration + CallToActionTailPadding > MaximumEndCardDuration)
+        {
+            throw new InvalidOperationException(
+                $"The Fable end-card narration is {callToActionDuration:0.0} seconds. " +
+                "Shorten the script so it fits within a six-second end card.");
+        }
+        return Math.Clamp(
+            callToActionDuration + CallToActionTailPadding,
+            MinimumEndCardDuration,
+            MaximumEndCardDuration);
     }
 
     private static async Task RenderVideoAsync(

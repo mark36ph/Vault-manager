@@ -51,7 +51,7 @@ public sealed class QuizPromoShortTests
 
         Assert.Contains("scale=1080:1920:force_original_aspect_ratio=increase", filter, StringComparison.Ordinal);
         Assert.Contains("crop=1080:1920", filter, StringComparison.Ordinal);
-        Assert.Contains("force_original_aspect_ratio=decrease", filter, StringComparison.Ordinal);
+        Assert.Contains("crop=iw*0.9:ih:(iw-iw*0.9)/2:0,scale=1080:-2", filter, StringComparison.Ordinal);
         Assert.Contains("[0:a]atrim=duration=12", filter, StringComparison.Ordinal);
         Assert.Contains("concat=n=2:v=1:a=1", filter, StringComparison.Ordinal);
     }
@@ -75,6 +75,24 @@ public sealed class QuizPromoShortTests
             QuizPromoShortScript.Normalize(""));
         Assert.Contains("related video", QuizPromoShortScript.DefaultCallToAction, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("welcome", QuizPromoShortScript.DefaultCallToAction, StringComparison.OrdinalIgnoreCase);
+        Assert.True(QuizPromoShortScript.DefaultCallToAction.Length < 70);
+    }
+
+    [Theory]
+    [InlineData(3.0, 4.5)]
+    [InlineData(5.2, 5.55)]
+    public void EndCardDuration_StaysWithinTheMobilePacingWindow(double narrationDuration, double expected)
+    {
+        Assert.Equal(expected, QuizPromoShortRenderer.EndCardDurationFor(narrationDuration), precision: 6);
+    }
+
+    [Fact]
+    public void EndCardDuration_RejectsNarrationThatWouldBeTrimmed()
+    {
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            QuizPromoShortRenderer.EndCardDurationFor(5.8));
+
+        Assert.Contains("six-second", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
