@@ -47,7 +47,7 @@ public static partial class QuizExportStaging
             if (renderFinalVideo)
             {
                 var finalRenderTimeline = QuizFinalRenderTimeline.Prepare(build.Timeline);
-                new NativeQuizFinalRenderer().Render(finalRenderTimeline, source);
+                new NativeQuizFinalRenderCoordinator().Render(finalRenderTimeline, source);
             }
             CopyDirectory(source, temporary);
             NativeResolvePortablePathRebaser.RebaseTree(temporary, source, destination);
