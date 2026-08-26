@@ -52,6 +52,7 @@ public static class QuizExportProjectFinalizer
 
         var quizJson = RebaseContainedPath(sourceRoot, destinationRoot, build.QuizJson);
         build.Timeline.Validate();
+        new NativeProjectTimelineStore(destinationRoot).Save(build.Timeline);
         return new QuizFinalizedProject(destinationRoot, quizJson);
     }
 
