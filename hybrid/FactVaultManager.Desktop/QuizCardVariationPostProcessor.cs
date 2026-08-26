@@ -33,9 +33,8 @@ public static class QuizCardVariationPostProcessor
         if (!QuizVisualVariationPlanner.Applies(options.Vertical, QuizTypeFor(questions)))
             return null;
 
-        var planned = QuizVisualVariationPlanner.ForQuestions(questions);
         var theme = ReadTheme(projectFolder);
-        var variation = planned with { ThemeKey = theme.Key };
+        var variation = QuizVisualVariationPlanner.ForTheme(theme.Key);
         if (timeline.Metadata.TryGetValue("quiz_visual_variation_applied", out var applied) && applied is true)
             return variation;
 
@@ -268,16 +267,16 @@ public static class QuizCardVariationPostProcessor
         theme.Key switch
         {
             "bright" => new QuizPalette(
-                A: Color.FromRgb(46, 211, 255),
-                B: Color.FromRgb(70, 130, 255),
-                C: Color.FromRgb(88, 188, 255),
-                D: Color.FromRgb(88, 226, 210),
-                Panel: Color.FromRgb(7, 27, 66),
-                Panel2: Color.FromRgb(9, 35, 80),
-                Inner: Color.FromRgb(5, 23, 61),
-                Timer: Color.FromRgb(24, 72, 123),
-                FramePrimary: Color.FromRgb(46, 211, 255),
-                FrameSecondary: Color.FromRgb(70, 130, 255)),
+                A: Color.FromRgb(35, 225, 255),
+                B: Color.FromRgb(54, 151, 255),
+                C: Color.FromRgb(90, 210, 255),
+                D: Color.FromRgb(67, 242, 210),
+                Panel: Color.FromRgb(5, 58, 78),
+                Panel2: Color.FromRgb(7, 72, 96),
+                Inner: Color.FromRgb(4, 47, 66),
+                Timer: Color.FromRgb(18, 107, 130),
+                FramePrimary: Color.FromRgb(35, 225, 255),
+                FrameSecondary: Color.FromRgb(67, 242, 210)),
             "game-show" => new QuizPalette(
                 A: Color.FromRgb(171, 93, 255),
                 B: Color.FromRgb(239, 87, 186),
