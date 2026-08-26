@@ -142,23 +142,25 @@ public static class QuizPacingTimelineRewriter
             .Where(pair => !string.IsNullOrWhiteSpace(pair.Clip.Source))
             .ToList();
 
-        (NativeTimelineTrack Track, NativeTimelineClip Clip)? selected = preferBefore
+        if (candidates.Count == 0)
+            throw new InvalidOperationException($"{scene.Title} has no video card available for pacing hold.");
+
+        var matching = preferBefore
             ? candidates
                 .Where(pair => pair.Clip.Start < boundary + Epsilon && pair.Clip.End <= boundary + Epsilon)
                 .OrderByDescending(pair => pair.Clip.Start)
-                .Cast<(NativeTimelineTrack Track, NativeTimelineClip Clip)?>()
-                .FirstOrDefault()
+                .ToList()
             : candidates
                 .Where(pair => pair.Clip.Start >= boundary - Epsilon)
                 .OrderBy(pair => pair.Clip.Start)
-                .Cast<(NativeTimelineTrack Track, NativeTimelineClip Clip)?>()
-                .FirstOrDefault();
+                .ToList();
 
-        selected ??= preferBefore
-            ? candidates.OrderByDescending(pair => pair.Clip.Start).Cast<(NativeTimelineTrack Track, NativeTimelineClip Clip)?>().FirstOrDefault()
-            : candidates.OrderBy(pair => pair.Clip.Start).Cast<(NativeTimelineTrack Track, NativeTimelineClip Clip)?>().FirstOrDefault();
+        if (matching.Count > 0)
+            return matching[0];
 
-        return selected ?? throw new InvalidOperationException($"{scene.Title} has no video card available for pacing hold.");
+        return preferBefore
+            ? candidates.OrderByDescending(pair => pair.Clip.Start).First()
+            : candidates.OrderBy(pair => pair.Clip.Start).First();
     }
 
     private static double SceneNarrationSeconds(NativeTimelineScene scene)
