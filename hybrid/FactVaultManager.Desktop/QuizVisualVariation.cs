@@ -75,6 +75,36 @@ public static class QuizVisualVariationPlanner
     public static bool Applies(bool vertical, string? quizType) =>
         !vertical && QuizTypeCatalog.Normalize(quizType) == QuizTypeCatalog.Standard;
 
+    public static QuizVisualVariation ForTheme(string? themeKey)
+    {
+        var normalizedTheme = QuizVisualThemeCatalog.Normalize(themeKey);
+        return ApprovedLooks.FirstOrDefault(look =>
+                   string.Equals(look.ThemeKey, normalizedTheme, StringComparison.OrdinalIgnoreCase))
+               ?? ApprovedLooks[0];
+    }
+
+    public static QuizVisualVariation NextAfter(QuizVisualVariation? previous)
+    {
+        if (previous is null)
+            return ApprovedLooks[0];
+
+        var currentIndex = -1;
+        for (var index = 0; index < ApprovedLooks.Count; index++)
+        {
+            if (!string.Equals(
+                    ApprovedLooks[index].ThemeKey,
+                    previous.ThemeKey,
+                    StringComparison.OrdinalIgnoreCase))
+                continue;
+            currentIndex = index;
+            break;
+        }
+
+        return currentIndex < 0
+            ? ApprovedLooks[0]
+            : ApprovedLooks[(currentIndex + 1) % ApprovedLooks.Count];
+    }
+
     public static QuizVisualVariation ForQuestions(IReadOnlyList<QuizQuestion> questions)
     {
         ArgumentNullException.ThrowIfNull(questions);

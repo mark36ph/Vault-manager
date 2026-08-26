@@ -11,6 +11,7 @@ public partial class MainShellWindow
     private static readonly bool QuizVisualVariationEventsRegistered = RegisterQuizVisualVariationEvents();
     private BitmapSource? _quizVisualVariationBasePreview;
     private BitmapSource? _quizVisualVariationAppliedPreview;
+    private QuizVisualVariation? _quizLastAutomaticVisualVariation;
 
     private static bool RegisterQuizVisualVariationEvents()
     {
@@ -95,7 +96,8 @@ public partial class MainShellWindow
             return;
         }
 
-        var variation = QuizVisualVariationPlanner.ForQuestions(_quizDraftQuestions);
+        var variation = QuizVisualVariationPlanner.NextAfter(_quizLastAutomaticVisualVariation);
+        _quizLastAutomaticVisualVariation = variation;
         if (_quizThemeComboBox is not null)
             _quizThemeComboBox.SelectedItem = QuizVisualThemeCatalog.Resolve(variation.ThemeKey).DisplayName;
 
