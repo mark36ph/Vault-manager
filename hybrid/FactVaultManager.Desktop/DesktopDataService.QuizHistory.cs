@@ -90,6 +90,7 @@ public sealed record QuizHistorySummary(
         }
     }
     public string UploadJournalDisplay { get; init; } = "No activity";
+    public string PromoShortDisplay { get; init; } = "Not created";
 
     private static DateTimeOffset? FutureSchedule(string value) =>
         DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var scheduled) &&
