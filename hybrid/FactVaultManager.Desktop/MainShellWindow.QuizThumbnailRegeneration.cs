@@ -11,24 +11,20 @@ public partial class MainShellWindow
 {
     private bool _uploadManagerThumbnailActionsInitialized;
 
-    internal void InitializeUploadManagerThumbnailRegenerationActions()
+    internal bool InitializeUploadManagerThumbnailRegenerationActions()
     {
         if (_uploadManagerThumbnailActionsInitialized)
-            return;
+            return true;
 
         InitializeUploadManagerPage();
         if (_uploadManagerTabIndex < 0 ||
             _uploadManagerTabIndex >= MainTabs.Items.Count ||
             MainTabs.Items[_uploadManagerTabIndex] is not TabItem { Content: DependencyObject root })
-            return;
+            return false;
 
-        var anchor = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(
-                Convert.ToString(button.Content),
-                "Retry Failed Step",
-                StringComparison.Ordinal));
+        var anchor = FindLogicalButton(root, "Retry Failed Step");
         if (anchor?.Parent is not WrapPanel actions)
-            return;
+            return false;
 
         var regenerate = new Button
         {
@@ -61,6 +57,27 @@ public partial class MainShellWindow
         actions.Children.Insert(insertionIndex, regenerate);
         actions.Children.Insert(insertionIndex + 1, regenerateAll);
         _uploadManagerThumbnailActionsInitialized = true;
+        return true;
+    }
+
+    private static Button? FindLogicalButton(DependencyObject root, string content)
+    {
+        if (root is Button button &&
+            string.Equals(Convert.ToString(button.Content), content, StringComparison.Ordinal))
+        {
+            return button;
+        }
+
+        foreach (var child in LogicalTreeHelper.GetChildren(root))
+        {
+            if (child is DependencyObject dependencyObject &&
+                FindLogicalButton(dependencyObject, content) is { } found)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     private void RegenerateSelectedQuizThumbnail(QuizHistorySummary history)
