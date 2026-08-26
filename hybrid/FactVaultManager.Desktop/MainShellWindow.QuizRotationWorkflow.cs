@@ -174,6 +174,7 @@ public partial class MainShellWindow
                 .ToList();
             _quizSecondsPerQuestion = seconds;
             RefreshQuizDraftEditorGrid(_quizDraftQuestions.FirstOrDefault()?.Id);
+            ApplyAutomaticQuizVisualVariationForDraft();
 
             var recentFallbacks = QuizRotationSelector.CountRecentFallbacks(_quizDraftQuestions, recentIds);
             var selectionMode = preferLeastUsed ? "least-used first" : "random";
@@ -192,8 +193,13 @@ public partial class MainShellWindow
                 var marathonStatus = marathon
                     ? $"{QuizMarathonPlanner.ThemeDisplayName(category)} marathon • "
                     : "";
+                var visualStatus = QuizVisualVariationPlanner.Applies(
+                    _quizFormatComboBox?.SelectedIndex == 1,
+                    IsLogoQuizSelected() ? QuizTypeCatalog.Logo : QuizTypeCatalog.Standard)
+                    ? $" • look: {CurrentQuizVisualVariationDisplay()}"
+                    : "";
                 _quizDraftStatusText.Text =
-                    $"{marathonStatus}{count} enabled {(IsLogoQuizSelected() ? "logo " : "")}questions • {selectionMode}{progression} • {recentStatus} • {seconds} sec/question • {thinkingSeconds / 60}:{thinkingSeconds % 60:00} answer time.";
+                    $"{marathonStatus}{count} enabled {(IsLogoQuizSelected() ? "logo " : "")}questions • {selectionMode}{progression}{visualStatus} • {recentStatus} • {seconds} sec/question • {thinkingSeconds / 60}:{thinkingSeconds % 60:00} answer time.";
             }
             if (_quizPageStatusText is not null)
                 _quizPageStatusText.Text = marathon
