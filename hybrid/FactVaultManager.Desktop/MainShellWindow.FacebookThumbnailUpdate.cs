@@ -39,6 +39,7 @@ public partial class MainShellWindow
         if (toolsButton is null)
             return;
 
+        AppendYouTubeBulkThumbnailAction(toolsButton);
         AddUploadManagerMenuSeparator(toolsButton);
         AddUploadManagerMenuItem(toolsButton, "Update Facebook Reel Cover", async (_, _) =>
         {
