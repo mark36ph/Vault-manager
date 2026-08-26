@@ -16,7 +16,10 @@ public static class QuizVisualExportRewriter
         options.Validate();
         build.Timeline.Validate();
 
-        QuizOpeningSequence.RenderAndApply(build.Timeline, build.ProjectFolder, options);
+        if (options.Vertical)
+            QuizOpeningSequence.RenderAndApply(build.Timeline, build.ProjectFolder, options);
+        else
+            QuizLongFormZeroIntro.RenderAndApply(build.Timeline, build.ProjectFolder, options);
         QuizFullCountdownRewriter.Apply(build.Timeline, questions, build.ProjectFolder, options);
         QuizTimelineEndTrimmer.TrimToVideoEnd(build.Timeline);
         QuizAnimatedBackground.RenderAndApply(build.Timeline, build.ProjectFolder);
