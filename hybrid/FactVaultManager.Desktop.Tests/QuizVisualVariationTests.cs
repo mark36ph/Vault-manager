@@ -36,6 +36,35 @@ public sealed class QuizVisualVariationTests
         Assert.True(looks.Select(look => look.DisplayName).Distinct(StringComparer.Ordinal).Count() > 1);
     }
 
+    [Fact]
+    public void NextAfter_GuaranteesAVisibleThemeChangeForConsecutiveDrafts()
+    {
+        var first = QuizVisualVariationPlanner.NextAfter(null);
+        var second = QuizVisualVariationPlanner.NextAfter(first);
+        var third = QuizVisualVariationPlanner.NextAfter(second);
+        var fourth = QuizVisualVariationPlanner.NextAfter(third);
+
+        Assert.Equal("dark", first.ThemeKey);
+        Assert.Equal("bright", second.ThemeKey);
+        Assert.Equal("game-show", third.ThemeKey);
+        Assert.Equal("dark", fourth.ThemeKey);
+        Assert.NotEqual(first.ThemeKey, second.ThemeKey);
+        Assert.NotEqual(second.ThemeKey, third.ThemeKey);
+        Assert.NotEqual(third.ThemeKey, fourth.ThemeKey);
+    }
+
+    [Theory]
+    [InlineData("dark", "clean-frame")]
+    [InlineData("bright", "corner-glow")]
+    [InlineData("game-show", "stage-accent")]
+    public void ForTheme_ResolvesTheApprovedThemeLook(string themeKey, string expectedLayout)
+    {
+        var variation = QuizVisualVariationPlanner.ForTheme(themeKey);
+
+        Assert.Equal(themeKey, variation.ThemeKey);
+        Assert.Equal(expectedLayout, variation.LayoutKey);
+    }
+
     [Theory]
     [InlineData(false, QuizTypeCatalog.Standard, true)]
     [InlineData(true, QuizTypeCatalog.Standard, false)]
