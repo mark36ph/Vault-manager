@@ -21,6 +21,7 @@ public static class QuizVisualExportRewriter
         else
             QuizLongFormZeroIntro.RenderAndApply(build.Timeline, build.ProjectFolder, options);
         QuizFullCountdownRewriter.Apply(build.Timeline, questions, build.ProjectFolder, options);
+        QuizMarathonVisualOverlay.Apply(build.Timeline, questions, build.ProjectFolder);
         QuizTimelineEndTrimmer.TrimToVideoEnd(build.Timeline);
         QuizAnimatedBackground.RenderAndApply(build.Timeline, build.ProjectFolder);
         var finalized = QuizExportProjectFinalizer.Prepare(build);
