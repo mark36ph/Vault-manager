@@ -257,11 +257,35 @@ public partial class MainShellWindow
             Margin = new Thickness(0, 3, 0, 0),
         });
         header.Children.Add(heading);
-        var refresh = new Button { Content = "Refresh tracker", MinWidth = 136, MinHeight = 36, VerticalAlignment = VerticalAlignment.Bottom };
+
+        var headerActions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Bottom,
+        };
+        var backfill = new Button
+        {
+            Content = "Backfill existing promos",
+            MinWidth = 170,
+            MinHeight = 36,
+            ToolTip = "Create tracking campaigns for already-published promos and replace their old full-quiz links without re-uploading media.",
+        };
+        StyleQuizHistoryButton(backfill, Color.FromRgb(255, 202, 45));
+        backfill.Click += async (_, _) => await BackfillExistingPromosAsync(backfill);
+        headerActions.Children.Add(backfill);
+
+        var refresh = new Button
+        {
+            Content = "Refresh tracker",
+            MinWidth = 136,
+            MinHeight = 36,
+            Margin = new Thickness(8, 0, 0, 0),
+        };
         StyleQuizHistoryButton(refresh, Color.FromRgb(0, 204, 255));
         refresh.Click += async (_, _) => await RefreshFunnelPerformanceAsync(true);
-        Grid.SetColumn(refresh, 1);
-        header.Children.Add(refresh);
+        headerActions.Children.Add(refresh);
+        Grid.SetColumn(headerActions, 1);
+        header.Children.Add(headerActions);
         root.Children.Add(header);
 
         var stats = new Grid { Margin = new Thickness(0, 0, 0, 14) };
