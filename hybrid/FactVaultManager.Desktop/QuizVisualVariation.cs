@@ -1,18 +1,16 @@
 namespace FactVaultManager.Desktop;
 
-public enum QuizCardRailSide
+public enum QuizCardFrameStyle
 {
-    None,
-    Left,
-    Right,
+    CleanFrame,
+    CornerGlow,
+    StageAccent,
 }
 
 public sealed record QuizCardLayoutProfile(
     string Key,
     string DisplayName,
-    double CardScale,
-    QuizCardRailSide RailSide,
-    double RailWidth,
+    QuizCardFrameStyle FrameStyle,
     double EdgeInset);
 
 public static class QuizCardLayoutCatalog
@@ -20,25 +18,19 @@ public static class QuizCardLayoutCatalog
     private static readonly IReadOnlyList<QuizCardLayoutProfile> Layouts =
     [
         new(
-            "classic-frame",
-            "Classic Frame",
-            CardScale: 1.0,
-            RailSide: QuizCardRailSide.None,
-            RailWidth: 0,
-            EdgeInset: 18),
+            "clean-frame",
+            "Clean Frame",
+            QuizCardFrameStyle.CleanFrame,
+            EdgeInset: 22),
         new(
-            "left-rail",
-            "Left Rail",
-            CardScale: 0.93,
-            RailSide: QuizCardRailSide.Left,
-            RailWidth: 94,
+            "corner-glow",
+            "Corner Glow",
+            QuizCardFrameStyle.CornerGlow,
             EdgeInset: 24),
         new(
-            "right-rail",
-            "Right Rail",
-            CardScale: 0.93,
-            RailSide: QuizCardRailSide.Right,
-            RailWidth: 94,
+            "stage-accent",
+            "Stage Accent",
+            QuizCardFrameStyle.StageAccent,
             EdgeInset: 24),
     ];
 
@@ -67,11 +59,18 @@ public static class QuizVisualVariationPlanner
     private const ulong FnvOffset = 14695981039346656037UL;
     private const ulong FnvPrime = 1099511628211UL;
 
+    private static readonly IReadOnlyList<QuizVisualVariation> ApprovedLooks =
+    [
+        new("dark", "clean-frame"),
+        new("bright", "corner-glow"),
+        new("game-show", "stage-accent"),
+    ];
+
     public static IReadOnlyList<string> AutomaticThemeKeys { get; } =
-        ["dark", "bright", "game-show"];
+        ApprovedLooks.Select(look => look.ThemeKey).ToArray();
 
     public static IReadOnlyList<string> AutomaticLayoutKeys { get; } =
-        ["classic-frame", "left-rail", "right-rail"];
+        ApprovedLooks.Select(look => look.LayoutKey).ToArray();
 
     public static bool Applies(bool vertical, string? quizType) =>
         !vertical && QuizTypeCatalog.Normalize(quizType) == QuizTypeCatalog.Standard;
@@ -80,7 +79,7 @@ public static class QuizVisualVariationPlanner
     {
         ArgumentNullException.ThrowIfNull(questions);
         if (questions.Count == 0)
-            return new QuizVisualVariation(AutomaticThemeKeys[0], AutomaticLayoutKeys[0]);
+            return ApprovedLooks[0];
 
         var hash = FnvOffset;
         foreach (var question in questions)
@@ -92,11 +91,7 @@ public static class QuizVisualVariationPlanner
         }
         Hash(ref hash, questions.Count);
 
-        var themeIndex = (int)(hash % (ulong)AutomaticThemeKeys.Count);
-        var layoutIndex = (int)((hash / (ulong)AutomaticThemeKeys.Count) % (ulong)AutomaticLayoutKeys.Count);
-        return new QuizVisualVariation(
-            AutomaticThemeKeys[themeIndex],
-            AutomaticLayoutKeys[layoutIndex]);
+        return ApprovedLooks[(int)(hash % (ulong)ApprovedLooks.Count)];
     }
 
     private static void Hash(ref ulong hash, int value)
