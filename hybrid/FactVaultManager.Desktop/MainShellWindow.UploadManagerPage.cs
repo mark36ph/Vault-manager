@@ -147,7 +147,7 @@ public partial class MainShellWindow
         {
             Header = "Promo Short",
             Binding = new Binding(nameof(QuizHistorySummary.PromoShortDisplay)),
-            Width = new DataGridLength(105),
+            Width = new DataGridLength(120),
         });
         var table = new Border
         {
@@ -340,9 +340,7 @@ public partial class MainShellWindow
                     : "No activity",
                 PromoShortDisplay = string.Equals(item.VideoType, "Short", StringComparison.Ordinal)
                     ? "N/A"
-                    : QuizPromoShortPaths.FindExisting(item.ProjectFolder) is null
-                        ? "Not created"
-                        : QuizPromoShortPublicationStore.LoadYouTube(item.ProjectFolder) is null ? "Ready" : "Uploaded",
+                    : QuizPromoShortUploadState.Display(item.ProjectFolder),
             })
             .ToList();
         _uploadManagerGrid.ItemsSource = history;
