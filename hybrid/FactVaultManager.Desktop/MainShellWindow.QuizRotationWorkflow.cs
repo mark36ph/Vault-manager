@@ -33,7 +33,7 @@ public partial class MainShellWindow
         pickButton.Click -= PickRandomQuizQuestions_Click;
         pickButton.Click += PickSmartQuizQuestions_Click;
         pickButton.Content = "Build quiz draft";
-        pickButton.ToolTip = "Build a draft using the rotation options below.";
+        pickButton.ToolTip = "Build a draft using the rotation options below. Marathon modes support Space, Technology, or All categories for a combined theme.";
 
         if (settings.RowDefinitions.Count == 0)
         {
@@ -120,23 +120,57 @@ public partial class MainShellWindow
                 }
             }
 
-            var matching = _data.GetQuizQuestions(
-                category: SelectedQuizCategory(),
-                difficulty: SelectedQuizDifficulty(),
-                limit: 10_000,
-                enabledOnly: true,
-                imageOnly: IsLogoQuizSelected(),
-                excludeCategory: QuizTypeCatalog.ExcludedRandomCategory(SelectedQuizCategory()));
+            var category = SelectedQuizCategory();
+            var difficulty = SelectedQuizDifficulty();
+            var preset = _quizModeComboBox?.SelectedItem as QuizBuilderModePreset;
+            var marathon = QuizMarathonPlanner.IsMarathonPreset(preset);
+            if (marathon && !QuizMarathonPlanner.IsSupportedQuestionCount(count))
+                throw new InvalidOperationException("Marathon Mode uses 30, 50, or 100 questions. Re-select the marathon preset to restore its question count.");
+            if (marathon && !string.IsNullOrWhiteSpace(difficulty))
+                throw new InvalidOperationException("Marathon Mode requires All difficulties so it can progress from Easy through Insane.");
+            if (marathon && !QuizMarathonPlanner.IsSupportedTheme(category))
+                throw new InvalidOperationException("Marathon Mode currently supports Space, Technology, or All categories for a combined Space + Technology marathon.");
+
+            IReadOnlyList<QuizQuestion> matching;
+            if (marathon && string.IsNullOrWhiteSpace(category))
+            {
+                matching = _data.GetQuizQuestions(
+                        category: "Space",
+                        difficulty: "",
+                        limit: 10_000,
+                        enabledOnly: true)
+                    .Concat(_data.GetQuizQuestions(
+                        category: "Technology",
+                        difficulty: "",
+                        limit: 10_000,
+                        enabledOnly: true))
+                    .GroupBy(question => question.Id)
+                    .Select(group => group.First())
+                    .ToList();
+            }
+            else
+            {
+                matching = _data.GetQuizQuestions(
+                    category: category,
+                    difficulty: difficulty,
+                    limit: 10_000,
+                    enabledOnly: true,
+                    imageOnly: IsLogoQuizSelected(),
+                    excludeCategory: QuizTypeCatalog.ExcludedRandomCategory(category));
+            }
+
             var recentIds = avoidRecent
                 ? _data.GetRecentQuizQuestionIds(recentQuizCount)
                 : new HashSet<int>();
 
-            var difficulty = SelectedQuizDifficulty();
-            _quizDraftQuestions = (QuizDifficultyProgressionSelector.Applies(count, difficulty)
-                    ? QuizDifficultyProgressionSelector.Select(
-                        matching, count, preferLeastUsed, recentIds)
-                    : QuizRotationSelector.Select(
-                        matching, count, preferLeastUsed, recentIds))
+            _quizDraftQuestions = (marathon
+                    ? QuizMarathonPlanner.Select(
+                        matching, count, category, preferLeastUsed, recentIds)
+                    : QuizDifficultyProgressionSelector.Applies(count, difficulty)
+                        ? QuizDifficultyProgressionSelector.Select(
+                            matching, count, preferLeastUsed, recentIds)
+                        : QuizRotationSelector.Select(
+                            matching, count, preferLeastUsed, recentIds))
                 .ToList();
             _quizSecondsPerQuestion = seconds;
             RefreshQuizDraftEditorGrid(_quizDraftQuestions.FirstOrDefault()?.Id);
@@ -152,14 +186,19 @@ public partial class MainShellWindow
             if (_quizDraftStatusText is not null)
             {
                 var thinkingSeconds = count * seconds;
-                var progression = count == 10 && QuizDifficultyProgressionSelector.Applies(count, difficulty)
-                    ? $" • {QuizDifficultyProgressionSelector.FullDescription}"
+                var progression = QuizDifficultyProgressionSelector.Applies(count, difficulty)
+                    ? $" • {QuizDifficultyProgressionSelector.DescriptionFor(count)}"
+                    : "";
+                var marathonStatus = marathon
+                    ? $"{QuizMarathonPlanner.ThemeDisplayName(category)} marathon • "
                     : "";
                 _quizDraftStatusText.Text =
-                    $"{count} enabled {(IsLogoQuizSelected() ? "logo " : "")}questions • {selectionMode}{progression} • {recentStatus} • {seconds} sec/question • {thinkingSeconds / 60}:{thinkingSeconds % 60:00} answer time.";
+                    $"{marathonStatus}{count} enabled {(IsLogoQuizSelected() ? "logo " : "")}questions • {selectionMode}{progression} • {recentStatus} • {seconds} sec/question • {thinkingSeconds / 60}:{thinkingSeconds % 60:00} answer time.";
             }
             if (_quizPageStatusText is not null)
-                _quizPageStatusText.Text = "Quiz draft built with rotation rules";
+                _quizPageStatusText.Text = marathon
+                    ? $"{QuizMarathonPlanner.ThemeDisplayName(category)} marathon draft built"
+                    : "Quiz draft built with rotation rules";
             SelectQuizWorkspacePage("draft");
         }
         catch (Exception error)
