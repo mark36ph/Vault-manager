@@ -49,6 +49,35 @@ public sealed class NativeQuizAudioProductionTests
     }
 
     [Fact]
+    public async Task SpeechProvider_PromoHookUsesFableAndCachesTheAudio()
+    {
+        var root = NewTempFolder();
+        try
+        {
+            var handler = new SpeechRequestHandler();
+            using var provider = new NativeQuizSpeechProvider(
+                "test-key",
+                voice: "fable",
+                client: new HttpClient(handler));
+
+            var firstPath = await provider.GeneratePromoCallToActionAsync(
+                QuizPromoShortScript.DefaultCallToAction, root);
+            var secondPath = await provider.GeneratePromoCallToActionAsync(
+                QuizPromoShortScript.DefaultCallToAction, root);
+
+            Assert.Equal(firstPath, secondPath);
+            Assert.StartsWith("promo_cta_fable_", Path.GetFileName(firstPath), StringComparison.Ordinal);
+            Assert.Single(handler.RequestBodies);
+            Assert.Contains("\"voice\":\"fable\"", handler.RequestBodies[0], StringComparison.Ordinal);
+            Assert.Contains("related video", handler.RequestBodies[0], StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void CountdownTick_WritesPcmWave()
     {
         var root = NewTempFolder();

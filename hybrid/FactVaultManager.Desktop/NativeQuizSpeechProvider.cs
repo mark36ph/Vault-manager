@@ -67,11 +67,32 @@ public sealed class NativeQuizSpeechProvider : IDisposable
         Directory.CreateDirectory(voiceFolder);
 
         var input = QuizNarrationScript.Create(question, includeAnswers);
+        return await GenerateAsync(input, "narration", voiceFolder, cancellationToken);
+    }
+
+    public Task<string> GeneratePromoCallToActionAsync(
+        string callToAction,
+        string voiceFolder,
+        CancellationToken cancellationToken = default)
+    {
+        var input = QuizPromoShortScript.Normalize(callToAction);
+        voiceFolder = Required(voiceFolder, "voice folder");
+        voiceFolder = Path.GetFullPath(voiceFolder);
+        Directory.CreateDirectory(voiceFolder);
+        return GenerateAsync(input, "promo_cta", voiceFolder, cancellationToken);
+    }
+
+    private async Task<string> GenerateAsync(
+        string input,
+        string prefix,
+        string voiceFolder,
+        CancellationToken cancellationToken)
+    {
         var identity = $"{_model}\n{_voice}\n{input}";
         var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))
             .ToLowerInvariant()[..16];
-        var destination = Path.Combine(voiceFolder, $"narration_{_voice}_{digest}.mp3");
-        var scriptCopy = Path.Combine(voiceFolder, $"narration_{_voice}_{digest}.txt");
+        var destination = Path.Combine(voiceFolder, $"{prefix}_{_voice}_{digest}.mp3");
+        var scriptCopy = Path.Combine(voiceFolder, $"{prefix}_{_voice}_{digest}.txt");
 
         if (File.Exists(destination) && new FileInfo(destination).Length > 0)
             return destination;

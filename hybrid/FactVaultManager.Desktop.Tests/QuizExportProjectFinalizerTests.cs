@@ -49,6 +49,8 @@ public sealed class QuizExportProjectFinalizerTests
             Assert.Matches("^quizcard_[a-z]{12}\\.png$", Path.GetFileName(imageSource));
             Assert.DoesNotMatch("[0-9]", Path.GetFileNameWithoutExtension(imageSource));
             Assert.True(File.Exists(imageSource));
+            var savedTimeline = new NativeProjectTimelineStore(finalized.ProjectFolder).Load();
+            Assert.Equal(imageSource, savedTimeline.Tracks.Single().Clips.Single().Source);
         }
         finally
         {

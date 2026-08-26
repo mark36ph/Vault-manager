@@ -143,6 +143,12 @@ public partial class MainShellWindow
             Binding = new Binding(nameof(QuizHistorySummary.UploadJournalDisplay)),
             Width = new DataGridLength(250),
         });
+        _uploadManagerGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Promo Short",
+            Binding = new Binding(nameof(QuizHistorySummary.PromoShortDisplay)),
+            Width = new DataGridLength(105),
+        });
         var table = new Border
         {
             Background = new SolidColorBrush(Color.FromRgb(8, 14, 62)),
@@ -154,7 +160,7 @@ public partial class MainShellWindow
         Grid.SetRow(table, 2);
         root.Children.Add(table);
 
-        var actions = new StackPanel
+        var actions = new WrapPanel
         {
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,
@@ -186,6 +192,16 @@ public partial class MainShellWindow
                 MessageBox.Show(this, "Select a quiz first.", "Retry Failed Step", MessageBoxButton.OK, MessageBoxImage.Information);
         };
         actions.Children.Add(retryFailed);
+        var promoShort = new Button { Content = "Create Promo Short", MinWidth = 126, Margin = new Thickness(8, 0, 0, 0) };
+        StyleQuizHistoryButton(promoShort, Color.FromRgb(204, 70, 255));
+        promoShort.Click += (_, _) =>
+        {
+            if (_uploadManagerGrid.SelectedItem is QuizHistorySummary history)
+                ShowQuizPromoShortDialog(history);
+            else
+                MessageBox.Show(this, "Select a long-form quiz first.", "Create Promo Short", MessageBoxButton.OK, MessageBoxImage.Information);
+        };
+        actions.Children.Add(promoShort);
         var upload = new Button { Content = "Upload Selected", MinWidth = 118, Margin = new Thickness(8, 0, 0, 0) };
         StyleQuizHistoryButton(upload, Color.FromRgb(70, 235, 115));
         upload.Click += (_, _) =>
@@ -312,6 +328,9 @@ public partial class MainShellWindow
                 UploadJournalDisplay = journal.TryGetValue(item.Id, out var entries)
                     ? SocialUploadJournalSummary.Display(entries)
                     : "No activity",
+                PromoShortDisplay = string.Equals(item.VideoType, "Short", StringComparison.Ordinal)
+                    ? "N/A"
+                    : QuizPromoShortPaths.FindExisting(item.ProjectFolder) is null ? "Not created" : "Ready",
             })
             .ToList();
         _uploadManagerGrid.ItemsSource = history;
