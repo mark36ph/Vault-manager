@@ -63,7 +63,7 @@ public partial class MainShellWindow
 
         var findIcons = new Button
         {
-            Content = "Find icon images",
+            Content = "Find logo images",
             Tag = "QuizBulkAction",
             ToolTip = "Download matching Simple Icons images for selected Logos questions that do not have an image.",
             Margin = new Thickness(0, 0, 8, 0),
@@ -103,7 +103,7 @@ public partial class MainShellWindow
             MessageBox.Show(
                 this,
                 "Select one or more Logos questions that do not yet have an image.",
-                "Find Icon Images",
+                "Find Logo Images",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             return;
@@ -127,7 +127,7 @@ public partial class MainShellWindow
             foreach (var question in questions)
             {
                 if (_quizPageStatusText is not null)
-                    _quizPageStatusText.Text = $"Finding icon {downloaded + missing.Count + failed.Count + 1:N0}/{questions.Count:N0}: {question.CorrectAnswer}";
+                    _quizPageStatusText.Text = $"Finding logo {downloaded + missing.Count + failed.Count + 1:N0}/{questions.Count:N0}: {question.CorrectAnswer}";
                 try
                 {
                     var result = await SimpleIconsService.DownloadPngAsync(question.CorrectAnswer, colourMode.Value);
@@ -162,7 +162,7 @@ public partial class MainShellWindow
             RefreshQuizCategorySection();
             RestoreQuizBulkSelection(selectedIds);
 
-            var summary = $"Attached {downloaded:N0} icon image{(downloaded == 1 ? "" : "s")}.";
+            var summary = $"Attached {downloaded:N0} logo image{(downloaded == 1 ? "" : "s")}.";
             if (missing.Count > 0)
                 summary += $"\n\nNot available from Simple Icons ({missing.Count:N0}):\n" + string.Join("\n", missing.Distinct(StringComparer.OrdinalIgnoreCase).Take(15));
             if (failed.Count > 0)
@@ -173,11 +173,11 @@ public partial class MainShellWindow
             MessageBox.Show(
                 this,
                 summary,
-                "Find Icon Images",
+                "Find Logo Images",
                 MessageBoxButton.OK,
                 missing.Count == 0 && failed.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
             if (_quizPageStatusText is not null)
-                _quizPageStatusText.Text = $"Attached {downloaded:N0} Simple Icons image{(downloaded == 1 ? "" : "s")}";
+                _quizPageStatusText.Text = $"Attached {downloaded:N0} logo image{(downloaded == 1 ? "" : "s")}";
         }
         finally
         {
@@ -195,7 +195,7 @@ public partial class MainShellWindow
         var panel = new StackPanel { Margin = new Thickness(20) };
         panel.Children.Add(new TextBlock
         {
-            Text = $"Choose the colour style for {questionCount:N0} icon image{(questionCount == 1 ? "" : "s")}:",
+            Text = $"Choose the colour style for {questionCount:N0} logo image{(questionCount == 1 ? "" : "s")}:",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 10),
         });
@@ -222,7 +222,7 @@ public partial class MainShellWindow
         var dialog = new Window
         {
             Owner = this,
-            Title = "Find Icon Images",
+            Title = "Find Logo Images",
             Width = 460,
             Height = 245,
             ResizeMode = ResizeMode.NoResize,
