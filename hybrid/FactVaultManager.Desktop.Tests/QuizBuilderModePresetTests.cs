@@ -12,6 +12,22 @@ public sealed class QuizBuilderModePresetTests
         Assert.Equal(8, preset.SecondsPerQuestion);
         Assert.False(preset.Vertical);
         Assert.Null(preset.Difficulty);
+        Assert.False(preset.IsMarathon);
+    }
+
+    [Theory]
+    [InlineData("Marathon 30", 30)]
+    [InlineData("Marathon 50", 50)]
+    [InlineData("Marathon 100", 100)]
+    public void Marathon_UsesProgressiveLandscapeDefaults(string name, int count)
+    {
+        var preset = QuizBuilderModePresets.All.Single(item => item.Name == name);
+
+        Assert.Equal(count, preset.QuestionCount);
+        Assert.Equal(8, preset.SecondsPerQuestion);
+        Assert.False(preset.Vertical);
+        Assert.Null(preset.Difficulty);
+        Assert.True(preset.IsMarathon);
     }
 
     [Fact]
@@ -24,5 +40,6 @@ public sealed class QuizBuilderModePresetTests
         Assert.Equal(3, preset.SecondsPerQuestion);
         Assert.True(preset.Vertical);
         Assert.Equal("easy", preset.Difficulty);
+        Assert.False(preset.IsMarathon);
     }
 }
