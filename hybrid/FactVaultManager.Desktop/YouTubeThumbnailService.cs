@@ -25,7 +25,9 @@ public static class YouTubeVideoReference
             var first = PathSegment(uri.AbsolutePath, 0);
             if (string.Equals(first, "watch", StringComparison.OrdinalIgnoreCase))
                 candidate = QueryValue(uri.Query, "v");
-            else if (first is "shorts" or "embed" or "live")
+            else if (string.Equals(first, "shorts", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(first, "embed", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(first, "live", StringComparison.OrdinalIgnoreCase))
                 candidate = PathSegment(uri.AbsolutePath, 1);
         }
 
@@ -33,6 +35,13 @@ public static class YouTubeVideoReference
         if (!IsValidVideoId(candidate))
             throw new ArgumentException("The saved YouTube URL does not contain a valid video ID.", nameof(value));
         return candidate;
+    }
+
+    public static bool IsValidVideoId(string? value)
+    {
+        var text = (value ?? "").Trim();
+        return text.Length is > 0 and <= 128 &&
+               text.All(character => char.IsLetterOrDigit(character) || character is '-' or '_');
     }
 
     private static string PathSegment(string path, int index)
@@ -53,10 +62,6 @@ public static class YouTubeVideoReference
         }
         return "";
     }
-
-    private static bool IsValidVideoId(string value) =>
-        value.Length is > 0 and <= 128 &&
-        value.All(character => char.IsLetterOrDigit(character) || character is '-' or '_');
 }
 
 public sealed class YouTubeThumbnailService
@@ -77,10 +82,13 @@ public sealed class YouTubeThumbnailService
         if (string.IsNullOrWhiteSpace(accessToken))
             throw new InvalidOperationException("Connect YouTube in Settings first.");
         videoId = (videoId ?? "").Trim();
-        if (videoId.Length == 0)
-            throw new ArgumentException("The YouTube video ID is missing.", nameof(videoId));
+        if (!YouTubeVideoReference.IsValidVideoId(videoId))
+            throw new ArgumentException("The YouTube video ID is invalid.", nameof(videoId));
 
-        var path = Path.GetFullPath((thumbnailPath ?? "").Trim());
+        var requestedPath = (thumbnailPath ?? "").Trim();
+        if (requestedPath.Length == 0)
+            throw new FileNotFoundException("Thumbnail.png was not found. Regenerate the thumbnail first.");
+        var path = Path.GetFullPath(requestedPath);
         if (!File.Exists(path))
             throw new FileNotFoundException("Thumbnail.png was not found. Regenerate the thumbnail first.", path);
 
@@ -113,7 +121,9 @@ public sealed class YouTubeThumbnailService
         if (response.IsSuccessStatusCode)
             return;
 
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        var body = response.Content is null
+            ? ""
+            : await response.Content.ReadAsStringAsync(cancellationToken);
         var message = "YouTube thumbnail update failed";
         try
         {
