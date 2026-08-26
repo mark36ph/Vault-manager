@@ -5,7 +5,7 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class QuizPromoNativeShortTests
 {
     [Fact]
-    public void CardPhases_FollowShortQuestionCountdownAndAnswerRevealPacing()
+    public void CardPhases_FollowSavedLongFormSuspenseAndAnswerPausePacing()
     {
         var options = new QuizVideoBuildOptions(
             "Space",
@@ -18,7 +18,9 @@ public sealed class QuizPromoNativeShortTests
         var phases = QuizPromoNativeShortRenderer.BuildCardPhases(
             options,
             narrationSeconds: 2.5,
-            targetDuration: 13.5);
+            targetDuration: 14.35,
+            narrationSuspenseSeconds: 0.5,
+            answerRevealPauseSeconds: 0.35);
 
         Assert.Collection(
             phases,
@@ -26,7 +28,7 @@ public sealed class QuizPromoNativeShortTests
             {
                 Assert.Equal(QuizPreviewCardKind.Question, phase.Kind);
                 Assert.Null(phase.CountdownValue);
-                Assert.Equal(7.5, phase.Duration, 6);
+                Assert.Equal(8.0, phase.Duration, 6);
             },
             phase =>
             {
@@ -48,6 +50,12 @@ public sealed class QuizPromoNativeShortTests
             },
             phase =>
             {
+                Assert.Equal(QuizPreviewCardKind.Countdown, phase.Kind);
+                Assert.Equal(1, phase.CountdownValue);
+                Assert.Equal(0.35, phase.Duration, 6);
+            },
+            phase =>
+            {
                 Assert.Equal(QuizPreviewCardKind.AnswerReveal, phase.Kind);
                 Assert.Equal(0.5, phase.Duration, 6);
             },
@@ -56,7 +64,31 @@ public sealed class QuizPromoNativeShortTests
                 Assert.Equal(QuizPreviewCardKind.Explanation, phase.Kind);
                 Assert.Equal(2.5, phase.Duration, 6);
             });
+        Assert.Equal(14.35, phases.Sum(phase => phase.Duration), 6);
+    }
+
+    [Fact]
+    public void CardPhases_KeepLegacyPromoTimingWhenPacingMetadataIsMissing()
+    {
+        var options = new QuizVideoBuildOptions(
+            "Space",
+            QuestionSeconds: 8,
+            AnswerSeconds: 3,
+            Vertical: true,
+            ShowCountdown: true,
+            AnimateAnswerReveal: true);
+
+        var phases = QuizPromoNativeShortRenderer.BuildCardPhases(
+            options,
+            narrationSeconds: 2.5,
+            targetDuration: 13.5);
+
         Assert.Equal(13.5, phases.Sum(phase => phase.Duration), 6);
+        Assert.Equal(7.5, phases[0].Duration, 6);
+        Assert.DoesNotContain(phases, phase =>
+            phase.Kind == QuizPreviewCardKind.Countdown &&
+            phase.CountdownValue == 1 &&
+            Math.Abs(phase.Duration - 0.35) < 0.000001);
     }
 
     [Fact]
@@ -105,7 +137,7 @@ public sealed class QuizPromoNativeShortTests
     }
 
     [Fact]
-    public void VisualSource_LoadsSavedQuestionNumberThemeAndShortSettings()
+    public void VisualSource_LoadsSavedQuestionThemeAndLongFormPacingMetadata()
     {
         var root = Path.Combine(Path.GetTempPath(), $"promo-native-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -123,6 +155,11 @@ public sealed class QuizPromoNativeShortTests
                 logo_position = "Bottom right",
                 logo_scale = 1.0,
                 quiz_type = "Standard",
+                audio = new
+                {
+                    narration_suspense_seconds = 0.5,
+                    answer_reveal_pause_seconds = 0.35,
+                },
                 questions = Enumerable.Range(1, 10).Select(number => new
                 {
                     number,
@@ -151,6 +188,8 @@ public sealed class QuizPromoNativeShortTests
             Assert.Equal(10, source.QuestionNumber);
             Assert.Equal(10, source.QuestionTotal);
             Assert.Equal(2.75, source.NarrationSeconds, 6);
+            Assert.Equal(0.5, source.NarrationSuspenseSeconds, 6);
+            Assert.Equal(0.35, source.AnswerRevealPauseSeconds, 6);
             Assert.True(source.Options.Vertical);
             Assert.Equal(1080, source.Options.Width);
             Assert.Equal(1920, source.Options.Height);
