@@ -19,65 +19,71 @@ public partial class MainShellWindow
         InitializeUploadManagerPage();
         if (_uploadManagerTabIndex < 0 ||
             _uploadManagerTabIndex >= MainTabs.Items.Count ||
-            MainTabs.Items[_uploadManagerTabIndex] is not TabItem { Content: DependencyObject root })
+            MainTabs.Items[_uploadManagerTabIndex] is not TabItem { Content: Border { Child: Grid root } })
             return false;
 
-        var anchor = FindLogicalButton(root, "Retry Failed Step");
-        if (anchor?.Parent is not WrapPanel actions)
+        var actions = root.Children
+            .OfType<WrapPanel>()
+            .FirstOrDefault(panel => Grid.GetRow(panel) == 3);
+        if (actions is null)
             return false;
 
-        var regenerate = new Button
-        {
-            Content = "Regenerate Thumbnail",
-            MinWidth = 142,
-            Margin = new Thickness(8, 0, 0, 0),
-            ToolTip = "Rebuild Thumbnail.png for the selected quiz without changing its video or upload records.",
-        };
-        StyleQuizHistoryButton(regenerate, Color.FromRgb(70, 235, 115));
-        regenerate.Click += (_, _) =>
-        {
-            if (_uploadManagerGrid?.SelectedItem is QuizHistorySummary history)
-                RegenerateSelectedQuizThumbnail(history);
-            else
-                MessageBox.Show(this, "Select a quiz first.", "Regenerate Thumbnail",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
-        };
+        var buttons = actions.Children.OfType<Button>().ToList();
+        var anchor = buttons.FirstOrDefault(button => string.Equals(
+            Convert.ToString(button.Content),
+            "Retry Failed Step",
+            StringComparison.Ordinal));
+        if (anchor is null)
+            return false;
 
-        var regenerateAll = new Button
-        {
-            Content = "Regenerate All Thumbnails",
-            MinWidth = 164,
-            Margin = new Thickness(8, 0, 0, 0),
-            ToolTip = "Rebuild Thumbnail.png for every long-form quiz in Quiz History.",
-        };
-        StyleQuizHistoryButton(regenerateAll, Color.FromRgb(0, 204, 255));
-        regenerateAll.Click += async (_, _) => await RegenerateAllLongFormQuizThumbnailsAsync(regenerateAll);
+        var hasRegenerate = buttons.Any(button => string.Equals(
+            Convert.ToString(button.Content),
+            "Regenerate Thumbnail",
+            StringComparison.Ordinal));
+        var hasRegenerateAll = buttons.Any(button => string.Equals(
+            Convert.ToString(button.Content),
+            "Regenerate All Thumbnails",
+            StringComparison.Ordinal));
 
         var insertionIndex = actions.Children.IndexOf(anchor) + 1;
-        actions.Children.Insert(insertionIndex, regenerate);
-        actions.Children.Insert(insertionIndex + 1, regenerateAll);
+        if (!hasRegenerate)
+        {
+            var regenerate = new Button
+            {
+                Content = "Regenerate Thumbnail",
+                MinWidth = 142,
+                Margin = new Thickness(8, 0, 0, 0),
+                ToolTip = "Rebuild Thumbnail.png for the selected quiz without changing its video or upload records.",
+            };
+            StyleQuizHistoryButton(regenerate, Color.FromRgb(70, 235, 115));
+            regenerate.Click += (_, _) =>
+            {
+                if (_uploadManagerGrid?.SelectedItem is QuizHistorySummary history)
+                    RegenerateSelectedQuizThumbnail(history);
+                else
+                    MessageBox.Show(this, "Select a quiz first.", "Regenerate Thumbnail",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+            };
+            actions.Children.Insert(insertionIndex, regenerate);
+            insertionIndex++;
+        }
+
+        if (!hasRegenerateAll)
+        {
+            var regenerateAll = new Button
+            {
+                Content = "Regenerate All Thumbnails",
+                MinWidth = 164,
+                Margin = new Thickness(8, 0, 0, 0),
+                ToolTip = "Rebuild Thumbnail.png for every long-form quiz in Quiz History.",
+            };
+            StyleQuizHistoryButton(regenerateAll, Color.FromRgb(0, 204, 255));
+            regenerateAll.Click += async (_, _) => await RegenerateAllLongFormQuizThumbnailsAsync(regenerateAll);
+            actions.Children.Insert(insertionIndex, regenerateAll);
+        }
+
         _uploadManagerThumbnailActionsInitialized = true;
         return true;
-    }
-
-    private static Button? FindLogicalButton(DependencyObject root, string content)
-    {
-        if (root is Button button &&
-            string.Equals(Convert.ToString(button.Content), content, StringComparison.Ordinal))
-        {
-            return button;
-        }
-
-        foreach (var child in LogicalTreeHelper.GetChildren(root))
-        {
-            if (child is DependencyObject dependencyObject &&
-                FindLogicalButton(dependencyObject, content) is { } found)
-            {
-                return found;
-            }
-        }
-
-        return null;
     }
 
     private void RegenerateSelectedQuizThumbnail(QuizHistorySummary history)
