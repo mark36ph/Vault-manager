@@ -98,7 +98,7 @@ public sealed class QuizPromoShortTests
     [Fact]
     public void UploadMetadata_CreatesShortTitleAndFullQuizFunnel()
     {
-        var title = QuizPromoShortUploadMetadata.Title(new string('A', 120));
+        var title = QuizPromoShortUploadMetadata.Title(new string('A', 100));
         var description = QuizPromoShortUploadMetadata.Description(
             "Ultimate Music Quiz",
             "https://www.youtube.com/watch?v=fullQuiz123",
