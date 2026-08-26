@@ -202,6 +202,16 @@ public partial class MainShellWindow
                 MessageBox.Show(this, "Select a long-form quiz first.", "Create Promo Short", MessageBoxButton.OK, MessageBoxImage.Information);
         };
         actions.Children.Add(promoShort);
+        var uploadPromoShort = new Button { Content = "Upload Promo Short", MinWidth = 132, Margin = new Thickness(8, 0, 0, 0) };
+        StyleQuizHistoryButton(uploadPromoShort, Color.FromRgb(255, 190, 0));
+        uploadPromoShort.Click += (_, _) =>
+        {
+            if (_uploadManagerGrid.SelectedItem is QuizHistorySummary history)
+                ShowQuizPromoShortUploadDialog(history);
+            else
+                MessageBox.Show(this, "Select the long-form quiz first.", "Upload Promo Short", MessageBoxButton.OK, MessageBoxImage.Information);
+        };
+        actions.Children.Add(uploadPromoShort);
         var upload = new Button { Content = "Upload Selected", MinWidth = 118, Margin = new Thickness(8, 0, 0, 0) };
         StyleQuizHistoryButton(upload, Color.FromRgb(70, 235, 115));
         upload.Click += (_, _) =>
@@ -330,7 +340,9 @@ public partial class MainShellWindow
                     : "No activity",
                 PromoShortDisplay = string.Equals(item.VideoType, "Short", StringComparison.Ordinal)
                     ? "N/A"
-                    : QuizPromoShortPaths.FindExisting(item.ProjectFolder) is null ? "Not created" : "Ready",
+                    : QuizPromoShortPaths.FindExisting(item.ProjectFolder) is null
+                        ? "Not created"
+                        : QuizPromoShortPublicationStore.LoadYouTube(item.ProjectFolder) is null ? "Ready" : "Uploaded",
             })
             .ToList();
         _uploadManagerGrid.ItemsSource = history;
