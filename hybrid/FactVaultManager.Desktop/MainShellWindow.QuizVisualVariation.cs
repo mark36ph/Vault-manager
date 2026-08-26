@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace FactVaultManager.Desktop;
@@ -9,7 +9,8 @@ namespace FactVaultManager.Desktop;
 public partial class MainShellWindow
 {
     private static readonly bool QuizVisualVariationEventsRegistered = RegisterQuizVisualVariationEvents();
-    private readonly List<UIElement> _quizVisualVariationPreviewDecorations = [];
+    private BitmapSource? _quizVisualVariationBasePreview;
+    private BitmapSource? _quizVisualVariationAppliedPreview;
 
     private static bool RegisterQuizVisualVariationEvents()
     {
@@ -17,6 +18,21 @@ public partial class MainShellWindow
             typeof(ComboBox),
             Selector.SelectionChangedEvent,
             new SelectionChangedEventHandler(QuizVisualVariationComboBox_SelectionChanged),
+            handledEventsToo: true);
+        EventManager.RegisterClassHandler(
+            typeof(TextBox),
+            TextBox.TextChangedEvent,
+            new TextChangedEventHandler(QuizVisualVariationTextBox_TextChanged),
+            handledEventsToo: true);
+        EventManager.RegisterClassHandler(
+            typeof(ToggleButton),
+            ToggleButton.CheckedEvent,
+            new RoutedEventHandler(QuizVisualVariationToggle_Changed),
+            handledEventsToo: true);
+        EventManager.RegisterClassHandler(
+            typeof(ToggleButton),
+            ToggleButton.UncheckedEvent,
+            new RoutedEventHandler(QuizVisualVariationToggle_Changed),
             handledEventsToo: true);
         return true;
     }
@@ -27,13 +43,41 @@ public partial class MainShellWindow
             return;
         if (!ReferenceEquals(combo, window._quizThemeComboBox) &&
             !ReferenceEquals(combo, window._quizFormatComboBox) &&
-            !ReferenceEquals(combo, window._quizCategoryComboBox))
+            !ReferenceEquals(combo, window._quizCategoryComboBox) &&
+            !ReferenceEquals(combo, window._quizPreviewCardComboBox) &&
+            !ReferenceEquals(combo, window._quizPreviewQuestionComboBox))
             return;
 
-        window.Dispatcher.BeginInvoke(
-            DispatcherPriority.Background,
-            new Action(window.RefreshQuizVisualVariationPreview));
+        window.ScheduleQuizVisualVariationPreviewRefresh();
     }
+
+    private static void QuizVisualVariationTextBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (sender is not TextBox textBox || Window.GetWindow(textBox) is not MainShellWindow window)
+            return;
+        if (!ReferenceEquals(textBox, window._quizTitleTextBox) &&
+            !ReferenceEquals(textBox, window._quizSecondsPerQuestionTextBox) &&
+            !ReferenceEquals(textBox, window._quizLogoPathTextBox))
+            return;
+
+        window.ScheduleQuizVisualVariationPreviewRefresh();
+    }
+
+    private static void QuizVisualVariationToggle_Changed(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ToggleButton toggle || Window.GetWindow(toggle) is not MainShellWindow window)
+            return;
+        if (!ReferenceEquals(toggle, window._quizCountdownCheckBox) &&
+            !ReferenceEquals(toggle, window._quizRevealAnimationCheckBox))
+            return;
+
+        window.ScheduleQuizVisualVariationPreviewRefresh();
+    }
+
+    private void ScheduleQuizVisualVariationPreviewRefresh() =>
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            new Action(RefreshQuizVisualVariationPreview));
 
     private void ApplyAutomaticQuizVisualVariationForDraft()
     {
@@ -72,11 +116,11 @@ public partial class MainShellWindow
 
     private void RefreshQuizVisualVariationPreview()
     {
-        if (_quizPreviewSurface is null || _quizPreviewImage is null)
+        if (_quizPreviewImage is null)
             return;
 
-        ClearQuizVisualVariationPreview(resetImage: true);
-        if (_quizDraftQuestions.Count == 0)
+        RestoreQuizVisualVariationBasePreview();
+        if (_quizDraftQuestions.Count == 0 || _quizPreviewImage.Source is not BitmapSource source)
             return;
 
         var vertical = _quizFormatComboBox?.SelectedIndex == 1;
@@ -85,126 +129,43 @@ public partial class MainShellWindow
             return;
 
         var planned = QuizVisualVariationPlanner.ForQuestions(_quizDraftQuestions);
-        var layout = QuizCardLayoutCatalog.Resolve(planned.LayoutKey);
         var theme = QuizVisualThemeCatalog.Resolve(CurrentQuizVisualSettings().ThemeKey);
-        var width = _quizPreviewSurface.Width;
-        var height = _quizPreviewSurface.Height;
+        var hideChoicePrompt = SelectedQuizPreviewCardKind() == QuizPreviewCardKind.Question;
 
-        if (layout.RailSide == QuizCardRailSide.None)
+        _quizVisualVariationBasePreview = source;
+        _quizVisualVariationAppliedPreview = QuizCardVariationPostProcessor.ApplyPreview(
+            source,
+            theme,
+            planned.LayoutKey,
+            hideChoicePrompt);
+        _quizPreviewImage.Source = _quizVisualVariationAppliedPreview;
+    }
+
+    private void RestoreQuizVisualVariationBasePreview()
+    {
+        if (_quizPreviewImage is not null &&
+            _quizVisualVariationBasePreview is not null &&
+            _quizVisualVariationAppliedPreview is not null &&
+            ReferenceEquals(_quizPreviewImage.Source, _quizVisualVariationAppliedPreview))
         {
-            AddPreviewFrame(theme, layout.EdgeInset);
-            return;
+            _quizPreviewImage.Source = _quizVisualVariationBasePreview;
         }
 
-        _quizPreviewImage.Width = width * layout.CardScale;
-        _quizPreviewImage.Height = height * layout.CardScale;
-        _quizPreviewImage.VerticalAlignment = VerticalAlignment.Center;
-        _quizPreviewImage.HorizontalAlignment = layout.RailSide == QuizCardRailSide.Left
-            ? HorizontalAlignment.Right
-            : HorizontalAlignment.Left;
-        _quizPreviewImage.Margin = layout.RailSide == QuizCardRailSide.Left
-            ? new Thickness(0, 0, layout.EdgeInset, 0)
-            : new Thickness(layout.EdgeInset, 0, 0, 0);
-
-        var accent = theme.Accent;
-        var secondary = theme.Countdown;
-        var rail = new Border
-        {
-            Width = layout.RailWidth,
-            Margin = new Thickness(layout.EdgeInset),
-            HorizontalAlignment = layout.RailSide == QuizCardRailSide.Left
-                ? HorizontalAlignment.Left
-                : HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Stretch,
-            CornerRadius = new CornerRadius(20),
-            Background = new LinearGradientBrush(
-                new GradientStopCollection
-                {
-                    new(Color.FromArgb(210, accent.R, accent.G, accent.B), 0),
-                    new(Color.FromArgb(142, secondary.R, secondary.G, secondary.B), 0.55),
-                    new(Color.FromArgb(205, accent.R, accent.G, accent.B), 1),
-                },
-                new Point(0, 0),
-                new Point(0, 1)),
-            IsHitTestVisible = false,
-        };
-        AddPreviewDecoration(rail);
-
-        var line = new Border
-        {
-            Width = 5,
-            Margin = layout.RailSide == QuizCardRailSide.Left
-                ? new Thickness(layout.EdgeInset + layout.RailWidth + 12, layout.EdgeInset + 12, 0, layout.EdgeInset + 12)
-                : new Thickness(0, layout.EdgeInset + 12, layout.EdgeInset + layout.RailWidth + 12, layout.EdgeInset + 12),
-            HorizontalAlignment = layout.RailSide == QuizCardRailSide.Left
-                ? HorizontalAlignment.Left
-                : HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Stretch,
-            Background = new SolidColorBrush(Color.FromArgb(220, accent.R, accent.G, accent.B)),
-            IsHitTestVisible = false,
-        };
-        AddPreviewDecoration(line);
-        AddPreviewFrame(theme, 0, _quizPreviewImage);
-    }
-
-    private void AddPreviewFrame(QuizVisualTheme theme, double inset, FrameworkElement? relativeTo = null)
-    {
-        var accent = theme.Accent;
-        var secondary = theme.Countdown;
-        var outer = new Border
-        {
-            Margin = relativeTo is null
-                ? new Thickness(inset)
-                : relativeTo.Margin,
-            Width = relativeTo?.Width ?? double.NaN,
-            Height = relativeTo?.Height ?? double.NaN,
-            HorizontalAlignment = relativeTo?.HorizontalAlignment ?? HorizontalAlignment.Stretch,
-            VerticalAlignment = relativeTo?.VerticalAlignment ?? VerticalAlignment.Stretch,
-            BorderBrush = new SolidColorBrush(Color.FromArgb(205, accent.R, accent.G, accent.B)),
-            BorderThickness = new Thickness(7),
-            Background = Brushes.Transparent,
-            IsHitTestVisible = false,
-        };
-        AddPreviewDecoration(outer);
-
-        var innerMargin = relativeTo is null
-            ? new Thickness(inset + 10)
-            : relativeTo.HorizontalAlignment == HorizontalAlignment.Right
-                ? new Thickness(0, 10, relativeTo.Margin.Right + 10, 10)
-                : new Thickness(relativeTo.Margin.Left + 10, 10, 0, 10);
-        var inner = new Border
-        {
-            Margin = innerMargin,
-            Width = relativeTo is null ? double.NaN : Math.Max(1, relativeTo.Width - 20),
-            Height = relativeTo is null ? double.NaN : Math.Max(1, relativeTo.Height - 20),
-            HorizontalAlignment = relativeTo?.HorizontalAlignment ?? HorizontalAlignment.Stretch,
-            VerticalAlignment = relativeTo?.VerticalAlignment ?? VerticalAlignment.Stretch,
-            BorderBrush = new SolidColorBrush(Color.FromArgb(120, secondary.R, secondary.G, secondary.B)),
-            BorderThickness = new Thickness(2),
-            Background = Brushes.Transparent,
-            IsHitTestVisible = false,
-        };
-        AddPreviewDecoration(inner);
-    }
-
-    private void AddPreviewDecoration(UIElement decoration)
-    {
-        if (_quizPreviewSurface is null)
-            return;
-        _quizPreviewSurface.Children.Add(decoration);
-        _quizVisualVariationPreviewDecorations.Add(decoration);
+        _quizVisualVariationBasePreview = null;
+        _quizVisualVariationAppliedPreview = null;
     }
 
     private void ClearQuizVisualVariationPreview(bool resetImage = true)
     {
-        if (_quizPreviewSurface is not null)
+        if (resetImage)
+            RestoreQuizVisualVariationBasePreview();
+        else
         {
-            foreach (var decoration in _quizVisualVariationPreviewDecorations)
-                _quizPreviewSurface.Children.Remove(decoration);
+            _quizVisualVariationBasePreview = null;
+            _quizVisualVariationAppliedPreview = null;
         }
-        _quizVisualVariationPreviewDecorations.Clear();
 
-        if (!resetImage || _quizPreviewImage is null)
+        if (_quizPreviewImage is null)
             return;
         _quizPreviewImage.Width = double.NaN;
         _quizPreviewImage.Height = double.NaN;
