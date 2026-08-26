@@ -31,6 +31,7 @@ public partial class MainShellWindow
             return false;
 
         BuildCompactUploadManagerActions(actions);
+        AppendFacebookThumbnailActions(actions);
         _uploadManagerThumbnailActionsInitialized = true;
         return true;
     }
@@ -59,7 +60,7 @@ public partial class MainShellWindow
 
         var toolsButton = BuildUploadManagerMenuButton(
             "Quiz Tools ▾",
-            "Retry/reset upload state, regenerate thumbnails, or update an existing YouTube thumbnail.",
+            "Retry/reset upload state, regenerate thumbnails, or update an existing YouTube thumbnail or Facebook Reel cover.",
             Color.FromRgb(0, 204, 255));
         AddUploadManagerMenuItem(toolsButton, "Retry Failed Step", async (_, _) =>
         {
