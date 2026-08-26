@@ -112,6 +112,96 @@ public static class QuizPromoShortPaths
     }
 }
 
+public sealed record QuizPromoShortYouTubeUpload(
+    string VideoId,
+    string Url,
+    string Privacy,
+    string UploadedAt);
+
+public static class QuizPromoShortPublicationStore
+{
+    private const string YouTubeUploadKey = "youtube_upload";
+
+    public static QuizPromoShortYouTubeUpload? LoadYouTube(string projectFolder)
+    {
+        try
+        {
+            var path = QuizPromoShortPaths.Metadata(projectFolder);
+            if (!File.Exists(path)) return null;
+            var root = JsonNode.Parse(File.ReadAllText(path)) as JsonObject;
+            var upload = root?[YouTubeUploadKey] as JsonObject;
+            if (upload is null) return null;
+            var videoId = upload["video_id"]?.GetValue<string>()?.Trim() ?? "";
+            var url = upload["url"]?.GetValue<string>()?.Trim() ?? "";
+            if (videoId.Length == 0 || url.Length == 0) return null;
+            return new QuizPromoShortYouTubeUpload(
+                videoId,
+                url,
+                upload["privacy"]?.GetValue<string>()?.Trim() ?? "",
+                upload["uploaded_at"]?.GetValue<string>()?.Trim() ?? "");
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        {
+            System.Diagnostics.Debug.WriteLine($"Could not read promo Short upload status: {error.Message}");
+            return null;
+        }
+    }
+
+    public static void RecordYouTube(
+        string projectFolder,
+        YouTubeVideoUploadResult upload,
+        string privacy,
+        DateTimeOffset uploadedAt)
+    {
+        ArgumentNullException.ThrowIfNull(upload);
+        var path = QuizPromoShortPaths.Metadata(projectFolder);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var root = File.Exists(path)
+            ? JsonNode.Parse(File.ReadAllText(path)) as JsonObject ?? new JsonObject()
+            : new JsonObject();
+        root[YouTubeUploadKey] = new JsonObject
+        {
+            ["video_id"] = upload.VideoId,
+            ["url"] = upload.Url,
+            ["privacy"] = privacy,
+            ["uploaded_at"] = uploadedAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+        };
+        var temporary = path + ".tmp";
+        File.WriteAllText(temporary, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
+        File.Move(temporary, path, overwrite: true);
+    }
+}
+
+public static class QuizPromoShortUploadMetadata
+{
+    private const string TitleSuffix = " | Final Question #Shorts";
+
+    public static string Title(string sourceTitle)
+    {
+        var title = QuizPublishMetadataGenerator.DisplayName(sourceTitle).Trim();
+        if (title.Length == 0) title = "Factburst Quiz";
+        var maximumBaseLength = 100 - TitleSuffix.Length;
+        if (title.Length > maximumBaseLength)
+            title = title[..maximumBaseLength].TrimEnd();
+        return title + TitleSuffix;
+    }
+
+    public static string Description(string sourceTitle, string fullVideoUrl, string hashtags)
+    {
+        var url = QuizYouTubePublication.NormalizeUrl(fullVideoUrl);
+        if (url.Length == 0)
+            throw new ArgumentException("Upload the full quiz to YouTube before uploading its promotional Short.");
+        var tags = (hashtags ?? "").Trim();
+        if (!tags.Contains("#Shorts", StringComparison.OrdinalIgnoreCase))
+            tags = tags.Length == 0 ? "#Shorts #Quiz #Trivia" : tags + " #Shorts";
+        return
+            $"Think you can beat the full {QuizPublishMetadataGenerator.DisplayName(sourceTitle)} test?" +
+            Environment.NewLine + Environment.NewLine +
+            $"Watch the full quiz: {url}" +
+            Environment.NewLine + Environment.NewLine + tags;
+    }
+}
+
 public sealed record QuizPromoShortResult(
     string VideoPath,
     string EndCardPath,
@@ -283,6 +373,16 @@ public sealed class QuizPromoShortRenderer
         string quizLogoPath,
         QuizPromoShortPlan plan)
     {
+        JsonNode? existingYouTubeUpload = null;
+        try
+        {
+            if (File.Exists(path))
+                existingYouTubeUpload = (JsonNode.Parse(File.ReadAllText(path)) as JsonObject)?["youtube_upload"]?.DeepClone();
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
+        {
+            System.Diagnostics.Debug.WriteLine($"Could not preserve promo Short upload metadata: {error.Message}");
+        }
         var payload = new JsonObject
         {
             ["source_video"] = sourceVideo,
@@ -301,6 +401,8 @@ public sealed class QuizPromoShortRenderer
             ["width"] = Width,
             ["height"] = Height,
         };
+        if (existingYouTubeUpload is not null)
+            payload["youtube_upload"] = existingYouTubeUpload;
         File.WriteAllText(path, payload.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), new UTF8Encoding(false));
     }
 
