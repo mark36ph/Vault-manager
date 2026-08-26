@@ -153,46 +153,65 @@ public partial class MainShellWindow
         };
         StyleQuizHistoryButton(button, accent);
 
-        button.ContextMenu = new ContextMenu
+        var panel = new StackPanel
         {
-            Background = new SolidColorBrush(Color.FromRgb(13, 18, 78)),
-            Foreground = Brushes.White,
-            BorderBrush = new SolidColorBrush(accent),
-            BorderThickness = new Thickness(1),
-            Padding = new Thickness(4),
-            Placement = PlacementMode.Top,
+            MinWidth = 260,
         };
+        var popup = new Popup
+        {
+            AllowsTransparency = true,
+            StaysOpen = false,
+            Placement = PlacementMode.Top,
+            PlacementTarget = button,
+            PopupAnimation = PopupAnimation.Fade,
+            Child = new Border
+            {
+                Background = new SolidColorBrush(Color.FromRgb(13, 18, 78)),
+                BorderBrush = new SolidColorBrush(accent),
+                BorderThickness = new Thickness(1),
+                CornerRadius = new CornerRadius(3),
+                Padding = new Thickness(4),
+                Child = panel,
+            },
+            Tag = panel,
+        };
+        button.Tag = popup;
         button.Click += (_, _) =>
         {
-            if (button.ContextMenu is null)
-                return;
-            button.ContextMenu.PlacementTarget = button;
-            button.ContextMenu.IsOpen = true;
+            popup.PlacementTarget = button;
+            popup.IsOpen = !popup.IsOpen;
         };
         return button;
     }
 
     private static void AddUploadManagerMenuItem(Button owner, string header, RoutedEventHandler click)
     {
-        if (owner.ContextMenu is null)
+        if (!TryGetUploadManagerPopup(owner, out var popup, out var panel))
             return;
 
-        var item = new MenuItem
+        var item = new Button
         {
-            Header = header,
+            Content = header,
             Foreground = Brushes.White,
             Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
             FontWeight = FontWeights.SemiBold,
             Padding = new Thickness(14, 8, 18, 8),
-            Template = BuildUploadManagerMenuItemTemplate(),
+            MinWidth = 260,
+            HorizontalContentAlignment = HorizontalAlignment.Left,
+            Template = BuildUploadManagerPopupItemTemplate(),
         };
-        item.Click += click;
-        owner.ContextMenu.Items.Add(item);
+        item.Click += (sender, args) =>
+        {
+            popup.IsOpen = false;
+            click(sender, args);
+        };
+        panel.Children.Add(item);
     }
 
-    private static ControlTemplate BuildUploadManagerMenuItemTemplate()
+    private static ControlTemplate BuildUploadManagerPopupItemTemplate()
     {
-        var template = new ControlTemplate(typeof(MenuItem));
+        var template = new ControlTemplate(typeof(Button));
         var border = new FrameworkElementFactory(typeof(Border));
         border.SetBinding(Border.BackgroundProperty, new Binding(nameof(Control.Background))
         {
@@ -205,7 +224,7 @@ public partial class MainShellWindow
         border.SetValue(Border.CornerRadiusProperty, new CornerRadius(3));
 
         var text = new FrameworkElementFactory(typeof(TextBlock));
-        text.SetBinding(TextBlock.TextProperty, new Binding(nameof(HeaderedItemsControl.Header))
+        text.SetBinding(TextBlock.TextProperty, new Binding(nameof(ContentControl.Content))
         {
             RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent),
         });
@@ -221,15 +240,25 @@ public partial class MainShellWindow
         border.AppendChild(text);
         template.VisualTree = border;
 
-        var highlighted = new Trigger
+        var hover = new Trigger
         {
-            Property = MenuItem.IsHighlightedProperty,
+            Property = UIElement.IsMouseOverProperty,
             Value = true,
         };
-        highlighted.Setters.Add(new Setter(
+        hover.Setters.Add(new Setter(
             Control.BackgroundProperty,
             new SolidColorBrush(Color.FromRgb(28, 50, 120))));
-        template.Triggers.Add(highlighted);
+        template.Triggers.Add(hover);
+
+        var pressed = new Trigger
+        {
+            Property = ButtonBase.IsPressedProperty,
+            Value = true,
+        };
+        pressed.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(36, 62, 140))));
+        template.Triggers.Add(pressed);
 
         var disabled = new Trigger
         {
@@ -243,20 +272,29 @@ public partial class MainShellWindow
 
     private static void AddUploadManagerMenuSeparator(Button owner)
     {
-        if (owner.ContextMenu is null)
+        if (!TryGetUploadManagerPopup(owner, out _, out var panel))
             return;
 
-        var separatorTemplate = new ControlTemplate(typeof(Separator));
-        var line = new FrameworkElementFactory(typeof(Border));
-        line.SetValue(FrameworkElement.HeightProperty, 1d);
-        line.SetValue(Border.BackgroundProperty, new SolidColorBrush(Color.FromRgb(47, 68, 145)));
-        separatorTemplate.VisualTree = line;
-
-        owner.ContextMenu.Items.Add(new Separator
+        panel.Children.Add(new Border
         {
+            Height = 1,
             Margin = new Thickness(10, 4, 10, 4),
-            Template = separatorTemplate,
+            Background = new SolidColorBrush(Color.FromRgb(47, 68, 145)),
         });
+    }
+
+    private static bool TryGetUploadManagerPopup(Button owner, out Popup popup, out StackPanel panel)
+    {
+        if (owner.Tag is Popup foundPopup && foundPopup.Tag is StackPanel foundPanel)
+        {
+            popup = foundPopup;
+            panel = foundPanel;
+            return true;
+        }
+
+        popup = null!;
+        panel = null!;
+        return false;
     }
 
     private void RegenerateSelectedQuizThumbnail(QuizHistorySummary history)
