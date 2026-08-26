@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -12,6 +13,9 @@ public partial class MainShellWindow
     private BitmapSource? _quizVisualVariationBasePreview;
     private BitmapSource? _quizVisualVariationAppliedPreview;
     private QuizVisualVariation? _quizLastAutomaticVisualVariation;
+    private DependencyPropertyDescriptor? _quizVisualVariationSourceDescriptor;
+    private bool _quizVisualVariationSourceHooked;
+    private bool _quizVisualVariationUpdatingSource;
 
     private static bool RegisterQuizVisualVariationEvents()
     {
@@ -34,6 +38,11 @@ public partial class MainShellWindow
             typeof(ToggleButton),
             ToggleButton.UncheckedEvent,
             new RoutedEventHandler(QuizVisualVariationToggle_Changed),
+            handledEventsToo: true);
+        EventManager.RegisterClassHandler(
+            typeof(Image),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler(QuizVisualVariationPreviewImage_Loaded),
             handledEventsToo: true);
         return true;
     }
@@ -75,10 +84,54 @@ public partial class MainShellWindow
         window.ScheduleQuizVisualVariationPreviewRefresh();
     }
 
+    private static void QuizVisualVariationPreviewImage_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Image image || Window.GetWindow(image) is not MainShellWindow window)
+            return;
+        if (!ReferenceEquals(image, window._quizPreviewImage))
+            return;
+
+        window.EnsureQuizVisualVariationSourceHook();
+        window.RefreshQuizVisualVariationPreview();
+    }
+
     private void ScheduleQuizVisualVariationPreviewRefresh() =>
         Dispatcher.BeginInvoke(
             DispatcherPriority.Background,
             new Action(RefreshQuizVisualVariationPreview));
+
+    private void EnsureQuizVisualVariationSourceHook()
+    {
+        if (_quizVisualVariationSourceHooked || _quizPreviewImage is null)
+            return;
+
+        var descriptor = DependencyPropertyDescriptor.FromProperty(Image.SourceProperty, typeof(Image));
+        if (descriptor is null)
+            return;
+
+        descriptor.AddValueChanged(_quizPreviewImage, QuizVisualVariationPreviewSource_Changed);
+        _quizVisualVariationSourceDescriptor = descriptor;
+        _quizVisualVariationSourceHooked = true;
+    }
+
+    private void QuizVisualVariationPreviewSource_Changed(object? sender, EventArgs e)
+    {
+        if (_quizVisualVariationUpdatingSource ||
+            sender is not Image image ||
+            !ReferenceEquals(image, _quizPreviewImage) ||
+            image.Source is not BitmapSource source)
+        {
+            return;
+        }
+
+        if (_quizVisualVariationAppliedPreview is not null &&
+            ReferenceEquals(source, _quizVisualVariationAppliedPreview))
+        {
+            return;
+        }
+
+        ApplyQuizVisualVariationToPreviewSource(source);
+    }
 
     private void ApplyAutomaticQuizVisualVariationForDraft()
     {
@@ -101,6 +154,7 @@ public partial class MainShellWindow
         if (_quizThemeComboBox is not null)
             _quizThemeComboBox.SelectedItem = QuizVisualThemeCatalog.Resolve(variation.ThemeKey).DisplayName;
 
+        EnsureQuizVisualVariationSourceHook();
         RefreshQuizVisualVariationPreview();
     }
 
@@ -111,9 +165,7 @@ public partial class MainShellWindow
         if (_quizDraftQuestions.Count == 0 || !QuizVisualVariationPlanner.Applies(vertical, quizType))
             return "Fixed layout";
 
-        var planned = QuizVisualVariationPlanner.ForQuestions(_quizDraftQuestions);
-        var themeKey = CurrentQuizVisualSettings().ThemeKey;
-        return (planned with { ThemeKey = themeKey }).DisplayName;
+        return QuizVisualVariationPlanner.ForTheme(CurrentQuizVisualSettings().ThemeKey).DisplayName;
     }
 
     private void RefreshQuizVisualVariationPreview()
@@ -121,26 +173,60 @@ public partial class MainShellWindow
         if (_quizPreviewImage is null)
             return;
 
-        RestoreQuizVisualVariationBasePreview();
-        if (_quizDraftQuestions.Count == 0 || _quizPreviewImage.Source is not BitmapSource source)
+        EnsureQuizVisualVariationSourceHook();
+
+        BitmapSource? source = null;
+        if (_quizVisualVariationBasePreview is not null &&
+            _quizVisualVariationAppliedPreview is not null &&
+            ReferenceEquals(_quizPreviewImage.Source, _quizVisualVariationAppliedPreview))
+        {
+            source = _quizVisualVariationBasePreview;
+        }
+        else if (_quizPreviewImage.Source is BitmapSource current)
+        {
+            source = current;
+        }
+
+        if (source is null)
+            return;
+
+        ApplyQuizVisualVariationToPreviewSource(source);
+    }
+
+    private void ApplyQuizVisualVariationToPreviewSource(BitmapSource source)
+    {
+        if (_quizPreviewImage is null)
             return;
 
         var vertical = _quizFormatComboBox?.SelectedIndex == 1;
         var quizType = IsLogoQuizSelected() ? QuizTypeCatalog.Logo : QuizTypeCatalog.Standard;
-        if (!QuizVisualVariationPlanner.Applies(vertical, quizType))
+        if (_quizDraftQuestions.Count == 0 || !QuizVisualVariationPlanner.Applies(vertical, quizType))
+        {
+            _quizVisualVariationBasePreview = null;
+            _quizVisualVariationAppliedPreview = null;
             return;
+        }
 
-        var planned = QuizVisualVariationPlanner.ForQuestions(_quizDraftQuestions);
-        var theme = QuizVisualThemeCatalog.Resolve(CurrentQuizVisualSettings().ThemeKey);
+        var variation = QuizVisualVariationPlanner.ForTheme(CurrentQuizVisualSettings().ThemeKey);
+        var theme = QuizVisualThemeCatalog.Resolve(variation.ThemeKey);
         var hideChoicePrompt = SelectedQuizPreviewCardKind() == QuizPreviewCardKind.Question;
-
-        _quizVisualVariationBasePreview = source;
-        _quizVisualVariationAppliedPreview = QuizCardVariationPostProcessor.ApplyPreview(
+        var applied = QuizCardVariationPostProcessor.ApplyPreview(
             source,
             theme,
-            planned.LayoutKey,
+            variation.LayoutKey,
             hideChoicePrompt);
-        _quizPreviewImage.Source = _quizVisualVariationAppliedPreview;
+
+        _quizVisualVariationBasePreview = source;
+        _quizVisualVariationAppliedPreview = applied;
+        try
+        {
+            _quizVisualVariationUpdatingSource = true;
+            _quizPreviewImage.Source = applied;
+        }
+        finally
+        {
+            _quizVisualVariationUpdatingSource = false;
+        }
     }
 
     private void RestoreQuizVisualVariationBasePreview()
@@ -150,7 +236,15 @@ public partial class MainShellWindow
             _quizVisualVariationAppliedPreview is not null &&
             ReferenceEquals(_quizPreviewImage.Source, _quizVisualVariationAppliedPreview))
         {
-            _quizPreviewImage.Source = _quizVisualVariationBasePreview;
+            try
+            {
+                _quizVisualVariationUpdatingSource = true;
+                _quizPreviewImage.Source = _quizVisualVariationBasePreview;
+            }
+            finally
+            {
+                _quizVisualVariationUpdatingSource = false;
+            }
         }
 
         _quizVisualVariationBasePreview = null;
