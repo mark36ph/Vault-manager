@@ -11,6 +11,7 @@ public partial class MainShellWindow
     private static readonly bool QuizVisualVariationEventsRegistered = RegisterQuizVisualVariationEvents();
     private BitmapSource? _quizVisualVariationBasePreview;
     private BitmapSource? _quizVisualVariationAppliedPreview;
+    private QuizVisualVariation? _quizLastAutomaticVisualVariation;
 
     private static bool RegisterQuizVisualVariationEvents()
     {
@@ -95,7 +96,8 @@ public partial class MainShellWindow
             return;
         }
 
-        var variation = QuizVisualVariationPlanner.ForQuestions(_quizDraftQuestions);
+        var variation = QuizVisualVariationPlanner.NextAfter(_quizLastAutomaticVisualVariation);
+        _quizLastAutomaticVisualVariation = variation;
         if (_quizThemeComboBox is not null)
             _quizThemeComboBox.SelectedItem = QuizVisualThemeCatalog.Resolve(variation.ThemeKey).DisplayName;
 
@@ -109,9 +111,7 @@ public partial class MainShellWindow
         if (_quizDraftQuestions.Count == 0 || !QuizVisualVariationPlanner.Applies(vertical, quizType))
             return "Fixed layout";
 
-        var planned = QuizVisualVariationPlanner.ForQuestions(_quizDraftQuestions);
-        var themeKey = CurrentQuizVisualSettings().ThemeKey;
-        return (planned with { ThemeKey = themeKey }).DisplayName;
+        return QuizVisualVariationPlanner.ForTheme(CurrentQuizVisualSettings().ThemeKey).DisplayName;
     }
 
     private void RefreshQuizVisualVariationPreview()
@@ -128,15 +128,15 @@ public partial class MainShellWindow
         if (!QuizVisualVariationPlanner.Applies(vertical, quizType))
             return;
 
-        var planned = QuizVisualVariationPlanner.ForQuestions(_quizDraftQuestions);
         var theme = QuizVisualThemeCatalog.Resolve(CurrentQuizVisualSettings().ThemeKey);
+        var variation = QuizVisualVariationPlanner.ForTheme(theme.Key);
         var hideChoicePrompt = SelectedQuizPreviewCardKind() == QuizPreviewCardKind.Question;
 
         _quizVisualVariationBasePreview = source;
         _quizVisualVariationAppliedPreview = QuizCardVariationPostProcessor.ApplyPreview(
             source,
             theme,
-            planned.LayoutKey,
+            variation.LayoutKey,
             hideChoicePrompt);
         _quizPreviewImage.Source = _quizVisualVariationAppliedPreview;
     }
