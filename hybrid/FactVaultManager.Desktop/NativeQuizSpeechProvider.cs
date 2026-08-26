@@ -161,7 +161,12 @@ public sealed class NativeQuizSpeechProvider : IDisposable
         voiceFolder = Required(voiceFolder, "voice folder");
         voiceFolder = Path.GetFullPath(voiceFolder);
         Directory.CreateDirectory(voiceFolder);
-        return GenerateAsync(input, "promo_cta", voiceFolder, instructions: null, cancellationToken);
+        return GenerateAsync(
+            input,
+            "promo_cta",
+            voiceFolder,
+            instructions: null,
+            cancellationToken: cancellationToken);
     }
 
     private async Task<string> GenerateAsync(
