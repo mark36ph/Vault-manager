@@ -21,7 +21,7 @@ public partial class MainShellWindow
     private static void QuizResolveExportFocusButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button button ||
-            !string.Equals(button.Content?.ToString(), "Create Resolve Quiz", StringComparison.Ordinal) ||
+            !IsQuizFinalRenderActionButton(button) ||
             Window.GetWindow(button) is not MainShellWindow window)
             return;
 

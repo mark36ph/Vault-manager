@@ -93,7 +93,8 @@ public sealed class QuizNasStorageTests
             var published = QuizExportStaging.Publish(
                 new QuizVideoBuildResult(source, quizJson, timeline, resolve),
                 projects,
-                session);
+                session,
+                renderFinalVideo: false);
 
             Assert.EndsWith("History Quiz - Short - 002", published.ProjectFolder, StringComparison.Ordinal);
             Assert.True(Directory.Exists(published.ProjectFolder));
