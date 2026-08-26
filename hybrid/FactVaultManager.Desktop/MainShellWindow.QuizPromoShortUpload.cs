@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -26,28 +25,31 @@ public partial class MainShellWindow
         if (history.YouTubeUrl.Trim().Length == 0)
         {
             MessageBox.Show(this,
-                "Upload the full quiz to YouTube first. Its link is required for the Short description and related-video funnel.",
+                "Upload the full quiz to YouTube first. Its link is required for the promo description and related-video funnel.",
                 "Upload Promo Short", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
-        var previousUpload = QuizPromoShortPublicationStore.LoadYouTube(history.ProjectFolder);
-        if (previousUpload is not null &&
-            MessageBox.Show(this,
-                $"This promotional Short is already recorded as uploaded:\n\n{previousUpload.Url}\n\nUpload another copy?",
-                "Promo Short Already Uploaded", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        var previousYouTube = QuizPromoShortPublicationStore.LoadYouTube(history.ProjectFolder);
+        var previousFacebook = QuizPromoShortSocialPublicationStore.LoadFacebook(history.ProjectFolder);
+        var previousInstagram = QuizPromoShortSocialPublicationStore.LoadInstagram(history.ProjectFolder);
+        var forceReuploadAll = false;
+        if (previousYouTube is not null && previousFacebook is not null && previousInstagram is not null)
         {
-            Process.Start(new ProcessStartInfo(previousUpload.Url) { UseShellExecute = true });
-            return;
+            if (MessageBox.Show(this,
+                    "This promotional Short is already recorded as uploaded to YouTube, Facebook, and Instagram.\n\nUpload another copy to all three platforms?",
+                    "Promo Short Already Uploaded", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                return;
+            forceReuploadAll = true;
         }
 
         var dialog = new Window
         {
             Title = "Upload Promotional Short",
             Owner = this,
-            Width = 760,
+            Width = 780,
             SizeToContent = SizeToContent.Height,
-            MaxHeight = 860,
+            MaxHeight = 880,
             ResizeMode = ResizeMode.CanResize,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Background = new SolidColorBrush(Color.FromRgb(246, 248, 253)),
@@ -59,14 +61,14 @@ public partial class MainShellWindow
         var heading = new StackPanel { Margin = new Thickness(0, 0, 0, 16) };
         heading.Children.Add(new TextBlock
         {
-            Text = "Upload Promo Short to YouTube",
+            Text = "Upload Promo Short Everywhere",
             FontSize = 23,
             FontWeight = FontWeights.SemiBold,
             Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)),
         });
         heading.Children.Add(new TextBlock
         {
-            Text = "This upload is tracked separately and will not replace the full quiz's YouTube record.",
+            Text = "Publishes the promo as a YouTube Short, Facebook Reel, and Instagram Reel. Promo records stay separate from the full quiz.",
             Foreground = QuizMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 0),
@@ -97,7 +99,7 @@ public partial class MainShellWindow
             Margin = new Thickness(0, 0, 0, 14),
         };
         var titlePanel = new StackPanel();
-        titlePanel.Children.Add(Label("YOUTUBE TITLE"));
+        titlePanel.Children.Add(Label("UPLOAD TITLE — YOUTUBE / FACEBOOK"));
         titlePanel.Children.Add(title);
         Grid.SetRow(titlePanel, 2);
         root.Children.Add(titlePanel);
@@ -111,18 +113,25 @@ public partial class MainShellWindow
             MinHeight = 145,
             MaxHeight = 220,
             Padding = new Thickness(10),
-            Margin = new Thickness(0, 0, 0, 14),
+            Margin = new Thickness(0, 0, 0, 5),
         };
-        var descriptionPanel = new StackPanel();
-        descriptionPanel.Children.Add(Label("DESCRIPTION — KEEP THE FULL-QUIZ LINK"));
+        var descriptionPanel = new StackPanel { Margin = new Thickness(0, 0, 0, 14) };
+        descriptionPanel.Children.Add(Label("YOUTUBE / FACEBOOK DESCRIPTION — KEEP THE FULL-QUIZ LINK"));
         descriptionPanel.Children.Add(description);
+        descriptionPanel.Children.Add(new TextBlock
+        {
+            Text = "Instagram automatically replaces the YouTube URL with the link-in-bio call to action.",
+            Foreground = QuizMutedBrush(),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 5, 0, 0),
+        });
         Grid.SetRow(descriptionPanel, 3);
         root.Children.Add(descriptionPanel);
 
         var options = new WrapPanel { Margin = new Thickness(0, 0, 0, 14) };
         options.Children.Add(new TextBlock
         {
-            Text = "Visibility",
+            Text = "YouTube visibility",
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 8, 0),
@@ -135,7 +144,7 @@ public partial class MainShellWindow
         options.Children.Add(privacy);
         var notify = new CheckBox
         {
-            Content = "Notify subscribers",
+            Content = "Notify YouTube subscribers",
             IsChecked = true,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(20, 0, 0, 0),
@@ -149,9 +158,13 @@ public partial class MainShellWindow
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         var status = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        var initialPending = PromoPendingPlatforms(
+            forceReuploadAll || previousYouTube is null,
+            forceReuploadAll || previousFacebook is null,
+            forceReuploadAll || previousInstagram is null);
         var statusText = new TextBlock
         {
-            Text = "Ready. YouTube will recognise the vertical video as a Short.",
+            Text = "Ready. Will upload to: " + initialPending + ".",
             Foreground = QuizMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
         };
@@ -170,8 +183,8 @@ public partial class MainShellWindow
         footer.Children.Add(cancel);
         var upload = new Button
         {
-            Content = "Upload to YouTube",
-            MinWidth = 138,
+            Content = "Upload to All Platforms",
+            MinWidth = 166,
             MinHeight = 36,
             Margin = new Thickness(8, 0, 0, 0),
             IsDefault = true,
@@ -186,17 +199,43 @@ public partial class MainShellWindow
         {
             try
             {
+                var recordedYouTube = QuizPromoShortPublicationStore.LoadYouTube(history.ProjectFolder);
+                var recordedFacebook = QuizPromoShortSocialPublicationStore.LoadFacebook(history.ProjectFolder);
+                var recordedInstagram = QuizPromoShortSocialPublicationStore.LoadInstagram(history.ProjectFolder);
+                var uploadYouTube = forceReuploadAll || recordedYouTube is null;
+                var uploadFacebook = forceReuploadAll || recordedFacebook is null;
+                var uploadInstagram = forceReuploadAll || recordedInstagram is null;
+                if (!uploadYouTube && !uploadFacebook && !uploadInstagram)
+                {
+                    statusText.Text = "This promo is already uploaded to all three platforms.";
+                    return;
+                }
+
                 var uploadTitle = title.Text.Trim();
                 var uploadDescription = description.Text.Trim();
                 var uploadPrivacy = Convert.ToString(privacy.SelectedItem) ?? "private";
                 var validatedVideo = SocialVideoUploadRules.ValidateVideoFile(file.Text);
                 SocialVideoUploadRules.ValidateUploadMetadata(
-                    "Short", uploadTitle, uploadDescription, requireFullYouTubeVideoLink: true);
-                SocialVideoUploadRules.ValidatePrivacy(uploadPrivacy);
+                    "Short",
+                    uploadTitle,
+                    uploadDescription,
+                    requireFullYouTubeVideoLink: uploadYouTube || uploadFacebook);
+                if (uploadYouTube)
+                    SocialVideoUploadRules.ValidatePrivacy(uploadPrivacy);
 
+                if (uploadFacebook || uploadInstagram)
+                {
+                    var duration = await new NativeFfmpegTimelineService().MediaDurationAsync(validatedVideo);
+                    if (uploadFacebook) SocialVideoUploadRules.ValidateFacebookDuration(duration);
+                    if (uploadInstagram) SocialVideoUploadRules.ValidateInstagramDuration(duration);
+                }
+
+                var destinations = (uploadYouTube ? SocialUploadDestination.YouTube : SocialUploadDestination.None) |
+                                   (uploadFacebook ? SocialUploadDestination.Facebook : SocialUploadDestination.None) |
+                                   (uploadInstagram ? SocialUploadDestination.Instagram : SocialUploadDestination.None);
                 var preflight = await ConfirmSocialPublishingPreflightAsync(
                     dialog,
-                    SocialUploadDestination.YouTube,
+                    destinations,
                     validatedVideo,
                     uploadTitle,
                     uploadPrivacy,
@@ -206,50 +245,152 @@ public partial class MainShellWindow
                 upload.IsEnabled = false;
                 cancel.IsEnabled = false;
                 privacy.IsEnabled = false;
+                notify.IsEnabled = false;
                 title.IsEnabled = false;
                 description.IsEnabled = false;
                 progress.Visibility = Visibility.Visible;
-                statusText.Text = "Uploading the promotional Short to YouTube... Keep this window open.";
 
-                var result = await _youtubeVideoUpload.UploadAsync(
-                    preflight.YouTubeAccessToken,
-                    validatedVideo,
-                    new YouTubeVideoUpload(
-                        uploadTitle,
-                        uploadDescription,
-                        uploadPrivacy,
-                        notify.IsChecked == true));
+                var completed = new List<string>();
+                var completedLinks = new List<string>();
+                var failures = new List<string>();
+                var warnings = new List<string>();
 
-                var warning = "";
-                statusText.Text = "Verifying the YouTube upload...";
-                try
+                if (uploadYouTube)
                 {
-                    await _youtubeManagement.VerifyUploadedVideoAsync(
-                        preflight.YouTubeAccessToken,
-                        result.VideoId,
-                        preflight.YouTubeChannel!.Id,
-                        uploadTitle,
-                        uploadPrivacy);
-                }
-                catch (Exception error)
-                {
-                    warning = "\n\nUpload verification warning: " + error.Message;
+                    statusText.Text = "Uploading the promotional Short to YouTube... Keep this window open.";
+                    try
+                    {
+                        var result = await _youtubeVideoUpload.UploadAsync(
+                            preflight.YouTubeAccessToken,
+                            validatedVideo,
+                            new YouTubeVideoUpload(
+                                uploadTitle,
+                                uploadDescription,
+                                uploadPrivacy,
+                                notify.IsChecked == true));
+
+                        QuizPromoShortPublicationStore.RecordYouTube(
+                            history.ProjectFolder,
+                            result,
+                            uploadPrivacy,
+                            DateTimeOffset.Now);
+                        completed.Add("YouTube");
+                        completedLinks.Add("YouTube: " + result.Url);
+
+                        statusText.Text = "Verifying the YouTube promo upload...";
+                        try
+                        {
+                            await _youtubeManagement.VerifyUploadedVideoAsync(
+                                preflight.YouTubeAccessToken,
+                                result.VideoId,
+                                preflight.YouTubeChannel!.Id,
+                                uploadTitle,
+                                uploadPrivacy);
+                        }
+                        catch (Exception error)
+                        {
+                            warnings.Add("YouTube verification: " + error.Message);
+                        }
+                    }
+                    catch (Exception error)
+                    {
+                        failures.Add("YouTube: " + error.Message);
+                    }
                 }
 
-                QuizPromoShortPublicationStore.RecordYouTube(
-                    history.ProjectFolder,
-                    result,
-                    uploadPrivacy,
-                    DateTimeOffset.Now);
+                if (uploadFacebook)
+                {
+                    statusText.Text = "Uploading the promotional Reel to Facebook... Keep this window open.";
+                    try
+                    {
+                        var result = await _facebookReelUpload.UploadAsync(
+                            preflight.FacebookPageToken,
+                            validatedVideo,
+                            uploadTitle,
+                            uploadDescription);
+                        QuizPromoShortSocialPublicationStore.RecordFacebook(
+                            history.ProjectFolder,
+                            result,
+                            DateTimeOffset.Now);
+                        completed.Add("Facebook");
+                        if (result.Url.Trim().Length > 0)
+                            completedLinks.Add("Facebook: " + result.Url);
+
+                        statusText.Text = "Verifying the Facebook promo Reel...";
+                        try
+                        {
+                            await _facebookReelUpload.VerifyUploadedReelAsync(
+                                preflight.FacebookPageToken,
+                                result.VideoId);
+                        }
+                        catch (Exception error)
+                        {
+                            warnings.Add("Facebook verification: " + error.Message);
+                        }
+                    }
+                    catch (Exception error)
+                    {
+                        failures.Add("Facebook: " + error.Message);
+                    }
+                }
+
+                if (uploadInstagram)
+                {
+                    statusText.Text = "Uploading the promotional Reel to Instagram... Keep this window open.";
+                    try
+                    {
+                        var instagramCaption = SocialVideoUploadRules.InstagramCaption(uploadDescription);
+                        var result = await _instagramReelUpload.UploadReelAsync(
+                            preflight.FacebookPageToken,
+                            validatedVideo,
+                            instagramCaption);
+                        QuizPromoShortSocialPublicationStore.RecordInstagram(
+                            history.ProjectFolder,
+                            result,
+                            DateTimeOffset.Now);
+                        completed.Add("Instagram");
+                        if (result.Url.Trim().Length > 0)
+                            completedLinks.Add("Instagram: " + result.Url);
+                    }
+                    catch (Exception error)
+                    {
+                        failures.Add("Instagram: " + error.Message);
+                    }
+                }
+
+                forceReuploadAll = false;
                 RefreshUploadManager();
-                statusText.Text = "Promotional Short uploaded successfully.";
+
+                var links = completedLinks.Count == 0
+                    ? ""
+                    : "\n\n" + string.Join("\n", completedLinks);
+                var warningText = warnings.Count == 0
+                    ? ""
+                    : "\n\nWarnings:\n" + string.Join("\n", warnings);
+                if (failures.Count == 0)
+                {
+                    statusText.Text = "Promotional Short uploaded successfully to YouTube, Facebook, and Instagram.";
+                    MessageBox.Show(dialog,
+                        "Promotional Short uploaded successfully to YouTube, Facebook, and Instagram." + links +
+                        "\n\nIn YouTube Studio, select the full quiz as this Short's related video." + warningText,
+                        "Promo Short Uploaded",
+                        MessageBoxButton.OK,
+                        warnings.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+                    dialog.DialogResult = true;
+                    return;
+                }
+
+                var completedText = completed.Count == 0
+                    ? "No platform upload completed."
+                    : "Uploaded successfully to " + string.Join(" and ", completed) + ".";
+                var failureText = "\n\nStill needs uploading:\n" + string.Join("\n", failures);
+                statusText.Text = completedText + " Click Upload again to retry only the missing platforms.";
                 MessageBox.Show(dialog,
-                    $"Promotional Short uploaded successfully.\n\n{result.Url}\n\n" +
-                    "Open this Short in YouTube Studio and select the full quiz as its related video." + warning,
-                    "Promo Short Uploaded",
+                    completedText + links + failureText + warningText +
+                    "\n\nClick Upload to All Platforms again to retry only the platforms that are still missing.",
+                    "Promo Upload Partially Complete",
                     MessageBoxButton.OK,
-                    warning.Length == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
-                dialog.DialogResult = true;
+                    completed.Count == 0 ? MessageBoxImage.Error : MessageBoxImage.Warning);
             }
             catch (Exception error)
             {
@@ -261,6 +402,7 @@ public partial class MainShellWindow
                 upload.IsEnabled = true;
                 cancel.IsEnabled = true;
                 privacy.IsEnabled = true;
+                notify.IsEnabled = true;
                 title.IsEnabled = true;
                 description.IsEnabled = true;
                 progress.Visibility = Visibility.Collapsed;
@@ -269,5 +411,14 @@ public partial class MainShellWindow
 
         dialog.Content = root;
         dialog.ShowDialog();
+    }
+
+    private static string PromoPendingPlatforms(bool youtube, bool facebook, bool instagram)
+    {
+        var platforms = new List<string>();
+        if (youtube) platforms.Add("YouTube");
+        if (facebook) platforms.Add("Facebook");
+        if (instagram) platforms.Add("Instagram");
+        return platforms.Count == 0 ? "none" : string.Join(", ", platforms);
     }
 }
