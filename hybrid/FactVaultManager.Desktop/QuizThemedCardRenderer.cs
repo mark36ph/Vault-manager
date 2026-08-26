@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Windows;
@@ -41,6 +42,8 @@ public sealed record QuizVisualRenderSettings(
 
 public sealed class QuizThemedCardRenderer
 {
+    private static readonly ConcurrentDictionary<string, BitmapSource> LogoArtworkCache =
+        new(StringComparer.OrdinalIgnoreCase);
     private static readonly Color NeonBlue = Color.FromRgb(0, 204, 255);
     private static readonly Color NeonPurple = Color.FromRgb(204, 70, 255);
     private static readonly Color NeonGold = Color.FromRgb(255, 202, 45);
@@ -55,7 +58,7 @@ public sealed class QuizThemedCardRenderer
 
     internal static Image BuildLogoArtwork(string imagePath, bool vertical) => new()
     {
-        Source = LoadBitmap(imagePath),
+        Source = LoadLogoArtworkBitmap(imagePath),
         Stretch = Stretch.Uniform,
         HorizontalAlignment = HorizontalAlignment.Center,
         VerticalAlignment = VerticalAlignment.Center,
@@ -63,6 +66,106 @@ public sealed class QuizThemedCardRenderer
         MaxHeight = vertical ? 460 : 250,
         Margin = new Thickness(vertical ? 20 : 16),
     };
+
+    private static BitmapSource LoadLogoArtworkBitmap(string imagePath)
+    {
+        var fullPath = Path.GetFullPath(imagePath);
+        var file = new FileInfo(fullPath);
+        var cacheKey = $"{fullPath}\0{file.Length}\0{file.LastWriteTimeUtc.Ticks}";
+        return LogoArtworkCache.GetOrAdd(
+            cacheKey,
+            _ => CropLogoWhitespace(LoadBitmap(fullPath)));
+    }
+
+    internal static BitmapSource CropLogoWhitespace(BitmapSource source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        if (source.PixelWidth < 2 || source.PixelHeight < 2)
+            return source;
+
+        var bitmap = source.Format == PixelFormats.Bgra32
+            ? source
+            : new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+        var width = bitmap.PixelWidth;
+        var height = bitmap.PixelHeight;
+        var stride = width * 4;
+        var pixels = new byte[stride * height];
+        bitmap.CopyPixels(pixels, stride, 0);
+
+        var corners = new[]
+        {
+            Pixel(pixels, stride, 0, 0),
+            Pixel(pixels, stride, width - 1, 0),
+            Pixel(pixels, stride, 0, height - 1),
+            Pixel(pixels, stride, width - 1, height - 1),
+        };
+        if (!corners.All(corner => Similar(corner, corners[0], 20)))
+            return source;
+
+        var background = (
+            B: (byte)Math.Round(corners.Average(pixel => pixel.B)),
+            G: (byte)Math.Round(corners.Average(pixel => pixel.G)),
+            R: (byte)Math.Round(corners.Average(pixel => pixel.R)),
+            A: (byte)Math.Round(corners.Average(pixel => pixel.A)));
+        var transparentCanvas = background.A <= 12;
+        var whiteCanvas = background.A >= 235 &&
+                          background.R >= 235 && background.G >= 235 && background.B >= 235;
+        if (!transparentCanvas && !whiteCanvas)
+            return source;
+        var left = width;
+        var top = height;
+        var right = -1;
+        var bottom = -1;
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                var pixel = Pixel(pixels, stride, x, y);
+                var isBackground = transparentCanvas
+                    ? pixel.A <= 12
+                    : Similar(pixel, background, 20);
+                if (isBackground) continue;
+                left = Math.Min(left, x);
+                top = Math.Min(top, y);
+                right = Math.Max(right, x);
+                bottom = Math.Max(bottom, y);
+            }
+        }
+
+        if (right < left || bottom < top)
+            return source;
+
+        var padding = Math.Max(2, (int)Math.Round(Math.Max(width, height) * 0.025));
+        left = Math.Max(0, left - padding);
+        top = Math.Max(0, top - padding);
+        right = Math.Min(width - 1, right + padding);
+        bottom = Math.Min(height - 1, bottom + padding);
+        if (left == 0 && top == 0 && right == width - 1 && bottom == height - 1)
+            return source;
+
+        var cropped = new CroppedBitmap(bitmap, new Int32Rect(
+            left,
+            top,
+            right - left + 1,
+            bottom - top + 1));
+        cropped.Freeze();
+        return cropped;
+    }
+
+    private static (byte B, byte G, byte R, byte A) Pixel(byte[] pixels, int stride, int x, int y)
+    {
+        var offset = (y * stride) + (x * 4);
+        return (pixels[offset], pixels[offset + 1], pixels[offset + 2], pixels[offset + 3]);
+    }
+
+    private static bool Similar(
+        (byte B, byte G, byte R, byte A) left,
+        (byte B, byte G, byte R, byte A) right,
+        int tolerance) =>
+        Math.Abs(left.B - right.B) <= tolerance &&
+        Math.Abs(left.G - right.G) <= tolerance &&
+        Math.Abs(left.R - right.R) <= tolerance &&
+        Math.Abs(left.A - right.A) <= tolerance;
 
     internal static string LogoQuizDisplayName(string title)
     {
