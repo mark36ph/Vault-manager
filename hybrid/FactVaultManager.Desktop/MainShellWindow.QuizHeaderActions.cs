@@ -23,8 +23,13 @@ public partial class MainShellWindow
         {
             InitializeQuizHeaderButtons();
             UpdateQuizHeaderButtons();
+            ApplyQuizFinalRenderLabels();
         };
-        MainTabs.SelectionChanged += (_, _) => UpdateQuizHeaderButtons();
+        MainTabs.SelectionChanged += (_, _) =>
+        {
+            UpdateQuizHeaderButtons();
+            ApplyQuizFinalRenderLabels();
+        };
     }
 
     private void InitializeQuizHeaderButtons()
@@ -89,6 +94,7 @@ public partial class MainShellWindow
     private void UpdateQuizHeaderButtons()
     {
         InitializeQuizHeaderButtons();
+        ApplyQuizFinalRenderLabels();
         if (_quizHeaderProductionButton is null || _quizHeaderResolveButton is null ||
             _quizHeaderPublishButton is null || _quizHeaderReopenButton is null)
         {
@@ -115,10 +121,52 @@ public partial class MainShellWindow
 
         var hasExport = !string.IsNullOrWhiteSpace(_lastQuizResolveExportPath) &&
                         File.Exists(_lastQuizResolveExportPath);
-        _quizHeaderResolveButton.Content = hasExport ? "Open in Resolve" : "Create Resolve Quiz";
+        _quizHeaderResolveButton.Content = hasExport ? "Open in Resolve" : "Render Final Video";
         _quizHeaderResolveButton.ToolTip = hasExport
             ? "Open DaVinci Resolve and show the latest quiz FCPXML package."
-            : "Go to the quiz Export step to create a Resolve package.";
+            : "Go to the quiz Export step to render the finished MP4.";
+    }
+
+    private void ApplyQuizFinalRenderLabels()
+    {
+        if (Content is not DependencyObject root)
+            return;
+
+        foreach (var button in FindVisualChildren<Button>(root))
+        {
+            if (!string.Equals(
+                    Convert.ToString(button.Content)?.Trim(),
+                    "Create Resolve Quiz",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            button.Content = "Render Final Video";
+            button.ToolTip = "Create the finished YouTube-ready MP4 directly in Content Vault Manager. A Resolve/FCPXML package is also kept for optional advanced editing.";
+        }
+
+        foreach (var text in FindVisualChildren<TextBlock>(root))
+        {
+            if (string.Equals(text.Text, "Resolve export", StringComparison.OrdinalIgnoreCase))
+            {
+                text.Text = "Final video";
+            }
+            else if (string.Equals(
+                         text.Text,
+                         "Configure Resolve format, quiz branding, presentation, narration, sound effects, and background music.",
+                         StringComparison.Ordinal))
+            {
+                text.Text = "Configure final video format, quiz branding, presentation, narration, sound effects, and background music.";
+            }
+            else if (string.Equals(
+                         text.Text,
+                         "Pick random questions from your reusable bank, set the timing, and prepare quiz videos for Resolve.",
+                         StringComparison.Ordinal))
+            {
+                text.Text = "Pick random questions from your reusable bank, set the timing, and create finished quiz videos.";
+            }
+        }
     }
 
     private void OpenLatestQuizInResolve_Click(object sender, RoutedEventArgs e)
@@ -129,8 +177,9 @@ public partial class MainShellWindow
             if (fcpxml.Length == 0 || !File.Exists(fcpxml))
             {
                 SelectQuizWorkspacePage("export");
+                ApplyQuizFinalRenderLabels();
                 if (_quizPageStatusText is not null)
-                    _quizPageStatusText.Text = "Configure the quiz export, then click Create Resolve Quiz.";
+                    _quizPageStatusText.Text = "Configure the quiz export, then click Render Final Video.";
                 return;
             }
 
