@@ -96,6 +96,52 @@ public sealed class QuizPromoShortTests
     }
 
     [Fact]
+    public void UploadMetadata_CreatesShortTitleAndFullQuizFunnel()
+    {
+        var title = QuizPromoShortUploadMetadata.Title(new string('A', 120));
+        var description = QuizPromoShortUploadMetadata.Description(
+            "Ultimate Music Quiz",
+            "https://www.youtube.com/watch?v=fullQuiz123",
+            "#Music #Quiz");
+
+        Assert.True(title.Length <= 100);
+        Assert.EndsWith("#Shorts", title, StringComparison.Ordinal);
+        Assert.Contains("https://www.youtube.com/watch?v=fullQuiz123", description, StringComparison.Ordinal);
+        Assert.Contains("#Shorts", description, StringComparison.OrdinalIgnoreCase);
+        SocialVideoUploadRules.ValidateUploadMetadata("Short", title, description);
+    }
+
+    [Fact]
+    public void PublicationStore_TracksPromoUploadWithoutReplacingGenerationMetadata()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"promo-publication-{Guid.NewGuid():N}");
+        try
+        {
+            var folder = QuizPromoShortPaths.Folder(root);
+            Directory.CreateDirectory(folder);
+            File.WriteAllText(
+                QuizPromoShortPaths.Metadata(root),
+                "{\"source_video\":\"quiz.mp4\"}");
+
+            QuizPromoShortPublicationStore.RecordYouTube(
+                root,
+                new YouTubeVideoUploadResult("promo123", "https://www.youtube.com/watch?v=promo123"),
+                "unlisted",
+                new DateTimeOffset(2026, 8, 26, 12, 30, 0, TimeSpan.Zero));
+
+            var uploaded = QuizPromoShortPublicationStore.LoadYouTube(root);
+            Assert.NotNull(uploaded);
+            Assert.Equal("promo123", uploaded.VideoId);
+            Assert.Equal("unlisted", uploaded.Privacy);
+            Assert.Contains("\"source_video\": \"quiz.mp4\"", File.ReadAllText(QuizPromoShortPaths.Metadata(root)), StringComparison.Ordinal);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void EndCardBranding_UsesConfiguredQuizLogo()
     {
         var root = Path.Combine(Path.GetTempPath(), $"promo-logo-{Guid.NewGuid():N}");
