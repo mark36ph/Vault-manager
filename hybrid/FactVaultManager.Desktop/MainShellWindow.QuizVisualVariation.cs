@@ -111,7 +111,9 @@ public partial class MainShellWindow
         if (_quizDraftQuestions.Count == 0 || !QuizVisualVariationPlanner.Applies(vertical, quizType))
             return "Fixed layout";
 
-        return QuizVisualVariationPlanner.ForTheme(CurrentQuizVisualSettings().ThemeKey).DisplayName;
+        var planned = QuizVisualVariationPlanner.ForQuestions(_quizDraftQuestions);
+        var themeKey = CurrentQuizVisualSettings().ThemeKey;
+        return (planned with { ThemeKey = themeKey }).DisplayName;
     }
 
     private void RefreshQuizVisualVariationPreview()
@@ -128,15 +130,15 @@ public partial class MainShellWindow
         if (!QuizVisualVariationPlanner.Applies(vertical, quizType))
             return;
 
+        var planned = QuizVisualVariationPlanner.ForQuestions(_quizDraftQuestions);
         var theme = QuizVisualThemeCatalog.Resolve(CurrentQuizVisualSettings().ThemeKey);
-        var variation = QuizVisualVariationPlanner.ForTheme(theme.Key);
         var hideChoicePrompt = SelectedQuizPreviewCardKind() == QuizPreviewCardKind.Question;
 
         _quizVisualVariationBasePreview = source;
         _quizVisualVariationAppliedPreview = QuizCardVariationPostProcessor.ApplyPreview(
             source,
             theme,
-            variation.LayoutKey,
+            planned.LayoutKey,
             hideChoicePrompt);
         _quizPreviewImage.Source = _quizVisualVariationAppliedPreview;
     }
