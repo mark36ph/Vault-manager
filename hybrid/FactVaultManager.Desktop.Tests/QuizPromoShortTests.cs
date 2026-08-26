@@ -93,12 +93,20 @@ public sealed class QuizPromoShortTests
             using (var stream = File.Create(logo)) encoder.Save(stream);
 
             Exception? renderError = null;
-            System.Windows.FrameworkElement? branding = null;
+            var isImage = false;
+            var hasSource = false;
+            var imageHeight = 0.0;
             var thread = new Thread(() =>
             {
                 try
                 {
-                    branding = QuizPromoShortEndCardRenderer.BuildBranding(logo);
+                    var branding = QuizPromoShortEndCardRenderer.BuildBranding(logo);
+                    if (branding is System.Windows.Controls.Image image)
+                    {
+                        isImage = true;
+                        hasSource = image.Source is not null;
+                        imageHeight = image.Height;
+                    }
                 }
                 catch (Exception error)
                 {
@@ -112,9 +120,9 @@ public sealed class QuizPromoShortTests
             if (renderError is not null)
                 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(renderError).Throw();
 
-            var image = Assert.IsType<System.Windows.Controls.Image>(branding);
-            Assert.NotNull(image.Source);
-            Assert.Equal(260, image.Height);
+            Assert.True(isImage);
+            Assert.True(hasSource);
+            Assert.Equal(260, imageHeight);
         }
         finally
         {
