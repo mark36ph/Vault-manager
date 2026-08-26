@@ -325,7 +325,7 @@ public partial class MainShellWindow
         {
             var picker = new OpenFileDialog
             {
-                Title = "Choose question logo or icon image",
+                Title = "Choose question logo image",
                 Filter = "Image files (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp",
                 CheckFileExists = true,
             };
@@ -351,11 +351,11 @@ public partial class MainShellWindow
         clearImage.Click += (_, _) => imagePathTextBox.Clear();
         Grid.SetColumn(clearImage, 2);
         imageControls.Children.Add(clearImage);
-        AddManualQuizField(form, 6, 0, 3, "LOGO / ICON IMAGE (OPTIONAL)", imageControls);
+        AddManualQuizField(form, 6, 0, 3, "LOGO IMAGE (OPTIONAL)", imageControls);
 
         var help = new TextBlock
         {
-            Text = "Attach a logo or icon image to this question when needed. The permanent Factburst quiz logo is configured separately. All four answers must be different. New questions start enabled with Times used = 0.",
+            Text = "Attach a logo image to this question when needed. The permanent Factburst quiz logo is configured separately. All four answers must be different. New questions start enabled with Times used = 0.",
             Foreground = QuizMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 12),
