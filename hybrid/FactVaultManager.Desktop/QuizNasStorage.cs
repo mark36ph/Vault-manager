@@ -37,6 +37,7 @@ public static partial class QuizExportStaging
 
         try
         {
+            new NativeQuizFinalRenderer().Render(build.Timeline, source);
             CopyDirectory(source, temporary);
             NativeResolvePortablePathRebaser.RebaseTree(temporary, source, destination);
             Directory.Move(temporary, destination);
