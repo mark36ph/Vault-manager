@@ -8,13 +8,29 @@ namespace FactVaultManager.Desktop;
 
 public sealed record QuizNarrationAsset(int QuestionId, string Path, double Duration);
 
+public sealed record QuizNarrationDelivery(string Input, string Instructions);
+
 public static class QuizNarrationScript
 {
     public static string Create(QuizQuestion question, bool includeAnswers)
     {
         ArgumentNullException.ThrowIfNull(question);
+        return Build(question.Question.Trim(), question, includeAnswers);
+    }
+
+    public static QuizNarrationDelivery CreateDelivery(QuizQuestion question, bool includeAnswers)
+    {
+        ArgumentNullException.ThrowIfNull(question);
+        var difficulty = QuizDifficultyCatalog.Parse(question.Difficulty);
+        var questionText = AddDifficultyPunctuation(question.Question.Trim(), difficulty);
+        var input = Build(questionText, question, includeAnswers);
+        return new QuizNarrationDelivery(input, InstructionsFor(difficulty));
+    }
+
+    private static string Build(string questionText, QuizQuestion question, bool includeAnswers)
+    {
         var builder = new StringBuilder();
-        builder.Append(question.Question.Trim());
+        builder.Append(questionText);
         if (includeAnswers)
         {
             for (var index = 0; index < question.Answers.Count; index++)
@@ -28,6 +44,67 @@ public static class QuizNarrationScript
             }
         }
         return builder.ToString().Trim();
+    }
+
+    private static string AddDifficultyPunctuation(string text, QuizDifficulty difficulty)
+    {
+        var pauseCount = difficulty switch
+        {
+            QuizDifficulty.Hard => 1,
+            QuizDifficulty.Insane => 2,
+            _ => 0,
+        };
+        if (pauseCount == 0 || text.Length == 0)
+            return text;
+
+        var result = text;
+        var searchFrom = 0;
+        for (var pause = 0; pause < pauseCount; pause++)
+        {
+            var match = FindNextNaturalBreak(result, searchFrom);
+            if (match.Index < 0)
+                break;
+
+            result = result[..match.Index] + "… " + result[(match.Index + match.Length)..];
+            searchFrom = match.Index + 2;
+        }
+        return result;
+    }
+
+    private static (int Index, int Length) FindNextNaturalBreak(string text, int startIndex)
+    {
+        var separators = new[] { ", ", "; ", ": ", " — ", " – " };
+        var bestIndex = -1;
+        var bestLength = 0;
+        foreach (var separator in separators)
+        {
+            var index = text.IndexOf(separator, startIndex, StringComparison.Ordinal);
+            if (index < 0 || (bestIndex >= 0 && index >= bestIndex))
+                continue;
+            bestIndex = index;
+            bestLength = separator.Length;
+        }
+        return (bestIndex, bestLength);
+    }
+
+    private static string InstructionsFor(QuizDifficulty difficulty)
+    {
+        const string fidelity =
+            "Read exactly the supplied quiz text. Do not add, omit, explain, answer, or paraphrase any words. " +
+            "No greeting, setup, polite filler, difficulty label, or commentary. ";
+
+        return difficulty switch
+        {
+            QuizDifficulty.Easy => fidelity +
+                "Use a brisk, upbeat quiz-host delivery. Keep the pace quick, confident, and clear, with tight natural pauses.",
+            QuizDifficulty.Medium => fidelity +
+                "Use a confident quiz-host delivery with light controlled suspense. Add a small natural pause before the final clause while keeping momentum.",
+            QuizDifficulty.Hard => fidelity +
+                "Use a high-stakes quiz-host delivery. Build controlled tension, slow slightly on the key clause, and make one deliberate pause before the final phrase. Keep it focused, not theatrical.",
+            QuizDifficulty.Insane => fidelity +
+                "Use maximum controlled suspense for a final-round quiz question. Let the key clause breathe, make a deliberate pause before the final phrase, then finish firmly. Keep it tense, not melodramatic.",
+            _ => fidelity + "Use a confident, clear quiz-host delivery.",
+        };
     }
 }
 
@@ -66,8 +143,13 @@ public sealed class NativeQuizSpeechProvider : IDisposable
         voiceFolder = Path.GetFullPath(voiceFolder);
         Directory.CreateDirectory(voiceFolder);
 
-        var input = QuizNarrationScript.Create(question, includeAnswers);
-        return await GenerateAsync(input, "narration", voiceFolder, cancellationToken);
+        var delivery = QuizNarrationScript.CreateDelivery(question, includeAnswers);
+        return await GenerateAsync(
+            delivery.Input,
+            "narration",
+            voiceFolder,
+            delivery.Instructions,
+            cancellationToken);
     }
 
     public Task<string> GeneratePromoCallToActionAsync(
@@ -79,16 +161,20 @@ public sealed class NativeQuizSpeechProvider : IDisposable
         voiceFolder = Required(voiceFolder, "voice folder");
         voiceFolder = Path.GetFullPath(voiceFolder);
         Directory.CreateDirectory(voiceFolder);
-        return GenerateAsync(input, "promo_cta", voiceFolder, cancellationToken);
+        return GenerateAsync(input, "promo_cta", voiceFolder, instructions: null, cancellationToken);
     }
 
     private async Task<string> GenerateAsync(
         string input,
         string prefix,
         string voiceFolder,
+        string? instructions,
         CancellationToken cancellationToken)
     {
-        var identity = $"{_model}\n{_voice}\n{input}";
+        var effectiveInstructions = SupportsInstructions(_model)
+            ? (instructions ?? "").Trim()
+            : "";
+        var identity = $"{_model}\n{_voice}\n{effectiveInstructions}\n{input}";
         var digest = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))
             .ToLowerInvariant()[..16];
         var destination = Path.Combine(voiceFolder, $"{prefix}_{_voice}_{digest}.mp3");
@@ -104,6 +190,9 @@ public sealed class NativeQuizSpeechProvider : IDisposable
             ["input"] = input,
             ["response_format"] = "mp3",
         };
+        if (effectiveInstructions.Length > 0)
+            body["instructions"] = effectiveInstructions;
+
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/audio/speech");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
         request.Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
@@ -144,6 +233,10 @@ public sealed class NativeQuizSpeechProvider : IDisposable
         }
         return destination;
     }
+
+    private static bool SupportsInstructions(string model) =>
+        !string.Equals(model, "tts-1", StringComparison.OrdinalIgnoreCase) &&
+        !string.Equals(model, "tts-1-hd", StringComparison.OrdinalIgnoreCase);
 
     private static HttpClient CreateClient()
     {
