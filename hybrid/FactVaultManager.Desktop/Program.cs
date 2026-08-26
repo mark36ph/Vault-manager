@@ -33,6 +33,7 @@ public static class Program
             var mainWindow = new MainShellWindow();
             mainWindow.InitializeQuizHeaderActionsForApp();
             mainWindow.InitializeQuizWorkspaceNavigationForApp();
+            mainWindow.InitializeFactburstTrackerForApp();
             application.Run(mainWindow);
         }
         catch (Exception error)
