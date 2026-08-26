@@ -144,7 +144,7 @@ public sealed class FactburstLinkTrackerClient
         var payload = JsonSerializer.Serialize(new
         {
             slug = safeSlug,
-            quiz_id = quizId > 0 ? quizId : null,
+            quiz_id = quizId > 0 ? (int?)quizId : null,
             title = (title ?? "").Trim(),
             destination_url = destination,
         });
