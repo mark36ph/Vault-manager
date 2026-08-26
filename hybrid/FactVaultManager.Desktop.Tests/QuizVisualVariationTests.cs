@@ -127,7 +127,7 @@ public sealed class QuizVisualVariationTests
 
     [Theory]
     [InlineData("dark", 0, 204, 255)]
-    [InlineData("bright", 46, 211, 255)]
+    [InlineData("bright", 35, 225, 255)]
     [InlineData("game-show", 171, 93, 255)]
     public void ApplyPreview_ThemesActualCardAccentPixels(string themeKey, byte expectedR, byte expectedG, byte expectedB)
     {
@@ -161,6 +161,48 @@ public sealed class QuizVisualVariationTests
         Assert.Equal(expectedG, pixel.G);
         Assert.Equal(expectedB, pixel.B);
         Assert.Equal(255, pixel.A);
+    }
+
+    [Fact]
+    public void ApplyPreview_ApprovedLooksHaveClearlyDifferentPanelColors()
+    {
+        Exception? renderError = null;
+        var colors = new List<(byte B, byte G, byte R, byte A)>();
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                var source = SolidBitmap(192, 108, 0, 0, 0, 0);
+                source = PaintPixel(source, 96, 54, r: 8, g: 14, b: 62, a: 255);
+
+                foreach (var themeKey in new[] { "dark", "bright", "game-show" })
+                {
+                    var look = QuizVisualVariationPlanner.ForTheme(themeKey);
+                    var rendered = QuizCardVariationPostProcessor.ApplyPreview(
+                        source,
+                        QuizVisualThemeCatalog.Resolve(themeKey),
+                        look.LayoutKey);
+                    colors.Add(ReadPixel(rendered, 96, 54));
+                }
+            }
+            catch (Exception error)
+            {
+                renderError = error;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+
+        if (renderError is not null)
+            ExceptionDispatchInfo.Capture(renderError).Throw();
+
+        Assert.Equal(3, colors.Distinct().Count());
+        Assert.Equal((byte)8, colors[0].R);
+        Assert.Equal((byte)5, colors[1].R);
+        Assert.Equal((byte)33, colors[2].R);
+        Assert.True(colors[1].G > colors[0].G + 35);
+        Assert.True(colors[2].R > colors[0].R + 20);
     }
 
     [Fact]
