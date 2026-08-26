@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -28,62 +29,171 @@ public partial class MainShellWindow
         if (actions is null)
             return false;
 
-        var buttons = actions.Children.OfType<Button>().ToList();
-        var anchor = buttons.FirstOrDefault(button => string.Equals(
-            Convert.ToString(button.Content),
-            "Retry Failed Step",
-            StringComparison.Ordinal));
-        if (anchor is null)
-            return false;
-
-        var hasRegenerate = buttons.Any(button => string.Equals(
-            Convert.ToString(button.Content),
-            "Regenerate Thumbnail",
-            StringComparison.Ordinal));
-        var hasRegenerateAll = buttons.Any(button => string.Equals(
-            Convert.ToString(button.Content),
-            "Regenerate All Thumbnails",
-            StringComparison.Ordinal));
-
-        var insertionIndex = actions.Children.IndexOf(anchor) + 1;
-        if (!hasRegenerate)
-        {
-            var regenerate = new Button
-            {
-                Content = "Regenerate Thumbnail",
-                MinWidth = 142,
-                Margin = new Thickness(8, 0, 0, 0),
-                ToolTip = "Rebuild Thumbnail.png for the selected quiz without changing its video or upload records.",
-            };
-            StyleQuizHistoryButton(regenerate, Color.FromRgb(70, 235, 115));
-            regenerate.Click += (_, _) =>
-            {
-                if (_uploadManagerGrid?.SelectedItem is QuizHistorySummary history)
-                    RegenerateSelectedQuizThumbnail(history);
-                else
-                    MessageBox.Show(this, "Select a quiz first.", "Regenerate Thumbnail",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
-            };
-            actions.Children.Insert(insertionIndex, regenerate);
-            insertionIndex++;
-        }
-
-        if (!hasRegenerateAll)
-        {
-            var regenerateAll = new Button
-            {
-                Content = "Regenerate All Thumbnails",
-                MinWidth = 164,
-                Margin = new Thickness(8, 0, 0, 0),
-                ToolTip = "Rebuild Thumbnail.png for every long-form quiz in Quiz History.",
-            };
-            StyleQuizHistoryButton(regenerateAll, Color.FromRgb(0, 204, 255));
-            regenerateAll.Click += async (_, _) => await RegenerateAllLongFormQuizThumbnailsAsync(regenerateAll);
-            actions.Children.Insert(insertionIndex, regenerateAll);
-        }
-
+        BuildCompactUploadManagerActions(actions);
         _uploadManagerThumbnailActionsInitialized = true;
         return true;
+    }
+
+    private void BuildCompactUploadManagerActions(WrapPanel actions)
+    {
+        actions.Children.Clear();
+        actions.HorizontalAlignment = HorizontalAlignment.Right;
+
+        var commentsButton = new Button
+        {
+            Content = "First Comments",
+            MinWidth = 118,
+            ToolTip = "Review or post the selected quiz's first comment.",
+        };
+        StyleQuizHistoryButton(commentsButton, Color.FromRgb(204, 70, 255));
+        commentsButton.Click += (_, _) =>
+        {
+            if (_uploadManagerGrid?.SelectedItem is QuizHistorySummary history)
+                ShowQuizPublishingMetadata(history, manageComments: true);
+            else
+                MessageBox.Show(this, "Select a quiz first.", "First Comments",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+        };
+        actions.Children.Add(commentsButton);
+
+        var toolsButton = BuildUploadManagerMenuButton(
+            "Quiz Tools ▾",
+            "Retry/reset upload state or regenerate thumbnails.",
+            Color.FromRgb(0, 204, 255));
+        AddUploadManagerMenuItem(toolsButton, "Retry Failed Step", async (_, _) =>
+        {
+            if (_uploadManagerGrid?.SelectedItem is QuizHistorySummary history)
+                await RetryFailedUploadStepsAsync(history);
+            else
+                MessageBox.Show(this, "Select a quiz first.", "Retry Failed Step",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+        });
+        AddUploadManagerMenuItem(toolsButton, "Reset Upload State", (_, _) =>
+        {
+            if (_uploadManagerGrid?.SelectedItem is QuizHistorySummary history)
+                ShowResetUploadStateDialog(history);
+            else
+                MessageBox.Show(this, "Select a quiz first.", "Reset Upload State",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+        });
+        AddUploadManagerMenuSeparator(toolsButton);
+        AddUploadManagerMenuItem(toolsButton, "Regenerate Thumbnail", (_, _) =>
+        {
+            if (_uploadManagerGrid?.SelectedItem is QuizHistorySummary history)
+                RegenerateSelectedQuizThumbnail(history);
+            else
+                MessageBox.Show(this, "Select a quiz first.", "Regenerate Thumbnail",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+        });
+        AddUploadManagerMenuItem(toolsButton, "Regenerate All Thumbnails", async (_, _) =>
+            await RegenerateAllLongFormQuizThumbnailsAsync(toolsButton));
+        actions.Children.Add(toolsButton);
+
+        var promoButton = BuildUploadManagerMenuButton(
+            "Promo Short ▾",
+            "Create or upload the selected long-form quiz's promotional Short.",
+            Color.FromRgb(204, 70, 255));
+        AddUploadManagerMenuItem(promoButton, "Create Promo Short", (_, _) =>
+        {
+            if (_uploadManagerGrid?.SelectedItem is QuizHistorySummary history)
+                ShowQuizPromoShortDialog(history);
+            else
+                MessageBox.Show(this, "Select a long-form quiz first.", "Create Promo Short",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+        });
+        AddUploadManagerMenuItem(promoButton, "Upload Promo Short", (_, _) =>
+        {
+            if (_uploadManagerGrid?.SelectedItem is QuizHistorySummary history)
+                ShowQuizPromoShortUploadDialog(history);
+            else
+                MessageBox.Show(this, "Select the long-form quiz first.", "Upload Promo Short",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+        });
+        actions.Children.Add(promoButton);
+
+        var uploadSelected = new Button
+        {
+            Content = "Upload Selected",
+            MinWidth = 122,
+            Margin = new Thickness(8, 0, 0, 0),
+            ToolTip = "Upload the selected quiz to its configured destinations.",
+        };
+        StyleQuizHistoryButton(uploadSelected, Color.FromRgb(70, 235, 115));
+        uploadSelected.Click += (_, _) =>
+        {
+            if (_uploadManagerGrid?.SelectedItem is QuizHistorySummary history)
+                ShowQuizUploadDialog(history);
+            else
+                MessageBox.Show(this, "Select a quiz first.", "Upload Selected",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+        };
+        actions.Children.Add(uploadSelected);
+
+        var uploadQueue = new Button
+        {
+            Content = "Upload Queue",
+            MinWidth = 112,
+            Margin = new Thickness(8, 0, 0, 0),
+            ToolTip = "Open the upload queue.",
+        };
+        StyleQuizHistoryButton(uploadQueue, Color.FromRgb(0, 204, 255));
+        uploadQueue.Click += (_, _) => ShowUploadQueueDialog();
+        actions.Children.Add(uploadQueue);
+    }
+
+    private Button BuildUploadManagerMenuButton(string content, string toolTip, Color accent)
+    {
+        var button = new Button
+        {
+            Content = content,
+            MinWidth = 118,
+            Margin = new Thickness(8, 0, 0, 0),
+            ToolTip = toolTip,
+        };
+        StyleQuizHistoryButton(button, accent);
+
+        button.ContextMenu = new ContextMenu
+        {
+            Background = new SolidColorBrush(Color.FromRgb(13, 18, 78)),
+            Foreground = Brushes.White,
+            BorderBrush = new SolidColorBrush(accent),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(4),
+            Placement = PlacementMode.Top,
+        };
+        button.Click += (_, _) =>
+        {
+            if (button.ContextMenu is null)
+                return;
+            button.ContextMenu.PlacementTarget = button;
+            button.ContextMenu.IsOpen = true;
+        };
+        return button;
+    }
+
+    private static void AddUploadManagerMenuItem(Button owner, string header, RoutedEventHandler click)
+    {
+        if (owner.ContextMenu is null)
+            return;
+
+        var item = new MenuItem
+        {
+            Header = header,
+            Foreground = Brushes.White,
+            Background = Brushes.Transparent,
+            FontWeight = FontWeights.SemiBold,
+            Padding = new Thickness(14, 8, 18, 8),
+        };
+        item.Click += click;
+        owner.ContextMenu.Items.Add(item);
+    }
+
+    private static void AddUploadManagerMenuSeparator(Button owner)
+    {
+        owner.ContextMenu?.Items.Add(new Separator
+        {
+            Margin = new Thickness(4, 3, 4, 3),
+        });
     }
 
     private void RegenerateSelectedQuizThumbnail(QuizHistorySummary history)
