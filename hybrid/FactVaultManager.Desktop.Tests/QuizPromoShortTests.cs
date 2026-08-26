@@ -92,7 +92,25 @@ public sealed class QuizPromoShortTests
             encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
             using (var stream = File.Create(logo)) encoder.Save(stream);
 
-            var branding = QuizPromoShortEndCardRenderer.BuildBranding(logo);
+            Exception? renderError = null;
+            System.Windows.FrameworkElement? branding = null;
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    branding = QuizPromoShortEndCardRenderer.BuildBranding(logo);
+                }
+                catch (Exception error)
+                {
+                    renderError = error;
+                }
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+
+            if (renderError is not null)
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(renderError).Throw();
 
             var image = Assert.IsType<System.Windows.Controls.Image>(branding);
             Assert.NotNull(image.Source);
