@@ -118,7 +118,7 @@ public sealed class NativeQuizAudioProductionTests
     }
 
     [Fact]
-    public void NarrationPlanner_UsesActualNarrationBeforeAnswerTime()
+    public void NarrationPlanner_IncludesSuspenseAnswerPauseAndCountdownWindows()
     {
         var questions = new[] { Question(1), Question(2) };
         var options = new QuizVideoBuildOptions("Quiz", QuestionSeconds: 8, AnswerSeconds: 3);
@@ -128,23 +128,55 @@ public sealed class NativeQuizAudioProductionTests
             [2] = new(2, "q2.mp3", 3),
         };
 
-        var windows = QuizAudioTimelinePlanner.BuildNarrationWindows(questions, options, narration);
+        var plan = QuizAudioTimelinePlanner.BuildNarrationWindows(questions, options, narration);
 
-        Assert.Equal(2, windows.Count);
-        Assert.Equal(new QuizNarrationWindow(2, 4), windows[0]);
-        Assert.Equal(new QuizNarrationWindow(15, 18), windows[1]);
+        Assert.Equal(2, plan.Count);
+        Assert.Equal(new QuizNarrationWindow(2, 4), plan[0]);
+        Assert.Equal(new QuizNarrationWindow(15.85, 18.85), plan[1]);
+        Assert.Equal(1.7, plan.AddedPacingSeconds, 6);
+        Assert.Equal(
+            new[]
+            {
+                new QuizCountdownWindow(4.5, 12.5),
+                new QuizCountdownWindow(19.35, 27.35),
+            },
+            plan.CountdownWindows);
     }
 
     [Fact]
-    public void BackgroundFilter_DucksDuringNarrationWindows()
+    public void NarrationPlanner_LeavesStandaloneShortTimingUnchanged()
     {
-        var filter = NativeQuizBackgroundMusicRenderer.BuildAudioFilter(
-            30,
-            [new QuizNarrationWindow(2, 4), new QuizNarrationWindow(15, 18)]);
+        var questions = new[] { Question(1) };
+        var options = new QuizVideoBuildOptions("Short", QuestionSeconds: 8, AnswerSeconds: 3, Vertical: true);
+        var narration = new Dictionary<int, QuizNarrationAsset>
+        {
+            [1] = new(1, "q1.mp3", 2),
+        };
 
-        Assert.Contains("volume=0.20", filter, StringComparison.Ordinal);
-        Assert.Contains("volume=0.32:enable='between(t,2,4)'", filter, StringComparison.Ordinal);
-        Assert.Contains("volume=0.32:enable='between(t,15,18)'", filter, StringComparison.Ordinal);
+        var plan = QuizAudioTimelinePlanner.BuildNarrationWindows(questions, options, narration);
+
+        Assert.Equal(0, plan.AddedPacingSeconds, 6);
+        Assert.Equal(new QuizNarrationWindow(1.2, 3.2), Assert.Single(plan));
+    }
+
+    [Fact]
+    public void BackgroundFilter_DucksNarrationHarderAndLiftsCountdown()
+    {
+        var plan = new QuizAudioMixPlan(
+            [new QuizNarrationWindow(2, 4), new QuizNarrationWindow(15, 18)],
+            [new QuizCountdownWindow(4.5, 12.5)],
+            addedPacingSeconds: 0.85);
+
+        var filter = NativeQuizBackgroundMusicRenderer.BuildAudioFilter(30, plan);
+
+        Assert.Contains("volume=0.2", filter, StringComparison.Ordinal);
+        Assert.Contains("volume=1.35:enable='between(t,4.5,12.5)'", filter, StringComparison.Ordinal);
+        Assert.Contains("volume=0.25:enable='between(t,2,4)'", filter, StringComparison.Ordinal);
+        Assert.Contains("volume=0.25:enable='between(t,15,18)'", filter, StringComparison.Ordinal);
+        Assert.True(
+            NativeQuizBackgroundMusicRenderer.BaseMusicVolume * NativeQuizBackgroundMusicRenderer.NarrationDuckMultiplier < 0.064,
+            "Narration should be ducked more strongly than the previous mix.");
+        Assert.True(NativeQuizBackgroundMusicRenderer.CountdownLiftMultiplier > 1);
         Assert.Contains("afade=t=in", filter, StringComparison.Ordinal);
         Assert.Contains("afade=t=out", filter, StringComparison.Ordinal);
     }

@@ -16,7 +16,9 @@ internal sealed record QuizPromoNativeVisualSource(
     QuizVisualRenderSettings Visual,
     int QuestionNumber,
     int QuestionTotal,
-    double NarrationSeconds);
+    double NarrationSeconds,
+    double NarrationSuspenseSeconds,
+    double AnswerRevealPauseSeconds);
 
 internal sealed record QuizPromoNativeCardPhase(
     QuizPreviewCardKind Kind,
@@ -201,35 +203,60 @@ public sealed class QuizPromoNativeShortRenderer
         if (selected.TryGetProperty("narration", out var narration) && narration.ValueKind == JsonValueKind.Object)
             narrationSeconds = Math.Max(0, Double(narration, "duration", 0));
 
+        var narrationSuspenseSeconds = 0.0;
+        var answerRevealPauseSeconds = 0.0;
+        if (root.TryGetProperty("audio", out var audio) && audio.ValueKind == JsonValueKind.Object)
+        {
+            narrationSuspenseSeconds = Math.Clamp(Double(audio, "narration_suspense_seconds", 0), 0, 2);
+            answerRevealPauseSeconds = Math.Clamp(Double(audio, "answer_reveal_pause_seconds", 0), 0, 2);
+        }
+
         return new QuizPromoNativeVisualSource(
             question,
             options,
             visual,
             Math.Clamp(selectedNumber, 1, Math.Max(1, total)),
             Math.Max(1, total),
-            narrationSeconds);
+            narrationSeconds,
+            narrationSuspenseSeconds,
+            answerRevealPauseSeconds);
     }
 
     internal static IReadOnlyList<QuizPromoNativeCardPhase> BuildCardPhases(
         QuizVideoBuildOptions options,
         double narrationSeconds,
-        double targetDuration)
+        double targetDuration,
+        double narrationSuspenseSeconds = 0,
+        double answerRevealPauseSeconds = 0)
     {
         ArgumentNullException.ThrowIfNull(options);
         options.Validate();
         if (!double.IsFinite(narrationSeconds) || narrationSeconds < 0)
             narrationSeconds = 0;
+        if (!double.IsFinite(narrationSuspenseSeconds) || narrationSuspenseSeconds < 0)
+            narrationSuspenseSeconds = 0;
+        if (!double.IsFinite(answerRevealPauseSeconds) || answerRevealPauseSeconds < 0)
+            answerRevealPauseSeconds = 0;
+        narrationSuspenseSeconds = Math.Clamp(narrationSuspenseSeconds, 0, 2);
+        answerRevealPauseSeconds = Math.Clamp(answerRevealPauseSeconds, 0, 2);
         if (!double.IsFinite(targetDuration) || targetDuration <= 0)
             throw new ArgumentOutOfRangeException(nameof(targetDuration));
 
         var phases = new List<QuizPromoNativeCardPhase>();
         var questionLead = Math.Max(0, options.QuestionSeconds - options.CountdownSeconds);
-        var questionCardDuration = narrationSeconds + questionLead;
+        var questionCardDuration = narrationSeconds + (narrationSeconds > 0 ? narrationSuspenseSeconds : 0) + questionLead;
         if (questionCardDuration > 0)
             phases.Add(new QuizPromoNativeCardPhase(QuizPreviewCardKind.Question, null, questionCardDuration));
 
         for (var remaining = options.CountdownSeconds; remaining >= 1; remaining--)
             phases.Add(new QuizPromoNativeCardPhase(QuizPreviewCardKind.Countdown, remaining, 1));
+
+        if (answerRevealPauseSeconds > 0)
+        {
+            phases.Add(options.CountdownSeconds > 0
+                ? new QuizPromoNativeCardPhase(QuizPreviewCardKind.Countdown, 1, answerRevealPauseSeconds)
+                : new QuizPromoNativeCardPhase(QuizPreviewCardKind.Question, null, answerRevealPauseSeconds));
+        }
 
         if (options.RevealEmphasisSeconds > 0)
             phases.Add(new QuizPromoNativeCardPhase(
@@ -299,7 +326,12 @@ public sealed class QuizPromoNativeShortRenderer
             Directory.Delete(cardsFolder, recursive: true);
         Directory.CreateDirectory(cardsFolder);
 
-        var phases = BuildCardPhases(source.Options, source.NarrationSeconds, bodyDuration);
+        var phases = BuildCardPhases(
+            source.Options,
+            source.NarrationSeconds,
+            bodyDuration,
+            source.NarrationSuspenseSeconds,
+            source.AnswerRevealPauseSeconds);
         if (phases.Count == 0)
             throw new InvalidOperationException("The saved Insane question did not produce any Short card phases.");
 
@@ -509,6 +541,8 @@ public sealed class QuizPromoNativeShortRenderer
             ["visual_style"] = VisualStyle,
             ["visual_renderer"] = nameof(QuizThemedCardRenderer),
             ["theme"] = visualSource.Visual.ThemeKey,
+            ["narration_suspense_seconds"] = visualSource.NarrationSuspenseSeconds,
+            ["answer_reveal_pause_seconds"] = visualSource.AnswerRevealPauseSeconds,
             ["call_to_action"] = script,
             ["call_to_action_voice"] = "fable",
             ["call_to_action_audio"] = Path.GetFileName(ctaAudio),

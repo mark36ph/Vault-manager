@@ -10,7 +10,8 @@ public sealed record QuizAudioCue(string Path, double Duration);
 public sealed record QuizPreparedBackgroundMusic(
     string Path,
     double Duration,
-    bool DuckedForNarration);
+    bool DuckedForNarration,
+    bool LiftedForCountdown = false);
 
 public sealed record QuizAudioAssets(
     QuizAudioCue? CountdownTick = null,
@@ -21,6 +22,36 @@ public sealed record QuizAudioAssets(
 public sealed record QuizNarrationWindow(double Start, double End)
 {
     public double Duration => Math.Max(0, End - Start);
+}
+
+public sealed record QuizCountdownWindow(double Start, double End)
+{
+    public double Duration => Math.Max(0, End - Start);
+}
+
+public sealed class QuizAudioMixPlan : IReadOnlyList<QuizNarrationWindow>
+{
+    private readonly IReadOnlyList<QuizNarrationWindow> _narrationWindows;
+
+    public QuizAudioMixPlan(
+        IReadOnlyList<QuizNarrationWindow> narrationWindows,
+        IReadOnlyList<QuizCountdownWindow> countdownWindows,
+        double addedPacingSeconds)
+    {
+        ArgumentNullException.ThrowIfNull(narrationWindows);
+        ArgumentNullException.ThrowIfNull(countdownWindows);
+        _narrationWindows = narrationWindows;
+        CountdownWindows = countdownWindows;
+        AddedPacingSeconds = Math.Max(0, addedPacingSeconds);
+    }
+
+    public IReadOnlyList<QuizNarrationWindow> NarrationWindows => _narrationWindows;
+    public IReadOnlyList<QuizCountdownWindow> CountdownWindows { get; }
+    public double AddedPacingSeconds { get; }
+    public int Count => _narrationWindows.Count;
+    public QuizNarrationWindow this[int index] => _narrationWindows[index];
+    public IEnumerator<QuizNarrationWindow> GetEnumerator() => _narrationWindows.GetEnumerator();
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
 }
 
 public static class QuizVoiceCatalog
@@ -59,7 +90,7 @@ public static class QuizVoiceCatalog
 
 public static class QuizAudioTimelinePlanner
 {
-    public static IReadOnlyList<QuizNarrationWindow> BuildNarrationWindows(
+    public static QuizAudioMixPlan BuildNarrationWindows(
         IReadOnlyList<QuizQuestion> questions,
         QuizVideoBuildOptions options,
         IReadOnlyDictionary<int, QuizNarrationAsset> narrationByQuestion)
@@ -69,20 +100,36 @@ public static class QuizAudioTimelinePlanner
         ArgumentNullException.ThrowIfNull(narrationByQuestion);
         options.Validate();
 
-        var windows = new List<QuizNarrationWindow>();
+        var narrationWindows = new List<QuizNarrationWindow>();
+        var countdownWindows = new List<QuizCountdownWindow>();
+        var addedPacingSeconds = 0.0;
         var cursor = options.IntroSeconds;
         foreach (var question in questions)
         {
+            var narrationSeconds = 0.0;
             if (narrationByQuestion.TryGetValue(question.Id, out var narration))
             {
                 if (narration.Duration <= 0 || double.IsNaN(narration.Duration) || double.IsInfinity(narration.Duration))
                     throw new ArgumentException($"Quiz narration for question #{question.Id} has an invalid duration.", nameof(narrationByQuestion));
-                windows.Add(new QuizNarrationWindow(cursor, cursor + narration.Duration));
+                narrationSeconds = narration.Duration;
+                narrationWindows.Add(new QuizNarrationWindow(cursor, cursor + narration.Duration));
                 cursor += narration.Duration;
             }
-            cursor += options.QuestionSeconds + options.AnswerSeconds;
+
+            var suspenseSeconds = QuizPacing.NarrationSuspenseFor(options, narrationSeconds);
+            cursor += suspenseSeconds;
+            addedPacingSeconds += suspenseSeconds;
+
+            if (options.ShowCountdown && options.QuestionSeconds > 0)
+                countdownWindows.Add(new QuizCountdownWindow(cursor, cursor + options.QuestionSeconds));
+            cursor += options.QuestionSeconds;
+
+            var answerPauseSeconds = QuizPacing.AnswerRevealPauseFor(options);
+            cursor += answerPauseSeconds;
+            addedPacingSeconds += answerPauseSeconds;
+            cursor += options.AnswerSeconds;
         }
-        return windows;
+        return new QuizAudioMixPlan(narrationWindows, countdownWindows, addedPacingSeconds);
     }
 }
 
@@ -195,12 +242,48 @@ public static class QuizMusicFile
 
 public sealed class NativeQuizBackgroundMusicRenderer
 {
-    public async Task<QuizPreparedBackgroundMusic> RenderAsync(
+    public const double BaseMusicVolume = 0.20;
+    public const double NarrationDuckMultiplier = 0.25;
+    public const double CountdownLiftMultiplier = 1.35;
+
+    public Task<QuizPreparedBackgroundMusic> RenderAsync(
         string source,
         string audioFolder,
         double totalDuration,
         IReadOnlyList<QuizNarrationWindow> narrationWindows,
+        CancellationToken cancellationToken = default) =>
+        RenderCoreAsync(
+            source,
+            audioFolder,
+            totalDuration,
+            narrationWindows,
+            Array.Empty<QuizCountdownWindow>(),
+            cancellationToken);
+
+    public Task<QuizPreparedBackgroundMusic> RenderAsync(
+        string source,
+        string audioFolder,
+        double totalDuration,
+        QuizAudioMixPlan mixPlan,
         CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(mixPlan);
+        return RenderCoreAsync(
+            source,
+            audioFolder,
+            totalDuration + mixPlan.AddedPacingSeconds,
+            mixPlan.NarrationWindows,
+            mixPlan.CountdownWindows,
+            cancellationToken);
+    }
+
+    private static async Task<QuizPreparedBackgroundMusic> RenderCoreAsync(
+        string source,
+        string audioFolder,
+        double totalDuration,
+        IReadOnlyList<QuizNarrationWindow> narrationWindows,
+        IReadOnlyList<QuizCountdownWindow> countdownWindows,
+        CancellationToken cancellationToken)
     {
         source = QuizMusicFile.Validate(source);
         if (string.IsNullOrWhiteSpace(audioFolder))
@@ -208,11 +291,12 @@ public sealed class NativeQuizBackgroundMusicRenderer
         if (totalDuration <= 0 || double.IsNaN(totalDuration) || double.IsInfinity(totalDuration))
             throw new ArgumentOutOfRangeException(nameof(totalDuration), "Quiz duration must be greater than zero.");
         ArgumentNullException.ThrowIfNull(narrationWindows);
+        ArgumentNullException.ThrowIfNull(countdownWindows);
 
         audioFolder = Path.GetFullPath(audioFolder.Trim());
         Directory.CreateDirectory(audioFolder);
         var destination = Path.Combine(audioFolder, "background_music.wav");
-        var filter = BuildAudioFilter(totalDuration, narrationWindows);
+        var filter = BuildAudioFilter(totalDuration, narrationWindows, countdownWindows);
         var ffmpeg = TrustedMediaExecutableLocator.Find("ffmpeg");
 
         var startInfo = new ProcessStartInfo
@@ -278,28 +362,48 @@ public sealed class NativeQuizBackgroundMusicRenderer
         return new QuizPreparedBackgroundMusic(
             destination,
             totalDuration,
-            narrationWindows.Count > 0);
+            narrationWindows.Count > 0,
+            countdownWindows.Count > 0);
     }
 
     public static string BuildAudioFilter(
         double totalDuration,
-        IReadOnlyList<QuizNarrationWindow> narrationWindows)
+        IReadOnlyList<QuizNarrationWindow> narrationWindows) =>
+        BuildAudioFilter(totalDuration, narrationWindows, Array.Empty<QuizCountdownWindow>());
+
+    public static string BuildAudioFilter(double totalDuration, QuizAudioMixPlan mixPlan)
+    {
+        ArgumentNullException.ThrowIfNull(mixPlan);
+        return BuildAudioFilter(totalDuration, mixPlan.NarrationWindows, mixPlan.CountdownWindows);
+    }
+
+    public static string BuildAudioFilter(
+        double totalDuration,
+        IReadOnlyList<QuizNarrationWindow> narrationWindows,
+        IReadOnlyList<QuizCountdownWindow> countdownWindows)
     {
         if (totalDuration <= 0 || double.IsNaN(totalDuration) || double.IsInfinity(totalDuration))
             throw new ArgumentOutOfRangeException(nameof(totalDuration));
         ArgumentNullException.ThrowIfNull(narrationWindows);
+        ArgumentNullException.ThrowIfNull(countdownWindows);
 
         var filters = new List<string>
         {
             "aresample=48000",
             "aformat=sample_fmts=fltp:channel_layouts=stereo",
-            "volume=0.20",
+            $"volume={F(BaseMusicVolume)}",
         };
+        foreach (var window in countdownWindows)
+        {
+            if (window.End <= window.Start)
+                continue;
+            filters.Add($"volume={F(CountdownLiftMultiplier)}:enable='between(t,{F(window.Start)},{F(window.End)})'");
+        }
         foreach (var window in narrationWindows)
         {
             if (window.End <= window.Start)
                 continue;
-            filters.Add($"volume=0.32:enable='between(t,{F(window.Start)},{F(window.End)})'");
+            filters.Add($"volume={F(NarrationDuckMultiplier)}:enable='between(t,{F(window.Start)},{F(window.End)})'");
         }
 
         var fade = Math.Min(0.6, totalDuration / 4.0);
@@ -339,6 +443,7 @@ public static class QuizAudioTimelineAugmenter
         options.Validate();
 
         var timeline = build.Timeline;
+        QuizPacingTimelineRewriter.Apply(timeline, options);
         var useTick = assets.CountdownTick is not null && options.CountdownSeconds > 0;
         var useReveal = assets.AnswerReveal is not null;
         var useMusic = assets.BackgroundMusic is not null;
@@ -368,9 +473,11 @@ public static class QuizAudioTimelineAugmenter
         foreach (var scene in timeline.Scenes.OrderBy(scene => scene.Start))
         {
             var narrationSeconds = SceneNarrationSeconds(scene);
+            var suspenseSeconds = ScenePacingSeconds(scene, "narration_suspense_seconds");
+            var answerPauseSeconds = ScenePacingSeconds(scene, "answer_reveal_pause_seconds");
             if (useTick && sfxTrack is not null)
             {
-                var countdownStart = scene.Start + narrationSeconds + options.QuestionSeconds - options.CountdownSeconds;
+                var countdownStart = scene.Start + narrationSeconds + suspenseSeconds + options.QuestionSeconds - options.CountdownSeconds;
                 for (var offset = 0; offset < options.CountdownSeconds; offset++)
                 {
                     sfxTrack.AddClip(new NativeTimelineClip
@@ -391,7 +498,7 @@ public static class QuizAudioTimelineAugmenter
 
             if (useReveal && sfxTrack is not null)
             {
-                var answerStart = scene.Start + narrationSeconds + options.QuestionSeconds;
+                var answerStart = scene.Start + narrationSeconds + suspenseSeconds + options.QuestionSeconds + answerPauseSeconds;
                 sfxTrack.AddClip(new NativeTimelineClip
                 {
                     Kind = NativeTimelineClipKind.Audio,
@@ -423,6 +530,7 @@ public static class QuizAudioTimelineAugmenter
                 {
                     ["quiz_audio"] = "background_music",
                     ["ducked_for_narration"] = music.DuckedForNarration,
+                    ["lifted_for_countdown"] = music.LiftedForCountdown,
                 },
             });
         }
@@ -431,9 +539,10 @@ public static class QuizAudioTimelineAugmenter
         timeline.Metadata["answer_reveal_sfx"] = useReveal;
         timeline.Metadata["background_music"] = useMusic;
         timeline.Metadata["background_music_ducked"] = assets.BackgroundMusic?.DuckedForNarration == true;
+        timeline.Metadata["background_music_countdown_lifted"] = assets.BackgroundMusic?.LiftedForCountdown == true;
         timeline.Metadata["narration_voice"] = assets.NarrationVoice.Trim();
         timeline.Validate();
-        WriteAudioMetadata(build.QuizJson, assets, useTick, useReveal, useMusic);
+        WriteAudioMetadata(build.QuizJson, options, assets, useTick, useReveal, useMusic);
 
         if (!hasTimelineAudio)
             return build;
@@ -479,9 +588,12 @@ public static class QuizAudioTimelineAugmenter
             throw new FileNotFoundException("Prepared quiz background music was not found.", path);
     }
 
-    private static double SceneNarrationSeconds(NativeTimelineScene scene)
+    private static double SceneNarrationSeconds(NativeTimelineScene scene) =>
+        ScenePacingSeconds(scene, "narration_seconds");
+
+    private static double ScenePacingSeconds(NativeTimelineScene scene, string key)
     {
-        if (!scene.Metadata.TryGetValue("narration_seconds", out var value) || value is null)
+        if (!scene.Metadata.TryGetValue(key, out var value) || value is null)
             return 0;
         try
         {
@@ -489,12 +601,13 @@ public static class QuizAudioTimelineAugmenter
         }
         catch (Exception error) when (error is FormatException or InvalidCastException or OverflowException)
         {
-            throw new InvalidDataException($"{scene.Title} has invalid narration timing metadata.", error);
+            throw new InvalidDataException($"{scene.Title} has invalid {key} timing metadata.", error);
         }
     }
 
     private static void WriteAudioMetadata(
         string quizJson,
+        QuizVideoBuildOptions options,
         QuizAudioAssets assets,
         bool useTick,
         bool useReveal,
@@ -510,6 +623,12 @@ public static class QuizAudioTimelineAugmenter
             ["background_music"] = useMusic,
             ["background_music_file"] = useMusic ? Path.GetFileName(assets.BackgroundMusic!.Path) : "",
             ["background_music_ducked_for_narration"] = assets.BackgroundMusic?.DuckedForNarration == true,
+            ["background_music_lifted_for_countdown"] = assets.BackgroundMusic?.LiftedForCountdown == true,
+            ["narration_suspense_seconds"] = options.Vertical ? 0 : QuizPacing.NarrationSuspenseSeconds,
+            ["answer_reveal_pause_seconds"] = QuizPacing.AnswerRevealPauseFor(options),
+            ["music_base_volume"] = NativeQuizBackgroundMusicRenderer.BaseMusicVolume,
+            ["music_narration_multiplier"] = NativeQuizBackgroundMusicRenderer.NarrationDuckMultiplier,
+            ["music_countdown_multiplier"] = NativeQuizBackgroundMusicRenderer.CountdownLiftMultiplier,
         };
 
         var temporary = quizJson + ".tmp";
