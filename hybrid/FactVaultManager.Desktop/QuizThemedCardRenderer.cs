@@ -842,16 +842,6 @@ public sealed class QuizThemedCardRenderer
                 VerticalAlignment = VerticalAlignment.Center,
             });
         }
-        else if (!countdownValue.HasValue)
-        {
-            footer.Children.Add(new TextBlock
-            {
-                Text = "Choose A, B, C or D",
-                Foreground = Brushes.White,
-                FontSize = 21,
-                VerticalAlignment = VerticalAlignment.Center,
-            });
-        }
 
         if (!revealAnswer && !narrating)
         {
