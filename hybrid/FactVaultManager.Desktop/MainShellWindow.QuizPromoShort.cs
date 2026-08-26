@@ -144,16 +144,25 @@ public partial class MainShellWindow
                 var settings = _data.LoadSettings();
                 var apiKey = NativeProviderCredentials.FromSettings(settings).Get("openai");
                 var quizLogoPath = _data.LoadQuizLogoPath();
+                var uploadSnapshot = QuizPromoShortUploadState.Capture(history.ProjectFolder);
                 var renderer = new QuizPromoNativeShortRenderer();
-                var result = await renderer.CreateAsync(
-                    videoPath.Text,
-                    history.ProjectFolder,
-                    history.UploadTitleDisplay,
-                    history.YouTubeUrl,
-                    cta.Text,
-                    apiKey,
-                    quizLogoPath,
-                    message => status.Text = message);
+                QuizPromoShortResult result;
+                try
+                {
+                    result = await renderer.CreateAsync(
+                        videoPath.Text,
+                        history.ProjectFolder,
+                        history.UploadTitleDisplay,
+                        history.YouTubeUrl,
+                        cta.Text,
+                        apiKey,
+                        quizLogoPath,
+                        message => status.Text = message);
+                }
+                finally
+                {
+                    QuizPromoShortUploadState.Restore(history.ProjectFolder, uploadSnapshot);
+                }
                 status.Text = $"Ready: {Path.GetFileName(result.VideoPath)} • {result.Plan.TotalDuration:0.0} seconds";
                 openFolder.IsEnabled = true;
                 RefreshUploadManager();
