@@ -57,6 +57,7 @@ public partial class MainShellWindow
                 MessageBox.Show(this, "Select a published Facebook Short first.", "Regenerate + Update Facebook",
                     MessageBoxButton.OK, MessageBoxImage.Information);
         });
+        AppendFacebookBulkThumbnailActions(toolsButton);
     }
 
     private async Task UpdateSelectedQuizFacebookThumbnailAsync(
