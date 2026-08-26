@@ -2,12 +2,64 @@ using System.Globalization;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
+    private bool _uploadManagerThumbnailActionsInitialized;
+
+    internal void InitializeUploadManagerThumbnailRegenerationActions()
+    {
+        if (_uploadManagerThumbnailActionsInitialized)
+            return;
+
+        InitializeUploadManagerPage();
+        if (Content is not DependencyObject root)
+            return;
+        var anchor = FindVisualChildren<Button>(root)
+            .FirstOrDefault(button => string.Equals(
+                Convert.ToString(button.Content),
+                "Retry Failed Step",
+                StringComparison.Ordinal));
+        if (anchor?.Parent is not WrapPanel actions)
+            return;
+
+        var regenerate = new Button
+        {
+            Content = "Regenerate Thumbnail",
+            MinWidth = 142,
+            Margin = new Thickness(8, 0, 0, 0),
+            ToolTip = "Rebuild Thumbnail.png for the selected quiz without changing its video or upload records.",
+        };
+        StyleQuizHistoryButton(regenerate, Color.FromRgb(70, 235, 115));
+        regenerate.Click += (_, _) =>
+        {
+            if (_uploadManagerGrid?.SelectedItem is QuizHistorySummary history)
+                RegenerateSelectedQuizThumbnail(history);
+            else
+                MessageBox.Show(this, "Select a quiz first.", "Regenerate Thumbnail",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+        };
+
+        var regenerateAll = new Button
+        {
+            Content = "Regenerate All Thumbnails",
+            MinWidth = 164,
+            Margin = new Thickness(8, 0, 0, 0),
+            ToolTip = "Rebuild Thumbnail.png for every long-form quiz in Quiz History.",
+        };
+        StyleQuizHistoryButton(regenerateAll, Color.FromRgb(0, 204, 255));
+        regenerateAll.Click += async (_, _) => await RegenerateAllLongFormQuizThumbnailsAsync(regenerateAll);
+
+        var insertionIndex = actions.Children.IndexOf(anchor) + 1;
+        actions.Children.Insert(insertionIndex, regenerate);
+        actions.Children.Insert(insertionIndex + 1, regenerateAll);
+        _uploadManagerThumbnailActionsInitialized = true;
+    }
+
     private void RegenerateSelectedQuizThumbnail(QuizHistorySummary history)
     {
         try
