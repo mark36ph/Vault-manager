@@ -22,6 +22,8 @@ public partial class MainShellWindow
 {
     private readonly FactburstLinkTrackerClient _factburstLinkTracker = new();
     private bool _factburstTrackerUiInitialized;
+    private int _factburstTrackerUiAttempts;
+    private bool _funnelNavigationAdded;
     private int _funnelPerformanceTabIndex = -1;
     private bool _funnelPerformanceRefreshing;
     private DataGrid? _funnelPerformanceGrid;
@@ -45,17 +47,34 @@ public partial class MainShellWindow
     private void InitializeFactburstTrackerUi()
     {
         if (_factburstTrackerUiInitialized) return;
-        _factburstTrackerUiInitialized = true;
-        InjectTrackerSettingsPage();
-        AddFunnelPerformancePage();
+
+        var settingsReady = InjectTrackerSettingsPage();
+        var funnelReady = AddFunnelPerformancePage();
+        if (settingsReady && funnelReady)
+        {
+            _factburstTrackerUiInitialized = true;
+            return;
+        }
+
+        if (++_factburstTrackerUiAttempts >= 30) return;
+        var retry = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(100),
+        };
+        retry.Tick += (_, _) =>
+        {
+            retry.Stop();
+            InitializeFactburstTrackerUi();
+        };
+        retry.Start();
     }
 
-    private void InjectTrackerSettingsPage()
+    private bool InjectTrackerSettingsPage()
     {
-        if (_settingsPages.ContainsKey("tracker") ||
-            !_settingsNavButtons.TryGetValue("about", out var aboutButton) ||
+        if (_settingsPages.ContainsKey("tracker")) return true;
+        if (!_settingsNavButtons.TryGetValue("about", out var aboutButton) ||
             aboutButton.Parent is not StackPanel sidebar)
-            return;
+            return false;
 
         _settingsPages["tracker"] = BuildTrackerSettingsPage();
         var trackerButton = new Button
@@ -74,6 +93,7 @@ public partial class MainShellWindow
         _settingsNavButtons["tracker"] = trackerButton;
         var aboutIndex = sidebar.Children.IndexOf(aboutButton);
         sidebar.Children.Insert(Math.Max(0, aboutIndex), trackerButton);
+        return true;
     }
 
     private FrameworkElement BuildTrackerSettingsPage()
@@ -172,25 +192,29 @@ public partial class MainShellWindow
         }
     }
 
-    private void AddFunnelPerformancePage()
+    private bool AddFunnelPerformancePage()
     {
-        if (_funnelPerformanceTabIndex >= 0 || MainTabs is null) return;
+        if (MainTabs is null) return false;
 
-        var tab = new TabItem { Content = BuildFunnelPerformancePage() };
-        if (FindResource("HiddenPageTabStyle") is Style hiddenStyle)
-            tab.Style = hiddenStyle;
-        MainTabs.Items.Add(tab);
-        _funnelPerformanceTabIndex = MainTabs.Items.Count - 1;
-        MainTabs.SelectionChanged += async (_, eventArgs) =>
+        if (_funnelPerformanceTabIndex < 0)
         {
-            if (ReferenceEquals(eventArgs.OriginalSource, MainTabs) && ReferenceEquals(MainTabs.SelectedItem, tab))
-                await RefreshFunnelPerformanceAsync(false);
-        };
+            var tab = new TabItem { Content = BuildFunnelPerformancePage() };
+            if (FindResource("HiddenPageTabStyle") is Style hiddenStyle)
+                tab.Style = hiddenStyle;
+            MainTabs.Items.Add(tab);
+            _funnelPerformanceTabIndex = MainTabs.Items.Count - 1;
+            MainTabs.SelectionChanged += async (_, eventArgs) =>
+            {
+                if (ReferenceEquals(eventArgs.OriginalSource, MainTabs) && ReferenceEquals(MainTabs.SelectedItem, tab))
+                    await RefreshFunnelPerformanceAsync(false);
+            };
+        }
 
-        if (Content is not DependencyObject root) return;
+        if (_funnelNavigationAdded) return true;
+        if (_instagramManagerTabIndex < 0 || Content is not DependencyObject root) return false;
         var instagramButton = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _instagramManagerTabIndex.ToString(), StringComparison.Ordinal));
-        if (instagramButton?.Parent is not StackPanel navigation) return;
+        if (instagramButton?.Parent is not StackPanel navigation) return false;
 
         var funnelButton = new Button { Content = "↗   Funnel Performance", Tag = _funnelPerformanceTabIndex.ToString() };
         if (FindResource("NavButtonStyle") is Style navStyle)
@@ -202,6 +226,8 @@ public partial class MainShellWindow
         };
         var instagramIndex = navigation.Children.IndexOf(instagramButton);
         navigation.Children.Insert(Math.Min(navigation.Children.Count, instagramIndex + 1), funnelButton);
+        _funnelNavigationAdded = true;
+        return true;
     }
 
     private FrameworkElement BuildFunnelPerformancePage()
@@ -405,8 +431,9 @@ public partial class MainShellWindow
         }
     }
 
-    private static string TopFunnelSource(long facebook, long instagram, long youtube) =>
-        new[]
+    private static string TopFunnelSource(long facebook, long instagram, long youtube)
+    {
+        var best = new[]
         {
             (Name: "Facebook", Value: facebook),
             (Name: "Instagram", Value: instagram),
@@ -414,7 +441,9 @@ public partial class MainShellWindow
         }
         .OrderByDescending(item => item.Value)
         .ThenBy(item => item.Name, StringComparer.Ordinal)
-        .First() is var best && best.Value > 0 ? best.Name : "—";
+        .First();
+        return best.Value > 0 ? best.Name : "—";
+    }
 
     private void SetFunnelStatus(string text)
     {
