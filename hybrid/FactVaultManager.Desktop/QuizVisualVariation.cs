@@ -1,72 +1,45 @@
-using System.Windows;
-
 namespace FactVaultManager.Desktop;
+
+public enum QuizCardRailSide
+{
+    None,
+    Left,
+    Right,
+}
 
 public sealed record QuizCardLayoutProfile(
     string Key,
     string DisplayName,
-    bool StatusBeforeTitle,
-    Thickness StageMargin,
-    double LogoRowHeight,
-    double TitleRowHeight,
-    double StatusRowHeight,
-    double QuestionRowHeight,
-    double TitleWidth,
-    double TitleHeight,
-    double QuestionWidth,
-    double QuestionHeight,
-    double AnswerWidth,
-    HorizontalAlignment TitleAlignment);
+    double CardScale,
+    QuizCardRailSide RailSide,
+    double RailWidth,
+    double EdgeInset);
 
 public static class QuizCardLayoutCatalog
 {
     private static readonly IReadOnlyList<QuizCardLayoutProfile> Layouts =
     [
         new(
-            "classic",
-            "Classic",
-            StatusBeforeTitle: false,
-            StageMargin: new Thickness(62, 16, 62, 24),
-            LogoRowHeight: 150,
-            TitleRowHeight: 96,
-            StatusRowHeight: 86,
-            QuestionRowHeight: 220,
-            TitleWidth: 1110,
-            TitleHeight: 82,
-            QuestionWidth: 1240,
-            QuestionHeight: 198,
-            AnswerWidth: 1400,
-            TitleAlignment: HorizontalAlignment.Center),
+            "classic-frame",
+            "Classic Frame",
+            CardScale: 1.0,
+            RailSide: QuizCardRailSide.None,
+            RailWidth: 0,
+            EdgeInset: 18),
         new(
-            "status-first",
-            "Status First",
-            StatusBeforeTitle: true,
-            StageMargin: new Thickness(70, 18, 70, 24),
-            LogoRowHeight: 140,
-            TitleRowHeight: 90,
-            StatusRowHeight: 92,
-            QuestionRowHeight: 226,
-            TitleWidth: 1040,
-            TitleHeight: 76,
-            QuestionWidth: 1320,
-            QuestionHeight: 204,
-            AnswerWidth: 1440,
-            TitleAlignment: HorizontalAlignment.Center),
+            "left-rail",
+            "Left Rail",
+            CardScale: 0.93,
+            RailSide: QuizCardRailSide.Left,
+            RailWidth: 94,
+            EdgeInset: 24),
         new(
-            "wide-focus",
-            "Wide Focus",
-            StatusBeforeTitle: false,
-            StageMargin: new Thickness(82, 14, 82, 22),
-            LogoRowHeight: 132,
-            TitleRowHeight: 84,
-            StatusRowHeight: 82,
-            QuestionRowHeight: 244,
-            TitleWidth: 920,
-            TitleHeight: 72,
-            QuestionWidth: 1500,
-            QuestionHeight: 220,
-            AnswerWidth: 1520,
-            TitleAlignment: HorizontalAlignment.Left),
+            "right-rail",
+            "Right Rail",
+            CardScale: 0.93,
+            RailSide: QuizCardRailSide.Right,
+            RailWidth: 94,
+            EdgeInset: 24),
     ];
 
     public static IReadOnlyList<string> DisplayNames => Layouts.Select(layout => layout.DisplayName).ToArray();
@@ -91,32 +64,47 @@ public sealed record QuizVisualVariation(string ThemeKey, string LayoutKey)
 
 public static class QuizVisualVariationPlanner
 {
+    private const ulong FnvOffset = 14695981039346656037UL;
+    private const ulong FnvPrime = 1099511628211UL;
+
     public static IReadOnlyList<string> AutomaticThemeKeys { get; } =
         ["dark", "bright", "game-show"];
 
     public static IReadOnlyList<string> AutomaticLayoutKeys { get; } =
-        ["classic", "status-first", "wide-focus"];
+        ["classic-frame", "left-rail", "right-rail"];
 
     public static bool Applies(bool vertical, string? quizType) =>
         !vertical && QuizTypeCatalog.Normalize(quizType) == QuizTypeCatalog.Standard;
 
-    public static QuizVisualVariation Pick(
-        string? currentThemeKey,
-        string? currentLayoutKey,
-        Random? random = null)
+    public static QuizVisualVariation ForQuestions(IReadOnlyList<QuizQuestion> questions)
     {
-        random ??= Random.Shared;
-        var currentTheme = QuizVisualThemeCatalog.Normalize(currentThemeKey);
-        var currentLayout = QuizCardLayoutCatalog.Normalize(currentLayoutKey);
-        var options = AutomaticThemeKeys
-            .SelectMany(theme => AutomaticLayoutKeys.Select(layout => new QuizVisualVariation(theme, layout)))
-            .Where(option => !(
-                string.Equals(option.ThemeKey, currentTheme, StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(option.LayoutKey, currentLayout, StringComparison.OrdinalIgnoreCase)))
-            .ToArray();
+        ArgumentNullException.ThrowIfNull(questions);
+        if (questions.Count == 0)
+            return new QuizVisualVariation(AutomaticThemeKeys[0], AutomaticLayoutKeys[0]);
 
-        if (options.Length == 0)
-            return new QuizVisualVariation(currentTheme, currentLayout);
-        return options[random.Next(options.Length)];
+        var hash = FnvOffset;
+        foreach (var question in questions)
+        {
+            Hash(ref hash, question.Id);
+            Hash(ref hash, (int)question.DifficultyLevel);
+            foreach (var character in question.Category ?? "")
+                Hash(ref hash, character);
+        }
+        Hash(ref hash, questions.Count);
+
+        var themeIndex = (int)(hash % (ulong)AutomaticThemeKeys.Count);
+        var layoutIndex = (int)((hash / (ulong)AutomaticThemeKeys.Count) % (ulong)AutomaticLayoutKeys.Count);
+        return new QuizVisualVariation(
+            AutomaticThemeKeys[themeIndex],
+            AutomaticLayoutKeys[layoutIndex]);
+    }
+
+    private static void Hash(ref ulong hash, int value)
+    {
+        unchecked
+        {
+            hash ^= (uint)value;
+            hash *= FnvPrime;
+        }
     }
 }
