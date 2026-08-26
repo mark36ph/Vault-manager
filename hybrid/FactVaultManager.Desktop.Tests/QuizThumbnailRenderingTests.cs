@@ -31,7 +31,12 @@ public sealed class QuizThumbnailRenderingTests
     public void ShortsThumbnail_RendersAtVerticalDimensions()
     {
         var questions = new[] { Question(1, "easy", "Which planet is closest to the Sun?") };
-        var metadata = QuizPublishMetadataGenerator.Generate("Space Quiz", 1, questions, vertical: true);
+        var metadata = QuizPublishMetadataGenerator.Generate(
+            "Space Quiz",
+            1,
+            questions,
+            vertical: true,
+            fullQuizUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
         var thumbnail = QuizThumbnailDefaults.Create(metadata, questions.Length);
 
         BitmapSource image = OnSta(() => new QuizThumbnailRenderer().RenderPreview(
