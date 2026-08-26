@@ -17,6 +17,7 @@ public partial class MainShellWindow : Window
         {
             RefreshAll();
             _data.ResumeQuizFolderCleanup();
+            InitializeUploadManagerThumbnailRegenerationActions();
         };
     }
 
