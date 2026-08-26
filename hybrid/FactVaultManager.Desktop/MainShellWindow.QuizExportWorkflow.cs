@@ -588,32 +588,14 @@ public partial class MainShellWindow
             QuizPublishMetadataFiles.Write(result.ProjectFolder, publishing);
 
             if (_quizPageStatusText is not null)
-                _quizPageStatusText.Text = "Rendering final YouTube-ready MP4...";
-            var stagedTimeline = result.Timeline;
-            var stagedProjectFolder = result.ProjectFolder;
-            var finalRender = await Task.Run(() =>
-                new NativeQuizFinalRenderCoordinator().Render(
-                    stagedTimeline,
-                    stagedProjectFolder,
-                    message => Dispatcher.BeginInvoke(new Action(() =>
-                    {
-                        if (_quizPageStatusText is not null)
-                            _quizPageStatusText.Text = message;
-                    }))));
-            var stagedFinalVideoPath = finalRender.VideoPath;
-            if (!File.Exists(stagedFinalVideoPath) || new FileInfo(stagedFinalVideoPath).Length == 0)
-                throw new InvalidOperationException("The final quiz MP4 was not created.");
-
-            if (_quizPageStatusText is not null)
-                _quizPageStatusText.Text = "Copying the finished quiz video and package to project storage...";
+                _quizPageStatusText.Text = "Rendering the final MP4 and copying the finished package to project storage...";
             var stagedThumbnailPath = thumbnailPath;
-            var stagedFinalVideoName = Path.GetFileName(stagedFinalVideoPath);
             var stagedResult = result;
             result = await Task.Run(() => QuizExportStaging.Publish(stagedResult, settings.ProjectsFolder, stagingRoot));
             thumbnailPath = Path.Combine(result.ProjectFolder, Path.GetFileName(stagedThumbnailPath));
-            var finalVideoPath = Path.Combine(result.ProjectFolder, stagedFinalVideoName);
+            var finalVideoPath = NativeQuizFinalRenderer.OutputPath(result.ProjectFolder);
             if (!File.Exists(finalVideoPath) || new FileInfo(finalVideoPath).Length == 0)
-                throw new InvalidOperationException("The final quiz MP4 was not copied to project storage.");
+                throw new InvalidOperationException("The final quiz MP4 was not created in project storage.");
 
             var historyId = _data.RecordQuizExport(
                 title,
