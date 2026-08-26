@@ -19,7 +19,14 @@ public static partial class QuizExportStaging
     public static QuizVideoBuildResult Publish(
         QuizVideoBuildResult build,
         string projectsRoot,
-        string sessionRoot)
+        string sessionRoot) =>
+        Publish(build, projectsRoot, sessionRoot, renderFinalVideo: true);
+
+    internal static QuizVideoBuildResult Publish(
+        QuizVideoBuildResult build,
+        string projectsRoot,
+        string sessionRoot,
+        bool renderFinalVideo)
     {
         ArgumentNullException.ThrowIfNull(build);
         var source = Path.GetFullPath(build.ProjectFolder);
@@ -37,7 +44,8 @@ public static partial class QuizExportStaging
 
         try
         {
-            new NativeQuizFinalRenderer().Render(build.Timeline, source);
+            if (renderFinalVideo)
+                new NativeQuizFinalRenderer().Render(build.Timeline, source);
             CopyDirectory(source, temporary);
             NativeResolvePortablePathRebaser.RebaseTree(temporary, source, destination);
             Directory.Move(temporary, destination);
