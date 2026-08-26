@@ -131,6 +131,7 @@ public sealed class QuizPromoShortRenderer
         string sourceVideoUrl,
         string callToAction,
         string openAiApiKey,
+        string quizLogoPath,
         Action<string>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -159,7 +160,7 @@ public sealed class QuizPromoShortRenderer
 
         progress?.Invoke($"Building a vertical clip from {plan.SceneTitle}...");
         var endCard = QuizPromoShortPaths.EndCard(projectFolder);
-        QuizPromoShortEndCardRenderer.Write(endCard, title);
+        QuizPromoShortEndCardRenderer.Write(endCard, title, quizLogoPath);
         var destination = QuizPromoShortPaths.Video(projectFolder);
         var hasSourceAudio = await HasAudioAsync(sourceVideo, cancellationToken);
         await RenderVideoAsync(
@@ -172,7 +173,7 @@ public sealed class QuizPromoShortRenderer
             cancellationToken);
 
         var metadataPath = QuizPromoShortPaths.Metadata(projectFolder);
-        WriteMetadata(metadataPath, sourceVideo, sourceVideoUrl, script, ctaAudio, plan);
+        WriteMetadata(metadataPath, sourceVideo, sourceVideoUrl, script, ctaAudio, quizLogoPath, plan);
         progress?.Invoke("Promotional Short ready.");
         return new QuizPromoShortResult(destination, endCard, ctaAudio, metadataPath, plan);
     }
@@ -260,6 +261,7 @@ public sealed class QuizPromoShortRenderer
         string sourceVideoUrl,
         string script,
         string ctaAudio,
+        string quizLogoPath,
         QuizPromoShortPlan plan)
     {
         var payload = new JsonObject
@@ -275,6 +277,7 @@ public sealed class QuizPromoShortRenderer
             ["call_to_action"] = script,
             ["call_to_action_voice"] = "fable",
             ["call_to_action_audio"] = Path.GetFileName(ctaAudio),
+            ["quiz_logo"] = string.IsNullOrWhiteSpace(quizLogoPath) ? "" : Path.GetFileName(quizLogoPath),
             ["output"] = QuizPromoShortPaths.VideoFileName,
             ["width"] = Width,
             ["height"] = Height,
@@ -335,7 +338,7 @@ public sealed class QuizPromoShortRenderer
 
 public static class QuizPromoShortEndCardRenderer
 {
-    public static void Write(string destination, string title)
+    public static void Write(string destination, string title, string? quizLogoPath)
     {
         destination = Path.GetFullPath(destination);
         Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
@@ -359,8 +362,8 @@ public static class QuizPromoShortEndCardRenderer
             HorizontalAlignment = HorizontalAlignment.Center,
             Width = 900,
         };
-        content.Children.Add(Text("FACTBURST QUIZ", 42, Color.FromRgb(255, 202, 45)));
-        content.Children.Add(Text("THE FULL TEST\nGETS HARDER", 88, Colors.White, new Thickness(0, 70, 0, 45)));
+        content.Children.Add(BuildBranding(quizLogoPath));
+        content.Children.Add(Text("THE FULL TEST\nGETS HARDER", 88, Colors.White, new Thickness(0, 45, 0, 45)));
         content.Children.Add(Text(
             QuizPublishMetadataGenerator.DisplayName(title).ToUpperInvariant(),
             50,
@@ -396,6 +399,36 @@ public static class QuizPromoShortEndCardRenderer
         encoder.Frames.Add(BitmapFrame.Create(bitmap));
         using var stream = new FileStream(destination, FileMode.Create, FileAccess.Write, FileShare.None);
         encoder.Save(stream);
+    }
+
+    internal static FrameworkElement BuildBranding(string? quizLogoPath)
+    {
+        if (string.IsNullOrWhiteSpace(quizLogoPath))
+            return Text("FACTBURST QUIZ", 42, Color.FromRgb(255, 202, 45));
+
+        var path = QuizBranding.ValidateLogoPath(quizLogoPath);
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.UriSource = new Uri(path, UriKind.Absolute);
+        bitmap.EndInit();
+        bitmap.Freeze();
+        return new Image
+        {
+            Source = bitmap,
+            Height = 260,
+            MaxWidth = 700,
+            Stretch = Stretch.Uniform,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            SnapsToDevicePixels = true,
+            Effect = new DropShadowEffect
+            {
+                Color = Colors.White,
+                BlurRadius = 18,
+                ShadowDepth = 0,
+                Opacity = 0.35,
+            },
+        };
     }
 
     private static TextBlock Text(string value, double size, Color color, Thickness? margin = null) => new()

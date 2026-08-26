@@ -77,6 +77,59 @@ public sealed class QuizPromoShortTests
         Assert.DoesNotContain("welcome", QuizPromoShortScript.DefaultCallToAction, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public void EndCardBranding_UsesConfiguredQuizLogo()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"promo-logo-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var logo = Path.Combine(root, "quiz_logo.png");
+            var pixels = Enumerable.Repeat((byte)255, 4 * 4 * 4).ToArray();
+            var bitmap = System.Windows.Media.Imaging.BitmapSource.Create(
+                4, 4, 96, 96, System.Windows.Media.PixelFormats.Bgra32, null, pixels, 16);
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));
+            using (var stream = File.Create(logo)) encoder.Save(stream);
+
+            Exception? renderError = null;
+            var isImage = false;
+            var hasSource = false;
+            var imageHeight = 0.0;
+            var thread = new Thread(() =>
+            {
+                try
+                {
+                    var branding = QuizPromoShortEndCardRenderer.BuildBranding(logo);
+                    if (branding is System.Windows.Controls.Image image)
+                    {
+                        isImage = true;
+                        hasSource = image.Source is not null;
+                        imageHeight = image.Height;
+                    }
+                }
+                catch (Exception error)
+                {
+                    renderError = error;
+                }
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+
+            if (renderError is not null)
+                System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(renderError).Throw();
+
+            Assert.True(isImage);
+            Assert.True(hasSource);
+            Assert.Equal(260, imageHeight);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static NativeTimeline Timeline(params NativeTimelineScene[] scenes)
     {
         var timeline = new NativeTimeline();
