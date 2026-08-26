@@ -17,8 +17,11 @@ public partial class MainShellWindow
             return;
 
         InitializeUploadManagerPage();
-        if (Content is not DependencyObject root)
+        if (_uploadManagerTabIndex < 0 ||
+            _uploadManagerTabIndex >= MainTabs.Items.Count ||
+            MainTabs.Items[_uploadManagerTabIndex] is not TabItem { Content: DependencyObject root })
             return;
+
         var anchor = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(
                 Convert.ToString(button.Content),
