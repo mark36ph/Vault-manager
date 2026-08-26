@@ -43,13 +43,19 @@ public partial class MainShellWindow
             forceReuploadAll = true;
         }
 
+        var trackerSettings = FactburstTrackerSettingsStore.Load(_data.SettingsPath);
+        var campaignSlug = FactburstLinkTrackerClient.CampaignSlug(history);
+        var trackingPreview = trackerSettings.IsConfigured
+            ? FactburstLinkTrackerClient.BuildLinks(trackerSettings.BaseUrl, campaignSlug)
+            : null;
+
         var dialog = new Window
         {
             Title = "Upload Promotional Short",
             Owner = this,
             Width = 780,
             SizeToContent = SizeToContent.Height,
-            MaxHeight = 880,
+            MaxHeight = 940,
             ResizeMode = ResizeMode.CanResize,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             Background = new SolidColorBrush(Color.FromRgb(246, 248, 253)),
@@ -120,11 +126,42 @@ public partial class MainShellWindow
         descriptionPanel.Children.Add(description);
         descriptionPanel.Children.Add(new TextBlock
         {
-            Text = "Instagram automatically replaces the YouTube URL with the link-in-bio call to action.",
+            Text = "Instagram replaces the YouTube URL with the link-in-bio call to action. Use the Instagram tracking URL below as that bio link when you want Instagram attribution.",
             Foreground = QuizMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0),
         });
+        if (trackingPreview is not null)
+        {
+            descriptionPanel.Children.Add(new TextBlock
+            {
+                Text = $"Tracking campaign: {trackingPreview.Slug}",
+                FontWeight = FontWeights.SemiBold,
+                Foreground = new SolidColorBrush(Color.FromRgb(23, 92, 211)),
+                Margin = new Thickness(0, 8, 0, 4),
+            });
+            descriptionPanel.Children.Add(new TextBox
+            {
+                Text = "Facebook: " + trackingPreview.FacebookUrl + Environment.NewLine +
+                       "Instagram link in bio: " + trackingPreview.InstagramUrl + Environment.NewLine +
+                       "YouTube promo: " + trackingPreview.YouTubePromoUrl,
+                IsReadOnly = true,
+                AcceptsReturn = true,
+                TextWrapping = TextWrapping.Wrap,
+                MinHeight = 66,
+                Padding = new Thickness(8),
+            });
+        }
+        else
+        {
+            descriptionPanel.Children.Add(new TextBlock
+            {
+                Text = "Funnel tracking is currently off. Configure Settings → Link Tracker to use source-specific links.",
+                Foreground = new SolidColorBrush(Color.FromRgb(185, 95, 20)),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 8, 0, 0),
+            });
+        }
         Grid.SetRow(descriptionPanel, 3);
         root.Children.Add(descriptionPanel);
 
@@ -255,6 +292,26 @@ public partial class MainShellWindow
                 var failures = new List<string>();
                 var warnings = new List<string>();
 
+                FactburstTrackerCampaignLinks? trackingLinks = null;
+                var activeTrackerSettings = FactburstTrackerSettingsStore.Load(_data.SettingsPath);
+                if (activeTrackerSettings.IsConfigured)
+                {
+                    statusText.Text = "Registering the Factburst funnel tracking campaign...";
+                    trackingLinks = await _factburstLinkTracker.CreateOrUpdateCampaignAsync(
+                        activeTrackerSettings.BaseUrl,
+                        activeTrackerSettings.ApiKey,
+                        FactburstLinkTrackerClient.CampaignSlug(history),
+                        history.Id,
+                        uploadTitle,
+                        history.YouTubeUrl);
+                }
+                var youtubeDescription = trackingLinks is null
+                    ? uploadDescription
+                    : FactburstLinkTrackerClient.ReplaceFullQuizLink(uploadDescription, trackingLinks.YouTubePromoUrl);
+                var facebookDescription = trackingLinks is null
+                    ? uploadDescription
+                    : FactburstLinkTrackerClient.ReplaceFullQuizLink(uploadDescription, trackingLinks.FacebookUrl);
+
                 if (uploadYouTube)
                 {
                     statusText.Text = "Uploading the promotional Short to YouTube... Keep this window open.";
@@ -265,7 +322,7 @@ public partial class MainShellWindow
                             validatedVideo,
                             new YouTubeVideoUpload(
                                 uploadTitle,
-                                uploadDescription,
+                                youtubeDescription,
                                 uploadPrivacy,
                                 notify.IsChecked == true));
 
@@ -307,7 +364,7 @@ public partial class MainShellWindow
                             preflight.FacebookPageToken,
                             validatedVideo,
                             uploadTitle,
-                            uploadDescription);
+                            facebookDescription);
                         QuizPromoShortSocialPublicationStore.RecordFacebook(
                             history.ProjectFolder,
                             result,
@@ -364,6 +421,13 @@ public partial class MainShellWindow
                 var links = completedLinks.Count == 0
                     ? ""
                     : "\n\n" + string.Join("\n", completedLinks);
+                var trackingText = trackingLinks is null
+                    ? ""
+                    : "\n\nFunnel tracking:\n" +
+                      "Facebook: " + trackingLinks.FacebookUrl + "\n" +
+                      "Instagram link in bio: " + trackingLinks.InstagramUrl + "\n" +
+                      "YouTube promo: " + trackingLinks.YouTubePromoUrl +
+                      "\n\nFor Instagram attribution, use the Instagram tracking URL as the profile/bio link viewers are told to tap.";
                 var warningText = warnings.Count == 0
                     ? ""
                     : "\n\nWarnings:\n" + string.Join("\n", warnings);
@@ -371,7 +435,7 @@ public partial class MainShellWindow
                 {
                     statusText.Text = "Promotional Short uploaded successfully to YouTube, Facebook, and Instagram.";
                     MessageBox.Show(dialog,
-                        "Promotional Short uploaded successfully to YouTube, Facebook, and Instagram." + links +
+                        "Promotional Short uploaded successfully to YouTube, Facebook, and Instagram." + links + trackingText +
                         "\n\nIn YouTube Studio, select the full quiz as this Short's related video." + warningText,
                         "Promo Short Uploaded",
                         MessageBoxButton.OK,
@@ -386,7 +450,7 @@ public partial class MainShellWindow
                 var failureText = "\n\nStill needs uploading:\n" + string.Join("\n", failures);
                 statusText.Text = completedText + " Click Upload again to retry only the missing platforms.";
                 MessageBox.Show(dialog,
-                    completedText + links + failureText + warningText +
+                    completedText + links + trackingText + failureText + warningText +
                     "\n\nClick Upload to All Platforms again to retry only the platforms that are still missing.",
                     "Promo Upload Partially Complete",
                     MessageBoxButton.OK,
