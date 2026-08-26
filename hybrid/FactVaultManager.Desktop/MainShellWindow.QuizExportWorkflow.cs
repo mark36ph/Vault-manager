@@ -39,7 +39,7 @@ public partial class MainShellWindow
 
         layout.Children.Add(new TextBlock
         {
-            Text = "Resolve export",
+            Text = "Final video",
             FontWeight = FontWeights.SemiBold,
             FontSize = 14,
         });
@@ -56,7 +56,7 @@ public partial class MainShellWindow
         _quizTitleTextBox = new TextBox
         {
             Text = "General Knowledge",
-            ToolTip = "Category title and Resolve project name",
+            ToolTip = "Category title and final video project name",
         };
         _quizTitleTextBox.TextChanged += (_, _) =>
         {
@@ -81,7 +81,7 @@ public partial class MainShellWindow
 
         var exportButton = new Button
         {
-            Content = "Create Resolve Quiz",
+            Content = "Render Final Video",
             Height = 34,
             Padding = new Thickness(13, 0, 13, 0),
             Background = new SolidColorBrush(Color.FromRgb(15, 108, 189)),
@@ -164,7 +164,7 @@ public partial class MainShellWindow
             Content = "3-2-1 countdown",
             IsChecked = true,
             VerticalAlignment = VerticalAlignment.Center,
-            ToolTip = "Split the final three seconds of each question into visible countdown cards in Resolve.",
+            ToolTip = "Split the final three seconds of each question into visible countdown cards.",
             Margin = new Thickness(0, 0, 18, 0),
         };
         presentation.Children.Add(_quizCountdownCheckBox);
@@ -480,7 +480,7 @@ public partial class MainShellWindow
                     warningText += $"\n• …and {preflightWarnings.Count - 8} more warning(s).";
                 var continueExport = MessageBox.Show(
                     this,
-                    $"Preflight found {preflightWarnings.Count} layout warning(s):\n\n{warningText}\n\nContinue with the Resolve export?",
+                    $"Preflight found {preflightWarnings.Count} layout warning(s):\n\n{warningText}\n\nContinue with the final video render?",
                     "Quiz Preflight",
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Warning);
@@ -551,7 +551,7 @@ public partial class MainShellWindow
             }
 
             if (_quizPageStatusText is not null)
-                _quizPageStatusText.Text = "Rendering quiz cards and creating Resolve export...";
+                _quizPageStatusText.Text = "Rendering quiz cards and preparing the final video...";
 
             var result = new NativeQuizVideoBuilder().BuildAndExport(
                 exportQuestions,
@@ -588,11 +588,14 @@ public partial class MainShellWindow
             QuizPublishMetadataFiles.Write(result.ProjectFolder, publishing);
 
             if (_quizPageStatusText is not null)
-                _quizPageStatusText.Text = "Copying the finished quiz package to project storage...";
+                _quizPageStatusText.Text = "Rendering the final MP4 and copying the finished package to project storage...";
             var stagedThumbnailPath = thumbnailPath;
             var stagedResult = result;
             result = await Task.Run(() => QuizExportStaging.Publish(stagedResult, settings.ProjectsFolder, stagingRoot));
             thumbnailPath = Path.Combine(result.ProjectFolder, Path.GetFileName(stagedThumbnailPath));
+            var finalVideoPath = NativeQuizFinalRenderer.OutputPath(result.ProjectFolder);
+            if (!File.Exists(finalVideoPath) || new FileInfo(finalVideoPath).Length == 0)
+                throw new InvalidOperationException("The final quiz MP4 was not created in project storage.");
 
             var historyId = _data.RecordQuizExport(
                 title,
@@ -627,26 +630,26 @@ public partial class MainShellWindow
                     ? "music off"
                     : backgroundMusic.DuckedForNarration ? "music on, ducking on" : "music on";
                 var themeStatus = QuizVisualThemeCatalog.Resolve(visual.ThemeKey).DisplayName;
-                _quizDraftStatusText.Text = $"Resolve quiz ready • {publishing.SeriesName} {publishing.EpisodeLabel} • {_quizDraftQuestions.Count} questions • {seconds} sec answer time • {answerStatus} • {themeStatus} theme • {presentationStatus} • {narrationStatus} • {sfxStatus} • {musicStatus} • {brandingStatus} • thumbnail + publishing metadata saved • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
+                _quizDraftStatusText.Text = $"Final quiz video ready • {publishing.SeriesName} {publishing.EpisodeLabel} • {_quizDraftQuestions.Count} questions • {seconds} sec answer time • {answerStatus} • {themeStatus} theme • {presentationStatus} • {narrationStatus} • {sfxStatus} • {musicStatus} • {brandingStatus} • thumbnail + publishing metadata saved • approx {TimeSpan.FromSeconds(duration):m\\:ss}.";
             }
             if (_quizPageStatusText is not null)
-                _quizPageStatusText.Text = "Resolve quiz export created with thumbnail and publishing metadata, then added to Quiz History";
+                _quizPageStatusText.Text = $"Final MP4 ready: {Path.GetFileName(finalVideoPath)} • added to Quiz History";
             if (_quizPublishingStatusText is not null)
-                _quizPublishingStatusText.Text = $"Upload package ready for {publishing.SeriesName} {publishing.EpisodeLabel}: Resolve project, metadata and Thumbnail.png are in the quiz export folder.";
+                _quizPublishingStatusText.Text = $"Upload package ready for {publishing.SeriesName} {publishing.EpisodeLabel}: final MP4, Thumbnail.png, publishing metadata and optional Resolve/FCPXML backup are in the quiz export folder.";
 
             MessageBox.Show(
                 this,
-                $"Quiz export created.\n\nFCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nThumbnail:\n{thumbnailPath}\n\nSeries: {publishing.SeriesName} {publishing.EpisodeLabel}\nYouTube title: {publishing.YouTubeTitle}\nPublishing metadata: saved with the quiz project\nTheme: {QuizVisualThemeCatalog.Resolve(visual.ThemeKey).DisplayName}\nLogo position: {visual.LogoPosition}\nLogo size: {visual.LogoScale * 100:0}%\nAnswer positions: {(shuffleAnswers ? "Shuffled for this export" : "Original bank order")}\nCountdown: {(showCountdown ? "3-2-1 enabled" : "Off")}\nCountdown ticks: {(countdownTicks ? "Enabled" : "Off")}\nAnswer reveal pulse: {(animateReveal ? "Enabled" : "Off")}\nCorrect-answer chime: {(answerRevealSfx ? "Enabled" : "Off")}\nOpenAI narration: {(narrate ? (narrateAnswers ? $"{selectedVoice} • question + answer choices" : $"{selectedVoice} • question only") : "Off")}\nBackground music: {(backgroundMusic is null ? "Off" : backgroundMusic.DuckedForNarration ? "Enabled • narration ducking on" : "Enabled")}\nQuiz logo: {(logoPath.Length == 0 ? "None" : System.IO.Path.GetFileName(logoPath))}\nQuiz History: recorded\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
-                "Quiz Resolve Export",
+                $"Final video created.\n\nMP4:\n{finalVideoPath}\n\nThumbnail:\n{thumbnailPath}\n\nOptional Resolve FCPXML:\n{result.ResolveExport.FcpXml.Path}\n\nSeries: {publishing.SeriesName} {publishing.EpisodeLabel}\nYouTube title: {publishing.YouTubeTitle}\nPublishing metadata: saved with the quiz project\nTheme: {QuizVisualThemeCatalog.Resolve(visual.ThemeKey).DisplayName}\nLogo position: {visual.LogoPosition}\nLogo size: {visual.LogoScale * 100:0}%\nAnswer positions: {(shuffleAnswers ? "Shuffled for this export" : "Original bank order")}\nCountdown: {(showCountdown ? "3-2-1 enabled" : "Off")}\nCountdown ticks: {(countdownTicks ? "Enabled" : "Off")}\nAnswer reveal pulse: {(animateReveal ? "Enabled" : "Off")}\nCorrect-answer chime: {(answerRevealSfx ? "Enabled" : "Off")}\nOpenAI narration: {(narrate ? (narrateAnswers ? $"{selectedVoice} • question + answer choices" : $"{selectedVoice} • question only") : "Off")}\nBackground music: {(backgroundMusic is null ? "Off" : backgroundMusic.DuckedForNarration ? "Enabled • narration ducking on" : "Enabled")}\nQuiz logo: {(logoPath.Length == 0 ? "None" : System.IO.Path.GetFileName(logoPath))}\nQuiz History: recorded\nValidated media files: {result.ResolveExport.ValidatedMedia.Count}",
+                "Quiz Final Video",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
         }
         catch (Exception error)
         {
             if (_quizPageStatusText is not null)
-                _quizPageStatusText.Text = $"Quiz export failed: {error.Message}";
+                _quizPageStatusText.Text = $"Final video render failed: {error.Message}";
             UpdateQuizPublishingChecklist();
-            MessageBox.Show(this, error.Message, "Quiz Resolve Export", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, error.Message, "Quiz Final Video", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
