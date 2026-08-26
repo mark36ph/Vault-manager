@@ -48,7 +48,7 @@ public partial class MainShellWindow
         });
         heading.Children.Add(new TextBlock
         {
-            Text = "The saved quiz timeline supplies the exact timestamp. The video is reframed to 9:16 and finished with a Fable call to action.",
+            Text = "The saved quiz question is rebuilt in the native Factburst 9:16 Shorts layout, synced to the original quiz audio, then finished with a Fable call to action.",
             Foreground = QuizMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0),
@@ -144,7 +144,7 @@ public partial class MainShellWindow
                 var settings = _data.LoadSettings();
                 var apiKey = NativeProviderCredentials.FromSettings(settings).Get("openai");
                 var quizLogoPath = _data.LoadQuizLogoPath();
-                var renderer = new QuizPromoShortRenderer();
+                var renderer = new QuizPromoNativeShortRenderer();
                 var result = await renderer.CreateAsync(
                     videoPath.Text,
                     history.ProjectFolder,
@@ -158,7 +158,7 @@ public partial class MainShellWindow
                 openFolder.IsEnabled = true;
                 RefreshUploadManager();
                 MessageBox.Show(dialog,
-                    $"Promotional Short created from {result.Plan.SceneTitle}.\n\n{result.VideoPath}\n\n" +
+                    $"Promotional Short created from {result.Plan.SceneTitle} using the Factburst Shorts layout.\n\n{result.VideoPath}\n\n" +
                     "When it is uploaded to YouTube, select the full quiz as the related video in YouTube Studio.",
                     "Promo Short Ready", MessageBoxButton.OK, MessageBoxImage.Information);
             }
