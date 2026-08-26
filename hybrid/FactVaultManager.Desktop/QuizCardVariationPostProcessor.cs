@@ -196,7 +196,8 @@ public static class QuizCardVariationPostProcessor
     }
 
     private static string QuizTypeFor(IReadOnlyList<QuizQuestion> questions) =>
-        questions.Any(question => question.QuizType == QuizTypeCatalog.Logo)
+        questions.Count > 0 && questions.All(question =>
+            QuizTypeCatalog.FromCategory(question.Category) == QuizTypeCatalog.Logo)
             ? QuizTypeCatalog.Logo
             : QuizTypeCatalog.Standard;
 
