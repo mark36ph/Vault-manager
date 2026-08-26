@@ -3,6 +3,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -183,16 +184,78 @@ public partial class MainShellWindow
             Background = Brushes.Transparent,
             FontWeight = FontWeights.SemiBold,
             Padding = new Thickness(14, 8, 18, 8),
+            Template = BuildUploadManagerMenuItemTemplate(),
         };
         item.Click += click;
         owner.ContextMenu.Items.Add(item);
     }
 
+    private static ControlTemplate BuildUploadManagerMenuItemTemplate()
+    {
+        var template = new ControlTemplate(typeof(MenuItem));
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.SetBinding(Border.BackgroundProperty, new Binding(nameof(Control.Background))
+        {
+            RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent),
+        });
+        border.SetBinding(Border.PaddingProperty, new Binding(nameof(Control.Padding))
+        {
+            RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent),
+        });
+        border.SetValue(Border.CornerRadiusProperty, new CornerRadius(3));
+
+        var text = new FrameworkElementFactory(typeof(TextBlock));
+        text.SetBinding(TextBlock.TextProperty, new Binding(nameof(HeaderedItemsControl.Header))
+        {
+            RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent),
+        });
+        text.SetBinding(TextBlock.ForegroundProperty, new Binding(nameof(Control.Foreground))
+        {
+            RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent),
+        });
+        text.SetBinding(TextBlock.FontWeightProperty, new Binding(nameof(Control.FontWeight))
+        {
+            RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent),
+        });
+        text.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+        border.AppendChild(text);
+        template.VisualTree = border;
+
+        var highlighted = new Trigger
+        {
+            Property = MenuItem.IsHighlightedProperty,
+            Value = true,
+        };
+        highlighted.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(28, 50, 120))));
+        template.Triggers.Add(highlighted);
+
+        var disabled = new Trigger
+        {
+            Property = UIElement.IsEnabledProperty,
+            Value = false,
+        };
+        disabled.Setters.Add(new Setter(UIElement.OpacityProperty, 0.5));
+        template.Triggers.Add(disabled);
+        return template;
+    }
+
     private static void AddUploadManagerMenuSeparator(Button owner)
     {
-        owner.ContextMenu?.Items.Add(new Separator
+        if (owner.ContextMenu is null)
+            return;
+
+        var separatorTemplate = new ControlTemplate(typeof(Separator));
+        var line = new FrameworkElementFactory(typeof(Border));
+        line.SetValue(FrameworkElement.HeightProperty, 1d);
+        line.SetValue(Border.BackgroundProperty, new SolidColorBrush(Color.FromRgb(47, 68, 145)));
+        separatorTemplate.VisualTree = line;
+
+        owner.ContextMenu.Items.Add(new Separator
         {
-            Margin = new Thickness(4, 3, 4, 3),
+            Margin = new Thickness(10, 4, 10, 4),
+            Template = separatorTemplate,
         });
     }
 
