@@ -143,6 +143,7 @@ public partial class MainShellWindow
             {
                 var settings = _data.LoadSettings();
                 var apiKey = NativeProviderCredentials.FromSettings(settings).Get("openai");
+                var quizLogoPath = _data.LoadQuizLogoPath();
                 var renderer = new QuizPromoShortRenderer();
                 var result = await renderer.CreateAsync(
                     videoPath.Text,
@@ -151,6 +152,7 @@ public partial class MainShellWindow
                     history.YouTubeUrl,
                     cta.Text,
                     apiKey,
+                    quizLogoPath,
                     message => status.Text = message);
                 status.Text = $"Ready: {Path.GetFileName(result.VideoPath)} • {result.Plan.TotalDuration:0.0} seconds";
                 openFolder.IsEnabled = true;
