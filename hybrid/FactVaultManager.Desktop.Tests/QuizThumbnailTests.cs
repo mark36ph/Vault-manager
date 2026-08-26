@@ -3,7 +3,7 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class QuizThumbnailTests
 {
     [Fact]
-    public void Defaults_BuildsChallengeHeadlineAndCategorySubtitle()
+    public void Defaults_BuildsShortChallengeHeadlineAndCategorySubtitle()
     {
         var metadata = QuizPublishMetadataGenerator.Generate(
             "Science Challenge",
@@ -13,8 +13,22 @@ public sealed class QuizThumbnailTests
 
         var thumbnail = QuizThumbnailDefaults.Create(metadata, 3);
 
-        Assert.Equal("CAN YOU GET 3/3?", thumbnail.Headline);
+        Assert.Equal("CAN YOU SOLVE IT?", thumbnail.Headline);
         Assert.Equal("SCIENCE CHALLENGE", thumbnail.Subtitle);
+    }
+
+    [Theory]
+    [InlineData(10, false, "FINAL BOSS QUESTION")]
+    [InlineData(6, false, "ONLY EXPERTS?")]
+    [InlineData(1, false, "CAN YOU SOLVE IT?")]
+    [InlineData(10, true, "NAME THIS LOGO")]
+    public void Defaults_UsesTwoToFourWordHighFrictionHooks(int count, bool logoQuiz, string expected)
+    {
+        var hook = QuizThumbnailIntelligence.DefaultHook(count, logoQuiz);
+
+        Assert.Equal(expected, hook);
+        var words = hook.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        Assert.InRange(words.Length, 2, 4);
     }
 
     [Theory]
@@ -60,7 +74,125 @@ public sealed class QuizThumbnailTests
 
         var thumbnail = QuizThumbnailDefaults.Create(metadata, 2, logoQuiz: true);
 
+        Assert.Equal("NAME THIS LOGO", thumbnail.Headline);
         Assert.Equal("LOGOS", thumbnail.Subtitle);
+    }
+
+    [Fact]
+    public void Intelligence_PrefersInsaneQuestionAndBuildsRoundFourHook()
+    {
+        var questions = new[]
+        {
+            Question(1, difficulty: "easy"),
+            Question(2, difficulty: "hard", question: "Which planet is the largest?"),
+            Question(3, difficulty: "insane", question: "What is the shortest day in the Solar System?", category: "Space"),
+        };
+        var metadata = Metadata(questions, "Space Quiz");
+
+        var recommendation = QuizThumbnailIntelligence.Recommend(metadata, questions);
+
+        Assert.Equal(3, recommendation.Question.Id);
+        Assert.Equal(3, recommendation.QuestionNumber);
+        Assert.Equal("FINAL BOSS QUESTION", recommendation.Hook);
+        Assert.Equal("ROUND 4 • INSANE", recommendation.Badge);
+        Assert.Equal("SPACE • INSANE", recommendation.Subtitle);
+        Assert.Contains("shortest day", recommendation.Teaser, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Intelligence_LogoQuizStronglyPrefersQuestionWithArtwork()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "thumbnail-intelligence", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        var artwork = Path.Combine(root, "logo.png");
+        File.WriteAllText(artwork, "test");
+        try
+        {
+            var questions = new[]
+            {
+                Question(1, difficulty: "insane", category: "Logos"),
+                Question(2, difficulty: "hard", category: "Logos", imagePath: artwork),
+            };
+            var metadata = Metadata(questions, "Logos", logoQuiz: true);
+
+            var recommendation = QuizThumbnailIntelligence.Recommend(metadata, questions, logoQuiz: true);
+
+            Assert.Equal(2, recommendation.Question.Id);
+            Assert.True(recommendation.HasArtwork);
+            Assert.Equal("NAME THIS LOGO", recommendation.Hook);
+            Assert.Equal("LOGO CHALLENGE", recommendation.Badge);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Intelligence_UsesImpactTermsAsTieBreakerWithinDifficulty()
+    {
+        var ordinary = Question(1, difficulty: "hard", question: "Which object is shown here?");
+        var highImpact = Question(2, difficulty: "hard", question: "Which planet has the fastest rotation and shortest day?", category: "Space");
+        var questions = new[] { ordinary, highImpact };
+
+        var recommendation = QuizThumbnailIntelligence.Recommend(Metadata(questions, "Space Quiz"), questions);
+
+        Assert.Equal(highImpact.Id, recommendation.Question.Id);
+        Assert.True(
+            QuizThumbnailIntelligence.Score(highImpact, 1, 2) >
+            QuizThumbnailIntelligence.Score(ordinary, 0, 2));
+    }
+
+    [Fact]
+    public void Intelligence_IsDeterministicForSameQuestionSet()
+    {
+        var questions = new[]
+        {
+            Question(4, difficulty: "hard"),
+            Question(7, difficulty: "hard"),
+            Question(9, difficulty: "hard"),
+        };
+        var metadata = Metadata(questions, "Science Quiz");
+
+        var first = QuizThumbnailIntelligence.Recommend(metadata, questions);
+        var second = QuizThumbnailIntelligence.Recommend(metadata, questions);
+
+        Assert.Equal(first.Question.Id, second.Question.Id);
+        Assert.Equal(first.Hook, second.Hook);
+        Assert.Equal(first.Score, second.Score);
+    }
+
+    [Fact]
+    public void Intelligence_TeaserIsCappedForMobileReadability()
+    {
+        var longQuestion = Question(
+            10,
+            difficulty: "insane",
+            question: "Which extraordinarily distant object in the observable universe demonstrates the most surprising property in this deliberately long quiz question?",
+            category: "Space");
+        var questions = new[] { longQuestion };
+
+        var recommendation = QuizThumbnailIntelligence.Recommend(Metadata(questions, "Space Quiz"), questions);
+
+        Assert.InRange(recommendation.Teaser.Length, 1, 76);
+        Assert.EndsWith("...", recommendation.Teaser, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Renderer_UpgradesLegacyAutomaticHeadlineButPreservesManualCopy()
+    {
+        var questions = new[] { Question(1, difficulty: "insane", category: "Space") };
+        var recommendation = QuizThumbnailIntelligence.Recommend(Metadata(questions, "Space Quiz"), questions);
+
+        var legacy = QuizThumbnailRenderer.UpgradeLegacyAutomaticCopy(
+            new QuizThumbnailSettings("CAN YOU GET 10/10?", "SPACE"),
+            recommendation);
+        var manual = QuizThumbnailRenderer.UpgradeLegacyAutomaticCopy(
+            new QuizThumbnailSettings("THE UNIVERSE'S SECRET", "SPACE"),
+            recommendation);
+
+        Assert.Equal("FINAL BOSS QUESTION", legacy.Headline);
+        Assert.Equal("THE UNIVERSE'S SECRET", manual.Headline);
     }
 
     [Fact]
@@ -162,17 +294,30 @@ public sealed class QuizThumbnailTests
         Assert.False(items.Single(item => item.Label == "Pinned comment").IsComplete);
     }
 
-    private static QuizQuestion Question(int id) => new(
+    private static QuizPublishMetadata Metadata(
+        IReadOnlyList<QuizQuestion> questions,
+        string series,
+        bool logoQuiz = false) =>
+        QuizPublishMetadataGenerator.Generate(series, 1, questions, vertical: false, logoQuiz: logoQuiz);
+
+    private static QuizQuestion Question(
+        int id,
+        string difficulty = "medium",
+        string? question = null,
+        string category = "Science",
+        string imagePath = "") => new(
         id,
-        $"Question {id}?",
+        question ?? $"Question {id}?",
         "Answer A",
         "Answer B",
         "Answer C",
         "Answer D",
         0,
         "Explanation",
-        "Science",
-        "medium",
+        category,
+        difficulty,
         "Test",
-        0);
+        0,
+        true,
+        imagePath);
 }
