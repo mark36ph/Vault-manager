@@ -34,6 +34,7 @@ public static class Program
             mainWindow.InitializeQuizHeaderActionsForApp();
             mainWindow.InitializeQuizWorkspaceNavigationForApp();
             mainWindow.InitializeFactburstTrackerForApp();
+            mainWindow.InitializePromoRelatedVideoChecklistForApp();
             application.Run(mainWindow);
         }
         catch (Exception error)
