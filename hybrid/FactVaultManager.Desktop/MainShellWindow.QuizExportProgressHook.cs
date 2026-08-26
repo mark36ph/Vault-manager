@@ -24,11 +24,8 @@ public partial class MainShellWindow
 
     private static void QuizResolveExportButton_Clicked(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button button ||
-            !string.Equals(Convert.ToString(button.Content)?.Trim(), "Create Resolve Quiz", StringComparison.OrdinalIgnoreCase))
-        {
+        if (sender is not Button button || !IsQuizFinalRenderActionButton(button))
             return;
-        }
 
         if (Window.GetWindow(button) is MainShellWindow owner)
             QuizResolveProgressCoordinator.Begin(owner);
