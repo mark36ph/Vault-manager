@@ -194,6 +194,28 @@ public sealed class QuizThemedCardRendererTests
     }
 
     [Fact]
+    public void LogoArtwork_CropsOpaqueWhiteCanvasAroundTheLogo()
+    {
+        var source = LogoCanvas(100, 80, transparentBackground: false);
+
+        var cropped = QuizThemedCardRenderer.CropLogoWhitespace(source);
+
+        Assert.Equal(44, cropped.PixelWidth);
+        Assert.Equal(44, cropped.PixelHeight);
+    }
+
+    [Fact]
+    public void LogoArtwork_CropsTransparentCanvasWithoutRemovingWhiteArtwork()
+    {
+        var source = LogoCanvas(100, 80, transparentBackground: true);
+
+        var cropped = QuizThemedCardRenderer.CropLogoWhitespace(source);
+
+        Assert.Equal(44, cropped.PixelWidth);
+        Assert.Equal(44, cropped.PixelHeight);
+    }
+
+    [Fact]
     public void LogoQuestionPreview_RendersFeaturedImageAndBrandLogoAtVerticalShortsSize()
     {
         var featuredImagePath = Path.Combine(Path.GetTempPath(), $"factvault-featured-logo-{Guid.NewGuid():N}.png");
@@ -266,4 +288,43 @@ public sealed class QuizThemedCardRendererTests
         0,
         true,
         imagePath);
+
+    private static System.Windows.Media.Imaging.BitmapSource LogoCanvas(
+        int width,
+        int height,
+        bool transparentBackground)
+    {
+        const int bytesPerPixel = 4;
+        var stride = width * bytesPerPixel;
+        var pixels = new byte[stride * height];
+        if (!transparentBackground)
+        {
+            Array.Fill(pixels, (byte)255);
+        }
+
+        for (var y = 20; y < 60; y++)
+        {
+            for (var x = 30; x < 70; x++)
+            {
+                var offset = (y * stride) + (x * bytesPerPixel);
+                var channel = transparentBackground ? (byte)255 : (byte)0;
+                pixels[offset] = channel;
+                pixels[offset + 1] = channel;
+                pixels[offset + 2] = channel;
+                pixels[offset + 3] = 255;
+            }
+        }
+
+        var bitmap = System.Windows.Media.Imaging.BitmapSource.Create(
+            width,
+            height,
+            96,
+            96,
+            System.Windows.Media.PixelFormats.Bgra32,
+            null,
+            pixels,
+            stride);
+        bitmap.Freeze();
+        return bitmap;
+    }
 }
