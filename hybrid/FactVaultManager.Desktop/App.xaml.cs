@@ -10,7 +10,16 @@ public partial class App : System.Windows.Application
         if (_thumbnailRegenerationActionsInitialized || MainWindow is not MainShellWindow shell)
             return;
 
-        shell.InitializeUploadManagerThumbnailRegenerationActions();
-        _thumbnailRegenerationActionsInitialized = true;
+        _thumbnailRegenerationActionsInitialized = shell.InitializeUploadManagerThumbnailRegenerationActions();
+        if (_thumbnailRegenerationActionsInitialized)
+            return;
+
+        shell.Dispatcher.BeginInvoke(
+            new Action(() =>
+            {
+                if (!_thumbnailRegenerationActionsInitialized)
+                    _thumbnailRegenerationActionsInitialized = shell.InitializeUploadManagerThumbnailRegenerationActions();
+            }),
+            System.Windows.Threading.DispatcherPriority.Loaded);
     }
 }
