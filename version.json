@@ -1,12 +1,12 @@
 {
     "latest_version": "1.0.7",
-    "build": 28,
+    "build": 29,
     "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
     "release_notes": [
-        "Added guided Related video setup for scheduled YouTube Promo Shorts, limited to the current Release Readiness range with copy-title, exact Studio link, manual save confirmation and local completion tracking.",
+        "Added NAS-safe website staging from Scheduled Release Readiness: accessible scheduled quizzes can be copied to Cloudflare now and automatically appear at release time, while unavailable project folders are skipped for a later retry.",
+        "Added a guided Related video setup workflow to Scheduled Release Readiness so each YouTube Promo Short can be opened directly in Studio, matched to its full quiz, and explicitly confirmed without pretending the YouTube API can set the field.",
         "Added batch scheduling of missing promo Shorts from Release Readiness: YouTube and Facebook upload now and publish later on each quiz release day, while Instagram remains pending for release-day publishing.",
         "Promo Shorts now prefer the first Insane question but fall back to the final quiz question when a quiz has no Insane-round question.",
-        "Added batch preparation of missing promo Shorts from Scheduled Release Readiness, with one shared Fable CTA narration reused across the batch and no automatic publishing.",
-        "Expanded automated regression coverage and release-readiness checks."
+        "Added batch preparation of missing promo Shorts from Scheduled Release Readiness, with one shared Fable CTA narration reused across the batch and no automatic publishing."
     ]
 }
