@@ -41,8 +41,9 @@ jobs:
         if: steps.credentials.outputs.ready == 'true'
         uses: actions/checkout@v6
 
-      - name: Resolve existing D1 binding
+      - name: Resolve existing Worker and D1 binding
         if: steps.credentials.outputs.ready == 'true'
+        id: resolve
         shell: bash
         working-directory: cloudflare/factburst-link-tracker
         env:
@@ -51,29 +52,71 @@ jobs:
         run: |
           set -euo pipefail
 
-          settings="$(curl --fail-with-body --silent --show-error \
-            --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            --header "Content-Type: application/json" \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/factburst-link-tracker/settings")"
+          api="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
+          auth=(--header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" --header "Content-Type: application/json")
 
-          if [[ "$(jq -r '.success // false' <<<"${settings}")" != "true" ]]; then
-            echo "Cloudflare did not return the current Worker settings." >&2
-            jq -r '.errors[]?.message // empty' <<<"${settings}" >&2
+          scripts="$(curl --fail-with-body --silent --show-error "${auth[@]}" "${api}/workers/scripts")"
+          if [[ "$(jq -r '.success // false' <<<"${scripts}")" != "true" ]]; then
+            echo "Cloudflare did not return the account's Workers. Check the Account ID and Workers Scripts permission." >&2
+            jq -r '.errors[]?.message // empty' <<<"${scripts}" >&2
             exit 1
           fi
 
-          d1_id="$(jq -r '.result.bindings[]? | select(.type == "d1" and .name == "DB") | (.database_id // .id // empty)' <<<"${settings}" | head -n 1)"
-          if [[ -z "${d1_id}" ]]; then
-            echo "The existing factburst-link-tracker Worker does not have a D1 binding named DB." >&2
-            echo "Open Cloudflare Workers & Pages → factburst-link-tracker → Settings → Bindings and confirm the D1 binding is named DB." >&2
+          mapfile -t script_ids < <(jq -r '.result[]?.id // empty' <<<"${scripts}")
+          if [[ ${#script_ids[@]} -eq 0 ]]; then
+            echo "Cloudflare returned no Workers for this account." >&2
             exit 1
           fi
 
-          database="$(curl --fail-with-body --silent --show-error \
-            --header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            --header "Content-Type: application/json" \
-            "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/d1/database/${d1_id}")"
+          matches=()
+          for script_id in "${script_ids[@]}"; do
+            encoded_id="$(jq -rn --arg value "${script_id}" '$value|@uri')"
+            settings="$(curl --fail-with-body --silent --show-error "${auth[@]}" "${api}/workers/scripts/${encoded_id}/settings" 2>/dev/null || true)"
+            if [[ -z "${settings}" || "$(jq -r '.success // false' <<<"${settings}" 2>/dev/null)" != "true" ]]; then
+              continue
+            fi
 
+            d1_id="$(jq -r '.result.bindings[]? | select(.type == "d1" and .name == "DB") | (.database_id // .id // empty)' <<<"${settings}" | head -n 1)"
+            if [[ -z "${d1_id}" ]]; then
+              continue
+            fi
+
+            compatibility_date="$(jq -r '.result.compatibility_date // empty' <<<"${settings}")"
+            matches+=("${script_id}|${d1_id}|${compatibility_date}")
+          done
+
+          if [[ ${#matches[@]} -eq 0 ]]; then
+            echo "Could not find an existing Worker with a D1 binding named DB." >&2
+            echo "In Cloudflare, open the tracker Worker → Settings → Bindings and confirm its D1 binding is named DB." >&2
+            exit 1
+          fi
+
+          selected=""
+          if [[ ${#matches[@]} -eq 1 ]]; then
+            selected="${matches[0]}"
+          else
+            preferred=()
+            for candidate in "${matches[@]}"; do
+              candidate_name="${candidate%%|*}"
+              if [[ "${candidate_name}" =~ [Ff][Aa][Cc][Tt][Bb][Uu][Rr][Ss][Tt] || "${candidate_name}" =~ [Tt][Rr][Aa][Cc][Kk][Ee][Rr] ]]; then
+                preferred+=("${candidate}")
+              fi
+            done
+            if [[ ${#preferred[@]} -eq 1 ]]; then
+              selected="${preferred[0]}"
+            else
+              echo "More than one Worker has a D1 binding named DB, so the tracker cannot be selected safely." >&2
+              printf 'Candidate: %s\n' "${matches[@]%%|*}" >&2
+              exit 1
+            fi
+          fi
+
+          IFS='|' read -r worker_name d1_id compatibility_date <<<"${selected}"
+          if [[ -z "${compatibility_date}" ]]; then
+            compatibility_date="2026-08-27"
+          fi
+
+          database="$(curl --fail-with-body --silent --show-error "${auth[@]}" "${api}/d1/database/${d1_id}")"
           if [[ "$(jq -r '.success // false' <<<"${database}")" != "true" ]]; then
             echo "Cloudflare did not return the bound D1 database details. The API token needs D1 Read permission." >&2
             jq -r '.errors[]?.message // empty' <<<"${database}" >&2
@@ -86,21 +129,16 @@ jobs:
             exit 1
           fi
 
-          compatibility_date="$(jq -r '.result.compatibility_date // empty' <<<"${settings}")"
-          if [[ -z "${compatibility_date}" ]]; then
-            compatibility_date="2026-08-27"
-          fi
-
           jq -n \
+            --arg worker_name "${worker_name}" \
             --arg database_id "${d1_id}" \
             --arg database_name "${d1_name}" \
             --arg compatibility_date "${compatibility_date}" \
             '{
-              name: "factburst-link-tracker",
+              name: $worker_name,
               main: "worker.js",
               compatibility_date: $compatibility_date,
               keep_vars: true,
-              secrets: { required: ["TRACKER_API_KEY"] },
               d1_databases: [
                 {
                   binding: "DB",
@@ -110,7 +148,8 @@ jobs:
               ]
             }' > wrangler.ci.json
 
-          echo "Resolved the existing DB binding and prepared a temporary Wrangler config."
+          echo "worker_name=${worker_name}" >> "$GITHUB_OUTPUT"
+          echo "Resolved Worker '${worker_name}' with D1 database '${d1_name}'."
 
       - name: Deploy to Cloudflare
         if: steps.credentials.outputs.ready == 'true'
@@ -127,11 +166,12 @@ jobs:
         if: steps.credentials.outputs.ready == 'true' && success()
         shell: bash
         env:
+          WORKER_NAME: ${{ steps.resolve.outputs.worker_name }}
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: |
           echo "### Factburst Link Tracker deployed" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Worker: \`factburst-link-tracker\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Worker: \`${WORKER_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
           if [[ -n "${DEPLOYMENT_URL}" ]]; then
             echo "Deployment: ${DEPLOYMENT_URL}" >> "$GITHUB_STEP_SUMMARY"
           fi
