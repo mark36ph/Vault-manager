@@ -225,6 +225,8 @@ async function initQuiz() {
     const progressText = document.querySelector("#quiz-progress-text");
     const progressBar = document.querySelector("#quiz-progress-bar");
     const number = document.querySelector("#question-number");
+    const questionVisual = document.querySelector("#question-visual");
+    const questionImage = document.querySelector("#question-image");
     const questionText = document.querySelector("#question-text");
     const answerList = document.querySelector("#answer-list");
     const next = document.querySelector("#next-question");
@@ -243,6 +245,17 @@ async function initQuiz() {
       questionText.textContent = question.question;
       next.textContent = index === quiz.questions.length - 1 ? "See my score" : "Next question";
       next.disabled = !answers[index];
+
+      const imageDataUrl = typeof question.image_data_url === "string" ? question.image_data_url.trim() : "";
+      if (questionVisual && questionImage && imageDataUrl.startsWith("data:image/png;base64,")) {
+        questionImage.src = imageDataUrl;
+        questionImage.alt = `Quiz image for question ${index + 1}`;
+        questionVisual.classList.remove("hidden");
+      } else if (questionVisual && questionImage) {
+        questionImage.removeAttribute("src");
+        questionImage.alt = "";
+        questionVisual.classList.add("hidden");
+      }
 
       const buttons = question.answers.map((answer, answerIndex) => {
         const letter = String.fromCharCode(65 + answerIndex);
