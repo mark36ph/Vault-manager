@@ -24,23 +24,20 @@ jobs:
 
     steps:
       - name: Check Cloudflare credentials
-        id: credentials
         shell: bash
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           if [[ -z "${CLOUDFLARE_API_TOKEN}" || -z "${CLOUDFLARE_ACCOUNT_ID}" ]]; then
-            echo "ready=false" >> "$GITHUB_OUTPUT"
             echo "::error::CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are required."
             exit 1
           fi
-          echo "ready=true" >> "$GITHUB_OUTPUT"
 
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Resolve Factburst D1 database
+      - name: Resolve Factburst D1 database from tracker
         id: resolve
         shell: bash
         working-directory: cloudflare/factburst-quiz-site
@@ -60,7 +57,8 @@ jobs:
             exit 1
           fi
 
-          matches=()
+          all_matches=()
+          tracker_matches=()
           while IFS= read -r script_id; do
             [[ -z "${script_id}" ]] && continue
             encoded_id="$(jq -rn --arg value "${script_id}" '$value|@uri')"
@@ -68,44 +66,44 @@ jobs:
             if [[ -z "${settings}" || "$(jq -r '.success // false' <<<"${settings}" 2>/dev/null)" != "true" ]]; then
               continue
             fi
+
             d1_id="$(jq -r '.result.bindings[]? | select(.type == "d1" and .name == "DB") | (.database_id // .id // empty)' <<<"${settings}" | head -n 1)"
             [[ -z "${d1_id}" ]] && continue
-            matches+=("${script_id}|${d1_id}")
+            candidate="${script_id}|${d1_id}"
+            all_matches+=("${candidate}")
+
+            has_tracker_key="$(jq -r '[.result.bindings[]? | select(.name == "TRACKER_API_KEY")] | length' <<<"${settings}")"
+            if [[ "${has_tracker_key}" -gt 0 ]]; then
+              tracker_matches+=("${candidate}")
+            fi
           done < <(jq -r '.result[]?.id // empty' <<<"${scripts}")
 
-          if [[ ${#matches[@]} -eq 0 ]]; then
-            echo "Could not find the existing Factburst D1 database binding." >&2
-            echo "The tracker Worker should have a D1 binding named DB." >&2
+          selected=""
+          if [[ ${#tracker_matches[@]} -eq 1 ]]; then
+            selected="${tracker_matches[0]}"
+          elif [[ ${#tracker_matches[@]} -gt 1 ]]; then
+            echo "More than one tracker Worker exposes TRACKER_API_KEY; the shared D1 database is ambiguous." >&2
+            printf 'Tracker candidate: %s\n' "${tracker_matches[@]%%|*}" >&2
             exit 1
           fi
 
-          selected=""
-          for candidate in "${matches[@]}"; do
-            candidate_name="${candidate%%|*}"
-            if [[ "${candidate_name}" == "factburst-quiz-site" ]]; then
-              selected="${candidate}"
-              break
-            fi
-          done
-
           if [[ -z "${selected}" ]]; then
-            preferred=()
-            for candidate in "${matches[@]}"; do
-              candidate_name="${candidate%%|*}"
-              if [[ "${candidate_name}" =~ [Tt][Rr][Aa][Cc][Kk][Ee][Rr] ]]; then
-                preferred+=("${candidate}")
+            for candidate in "${all_matches[@]}"; do
+              if [[ "${candidate%%|*}" == "go" ]]; then
+                selected="${candidate}"
+                break
               fi
             done
+          fi
 
-            if [[ ${#preferred[@]} -eq 1 ]]; then
-              selected="${preferred[0]}"
-            elif [[ ${#matches[@]} -eq 1 ]]; then
-              selected="${matches[0]}"
-            else
-              echo "More than one Worker has a DB binding and the Factburst database could not be selected safely." >&2
-              printf 'Candidate: %s\n' "${matches[@]%%|*}" >&2
-              exit 1
-            fi
+          if [[ -z "${selected}" && ${#all_matches[@]} -eq 1 ]]; then
+            selected="${all_matches[0]}"
+          fi
+
+          if [[ -z "${selected}" ]]; then
+            echo "Could not identify the tracker D1 database safely." >&2
+            printf 'DB candidate: %s\n' "${all_matches[@]%%|*}" >&2
+            exit 1
           fi
 
           IFS='|' read -r source_worker d1_id <<<"${selected}"
@@ -117,10 +115,7 @@ jobs:
           fi
 
           d1_name="$(jq -r '.result.name // empty' <<<"${database}")"
-          if [[ -z "${d1_name}" ]]; then
-            echo "The Factburst D1 database did not have a name." >&2
-            exit 1
-          fi
+          [[ -n "${d1_name}" ]] || { echo "The Factburst D1 database did not have a name." >&2; exit 1; }
 
           jq -n \
             --arg database_id "${d1_id}" \
@@ -145,7 +140,7 @@ jobs:
 
           echo "database_name=${d1_name}" >> "$GITHUB_OUTPUT"
           echo "source_worker=${source_worker}" >> "$GITHUB_OUTPUT"
-          echo "Using D1 database '${d1_name}' from Worker '${source_worker}'."
+          echo "Using D1 database '${d1_name}' from tracker Worker '${source_worker}'."
 
       - name: Deploy to Cloudflare
         id: deploy
@@ -162,14 +157,15 @@ jobs:
         shell: bash
         env:
           DATABASE_NAME: ${{ steps.resolve.outputs.database_name }}
+          SOURCE_WORKER: ${{ steps.resolve.outputs.source_worker }}
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: |
           echo "### Factburst Quiz Website deployed" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Worker: \`factburst-quiz-site\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "D1: \`${DATABASE_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "D1: \`${DATABASE_NAME}\` (resolved from \`${SOURCE_WORKER}\`)" >> "$GITHUB_STEP_SUMMARY"
           if [[ -n "${DEPLOYMENT_URL}" ]]; then
             echo "Website: ${DEPLOYMENT_URL}" >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "The site tables are created automatically on the first API request." >> "$GITHUB_STEP_SUMMARY"
+          echo "The website Worker code and static assets have been restored/deployed independently of the tracker Worker." >> "$GITHUB_STEP_SUMMARY"
