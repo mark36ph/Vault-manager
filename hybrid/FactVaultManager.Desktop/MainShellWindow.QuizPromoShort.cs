@@ -40,7 +40,7 @@ public partial class MainShellWindow
         var heading = new StackPanel { Margin = new Thickness(0, 0, 0, 18) };
         heading.Children.Add(new TextBlock
         {
-            Text = "Turn the first Insane question into a Short",
+            Text = "Turn a standout quiz question into a Short",
             FontSize = 22,
             FontWeight = FontWeights.SemiBold,
             Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)),
@@ -48,7 +48,7 @@ public partial class MainShellWindow
         });
         heading.Children.Add(new TextBlock
         {
-            Text = "The saved quiz question is rebuilt in the native Factburst 9:16 Shorts layout, synced to the original quiz audio, then finished with a Fable call to action.",
+            Text = "FactVault uses the first Insane question when available, otherwise the final quiz question. The saved question is rebuilt in the native Factburst 9:16 Shorts layout, synced to the original quiz audio, then finished with a Fable call to action.",
             Foreground = QuizMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0),

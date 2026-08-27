@@ -36,26 +36,29 @@ public static class QuizPromoShortPlanner
         if (!double.IsFinite(endCardDuration) || endCardDuration is < 2 or > 10)
             throw new ArgumentOutOfRangeException(nameof(endCardDuration), "The promotional end card must last between 2 and 10 seconds.");
 
-        var insane = timeline.Scenes
+        var questionScenes = timeline.Scenes
+            .Where(scene => MetadataInt(scene, "question_id") > 0)
             .OrderBy(scene => scene.Start)
-            .FirstOrDefault(scene => string.Equals(
-                MetadataText(scene, "difficulty"), "insane", StringComparison.OrdinalIgnoreCase));
-        if (insane is null)
-            throw new InvalidOperationException("The long-form timeline does not contain an Insane-round question.");
-        if (insane.Start >= sourceVideoDuration)
-            throw new InvalidOperationException("The Insane-round timestamp is beyond the end of the rendered video.");
+            .ToList();
+        var selected = questionScenes.FirstOrDefault(scene => string.Equals(
+                           MetadataText(scene, "difficulty"), "insane", StringComparison.OrdinalIgnoreCase))
+                       ?? questionScenes.LastOrDefault();
+        if (selected is null)
+            throw new InvalidOperationException("The long-form timeline does not contain a usable quiz question for the promotional Short.");
+        if (selected.Start >= sourceVideoDuration)
+            throw new InvalidOperationException("The selected promotional question starts beyond the end of the rendered video.");
 
-        var available = sourceVideoDuration - insane.Start;
-        var sourceDuration = Math.Min(insane.Duration, Math.Min(available, MaximumDuration - endCardDuration));
+        var available = sourceVideoDuration - selected.Start;
+        var sourceDuration = Math.Min(selected.Duration, Math.Min(available, MaximumDuration - endCardDuration));
         if (sourceDuration < 3)
-            throw new InvalidOperationException("The Insane-round video section is too short to create a promotional Short.");
+            throw new InvalidOperationException("The selected promotional question is too short to create a promotional Short.");
 
         return new QuizPromoShortPlan(
-            insane.Start,
+            selected.Start,
             sourceDuration,
             endCardDuration,
-            insane.Title,
-            MetadataInt(insane, "question_id"));
+            selected.Title,
+            MetadataInt(selected, "question_id"));
     }
 
     private static string MetadataText(NativeTimelineScene scene, string key) =>
