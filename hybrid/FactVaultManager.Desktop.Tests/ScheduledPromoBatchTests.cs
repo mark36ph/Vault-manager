@@ -49,6 +49,36 @@ public sealed class ScheduledPromoBatchTests
     }
 
     [Fact]
+    public void SelectMissingRelatedVideos_only_returns_uploaded_youtube_promos_that_need_setting()
+    {
+        var now = LocalDateTime(2026, 8, 27, 16, 0);
+        var later = Row(4, now.AddDays(4), "Ready", "Ready", "Uploaded", "Uploaded", "Later") with
+        {
+            RelatedVideo = "Needs setting",
+        };
+        var earlier = Row(2, now.AddDays(2), "Ready", "Ready", "Uploaded", "Uploaded", "Earlier") with
+        {
+            RelatedVideo = "Needs setting",
+        };
+        var alreadySet = Row(1, now.AddDays(1), "Ready", "Ready", "Uploaded", "Uploaded", "Set") with
+        {
+            RelatedVideo = "Set",
+        };
+        var youtubeNotUploaded = Row(3, now.AddDays(3), "Ready", "Ready", "Ready", "Uploaded", "Not uploaded") with
+        {
+            RelatedVideo = "Needs setting",
+        };
+
+        var selected = ScheduledPromoBatchPlanner.SelectMissingRelatedVideos(
+            [later, alreadySet, youtubeNotUploaded, earlier]);
+
+        Assert.Collection(
+            selected,
+            row => Assert.Equal(2, row.HistoryId),
+            row => Assert.Equal(4, row.HistoryId));
+    }
+
+    [Fact]
     public void ResolvePromoPublishAt_uses_same_release_day_and_requested_local_time()
     {
         var longForm = LocalDateTime(2026, 8, 28, 9, 0);
