@@ -1,0 +1,44 @@
+.brand-mark {
+  overflow: hidden;
+  padding: 2px;
+}
+
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  border-radius: 9px;
+}
+
+.question-visual {
+  min-height: 190px;
+  margin: 0 0 22px;
+  padding: 22px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 14px;
+  background: linear-gradient(145deg, #ffffff, #edf3ff);
+}
+
+.question-visual img {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(100%, 520px);
+  max-height: 280px;
+  object-fit: contain;
+}
+
+@media (max-width: 620px) {
+  .question-visual {
+    min-height: 150px;
+    padding: 16px;
+  }
+
+  .question-visual img {
+    max-height: 220px;
+  }
+}

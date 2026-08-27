@@ -17,6 +17,33 @@ public sealed class FactburstWebsitePublishingTests
         Assert.Equal("B", question.CorrectAnswer);
         Assert.Equal("Which planet is closest to the Sun?", question.Question);
         Assert.Equal("Mercury is the closest planet to the Sun.", question.Explanation);
+        Assert.Equal("", question.ImageDataUrl);
+    }
+
+    [Fact]
+    public void BuildQuestion_preserves_png_image_data_url()
+    {
+        const string image = "data:image/png;base64,iVBORw0KGgo=";
+        var question = FactburstWebsiteQuizBuilder.BuildQuestion(
+            "Which logo is this?",
+            ["One", "Two", "Three", "Four"],
+            0,
+            "Explanation",
+            image);
+
+        Assert.Equal(image, question.ImageDataUrl);
+    }
+
+    [Fact]
+    public void BuildQuestion_rejects_non_png_image_data_url()
+    {
+        Assert.Throws<InvalidDataException>(() =>
+            FactburstWebsiteQuizBuilder.BuildQuestion(
+                "Question",
+                ["One", "Two", "Three", "Four"],
+                0,
+                "Explanation",
+                "data:text/html;base64,PHNjcmlwdD4="));
     }
 
     [Theory]

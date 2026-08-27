@@ -3,6 +3,7 @@ const JSON_HEADERS = {
   "cache-control": "no-store",
 };
 
+const MAX_IMAGE_DATA_URL_LENGTH = 1_250_000;
 let schemaReady = false;
 
 export default {
@@ -92,6 +93,7 @@ async function ensureSchema(db) {
         answer_d TEXT NOT NULL,
         correct_answer TEXT NOT NULL,
         explanation TEXT NOT NULL DEFAULT '',
+        image_data_url TEXT NOT NULL DEFAULT '',
         UNIQUE(quiz_id, position),
         FOREIGN KEY (quiz_id) REFERENCES site_quizzes(id) ON DELETE CASCADE
       )
@@ -109,6 +111,12 @@ async function ensureSchema(db) {
     db.prepare("CREATE INDEX IF NOT EXISTS idx_site_quizzes_publish ON site_quizzes(status, publish_at)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_site_attempts_quiz ON site_attempts(quiz_id, completed_at)"),
   ]);
+
+  const columns = await db.prepare("PRAGMA table_info(site_questions)").all();
+  const hasImageColumn = (columns.results || []).some(column => column.name === "image_data_url");
+  if (!hasImageColumn) {
+    await db.prepare("ALTER TABLE site_questions ADD COLUMN image_data_url TEXT NOT NULL DEFAULT ''").run();
+  }
 
   schemaReady = true;
 }
@@ -256,7 +264,7 @@ async function getQuiz(db, slug) {
 
   const { quiz, launchQuiz } = playable;
   const questions = await db.prepare(`
-    SELECT position, question, answer_a, answer_b, answer_c, answer_d
+    SELECT position, question, answer_a, answer_b, answer_c, answer_d, image_data_url
     FROM site_questions
     WHERE quiz_id = ?
     ORDER BY position ASC
@@ -272,6 +280,7 @@ async function getQuiz(db, slug) {
         position: row.position,
         question: row.question,
         answers: [row.answer_a, row.answer_b, row.answer_c, row.answer_d],
+        image_data_url: row.image_data_url || "",
       })),
     },
   });
@@ -382,8 +391,8 @@ async function upsertQuiz(request, env) {
   const inserts = quiz.questions.map((question, index) =>
     env.DB.prepare(`
       INSERT INTO site_questions
-        (quiz_id, position, question, answer_a, answer_b, answer_c, answer_d, correct_answer, explanation)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (quiz_id, position, question, answer_a, answer_b, answer_c, answer_d, correct_answer, explanation, image_data_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       saved.id,
       index + 1,
@@ -394,6 +403,7 @@ async function upsertQuiz(request, env) {
       question.answers[3],
       question.correct_answer,
       question.explanation,
+      question.image_data_url,
     ),
   );
   await env.DB.batch(inserts);
@@ -421,16 +431,19 @@ function validateQuizPayload(body) {
     const question = String(item.question || "").trim();
     const answers = Array.isArray(item.answers) ? item.answers.map((value) => String(value || "").trim()) : [];
     const correctAnswer = normalizeAnswer(item.correct_answer);
+    const imageDataUrl = normalizeImageDataUrl(item.image_data_url);
     if (!question) return { error: `Question ${index + 1} is blank.` };
     if (answers.length !== 4 || answers.some((answer) => !answer) || new Set(answers).size !== 4) {
       return { error: `Question ${index + 1} must have four distinct answers.` };
     }
     if (!correctAnswer) return { error: `Question ${index + 1} needs correct_answer A, B, C or D.` };
+    if (imageDataUrl === null) return { error: `Question ${index + 1} has an invalid or oversized website image.` };
     normalizedQuestions.push({
       question,
       answers,
       correct_answer: correctAnswer,
       explanation: String(item.explanation || "").trim(),
+      image_data_url: imageDataUrl,
     });
   }
 
@@ -456,6 +469,14 @@ function validateQuizPayload(body) {
       questions: normalizedQuestions,
     },
   };
+}
+
+function normalizeImageDataUrl(value) {
+  const image = String(value || "").trim();
+  if (!image) return "";
+  if (image.length > MAX_IMAGE_DATA_URL_LENGTH) return null;
+  if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(image)) return null;
+  return image;
 }
 
 function normalizeAnswer(value) {

@@ -4,6 +4,7 @@ const JSON_HEADERS = {
   "X-Content-Type-Options": "nosniff",
 };
 
+const MAX_IMAGE_DATA_URL_LENGTH = 1_250_000;
 let siteSchemaReady = false;
 
 export async function listSiteQuizzes(env) {
@@ -63,8 +64,8 @@ export async function upsertSiteQuiz(request, env) {
     ...quiz.questions.map((question, index) =>
       env.DB.prepare(`
         INSERT INTO site_questions
-          (quiz_id, position, question, answer_a, answer_b, answer_c, answer_d, correct_answer, explanation)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (quiz_id, position, question, answer_a, answer_b, answer_c, answer_d, correct_answer, explanation, image_data_url)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         saved.id,
         index + 1,
@@ -75,6 +76,7 @@ export async function upsertSiteQuiz(request, env) {
         question.answers[3],
         question.correct_answer,
         question.explanation,
+        question.image_data_url,
       )
     ),
   ];
@@ -112,12 +114,20 @@ async function ensureSiteSchema(db) {
         answer_d TEXT NOT NULL,
         correct_answer TEXT NOT NULL,
         explanation TEXT NOT NULL DEFAULT '',
+        image_data_url TEXT NOT NULL DEFAULT '',
         UNIQUE(quiz_id, position),
         FOREIGN KEY (quiz_id) REFERENCES site_quizzes(id) ON DELETE CASCADE
       )
     `),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_site_quizzes_publish ON site_quizzes(status, publish_at)"),
   ]);
+
+  const columns = await db.prepare("PRAGMA table_info(site_questions)").all();
+  const hasImageColumn = (columns.results || []).some(column => column.name === "image_data_url");
+  if (!hasImageColumn) {
+    await db.prepare("ALTER TABLE site_questions ADD COLUMN image_data_url TEXT NOT NULL DEFAULT ''").run();
+  }
+
   siteSchemaReady = true;
 }
 
@@ -147,17 +157,21 @@ function validateQuizPayload(body) {
       ? item.answers.map(value => String(value || "").trim())
       : [];
     const correctAnswer = normalizeAnswer(item.correct_answer);
+    const imageDataUrl = normalizeImageDataUrl(item.image_data_url);
     if (!question) return { error: `Question ${index + 1} is blank.` };
     if (answers.length !== 4 || answers.some(answer => !answer) || new Set(answers).size !== 4) {
       return { error: `Question ${index + 1} must have four distinct answers.` };
     }
     if (!correctAnswer)
       return { error: `Question ${index + 1} needs correct_answer A, B, C or D.` };
+    if (imageDataUrl === null)
+      return { error: `Question ${index + 1} has an invalid or oversized website image.` };
     normalizedQuestions.push({
       question,
       answers,
       correct_answer: correctAnswer,
       explanation: String(item.explanation || "").trim(),
+      image_data_url: imageDataUrl,
     });
   }
 
@@ -184,6 +198,14 @@ function validateQuizPayload(body) {
       questions: normalizedQuestions,
     },
   };
+}
+
+function normalizeImageDataUrl(value) {
+  const image = String(value || "").trim();
+  if (!image) return "";
+  if (image.length > MAX_IMAGE_DATA_URL_LENGTH) return null;
+  if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(image)) return null;
+  return image;
 }
 
 function validateYouTubeUrl(value) {

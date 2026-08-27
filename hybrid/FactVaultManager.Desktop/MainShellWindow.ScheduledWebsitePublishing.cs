@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -66,7 +65,7 @@ public partial class MainShellWindow
             MinWidth = 142,
             MinHeight = 36,
             Margin = new Thickness(8, 0, 0, 0),
-            ToolTip = "Copy accessible scheduled quizzes to Cloudflare now. They stay hidden until their scheduled release time. Unavailable project folders are skipped safely and can be retried later.",
+            ToolTip = "Sync accessible scheduled quizzes and their question visuals to Cloudflare. Unavailable project folders are skipped safely and can be retried later.",
         };
         StyleQuizHistoryButton(button, Color.FromRgb(73, 190, 255));
         button.Click += async (_, _) => await PrepareScheduledWebsiteQuizzesAsync(button);
@@ -122,22 +121,20 @@ public partial class MainShellWindow
         try
         {
             sourceButton.Content = "Checking website...";
-            SetScheduledReadinessStatus("Checking which scheduled quizzes are already staged on the website...");
+            SetScheduledReadinessStatus("Checking the website connection and preparing scheduled quiz data...");
             _data.RecoverQuizHistoryProjectFolders();
 
             using var website = new FactburstWebsitePublishingClient();
-            var remote = await website.FetchQuizzesAsync(settings.BaseUrl, settings.ApiKey);
-            var remoteBySlug = remote
-                .Where(item => !string.IsNullOrWhiteSpace(item.Slug))
-                .GroupBy(item => item.Slug, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+            _ = await website.FetchQuizzesAsync(settings.BaseUrl, settings.ApiKey);
 
             var histories = _data.GetQuizHistory(2_000)
                 .GroupBy(history => history.Id)
                 .ToDictionary(group => group.Key, group => group.First());
+            var questionImagePaths = _data.GetQuizQuestions(limit: 10_000)
+                .Where(question => question.Id > 0 && !string.IsNullOrWhiteSpace(question.ImagePath))
+                .ToDictionary(question => question.Id, question => question.ImagePath);
 
-            var targets = new List<(ScheduledReleaseReadinessRow Row, QuizHistorySummary History, string Slug)>();
-            var already = 0;
+            var targets = new List<(ScheduledReleaseReadinessRow Row, QuizHistorySummary History)>();
             var preflightProblems = new List<string>();
             foreach (var row in visibleRows)
             {
@@ -146,34 +143,24 @@ public partial class MainShellWindow
                     preflightProblems.Add($"{row.Quiz}: quiz history record is missing.");
                     continue;
                 }
-
-                var slug = FactburstLinkTrackerClient.CampaignSlug(history);
-                if (remoteBySlug.TryGetValue(slug, out var saved) && WebsiteStageMatches(saved, row, history))
-                {
-                    already++;
-                    continue;
-                }
-                targets.Add((row, history, slug));
+                targets.Add((row, history));
             }
 
             if (targets.Count == 0)
             {
-                var note = preflightProblems.Count == 0
-                    ? "Every scheduled quiz in this range is already staged on the website."
-                    : "No additional quizzes can be staged right now.\n\n" + string.Join("\n", preflightProblems.Take(8));
-                MessageBox.Show(this, note, title, MessageBoxButton.OK,
-                    preflightProblems.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+                var note = "No quizzes can be synced right now.\n\n" + string.Join("\n", preflightProblems.Take(8));
+                MessageBox.Show(this, note, title, MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             var confirmation =
-                $"Stage {targets.Count:N0} scheduled quiz(es) in Cloudflare now?\n\n" +
-                "They will stay hidden on the public website until each long-form quiz's scheduled release time.\n\n" +
-                "If a project folder is currently unavailable, it will be skipped safely. You can run Prepare website again after the files are recovered. Nothing is uploaded to social platforms by this action.";
+                $"Sync {targets.Count:N0} scheduled quiz(es) to the Factburst website now?\n\n" +
+                "Existing website copies will be refreshed too, so newly supported logo/question images are added without creating duplicates. Their normal website release schedule is preserved.\n\n" +
+                "If a project folder or question image is currently unavailable, that quiz will be skipped safely and can be retried later. Nothing is uploaded to social platforms by this action.";
             if (MessageBox.Show(this, confirmation, title, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 return;
 
-            var staged = 0;
+            var synced = 0;
             var unavailable = 0;
             var failed = preflightProblems.Count;
             var problems = new List<string>(preflightProblems);
@@ -183,18 +170,21 @@ public partial class MainShellWindow
                 var target = targets[index];
                 sourceButton.Content = $"Website {index + 1:N0}/{targets.Count:N0}";
                 SetScheduledReadinessStatus(
-                    $"Staging website quiz {index + 1:N0}/{targets.Count:N0}: {target.Row.Quiz}");
+                    $"Syncing website quiz {index + 1:N0}/{targets.Count:N0}: {target.Row.Quiz}");
 
                 try
                 {
-                    var payload = FactburstWebsiteQuizBuilder.Build(target.History, target.Row.PublishAt);
+                    var payload = FactburstWebsiteQuizBuilder.Build(
+                        target.History,
+                        target.Row.PublishAt,
+                        questionImagePaths);
                     await website.PublishQuizAsync(settings.BaseUrl, settings.ApiKey, payload);
-                    staged++;
+                    synced++;
                 }
                 catch (Exception error) when (IsUnavailableProjectError(error))
                 {
                     unavailable++;
-                    problems.Add($"{target.Row.Quiz}: project files unavailable.");
+                    problems.Add($"{target.Row.Quiz}: project or question image files unavailable.");
                 }
                 catch (Exception error)
                 {
@@ -205,11 +195,11 @@ public partial class MainShellWindow
 
             await RefreshScheduledReleaseReadinessAsync(false);
             var summary =
-                $"Website staged {staged:N0} • Already staged {already:N0} • Files unavailable {unavailable:N0} • Failed {failed:N0}";
+                $"Website synced {synced:N0} • Files unavailable {unavailable:N0} • Failed {failed:N0}";
             SetScheduledReadinessStatus(summary);
 
             var message = summary + "\n\n" +
-                "Successfully staged quizzes are stored in Cloudflare now and will automatically appear when their scheduled long-form quiz goes live.";
+                "Successfully synced quizzes are stored in Cloudflare. Logo and other available question images are included in the website copy.";
             if (unavailable > 0)
             {
                 message += "\n\nUnavailable quizzes were not changed. Run Prepare website again after the recovered files are available on the new drive.";
@@ -222,7 +212,7 @@ public partial class MainShellWindow
         }
         catch (Exception error)
         {
-            SetScheduledReadinessStatus("Website staging could not start: " + error.Message);
+            SetScheduledReadinessStatus("Website sync could not start: " + error.Message);
             MessageBox.Show(this, error.Message, title, MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
@@ -230,18 +220,6 @@ public partial class MainShellWindow
             sourceButton.Content = originalContent;
             sourceButton.IsEnabled = true;
         }
-    }
-
-    private static bool WebsiteStageMatches(
-        FactburstWebsiteQuizSummary saved,
-        ScheduledReleaseReadinessRow row,
-        QuizHistorySummary history)
-    {
-        if (!string.Equals(saved.Status, "published", StringComparison.OrdinalIgnoreCase)) return false;
-        if (history.QuestionCount > 0 && saved.QuestionCount != history.QuestionCount) return false;
-        if (!DateTimeOffset.TryParse(saved.PublishAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var remotePublish))
-            return false;
-        return Math.Abs((remotePublish - row.PublishAt.ToUniversalTime()).TotalSeconds) < 2;
     }
 
     private static bool IsUnavailableProjectError(Exception error) =>
