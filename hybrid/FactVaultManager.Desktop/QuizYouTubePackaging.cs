@@ -9,6 +9,7 @@ public sealed record QuizYouTubePackagingVariant(
     string Purpose,
     string Title,
     QuizThumbnailSettings Thumbnail,
+    QuizYouTubeThumbnailLayout Layout,
     string ThumbnailFileName);
 
 public sealed record QuizYouTubePackagingResult(
@@ -51,34 +52,40 @@ public static class QuizYouTubePackaging
         var episode = metadata.EpisodeLabel;
         var series = metadata.SeriesName;
 
+        // Each title/thumbnail pair now represents a different click hypothesis:
+        // A = score challenge, B = identity/expertise, C = category/search intent.
         var titles = new[]
         {
-            LimitTitle($"{topic} Quiz: {questions.Count} Questions | {series} {episode}"),
             LimitTitle($"Can You Get {perfect}? | {series} {episode}"),
             LimitTitle($"Only {ExpertTopic(topic)} Experts Get {perfect} | {series} {episode}"),
+            LimitTitle($"{topic} Quiz: {questions.Count} Questions | {series} {episode}"),
         };
         EnsureDistinctTitles(titles, topic, perfect, episode);
 
-        var categoryHook = CategoryHook(topic);
+        var expertLabel = ExpertThumbnailTopic(topic);
+        var categoryLabel = CategoryQuizLabel(topic);
         return
         [
             new QuizYouTubePackagingVariant(
                 "A",
-                "Search-focused title + score-challenge thumbnail",
+                "Score challenge: direct 10/10-style challenge + featured question preview",
                 titles[0],
-                new QuizThumbnailSettings($"CAN YOU SCORE {perfect}?", topicUpper).Normalize(),
+                new QuizThumbnailSettings($"CAN YOU GET {perfect}?", topicUpper).Normalize(),
+                QuizYouTubeThumbnailLayout.ScoreChallenge,
                 "Thumbnail A - Score.png"),
             new QuizYouTubePackagingVariant(
                 "B",
-                "Score-challenge title + expert thumbnail",
+                "Expert challenge: identity/exclusivity hook + oversized challenge visual",
                 titles[1],
-                new QuizThumbnailSettings("ONLY EXPERTS", topicUpper).Normalize(),
+                new QuizThumbnailSettings($"ONLY {expertLabel} EXPERTS", "PROVE IT").Normalize(),
+                QuizYouTubeThumbnailLayout.ExpertChallenge,
                 "Thumbnail B - Experts.png"),
             new QuizYouTubePackagingVariant(
                 "C",
-                "Expert title + category-specific thumbnail",
+                "Category/search: category-first quiz packaging + clean question cluster",
                 titles[2],
-                new QuizThumbnailSettings(categoryHook, topicUpper).Normalize(),
+                new QuizThumbnailSettings(categoryLabel, $"{questions.Count} QUESTION CHALLENGE").Normalize(),
+                QuizYouTubeThumbnailLayout.CategorySearch,
                 "Thumbnail C - Category.png"),
         ];
     }
@@ -98,17 +105,17 @@ public static class QuizYouTubePackaging
         var folder = Path.GetFullPath(projectFolder.Trim());
         Directory.CreateDirectory(folder);
         var variants = BuildVariants(metadata, questions);
-        var renderer = new QuizThumbnailRenderer();
+        var renderer = new QuizYouTubePackagingThumbnailRenderer();
 
         foreach (var variant in variants)
         {
-            var bitmap = renderer.RenderPreview(
+            var bitmap = renderer.Render(
                 metadata,
                 questions,
                 variant.Thumbnail,
                 visual,
-                logoPath,
-                vertical: false);
+                variant.Layout,
+                logoPath);
             SavePng(bitmap, Path.Combine(folder, variant.ThumbnailFileName));
             WriteAtomic(Path.Combine(folder, $"YouTube Title {variant.Key}.txt"), variant.Title);
         }
@@ -129,6 +136,7 @@ public static class QuizYouTubePackaging
                 purpose = variant.Purpose,
                 title = variant.Title,
                 thumbnail = variant.ThumbnailFileName,
+                thumbnail_layout = variant.Layout.ToString(),
                 thumbnail_headline = variant.Thumbnail.Headline,
                 thumbnail_subtitle = variant.Thumbnail.Subtitle,
             }),
@@ -156,31 +164,52 @@ public static class QuizYouTubePackaging
     private static string ExpertTopic(string topic)
     {
         if (string.Equals(topic, "General Knowledge", StringComparison.OrdinalIgnoreCase))
-            return "Quiz";
+            return "Trivia";
         if (string.Equals(topic, "Nature & Animals", StringComparison.OrdinalIgnoreCase))
             return "Nature";
+        if (string.Equals(topic, "Arts & Literature", StringComparison.OrdinalIgnoreCase))
+            return "Arts & Literature";
+        if (string.Equals(topic, "Mathematics", StringComparison.OrdinalIgnoreCase))
+            return "Math";
+        if (string.Equals(topic, "Film", StringComparison.OrdinalIgnoreCase))
+            return "Movie";
         return topic;
     }
 
-    private static string CategoryHook(string topic)
+    private static string ExpertThumbnailTopic(string topic)
+    {
+        if (string.Equals(topic, "General Knowledge", StringComparison.OrdinalIgnoreCase))
+            return "TRIVIA";
+        if (string.Equals(topic, "Nature & Animals", StringComparison.OrdinalIgnoreCase))
+            return "NATURE";
+        if (string.Equals(topic, "Arts & Literature", StringComparison.OrdinalIgnoreCase))
+            return "ARTS & LIT";
+        if (string.Equals(topic, "Mathematics", StringComparison.OrdinalIgnoreCase))
+            return "MATH";
+        if (string.Equals(topic, "Film", StringComparison.OrdinalIgnoreCase))
+            return "MOVIE";
+        if (string.Equals(topic, "Technology", StringComparison.OrdinalIgnoreCase))
+            return "TECH";
+        if (QuizTypeCatalog.FromCategory(topic) == QuizTypeCatalog.Logo)
+            return "LOGO";
+        return topic.ToUpperInvariant();
+    }
+
+    private static string CategoryQuizLabel(string topic)
     {
         if (QuizTypeCatalog.FromCategory(topic) == QuizTypeCatalog.Logo)
-            return "NAME THESE LOGOS";
-        if (string.Equals(topic, "Space", StringComparison.OrdinalIgnoreCase))
-            return "SPACE IQ TEST";
-        if (string.Equals(topic, "Technology", StringComparison.OrdinalIgnoreCase))
-            return "TECH IQ TEST";
+            return "LOGO QUIZ";
+        if (string.Equals(topic, "General Knowledge", StringComparison.OrdinalIgnoreCase))
+            return "GENERAL KNOWLEDGE QUIZ";
+        if (string.Equals(topic, "Nature & Animals", StringComparison.OrdinalIgnoreCase))
+            return "NATURE & ANIMALS QUIZ";
+        if (string.Equals(topic, "Arts & Literature", StringComparison.OrdinalIgnoreCase))
+            return "ARTS & LITERATURE QUIZ";
         if (string.Equals(topic, "Film", StringComparison.OrdinalIgnoreCase))
-            return "MOVIE IQ TEST";
-        if (string.Equals(topic, "Music", StringComparison.OrdinalIgnoreCase))
-            return "MUSIC IQ TEST";
-        if (string.Equals(topic, "Sports", StringComparison.OrdinalIgnoreCase))
-            return "SPORTS IQ TEST";
-
-        var candidate = $"{topic.ToUpperInvariant()} IQ TEST";
-        return candidate.Length <= QuizThumbnailSettings.MaxHeadlineLength
-            ? candidate
-            : "HOW GOOD IS YOUR KNOWLEDGE?";
+            return "MOVIE QUIZ";
+        if (string.Equals(topic, "Mathematics", StringComparison.OrdinalIgnoreCase))
+            return "MATH QUIZ";
+        return $"{topic.ToUpperInvariant()} QUIZ";
     }
 
     private static string LimitTitle(string value)
@@ -199,8 +228,8 @@ public static class QuizYouTubePackaging
             if (!titles.Take(index).Contains(titles[index], StringComparer.OrdinalIgnoreCase))
                 continue;
             titles[index] = index == 1
-                ? LimitTitle($"Can You Beat This {topic} Quiz? | Score {perfect} {episode}")
-                : LimitTitle($"{topic} Challenge: Only Experts Score {perfect} {episode}");
+                ? LimitTitle($"Think You're a {topic} Expert? Score {perfect} | {episode}")
+                : LimitTitle($"{topic} Quiz Challenge: {perfect} to Beat | {episode}");
         }
     }
 

@@ -22,14 +22,24 @@ public sealed class QuizYouTubePackagingTests
         Assert.Equal(3, variants.Select(item => item.Key).Distinct().Count());
         Assert.Equal(3, variants.Select(item => item.Title).Distinct(StringComparer.OrdinalIgnoreCase).Count());
         Assert.Equal(3, variants.Select(item => item.ThumbnailFileName).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.Equal(3, variants.Select(item => item.Layout).Distinct().Count());
         Assert.All(variants, item => Assert.InRange(item.Title.Length, 1, QuizPublishMetadataGenerator.MaxTitleLength));
-        Assert.Contains("10/10", variants[0].Thumbnail.Headline, StringComparison.OrdinalIgnoreCase);
-        Assert.Equal("ONLY EXPERTS", variants[1].Thumbnail.Headline);
-        Assert.Equal("MOVIE IQ TEST", variants[2].Thumbnail.Headline);
+
+        Assert.Equal(QuizYouTubeThumbnailLayout.ScoreChallenge, variants[0].Layout);
+        Assert.Equal("CAN YOU GET 10/10?", variants[0].Thumbnail.Headline);
+        Assert.Equal("FILM", variants[0].Thumbnail.Subtitle);
+
+        Assert.Equal(QuizYouTubeThumbnailLayout.ExpertChallenge, variants[1].Layout);
+        Assert.Equal("ONLY MOVIE EXPERTS", variants[1].Thumbnail.Headline);
+        Assert.Equal("PROVE IT", variants[1].Thumbnail.Subtitle);
+
+        Assert.Equal(QuizYouTubeThumbnailLayout.CategorySearch, variants[2].Layout);
+        Assert.Equal("MOVIE QUIZ", variants[2].Thumbnail.Headline);
+        Assert.Equal("10 QUESTION CHALLENGE", variants[2].Thumbnail.Subtitle);
     }
 
     [Fact]
-    public void BuildVariants_UsesLogoSpecificCategoryChallenge()
+    public void BuildVariants_UsesLogoSpecificPackaging()
     {
         var questions = Enumerable.Range(1, 6)
             .Select(index => Question(index, "Logos"))
@@ -43,8 +53,28 @@ public sealed class QuizYouTubePackagingTests
 
         var variants = QuizYouTubePackaging.BuildVariants(metadata, questions);
 
-        Assert.Equal("NAME THESE LOGOS", variants[2].Thumbnail.Headline);
+        Assert.Equal("ONLY LOGO EXPERTS", variants[1].Thumbnail.Headline);
+        Assert.Equal("LOGO QUIZ", variants[2].Thumbnail.Headline);
+        Assert.Equal("6 QUESTION CHALLENGE", variants[2].Thumbnail.Subtitle);
         Assert.Contains("Logos", variants[0].Title, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void BuildVariants_UsesCompactExpertLabelForGeneralKnowledge()
+    {
+        var questions = Enumerable.Range(1, 10)
+            .Select(index => Question(index, "General Knowledge"))
+            .ToList();
+        var metadata = QuizPublishMetadataGenerator.Generate(
+            "General Knowledge Quiz",
+            7,
+            questions,
+            vertical: false);
+
+        var variants = QuizYouTubePackaging.BuildVariants(metadata, questions);
+
+        Assert.Equal("ONLY TRIVIA EXPERTS", variants[1].Thumbnail.Headline);
+        Assert.Equal("GENERAL KNOWLEDGE QUIZ", variants[2].Thumbnail.Headline);
     }
 
     private static QuizQuestion Question(int id, string category) => new(
