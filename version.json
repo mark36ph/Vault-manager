@@ -1,12 +1,12 @@
 {
     "latest_version": "1.0.7",
-    "build": 23,
+    "build": 24,
     "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
     "release_notes": [
+        "Added Scheduled Release Readiness for future quiz launches, promo preparation, tracking links, platform uploads, Related video and first-comment checks.",
         "Strengthened DaVinci Resolve Free export validation, including portable package manifest and FCPXML media integrity checks.",
         "Improved production completion, scheduling, publishing, rollback, and project-state recovery workflows.",
         "Added project integrity checks with guarded safe repair, orphan recovery, and orphan deletion tools.",
-        "Improved Production, Media Library, Settings, project dialogs, and other interface workflows.",
         "Expanded automated regression coverage and release-readiness checks."
     ]
 }
