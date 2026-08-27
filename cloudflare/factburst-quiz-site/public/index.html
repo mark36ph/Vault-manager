@@ -16,6 +16,7 @@
     </a>
     <nav class="top-nav" aria-label="Main navigation">
       <a href="#latest">Latest quiz</a>
+      <a href="#upcoming">Coming up</a>
       <a href="#browse">Browse</a>
     </nav>
   </header>
@@ -51,6 +52,16 @@
       </div>
     </section>
 
+    <section class="shell section hidden" id="upcoming">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Scheduled</p>
+          <h2>Coming up</h2>
+        </div>
+      </div>
+      <div id="upcoming-grid" class="quiz-grid" aria-live="polite"></div>
+    </section>
+
     <section class="shell section" id="browse">
       <div class="section-heading">
         <div>
@@ -66,8 +77,8 @@
       </div>
       <div id="quiz-grid" class="quiz-grid" aria-live="polite"></div>
       <div id="empty-state" class="empty-state hidden">
-        <h3>No quizzes published yet</h3>
-        <p>The site is ready. New quizzes will appear here as soon as FactVaultManager publishes them.</p>
+        <h3>No quizzes live yet</h3>
+        <p>Your scheduled quizzes are ready and will unlock automatically at their release times.</p>
       </div>
     </section>
   </main>
