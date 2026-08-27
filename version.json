@@ -1,6 +1,6 @@
 {
     "latest_version": "1.0.7",
-    "build": 11,
+    "build": 12,
     "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
     "release_notes": [
         "Strengthened DaVinci Resolve Free export validation, including portable package manifest and FCPXML media integrity checks.",
