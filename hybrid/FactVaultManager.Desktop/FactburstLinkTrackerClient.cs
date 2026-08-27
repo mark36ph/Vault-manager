@@ -19,7 +19,10 @@ public sealed record FactburstTrackerCampaignStats(
     long FacebookClicks,
     long InstagramClicks,
     long YouTubePromoClicks,
-    long TotalClicks);
+    long TotalClicks,
+    long RawHits,
+    bool FilteringEnabled,
+    int DedupeHours);
 
 public static class FactburstFunnelClassifier
 {
@@ -35,6 +38,7 @@ public static class FactburstFunnelClassifier
 
 public sealed class FactburstLinkTrackerClient
 {
+    private const string FilteredTrackingMode = "filtered_unique_v2";
     private static readonly Regex UrlRegex = new(@"https://[^\s]+", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly HttpClient SharedClient = new() { Timeout = TimeSpan.FromSeconds(20) };
     private readonly HttpClient _client;
@@ -169,22 +173,39 @@ public sealed class FactburstLinkTrackerClient
         await EnsureSuccessAsync(response, "The Factburst tracker could not load analytics", cancellationToken);
         var json = await response.Content.ReadAsStringAsync(cancellationToken);
         using var document = JsonDocument.Parse(json);
-        if (!document.RootElement.TryGetProperty("campaigns", out var campaigns) || campaigns.ValueKind != JsonValueKind.Array)
+        var rootElement = document.RootElement;
+        if (!rootElement.TryGetProperty("campaigns", out var campaigns) || campaigns.ValueKind != JsonValueKind.Array)
             return Array.Empty<FactburstTrackerCampaignStats>();
+
+        var filteringEnabled = string.Equals(
+            ReadString(rootElement, "tracking_mode"),
+            FilteredTrackingMode,
+            StringComparison.OrdinalIgnoreCase);
+        var dedupeHours = filteringEnabled ? Math.Max(1, ReadInt(rootElement, "dedupe_hours", 6)) : 0;
 
         var results = new List<FactburstTrackerCampaignStats>();
         foreach (var item in campaigns.EnumerateArray())
         {
             var slugValue = ReadString(item, "slug");
             if (slugValue.Length == 0) continue;
+
+            var facebook = ReadLong(item, filteringEnabled ? "facebook_visitors" : "facebook_clicks");
+            var instagram = ReadLong(item, filteringEnabled ? "instagram_visitors" : "instagram_clicks");
+            var youtube = ReadLong(item, filteringEnabled ? "youtube_promo_visitors" : "youtube_promo_clicks");
+            var total = ReadLong(item, filteringEnabled ? "unique_visitors" : "total_clicks");
+            var rawHits = filteringEnabled ? ReadLong(item, "raw_hits") : total;
+
             results.Add(new FactburstTrackerCampaignStats(
                 slugValue,
                 ReadNullableInt(item, "quiz_id"),
                 ReadString(item, "title"),
-                ReadLong(item, "facebook_clicks"),
-                ReadLong(item, "instagram_clicks"),
-                ReadLong(item, "youtube_promo_clicks"),
-                ReadLong(item, "total_clicks")));
+                facebook,
+                instagram,
+                youtube,
+                total,
+                rawHits,
+                filteringEnabled,
+                dedupeHours));
         }
         return results;
     }
@@ -241,6 +262,14 @@ public sealed class FactburstLinkTrackerClient
         if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number)) return number;
         if (value.ValueKind == JsonValueKind.String && int.TryParse(value.GetString(), out number)) return number;
         return null;
+    }
+
+    private static int ReadInt(JsonElement item, string name, int fallback)
+    {
+        if (!item.TryGetProperty(name, out var value)) return fallback;
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number)) return number;
+        if (value.ValueKind == JsonValueKind.String && int.TryParse(value.GetString(), out number)) return number;
+        return fallback;
     }
 
     private static long ReadLong(JsonElement item, string name)
