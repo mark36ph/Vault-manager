@@ -62,13 +62,13 @@ public sealed class InstagramManagementServiceTests
 
             Assert.Equal("ig-media-1", result.MediaId);
             Assert.Equal("https://www.instagram.com/reel/ABC123/", result.Url);
-            var upload = Assert.Single(handler.Requests.Where(request => request.Host == "rupload.facebook.com"));
+            var upload = Assert.Single(handler.Requests, request => request.Host == "rupload.facebook.com");
             Assert.Equal("OAuth facebook-page-secret-token", upload.Authorization);
             Assert.Equal("0", upload.Offset);
             Assert.Equal("4", upload.FileSize);
             Assert.Equal("video/mp4", upload.ContentType);
-            var create = Assert.Single(handler.Requests.Where(request =>
-                new Uri(request.Url).AbsolutePath.EndsWith("/17890000000000000/media", StringComparison.Ordinal)));
+            var create = Assert.Single(handler.Requests, request =>
+                new Uri(request.Url).AbsolutePath.EndsWith("/17890000000000000/media", StringComparison.Ordinal));
             Assert.Equal("application/json", create.ContentType);
             Assert.Equal("graph.facebook.com", create.Host);
             Assert.Contains("\"media_type\":\"REELS\"", create.Body);
