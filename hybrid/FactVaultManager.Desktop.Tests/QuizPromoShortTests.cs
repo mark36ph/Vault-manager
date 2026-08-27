@@ -32,14 +32,30 @@ public sealed class QuizPromoShortTests
     }
 
     [Fact]
-    public void Planner_RequiresAnInsaneRound()
+    public void Planner_FallsBackToFinalQuestionWhenThereIsNoInsaneRound()
     {
-        var timeline = Timeline(Scene("Question 1", 2, 11, "hard", 101));
+        var timeline = Timeline(
+            Scene("Question 1", 2, 11, "medium", 101),
+            Scene("Question 2", 13, 12, "hard", 202),
+            Scene("Question 3", 25, 10, "hard", 303));
+
+        var plan = QuizPromoShortPlanner.Create(timeline, sourceVideoDuration: 60, endCardDuration: 4);
+
+        Assert.Equal(25, plan.SourceStart);
+        Assert.Equal(10, plan.SourceDuration);
+        Assert.Equal("Question 3", plan.SceneTitle);
+        Assert.Equal(303, plan.QuestionId);
+    }
+
+    [Fact]
+    public void Planner_RejectsTimelineWithoutQuestionScenes()
+    {
+        var timeline = Timeline(Scene("Outro", 2, 11, "hard", 0));
 
         var error = Assert.Throws<InvalidOperationException>(() =>
             QuizPromoShortPlanner.Create(timeline, sourceVideoDuration: 30, endCardDuration: 4));
 
-        Assert.Contains("Insane", error.Message, StringComparison.Ordinal);
+        Assert.Contains("usable quiz question", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
