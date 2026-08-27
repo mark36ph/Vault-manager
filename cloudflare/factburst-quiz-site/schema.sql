@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS site_questions (
     answer_d TEXT NOT NULL,
     correct_answer TEXT NOT NULL,
     explanation TEXT NOT NULL DEFAULT '',
+    image_data_url TEXT NOT NULL DEFAULT '',
     UNIQUE(quiz_id, position),
     FOREIGN KEY (quiz_id) REFERENCES site_quizzes(id) ON DELETE CASCADE
 );
