@@ -14,6 +14,7 @@ public sealed record FunnelPerformanceRow(
     long InstagramClicks,
     long YouTubePromoClicks,
     long TotalClicks,
+    long RawHits,
     long LongFormViews,
     string PromoStatus,
     string Signal);
@@ -28,6 +29,7 @@ public partial class MainShellWindow
     private bool _funnelPerformanceRefreshing;
     private DataGrid? _funnelPerformanceGrid;
     private TextBlock? _funnelTotalClicksText;
+    private TextBlock? _funnelRawHitsText;
     private TextBlock? _funnelFacebookClicksText;
     private TextBlock? _funnelInstagramClicksText;
     private TextBlock? _funnelYouTubeClicksText;
@@ -132,7 +134,7 @@ public partial class MainShellWindow
         page.Children.Add(behaviour);
         ((StackPanel)behaviour.Child).Children.Add(new TextBlock
         {
-            Text = "Promo uploads automatically create one campaign per long-form quiz. Facebook and YouTube descriptions receive source-specific links. Instagram receives its own link-in-bio URL because Reel caption URLs are not reliably clickable.",
+            Text = "Promo uploads automatically create one campaign per long-form quiz. Facebook and YouTube descriptions receive source-specific links. Instagram receives its own link-in-bio URL because Reel caption URLs are not reliably clickable. Filtered visitor tracking removes obvious bots/link previews and deduplicates repeat visitors while preserving raw redirect hits separately.",
             Foreground = SettingsMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 6, 0, 0),
@@ -252,7 +254,7 @@ public partial class MainShellWindow
         });
         heading.Children.Add(new TextBlock
         {
-            Text = "Only quizzes with a created tracking campaign are shown. See which promo sources are sending people toward each long-form Factburst quiz.",
+            Text = "Only quizzes with a created tracking campaign are shown. Visitor counts filter obvious automated traffic and repeat clicks; raw hits remain available for comparison.",
             Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             Margin = new Thickness(0, 3, 0, 0),
         });
@@ -289,13 +291,14 @@ public partial class MainShellWindow
         root.Children.Add(header);
 
         var stats = new Grid { Margin = new Thickness(0, 0, 0, 14) };
-        for (var index = 0; index < 5; index++)
+        for (var index = 0; index < 6; index++)
             stats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        AddFunnelStat(stats, 0, "Tracked clicks", Color.FromRgb(255, 202, 45), out _funnelTotalClicksText);
-        AddFunnelStat(stats, 1, "Facebook", Color.FromRgb(0, 140, 255), out _funnelFacebookClicksText);
-        AddFunnelStat(stats, 2, "Instagram", Color.FromRgb(248, 90, 160), out _funnelInstagramClicksText);
-        AddFunnelStat(stats, 3, "YouTube Promo", Color.FromRgb(248, 90, 105), out _funnelYouTubeClicksText);
-        AddFunnelStat(stats, 4, "Top source", Color.FromRgb(70, 235, 115), out _funnelTopSourceText);
+        AddFunnelStat(stats, 0, "Unique visitors", Color.FromRgb(255, 202, 45), out _funnelTotalClicksText);
+        AddFunnelStat(stats, 1, "Raw hits", Color.FromRgb(170, 185, 220), out _funnelRawHitsText);
+        AddFunnelStat(stats, 2, "Facebook", Color.FromRgb(0, 140, 255), out _funnelFacebookClicksText);
+        AddFunnelStat(stats, 3, "Instagram", Color.FromRgb(248, 90, 160), out _funnelInstagramClicksText);
+        AddFunnelStat(stats, 4, "YouTube Promo", Color.FromRgb(248, 90, 105), out _funnelYouTubeClicksText);
+        AddFunnelStat(stats, 5, "Top source", Color.FromRgb(70, 235, 115), out _funnelTopSourceText);
         Grid.SetRow(stats, 1);
         root.Children.Add(stats);
 
@@ -307,14 +310,15 @@ public partial class MainShellWindow
             SortMemberPath = nameof(FunnelPerformanceRow.Quiz),
             Width = new DataGridLength(1, DataGridLengthUnitType.Star),
         });
-        _funnelPerformanceGrid.Columns.Add(TextColumn("Category", nameof(FunnelPerformanceRow.Category), 118));
-        _funnelPerformanceGrid.Columns.Add(NumberColumn("Facebook", nameof(FunnelPerformanceRow.FacebookClicks), 92));
-        _funnelPerformanceGrid.Columns.Add(NumberColumn("Instagram", nameof(FunnelPerformanceRow.InstagramClicks), 92));
-        _funnelPerformanceGrid.Columns.Add(NumberColumn("YT Promo", nameof(FunnelPerformanceRow.YouTubePromoClicks), 88));
-        _funnelPerformanceGrid.Columns.Add(NumberColumn("Tracked", nameof(FunnelPerformanceRow.TotalClicks), 82));
-        _funnelPerformanceGrid.Columns.Add(NumberColumn("Long views", nameof(FunnelPerformanceRow.LongFormViews), 96));
+        _funnelPerformanceGrid.Columns.Add(TextColumn("Category", nameof(FunnelPerformanceRow.Category), 108));
+        _funnelPerformanceGrid.Columns.Add(NumberColumn("FB visitors", nameof(FunnelPerformanceRow.FacebookClicks), 88));
+        _funnelPerformanceGrid.Columns.Add(NumberColumn("IG visitors", nameof(FunnelPerformanceRow.InstagramClicks), 88));
+        _funnelPerformanceGrid.Columns.Add(NumberColumn("YT visitors", nameof(FunnelPerformanceRow.YouTubePromoClicks), 88));
+        _funnelPerformanceGrid.Columns.Add(NumberColumn("Unique", nameof(FunnelPerformanceRow.TotalClicks), 76));
+        _funnelPerformanceGrid.Columns.Add(NumberColumn("Raw hits", nameof(FunnelPerformanceRow.RawHits), 76));
+        _funnelPerformanceGrid.Columns.Add(NumberColumn("Long views", nameof(FunnelPerformanceRow.LongFormViews), 90));
         _funnelPerformanceGrid.Columns.Add(TextColumn("Promo", nameof(FunnelPerformanceRow.PromoStatus), 104));
-        _funnelPerformanceGrid.Columns.Add(TextColumn("Signal", nameof(FunnelPerformanceRow.Signal), 218));
+        _funnelPerformanceGrid.Columns.Add(TextColumn("Signal", nameof(FunnelPerformanceRow.Signal), 204));
         var card = ManagerCard(_funnelPerformanceGrid);
         Grid.SetRow(card, 2);
         root.Children.Add(card);
@@ -329,7 +333,7 @@ public partial class MainShellWindow
         footer.Children.Add(_funnelStatusText);
         footer.Children.Add(new TextBlock
         {
-            Text = "Tracked clicks show source attribution. Long-form YouTube views are shown alongside them for context; the app does not claim that every tracked click became a counted YouTube view.",
+            Text = "Unique visitors exclude obvious bots/link previews and suppress repeat visits to the same quiz during the tracker dedupe window. Raw hits count every redirect request. Long-form YouTube views are separate and are not claimed as conversions from tracked visitors.",
             Foreground = new SolidColorBrush(Color.FromRgb(158, 180, 225)),
             FontSize = 11,
             Margin = new Thickness(0, 4, 0, 0),
@@ -362,7 +366,7 @@ public partial class MainShellWindow
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(10),
             Padding = new Thickness(12, 9, 12, 9),
-            Margin = new Thickness(column == 0 ? 0 : 5, 0, column == 4 ? 0 : 5, 0),
+            Margin = new Thickness(column == 0 ? 0 : 5, 0, column == 5 ? 0 : 5, 0),
         };
         var stack = new StackPanel();
         stack.Children.Add(new TextBlock { Text = label, Foreground = new SolidColorBrush(Color.FromRgb(184, 201, 235)), FontSize = 11 });
@@ -393,7 +397,7 @@ public partial class MainShellWindow
         try
         {
             _funnelPerformanceRefreshing = true;
-            SetFunnelStatus("Loading source-attributed clicks from Factburst Link Tracker...");
+            SetFunnelStatus("Loading filtered visitors and raw hits from Factburst Link Tracker...");
             var remote = await _factburstLinkTracker.FetchStatsAsync(settings.BaseUrl, settings.ApiKey);
             var byQuizId = remote
                 .Where(item => item.QuizId is > 0)
@@ -424,13 +428,18 @@ public partial class MainShellWindow
                     instagram,
                     youtube,
                     total,
+                    tracked.RawHits,
                     Math.Max(0, history.YouTubeViews),
                     promoStatus,
                     FactburstFunnelClassifier.Label(total, history.YouTubeViews,
                         QuizPromoShortPaths.FindExisting(history.ProjectFolder) is not null)));
             }
 
-            rows = rows.OrderByDescending(row => row.TotalClicks).ThenByDescending(row => row.LongFormViews).ToList();
+            rows = rows
+                .OrderByDescending(row => row.TotalClicks)
+                .ThenByDescending(row => row.RawHits)
+                .ThenByDescending(row => row.LongFormViews)
+                .ToList();
             if (rows.Count > 0 && rows[0].TotalClicks > 0)
                 rows[0] = rows[0] with { Signal = "Best tracked promo" };
             _funnelPerformanceGrid.ItemsSource = rows;
@@ -439,12 +448,29 @@ public partial class MainShellWindow
             var instagramTotal = rows.Sum(row => row.InstagramClicks);
             var youtubeTotal = rows.Sum(row => row.YouTubePromoClicks);
             var totalClicks = facebookTotal + instagramTotal + youtubeTotal;
+            var rawHits = rows.Sum(row => row.RawHits);
             _funnelTotalClicksText!.Text = totalClicks.ToString("N0");
+            _funnelRawHitsText!.Text = rawHits.ToString("N0");
             _funnelFacebookClicksText!.Text = facebookTotal.ToString("N0");
             _funnelInstagramClicksText!.Text = instagramTotal.ToString("N0");
             _funnelYouTubeClicksText!.Text = youtubeTotal.ToString("N0");
             _funnelTopSourceText!.Text = TopFunnelSource(facebookTotal, instagramTotal, youtubeTotal);
-            SetFunnelStatus($"Loaded {remote.Count:N0} tracker campaign(s). {rows.Count:N0} linked long-form quiz row(s) are shown.");
+
+            var filteringEnabled = remote.Count > 0 && remote.All(item => item.FilteringEnabled);
+            if (filteringEnabled)
+            {
+                var dedupeHours = remote.Select(item => item.DedupeHours).Where(value => value > 0).DefaultIfEmpty(6).Max();
+                SetFunnelStatus(
+                    $"Loaded {remote.Count:N0} tracker campaign(s). {rows.Count:N0} linked quiz row(s) shown. " +
+                    $"Filtered visitors exclude obvious automated traffic and repeat visits to the same quiz within {dedupeHours:N0} hours. " +
+                    "Raw hits retain every request; older raw hits from before this tracker upgrade cannot be retroactively filtered.");
+            }
+            else
+            {
+                SetFunnelStatus(
+                    $"Loaded {remote.Count:N0} tracker campaign(s). {rows.Count:N0} linked quiz row(s) shown. " +
+                    "The connected Worker is still returning legacy raw-click counts; deploy the updated tracker Worker to enable bot filtering and visitor deduplication.");
+            }
         }
         catch (Exception error)
         {
