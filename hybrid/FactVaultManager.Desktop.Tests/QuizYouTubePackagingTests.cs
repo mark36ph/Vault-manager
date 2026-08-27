@@ -39,6 +39,23 @@ public sealed class QuizYouTubePackagingTests
     }
 
     [Fact]
+    public void BuildVariants_RotatesClickHooksAcrossEpisodes()
+    {
+        var questions = Enumerable.Range(1, 10)
+            .Select(index => Question(index, "Music"))
+            .ToList();
+
+        var scoreLeads = Enumerable.Range(1, 6)
+            .Select(episode => QuizYouTubePackaging.BuildVariants(
+                QuizPublishMetadataGenerator.Generate("Music Quiz", episode, questions, vertical: false),
+                questions)[0].Title.Split('|')[0].Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        Assert.True(scoreLeads.Length >= 4, "Score titles should rotate their opening hook across episodes.");
+    }
+
+    [Fact]
     public void BuildVariants_UsesLogoSpecificPackaging()
     {
         var questions = Enumerable.Range(1, 6)
