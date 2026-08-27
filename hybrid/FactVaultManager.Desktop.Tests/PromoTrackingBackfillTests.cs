@@ -47,7 +47,7 @@ public sealed class PromoTrackingBackfillTests
         var snippet = root.GetProperty("snippet");
         Assert.Equal("Space Quiz | Final Question #Shorts", snippet.GetProperty("title").GetString());
         Assert.Equal("27", snippet.GetProperty("categoryId").GetString());
-        Assert.Equal(["quiz", "space"], snippet.GetProperty("tags").EnumerateArray().Select(value => value.GetString()).ToArray());
+        Assert.Equal(["quiz", "space"], snippet.GetProperty("tags").EnumerateArray().Select(value => value.GetString() ?? "").ToArray());
         Assert.Equal("en", snippet.GetProperty("defaultLanguage").GetString());
         Assert.Equal("en-GB", snippet.GetProperty("defaultAudioLanguage").GetString());
         var updated = snippet.GetProperty("description").GetString() ?? "";
