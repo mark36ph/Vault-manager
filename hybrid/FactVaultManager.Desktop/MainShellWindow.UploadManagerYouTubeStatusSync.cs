@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Windows.Threading;
 
 namespace FactVaultManager.Desktop;
 
@@ -10,7 +9,6 @@ public partial class MainShellWindow
 {
     private readonly YouTubePublicationStatusService _youtubePublicationStatus = new();
     private bool _uploadManagerYouTubeStatusSyncInitialized;
-    private Button? _uploadManagerLiveRefreshButton;
 
     private void InitializeUploadManagerYouTubeStatusSync()
     {
@@ -18,49 +16,18 @@ public partial class MainShellWindow
             return;
 
         _uploadManagerYouTubeStatusSyncInitialized = true;
-        Dispatcher.BeginInvoke(
-            DispatcherPriority.Loaded,
-            new Action(AttachUploadManagerLiveRefresh));
-    }
-
-    private void AttachUploadManagerLiveRefresh()
-    {
-        var refresh = FindUploadManagerRefreshButton(this);
-        if (refresh is null)
-        {
-            var retry = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(300) };
-            var attempts = 0;
-            retry.Tick += (_, _) =>
-            {
-                attempts++;
-                var candidate = FindUploadManagerRefreshButton(this);
-                if (candidate is null && attempts < 10) return;
-                retry.Stop();
-                if (candidate is not null) HookUploadManagerRefresh(candidate);
-            };
-            retry.Start();
-            return;
-        }
-
-        HookUploadManagerRefresh(refresh);
-    }
-
-    private void HookUploadManagerRefresh(Button refresh)
-    {
-        if (ReferenceEquals(_uploadManagerLiveRefreshButton, refresh))
-            return;
-
-        if (_uploadManagerLiveRefreshButton is not null)
-            _uploadManagerLiveRefreshButton.Click -= UploadManagerLiveRefresh_Click;
-
-        _uploadManagerLiveRefreshButton = refresh;
-        refresh.ToolTip = "Refresh local upload records and sync live YouTube visibility/schedule status";
-        refresh.Click += UploadManagerLiveRefresh_Click;
+        AddHandler(
+            Button.ClickEvent,
+            new RoutedEventHandler(UploadManagerLiveRefresh_Click),
+            handledEventsToo: true);
     }
 
     private async void UploadManagerLiveRefresh_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button refresh || !refresh.IsEnabled)
+        if (e.Source is not Button refresh ||
+            !string.Equals(refresh.Content?.ToString(), "Refresh", StringComparison.Ordinal) ||
+            !HasUploadManagerHeadingNearby(refresh) ||
+            !refresh.IsEnabled)
             return;
 
         var originalContent = refresh.Content;
@@ -117,30 +84,10 @@ public partial class MainShellWindow
         finally
         {
             RefreshQuizHistory();
+            RefreshUploadManager();
             refresh.Content = originalContent;
             refresh.IsEnabled = true;
         }
-    }
-
-    private static Button? FindUploadManagerRefreshButton(DependencyObject root)
-    {
-        var childCount = VisualTreeHelper.GetChildrenCount(root);
-        for (var index = 0; index < childCount; index++)
-        {
-            var child = VisualTreeHelper.GetChild(root, index);
-            if (child is Button button &&
-                string.Equals(button.Content?.ToString(), "Refresh", StringComparison.Ordinal) &&
-                HasUploadManagerHeadingNearby(button))
-            {
-                return button;
-            }
-
-            var nested = FindUploadManagerRefreshButton(child);
-            if (nested is not null)
-                return nested;
-        }
-
-        return null;
     }
 
     private static bool HasUploadManagerHeadingNearby(DependencyObject button)
