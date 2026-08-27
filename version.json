@@ -1,12 +1,12 @@
 {
     "latest_version": "1.0.7",
-    "build": 30,
+    "build": 31,
     "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
     "release_notes": [
+        "Added website support for visual quiz questions: accessible logo/question images are resized safely and synced to Cloudflare, then shown above the website question without exposing the answer.",
+        "Factburst website pages now use the app icon for the browser favicon and header branding instead of the temporary F badge.",
+        "Prepare website now refreshes existing staged quiz copies as well as new ones, so website media improvements can be applied without deleting or duplicating quizzes.",
         "Fixed the Release Readiness layout at high DPI or narrower effective window widths by moving Prepare website out of the crowded header action row.",
-        "Added NAS-safe website staging from Scheduled Release Readiness: accessible scheduled quizzes can be copied to Cloudflare now and automatically appear at release time, while unavailable project folders are skipped for a later retry.",
-        "Added a guided Related video setup workflow to Scheduled Release Readiness so each YouTube Promo Short can be opened directly in Studio, matched to its full quiz, and explicitly confirmed without pretending the YouTube API can set the field.",
-        "Added batch scheduling of missing promo Shorts from Release Readiness: YouTube and Facebook upload now and publish later on each quiz release day, while Instagram remains pending for release-day publishing.",
-        "Promo Shorts now prefer the first Insane question but fall back to the final quiz question when a quiz has no Insane-round question."
+        "Added NAS-safe website staging from Scheduled Release Readiness: accessible scheduled quizzes can be copied to Cloudflare now and automatically appear at release time, while unavailable project folders are skipped for a later retry."
     ]
 }
