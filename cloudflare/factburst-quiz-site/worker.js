@@ -117,7 +117,6 @@ async function listQuizzes(db, url) {
   const requestedLimit = Number.parseInt(url.searchParams.get("limit") || "24", 10);
   const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 24;
   const category = (url.searchParams.get("category") || "").trim();
-  const now = new Date().toISOString();
 
   let statement;
   if (category) {
@@ -129,12 +128,11 @@ async function listQuizzes(db, url) {
       LEFT JOIN site_questions sq ON sq.quiz_id = q.id
       LEFT JOIN site_attempts sa ON sa.quiz_id = q.id
       WHERE q.status = 'published'
-        AND (q.publish_at IS NULL OR q.publish_at <= ?)
         AND lower(q.category) = lower(?)
       GROUP BY q.id
       ORDER BY COALESCE(q.publish_at, q.created_at) DESC, q.id DESC
       LIMIT ?
-    `).bind(now, category, limit);
+    `).bind(category, limit);
   } else {
     statement = db.prepare(`
       SELECT q.id, q.slug, q.title, q.category, q.description, q.youtube_url, q.publish_at,
@@ -144,11 +142,10 @@ async function listQuizzes(db, url) {
       LEFT JOIN site_questions sq ON sq.quiz_id = q.id
       LEFT JOIN site_attempts sa ON sa.quiz_id = q.id
       WHERE q.status = 'published'
-        AND (q.publish_at IS NULL OR q.publish_at <= ?)
       GROUP BY q.id
       ORDER BY COALESCE(q.publish_at, q.created_at) DESC, q.id DESC
       LIMIT ?
-    `).bind(now, limit);
+    `).bind(limit);
   }
 
   const result = await statement.all();
