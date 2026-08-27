@@ -38,7 +38,7 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
 
         thumbnail = thumbnail.Normalize();
         visual = visual.Normalize();
-        _ = logoPath; // The A/B layouts deliberately use one clear FACTBURST QUIZ brand mark only.
+        _ = logoPath; // Packaging uses one clear FACTBURST QUIZ brand mark only.
 
         var logoQuiz = string.Equals(visual.QuizType, QuizTypeCatalog.Logo, StringComparison.OrdinalIgnoreCase);
         var recommendation = QuizThumbnailIntelligence.Recommend(metadata, questions, logoQuiz);
@@ -55,7 +55,6 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
             QuizYouTubeThumbnailLayout.ExpertChallenge => BuildExpertLayout(
                 questions.Count,
                 thumbnail,
-                recommendation,
                 theme),
             QuizYouTubeThumbnailLayout.CategorySearch => BuildCategoryLayout(
                 questions.Count,
@@ -81,7 +80,7 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
         QuizVisualTheme theme)
     {
         var page = BuildPage();
-        page.Children.Add(BuildHeader(theme, recommendation.Badge));
+        page.Children.Add(BuildHeader(theme, QuizThumbnailRenderer.QuestionCountLabel(questionCount)));
 
         var middle = new Grid { Margin = new Thickness(0, 24, 0, 18) };
         middle.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -116,11 +115,10 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
     private static FrameworkElement BuildExpertLayout(
         int questionCount,
         QuizThumbnailSettings thumbnail,
-        QuizThumbnailRecommendation recommendation,
         QuizVisualTheme theme)
     {
         var page = BuildPage();
-        page.Children.Add(BuildHeader(theme, recommendation.Badge));
+        page.Children.Add(BuildHeader(theme, QuizThumbnailRenderer.QuestionCountLabel(questionCount)));
 
         var middle = new Grid { Margin = new Thickness(0, 22, 0, 14) };
         middle.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -133,15 +131,6 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
             Margin = new Thickness(0, 0, 28, 0),
         };
         copy.Children.Add(Headline(thumbnail.Headline, HeadlineSize(thumbnail.Headline, 94, 78, 64), 760));
-        copy.Children.Add(new TextBlock
-        {
-            Text = "PROVE YOU KNOW IT",
-            Foreground = new SolidColorBrush(theme.Countdown),
-            FontSize = 30,
-            FontWeight = FontWeights.ExtraBold,
-            Margin = new Thickness(4, 18, 0, 0),
-            Effect = Glow(Colors.Black, 10, 0.65),
-        });
         middle.Children.Add(copy);
 
         var challenge = new StackPanel
@@ -151,7 +140,7 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
         };
         challenge.Children.Add(BuildQuestionMark(theme, 270, 136));
         challenge.Children.Add(BuildPill(
-            "PROVE IT",
+            thumbnail.Subtitle.ToUpperInvariant(),
             theme.Accent,
             fontSize: 30,
             margin: new Thickness(0, 22, 0, 0),
@@ -216,8 +205,7 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
             "PLAY ALONG • KEEP SCORE",
             theme.Accent,
             fontSize: 24,
-            margin: new Thickness(0),
-            center: false));
+            margin: new Thickness(0)));
         Grid.SetRow(footer, 2);
         page.Children.Add(footer);
         return page;
@@ -237,7 +225,6 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
         var header = new Grid();
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
         header.Children.Add(BuildPill(
             QuizThumbnailRenderer.BrandLabel(),
             theme.Accent,
@@ -248,8 +235,7 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
             rightText.ToUpperInvariant(),
             theme.Countdown,
             fontSize: 22,
-            margin: new Thickness(0),
-            center: false);
+            margin: new Thickness(0));
         badge.HorizontalAlignment = HorizontalAlignment.Right;
         Grid.SetColumn(badge, 1);
         header.Children.Add(badge);
@@ -337,16 +323,14 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
         };
-
-        AddBubble(canvas, theme, 205, 70, 190, 96, theme.Countdown);
-        AddBubble(canvas, theme, 22, 36, 142, 70, theme.Accent);
-        AddBubble(canvas, theme, 62, 245, 118, 58, theme.AccentSoft);
+        AddBubble(canvas, 205, 70, 190, 96, theme.Countdown);
+        AddBubble(canvas, 22, 36, 142, 70, theme.Accent);
+        AddBubble(canvas, 62, 245, 118, 58, theme.AccentSoft);
         return canvas;
     }
 
     private static void AddBubble(
         Canvas canvas,
-        QuizVisualTheme theme,
         double left,
         double top,
         double size,
@@ -374,7 +358,6 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
         Canvas.SetLeft(bubble, left);
         Canvas.SetTop(bubble, top);
         canvas.Children.Add(bubble);
-        _ = theme;
     }
 
     private static Grid BuildFooter(int questionCount, QuizVisualTheme theme)
@@ -382,7 +365,6 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
         var footer = new Grid();
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
         footer.Children.Add(new TextBlock
         {
             Text = "PLAY ALONG • KEEP SCORE",
@@ -391,7 +373,6 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center,
         });
-
         var count = BuildPill(
             QuizThumbnailRenderer.QuestionCountLabel(questionCount),
             theme.Accent,
@@ -489,7 +470,6 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
             });
         }
         root.Children.Add(rays);
-
         root.Children.Add(new Ellipse
         {
             Width = layout == QuizYouTubeThumbnailLayout.CategorySearch ? 850 : 760,
