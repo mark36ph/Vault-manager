@@ -12,6 +12,8 @@ async function initHome() {
   const grid = document.querySelector("#quiz-grid");
   const empty = document.querySelector("#empty-state");
   const filter = document.querySelector("#category-filter");
+  const upcomingSection = document.querySelector("#upcoming");
+  const upcomingGrid = document.querySelector("#upcoming-grid");
 
   try {
     const [latestResponse, listResponse] = await Promise.all([
@@ -20,12 +22,32 @@ async function initHome() {
     ]);
 
     const quizzes = Array.isArray(listResponse.quizzes) ? listResponse.quizzes : [];
-    const latest = latestResponse.quiz || quizzes[0] || null;
+    const now = Date.now();
+    const upcoming = quizzes
+      .filter((quiz) => isUpcomingQuiz(quiz, now))
+      .sort((a, b) => Date.parse(a.publish_at) - Date.parse(b.publish_at));
+    const published = quizzes.filter((quiz) => !isUpcomingQuiz(quiz, now));
+    const latest = latestResponse.quiz || published[0] || null;
+    const nextUpcoming = upcoming[0] || null;
 
-    renderLatest(latestCard, latest);
-    if (latest && latestCta) latestCta.href = quizUrl(latest.slug);
+    renderLatest(latestCard, latest, nextUpcoming);
+    if (latest && latestCta) {
+      latestCta.href = quizUrl(latest.slug);
+      latestCta.textContent = "Play the latest quiz";
+    } else if (nextUpcoming && latestCta) {
+      latestCta.href = "#upcoming";
+      latestCta.textContent = "See what's coming";
+    }
 
-    const categories = [...new Set(quizzes.map((quiz) => quiz.category).filter(Boolean))]
+    if (upcomingSection && upcomingGrid && upcoming.length > 0) {
+      upcomingGrid.replaceChildren(...upcoming.map(createUpcomingCard));
+      upcomingSection.classList.remove("hidden");
+    } else if (upcomingSection && upcomingGrid) {
+      upcomingGrid.replaceChildren();
+      upcomingSection.classList.add("hidden");
+    }
+
+    const categories = [...new Set(published.map((quiz) => quiz.category).filter(Boolean))]
       .sort((a, b) => a.localeCompare(b));
     for (const category of categories) {
       const option = document.createElement("option");
@@ -37,8 +59,8 @@ async function initHome() {
     const renderGrid = () => {
       const category = filter.value;
       const visible = category
-        ? quizzes.filter((quiz) => quiz.category.toLowerCase() === category.toLowerCase())
-        : quizzes;
+        ? published.filter((quiz) => quiz.category.toLowerCase() === category.toLowerCase())
+        : published;
       grid.replaceChildren(...visible.map(createQuizCard));
       empty.classList.toggle("hidden", visible.length !== 0);
     };
@@ -49,13 +71,33 @@ async function initHome() {
     latestCard.replaceChildren(messageBlock("Website ready", "The quiz feed is not available yet."));
     grid.replaceChildren();
     empty.classList.remove("hidden");
+    if (upcomingSection) upcomingSection.classList.add("hidden");
     console.error(error);
   }
 }
 
-function renderLatest(container, quiz) {
+function renderLatest(container, quiz, upcoming) {
   container.classList.remove("loading-card");
   if (!quiz) {
+    if (upcoming) {
+      const copy = document.createElement("div");
+      const category = document.createElement("span");
+      category.className = "category-pill";
+      category.textContent = upcoming.category || "Quiz";
+      const heading = document.createElement("h3");
+      heading.textContent = upcoming.title;
+      const description = document.createElement("p");
+      description.textContent = `First quiz goes live ${formatRelease(upcoming.publish_at)}. The questions will unlock automatically at release time.`;
+      copy.append(category, heading, description);
+
+      const action = document.createElement("a");
+      action.className = "button button-secondary";
+      action.href = "#upcoming";
+      action.textContent = "View schedule";
+      container.replaceChildren(copy, action);
+      return;
+    }
+
     container.replaceChildren(messageBlock(
       "The website is ready",
       "The first quiz will appear here when FactVaultManager publishes it.",
@@ -106,6 +148,51 @@ function createQuizCard(quiz) {
 
   card.append(category, heading, copy, footer);
   return card;
+}
+
+function createUpcomingCard(quiz) {
+  const card = document.createElement("article");
+  card.className = "quiz-card";
+  card.setAttribute("aria-label", `${quiz.title}, scheduled ${formatRelease(quiz.publish_at)}`);
+
+  const category = document.createElement("span");
+  category.className = "category-pill";
+  category.textContent = quiz.category || "Quiz";
+
+  const heading = document.createElement("h3");
+  heading.textContent = quiz.title;
+
+  const copy = document.createElement("p");
+  copy.textContent = quiz.description || "A new Factburst quiz is on the way.";
+
+  const footer = document.createElement("div");
+  footer.className = "quiz-card-footer";
+  const release = document.createElement("span");
+  release.textContent = formatRelease(quiz.publish_at);
+  const locked = document.createElement("span");
+  locked.textContent = "Coming up";
+  footer.append(release, locked);
+
+  card.append(category, heading, copy, footer);
+  return card;
+}
+
+function isUpcomingQuiz(quiz, now = Date.now()) {
+  if (!quiz?.publish_at) return false;
+  const release = Date.parse(quiz.publish_at);
+  return Number.isFinite(release) && release > now;
+}
+
+function formatRelease(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Scheduled soon";
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
 }
 
 async function initQuiz() {
