@@ -73,7 +73,45 @@ public sealed class FactburstLinkTrackerTests
     }
 
     [Fact]
-    public async Task FetchStats_ParsesSourceAttributedCampaignTotals()
+    public async Task FetchStats_ParsesFilteredVisitorsAndRawHits()
+    {
+        var handler = new StubHttpHandler(_ => Task.FromResult(JsonResponse("""
+            {
+              "tracking_mode": "filtered_unique_v2",
+              "dedupe_hours": 6,
+              "campaigns": [
+                {
+                  "slug": "space-021",
+                  "quiz_id": 41,
+                  "title": "Space Quiz #021",
+                  "facebook_visitors": 18,
+                  "instagram_visitors": 7,
+                  "youtube_promo_visitors": 23,
+                  "unique_visitors": 48,
+                  "raw_hits": 91
+                }
+              ]
+            }
+            """)));
+        var client = new FactburstLinkTrackerClient(new HttpClient(handler));
+
+        var stats = await client.FetchStatsAsync(
+            "https://tracker.example.workers.dev",
+            "secret-token-value-123456789");
+
+        var campaign = Assert.Single(stats);
+        Assert.Equal(41, campaign.QuizId);
+        Assert.Equal(18, campaign.FacebookClicks);
+        Assert.Equal(7, campaign.InstagramClicks);
+        Assert.Equal(23, campaign.YouTubePromoClicks);
+        Assert.Equal(48, campaign.TotalClicks);
+        Assert.Equal(91, campaign.RawHits);
+        Assert.True(campaign.FilteringEnabled);
+        Assert.Equal(6, campaign.DedupeHours);
+    }
+
+    [Fact]
+    public async Task FetchStats_LegacyWorkerFallsBackToRawClickCounts()
     {
         var handler = new StubHttpHandler(_ => Task.FromResult(JsonResponse("""
             {
@@ -97,11 +135,13 @@ public sealed class FactburstLinkTrackerTests
             "secret-token-value-123456789");
 
         var campaign = Assert.Single(stats);
-        Assert.Equal(41, campaign.QuizId);
         Assert.Equal(84, campaign.FacebookClicks);
         Assert.Equal(31, campaign.InstagramClicks);
         Assert.Equal(126, campaign.YouTubePromoClicks);
         Assert.Equal(241, campaign.TotalClicks);
+        Assert.Equal(241, campaign.RawHits);
+        Assert.False(campaign.FilteringEnabled);
+        Assert.Equal(0, campaign.DedupeHours);
     }
 
     [Theory]
