@@ -50,8 +50,8 @@ public sealed class QuizPacingTimelineRewriterTests
         Assert.Equal(0.85, first, 6);
         Assert.Equal(0, second, 6);
         Assert.Equal(duration, timeline.Duration, 6);
-        Assert.Single(AllVideo(timeline).Where(clip => clip.Name == "Question 1 Suspense Beat"));
-        Assert.Single(AllVideo(timeline).Where(clip => clip.Name == "Question 1 Answer Pause"));
+        Assert.Single(AllVideo(timeline), clip => clip.Name == "Question 1 Suspense Beat");
+        Assert.Single(AllVideo(timeline), clip => clip.Name == "Question 1 Answer Pause");
     }
 
     [Fact]
