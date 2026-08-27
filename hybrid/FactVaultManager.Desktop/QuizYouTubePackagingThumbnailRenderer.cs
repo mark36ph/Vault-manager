@@ -106,7 +106,7 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
         middle.Children.Add(preview);
         page.Children.Add(middle);
 
-        var footer = BuildFooter(questionCount, theme);
+        var footer = BuildFooter();
         Grid.SetRow(footer, 2);
         page.Children.Add(footer);
         return page;
@@ -149,7 +149,7 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
         middle.Children.Add(challenge);
         page.Children.Add(middle);
 
-        var footer = BuildFooter(questionCount, theme);
+        var footer = BuildFooter();
         Grid.SetRow(footer, 2);
         page.Children.Add(footer);
         return page;
@@ -360,11 +360,9 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
         canvas.Children.Add(bubble);
     }
 
-    private static Grid BuildFooter(int questionCount, QuizVisualTheme theme)
+    private static Grid BuildFooter()
     {
         var footer = new Grid();
-        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         footer.Children.Add(new TextBlock
         {
             Text = "PLAY ALONG • KEEP SCORE",
@@ -373,13 +371,6 @@ public sealed class QuizYouTubePackagingThumbnailRenderer
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center,
         });
-        var count = BuildPill(
-            QuizThumbnailRenderer.QuestionCountLabel(questionCount),
-            theme.Accent,
-            fontSize: 22,
-            margin: new Thickness(0));
-        Grid.SetColumn(count, 1);
-        footer.Children.Add(count);
         return footer;
     }
 
