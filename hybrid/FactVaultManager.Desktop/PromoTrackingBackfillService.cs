@@ -281,9 +281,12 @@ public static class FactburstPromoBackfillDescription
     public static string Apply(string? currentDescription, string trackedUrl)
     {
         var current = (currentDescription ?? "").Trim();
-        if (current.Contains((trackedUrl ?? "").Trim(), StringComparison.OrdinalIgnoreCase))
+        var tracked = (trackedUrl ?? "").Trim();
+        if (tracked.Length == 0)
+            throw new ArgumentException("Tracked link is required.", nameof(trackedUrl));
+        if (current.Contains(tracked, StringComparison.OrdinalIgnoreCase))
             return current;
-        return FactburstLinkTrackerClient.ReplaceFullQuizLink(current, trackedUrl);
+        return FactburstLinkTrackerClient.ReplaceFullQuizLink(current, tracked);
     }
 }
 
