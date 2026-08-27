@@ -8,6 +8,9 @@ const SOURCES = {
   "youtube-promo": "youtube-promo",
 };
 
+const TRACKING_MODE = "filtered_unique_v2";
+const DEDUPE_HOURS = 6;
+
 export default {
   async fetch(request, env) {
     try {
@@ -16,7 +19,12 @@ export default {
       const parts = path ? path.split("/") : [];
 
       if (request.method === "GET" && path === "health") {
-        return json({ ok: true, service: "factburst-link-tracker" });
+        return json({
+          ok: true,
+          service: "factburst-link-tracker",
+          tracking_mode: TRACKING_MODE,
+          dedupe_hours: DEDUPE_HOURS,
+        });
       }
 
       if (
@@ -78,11 +86,39 @@ async function handleTrackedRedirect(request, env, sourceKey, slugValue) {
   }
 
   const destination = validateDestination(campaign.destination_url);
-  const deviceType = detectDevice(request.headers.get("User-Agent") || "");
+  const userAgent = request.headers.get("User-Agent") || "";
+  const deviceType = detectDevice(userAgent);
+
+  // Raw hits deliberately preserve every redirect request, including retries,
+  // link-preview fetches and obvious automated traffic, for audit/comparison.
   await env.DB.prepare(
     `INSERT INTO clicks (campaign_slug, source, clicked_at, device_type)
      VALUES (?, ?, CURRENT_TIMESTAMP, ?)`
   ).bind(slug, source, deviceType).run();
+
+  await ensureFilteredClickStore(env);
+  if (!isAutomatedTraffic(request)) {
+    const visitorHash = await privacySafeVisitorHash(request, env);
+    await env.DB.prepare(
+      `INSERT INTO unique_clicks (campaign_slug, source, visitor_hash, clicked_at, device_type)
+       SELECT ?, ?, ?, CURRENT_TIMESTAMP, ?
+       WHERE NOT EXISTS (
+         SELECT 1
+         FROM unique_clicks
+         WHERE campaign_slug = ?
+           AND visitor_hash = ?
+           AND clicked_at >= datetime('now', '-' || ? || ' hours')
+       )`
+    ).bind(
+      slug,
+      source,
+      visitorHash,
+      deviceType,
+      slug,
+      visitorHash,
+      DEDUPE_HOURS
+    ).run();
+  }
 
   return Response.redirect(destination, 302);
 }
@@ -119,6 +155,7 @@ async function createCampaign(request, env) {
 }
 
 async function listCampaigns(env) {
+  await ensureFilteredClickStore(env);
   const result = await env.DB.prepare(
     `SELECT
        c.slug,
@@ -127,17 +164,21 @@ async function listCampaigns(env) {
        c.destination_url,
        c.created_at,
        c.active,
-       COUNT(cl.id) AS total_clicks
+       (SELECT COUNT(*) FROM clicks cl WHERE cl.campaign_slug = c.slug) AS raw_hits,
+       (SELECT COUNT(*) FROM unique_clicks uc WHERE uc.campaign_slug = c.slug) AS unique_visitors
      FROM campaigns c
-     LEFT JOIN clicks cl ON cl.campaign_slug = c.slug
-     GROUP BY c.id
      ORDER BY c.created_at DESC`
   ).all();
 
-  return json({ campaigns: result.results || [] });
+  return json({
+    tracking_mode: TRACKING_MODE,
+    dedupe_hours: DEDUPE_HOURS,
+    campaigns: result.results || [],
+  });
 }
 
 async function campaignStats(env, slugValue) {
+  await ensureFilteredClickStore(env);
   const slug = cleanSlug(slugValue);
   const campaign = await env.DB.prepare(
     `SELECT slug, quiz_id, title, destination_url, created_at, active
@@ -148,9 +189,9 @@ async function campaignStats(env, slugValue) {
 
   if (!campaign) return json({ error: "Campaign not found" }, 404);
 
-  const result = await env.DB.prepare(
-    `SELECT source, COUNT(*) AS clicks
-     FROM clicks
+  const uniqueResult = await env.DB.prepare(
+    `SELECT source, COUNT(*) AS visitors
+     FROM unique_clicks
      WHERE campaign_slug = ?
      GROUP BY source`
   ).bind(slug).all();
@@ -160,39 +201,103 @@ async function campaignStats(env, slugValue) {
     instagram: 0,
     "youtube-promo": 0,
   };
-  for (const row of result.results || []) {
-    counts[row.source] = Number(row.clicks || 0);
+  for (const row of uniqueResult.results || []) {
+    counts[row.source] = Number(row.visitors || 0);
   }
 
+  const raw = await env.DB.prepare(
+    `SELECT COUNT(*) AS raw_hits
+     FROM clicks
+     WHERE campaign_slug = ?`
+  ).bind(slug).first();
+
   return json({
+    tracking_mode: TRACKING_MODE,
+    dedupe_hours: DEDUPE_HOURS,
     campaign,
-    clicks: {
+    visitors: {
       facebook: counts.facebook,
       instagram: counts.instagram,
       youtube_promo: counts["youtube-promo"],
-      total: counts.facebook + counts.instagram + counts["youtube-promo"],
+      unique: counts.facebook + counts.instagram + counts["youtube-promo"],
     },
+    raw_hits: Number(raw?.raw_hits || 0),
   });
 }
 
 async function overallStats(env) {
+  await ensureFilteredClickStore(env);
   const result = await env.DB.prepare(
     `SELECT
        c.slug,
        c.quiz_id,
        c.title,
-       SUM(CASE WHEN cl.source = 'facebook' THEN 1 ELSE 0 END) AS facebook_clicks,
-       SUM(CASE WHEN cl.source = 'instagram' THEN 1 ELSE 0 END) AS instagram_clicks,
-       SUM(CASE WHEN cl.source = 'youtube-promo' THEN 1 ELSE 0 END) AS youtube_promo_clicks,
-       COUNT(cl.id) AS total_clicks
+       (SELECT COUNT(*) FROM unique_clicks uc
+        WHERE uc.campaign_slug = c.slug AND uc.source = 'facebook') AS facebook_visitors,
+       (SELECT COUNT(*) FROM unique_clicks uc
+        WHERE uc.campaign_slug = c.slug AND uc.source = 'instagram') AS instagram_visitors,
+       (SELECT COUNT(*) FROM unique_clicks uc
+        WHERE uc.campaign_slug = c.slug AND uc.source = 'youtube-promo') AS youtube_promo_visitors,
+       (SELECT COUNT(*) FROM unique_clicks uc
+        WHERE uc.campaign_slug = c.slug) AS unique_visitors,
+       (SELECT COUNT(*) FROM clicks cl
+        WHERE cl.campaign_slug = c.slug) AS raw_hits
      FROM campaigns c
-     LEFT JOIN clicks cl ON cl.campaign_slug = c.slug
      WHERE c.active = 1
-     GROUP BY c.id
-     ORDER BY total_clicks DESC, c.created_at DESC`
+     ORDER BY unique_visitors DESC, c.created_at DESC`
   ).all();
 
-  return json({ campaigns: result.results || [] });
+  return json({
+    tracking_mode: TRACKING_MODE,
+    dedupe_hours: DEDUPE_HOURS,
+    campaigns: result.results || [],
+  });
+}
+
+async function ensureFilteredClickStore(env) {
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS unique_clicks (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       campaign_slug TEXT NOT NULL,
+       source TEXT NOT NULL,
+       visitor_hash TEXT NOT NULL,
+       clicked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+       device_type TEXT NOT NULL DEFAULT '',
+       FOREIGN KEY (campaign_slug) REFERENCES campaigns(slug)
+     )`
+  ).run();
+  await env.DB.prepare(
+    `CREATE INDEX IF NOT EXISTS idx_unique_clicks_campaign
+     ON unique_clicks(campaign_slug)`
+  ).run();
+  await env.DB.prepare(
+    `CREATE INDEX IF NOT EXISTS idx_unique_clicks_visitor_time
+     ON unique_clicks(campaign_slug, visitor_hash, clicked_at)`
+  ).run();
+}
+
+function isAutomatedTraffic(request) {
+  const userAgent = (request.headers.get("User-Agent") || "").trim().toLowerCase();
+  if (!userAgent) return true;
+
+  const purpose = [
+    request.headers.get("Purpose") || "",
+    request.headers.get("Sec-Purpose") || "",
+    request.headers.get("X-Purpose") || "",
+  ].join(" ").toLowerCase();
+  if (/prefetch|preview|prerender/.test(purpose)) return true;
+
+  return /(facebookexternalhit|facebot|meta-externalagent|meta-externalfetcher|twitterbot|linkedinbot|slackbot|discordbot|telegrambot|whatsapp|googlebot|bingbot|duckduckbot|yandexbot|baiduspider|crawler|spider|headlesschrome|lighthouse|curl\/|wget\/|python-requests|postmanruntime|preview)/i.test(userAgent);
+}
+
+async function privacySafeVisitorHash(request, env) {
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
+  const userAgent = request.headers.get("User-Agent") || "unknown";
+  const language = request.headers.get("Accept-Language") || "";
+  const salt = String(env.TRACKER_VISITOR_SALT || env.TRACKER_API_KEY || "factburst-link-tracker");
+  const input = new TextEncoder().encode(`${salt}\n${ip}\n${userAgent}\n${language}`);
+  const digest = await crypto.subtle.digest("SHA-256", input);
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function requireApiKey(request, env) {
