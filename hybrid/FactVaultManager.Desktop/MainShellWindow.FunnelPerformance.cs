@@ -252,7 +252,7 @@ public partial class MainShellWindow
         });
         heading.Children.Add(new TextBlock
         {
-            Text = "See which promo sources are sending people toward each long-form Factburst quiz.",
+            Text = "Only quizzes with a created tracking campaign are shown. See which promo sources are sending people toward each long-form Factburst quiz.",
             Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             Margin = new Thickness(0, 3, 0, 0),
         });
@@ -408,10 +408,13 @@ public partial class MainShellWindow
                 FactburstTrackerCampaignStats? tracked = null;
                 if (!byQuizId.TryGetValue(history.Id, out tracked))
                     bySlug.TryGetValue(slug, out tracked);
-                var facebook = tracked?.FacebookClicks ?? 0;
-                var instagram = tracked?.InstagramClicks ?? 0;
-                var youtube = tracked?.YouTubePromoClicks ?? 0;
-                var total = tracked?.TotalClicks ?? 0;
+                if (tracked is null)
+                    continue;
+
+                var facebook = tracked.FacebookClicks;
+                var instagram = tracked.InstagramClicks;
+                var youtube = tracked.YouTubePromoClicks;
+                var total = tracked.TotalClicks;
                 var promoStatus = QuizPromoShortUploadState.Display(history.ProjectFolder);
                 rows.Add(new FunnelPerformanceRow(
                     history.Id,
@@ -441,7 +444,7 @@ public partial class MainShellWindow
             _funnelInstagramClicksText!.Text = instagramTotal.ToString("N0");
             _funnelYouTubeClicksText!.Text = youtubeTotal.ToString("N0");
             _funnelTopSourceText!.Text = TopFunnelSource(facebookTotal, instagramTotal, youtubeTotal);
-            SetFunnelStatus($"Loaded {remote.Count:N0} tracker campaign(s). {rows.Count:N0} published long-form quiz row(s) are shown.");
+            SetFunnelStatus($"Loaded {remote.Count:N0} tracker campaign(s). {rows.Count:N0} linked long-form quiz row(s) are shown.");
         }
         catch (Exception error)
         {
