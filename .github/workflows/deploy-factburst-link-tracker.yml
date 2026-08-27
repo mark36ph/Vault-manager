@@ -41,7 +41,7 @@ jobs:
         if: steps.credentials.outputs.ready == 'true'
         uses: actions/checkout@v6
 
-      - name: Resolve existing Worker and D1 binding
+      - name: Resolve tracker Worker and D1 binding
         if: steps.credentials.outputs.ready == 'true'
         id: resolve
         shell: bash
@@ -62,14 +62,10 @@ jobs:
             exit 1
           fi
 
-          mapfile -t script_ids < <(jq -r '.result[]?.id // empty' <<<"${scripts}")
-          if [[ ${#script_ids[@]} -eq 0 ]]; then
-            echo "Cloudflare returned no Workers for this account." >&2
-            exit 1
-          fi
-
-          matches=()
-          for script_id in "${script_ids[@]}"; do
+          all_matches=()
+          tracker_matches=()
+          while IFS= read -r script_id; do
+            [[ -z "${script_id}" ]] && continue
             encoded_id="$(jq -rn --arg value "${script_id}" '$value|@uri')"
             settings="$(curl --fail-with-body --silent --show-error "${auth[@]}" "${api}/workers/scripts/${encoded_id}/settings" 2>/dev/null || true)"
             if [[ -z "${settings}" || "$(jq -r '.success // false' <<<"${settings}" 2>/dev/null)" != "true" ]]; then
@@ -77,38 +73,46 @@ jobs:
             fi
 
             d1_id="$(jq -r '.result.bindings[]? | select(.type == "d1" and .name == "DB") | (.database_id // .id // empty)' <<<"${settings}" | head -n 1)"
-            if [[ -z "${d1_id}" ]]; then
-              continue
-            fi
-
+            [[ -z "${d1_id}" ]] && continue
             compatibility_date="$(jq -r '.result.compatibility_date // empty' <<<"${settings}")"
-            matches+=("${script_id}|${d1_id}|${compatibility_date}")
-          done
+            candidate="${script_id}|${d1_id}|${compatibility_date}"
+            all_matches+=("${candidate}")
 
-          if [[ ${#matches[@]} -eq 0 ]]; then
-            echo "Could not find an existing Worker with a D1 binding named DB." >&2
-            echo "In Cloudflare, open the tracker Worker → Settings → Bindings and confirm its D1 binding is named DB." >&2
+            has_tracker_key="$(jq -r '[.result.bindings[]? | select(.name == "TRACKER_API_KEY")] | length' <<<"${settings}")"
+            if [[ "${has_tracker_key}" -gt 0 ]]; then
+              tracker_matches+=("${candidate}")
+            fi
+          done < <(jq -r '.result[]?.id // empty' <<<"${scripts}")
+
+          selected=""
+          if [[ ${#tracker_matches[@]} -eq 1 ]]; then
+            selected="${tracker_matches[0]}"
+          elif [[ ${#tracker_matches[@]} -gt 1 ]]; then
+            echo "More than one Worker exposes TRACKER_API_KEY; refusing to deploy to an ambiguous target." >&2
+            printf 'Tracker candidate: %s\n' "${tracker_matches[@]%%|*}" >&2
             exit 1
           fi
 
-          selected=""
-          if [[ ${#matches[@]} -eq 1 ]]; then
-            selected="${matches[0]}"
-          else
-            preferred=()
-            for candidate in "${matches[@]}"; do
-              candidate_name="${candidate%%|*}"
-              if [[ "${candidate_name}" =~ [Ff][Aa][Cc][Tt][Bb][Uu][Rr][Ss][Tt] || "${candidate_name}" =~ [Tt][Rr][Aa][Cc][Kk][Ee][Rr] ]]; then
-                preferred+=("${candidate}")
+          # The production tracking links use the historical Worker name 'go'.
+          # Keep this as a safe fallback for accounts where secret binding names
+          # are not returned by the settings API.
+          if [[ -z "${selected}" ]]; then
+            for candidate in "${all_matches[@]}"; do
+              if [[ "${candidate%%|*}" == "go" ]]; then
+                selected="${candidate}"
+                break
               fi
             done
-            if [[ ${#preferred[@]} -eq 1 ]]; then
-              selected="${preferred[0]}"
-            else
-              echo "More than one Worker has a D1 binding named DB, so the tracker cannot be selected safely." >&2
-              printf 'Candidate: %s\n' "${matches[@]%%|*}" >&2
-              exit 1
-            fi
+          fi
+
+          if [[ -z "${selected}" && ${#all_matches[@]} -eq 1 ]]; then
+            selected="${all_matches[0]}"
+          fi
+
+          if [[ -z "${selected}" ]]; then
+            echo "Could not identify the tracker Worker safely. It must have DB plus TRACKER_API_KEY, or be named 'go'." >&2
+            printf 'DB candidate: %s\n' "${all_matches[@]%%|*}" >&2
+            exit 1
           fi
 
           IFS='|' read -r worker_name d1_id compatibility_date <<<"${selected}"
@@ -124,10 +128,7 @@ jobs:
           fi
 
           d1_name="$(jq -r '.result.name // empty' <<<"${database}")"
-          if [[ -z "${d1_name}" ]]; then
-            echo "The bound D1 database did not have a name." >&2
-            exit 1
-          fi
+          [[ -n "${d1_name}" ]] || { echo "The bound D1 database did not have a name." >&2; exit 1; }
 
           jq -n \
             --arg worker_name "${worker_name}" \
@@ -149,7 +150,8 @@ jobs:
             }' > wrangler.ci.json
 
           echo "worker_name=${worker_name}" >> "$GITHUB_OUTPUT"
-          echo "Resolved Worker '${worker_name}' with D1 database '${d1_name}'."
+          echo "database_id=${d1_id}" >> "$GITHUB_OUTPUT"
+          echo "Resolved tracker Worker '${worker_name}' with D1 database '${d1_name}'."
 
       - name: Deploy to Cloudflare
         if: steps.credentials.outputs.ready == 'true'
@@ -176,4 +178,4 @@ jobs:
             echo "Deployment: ${DEPLOYMENT_URL}" >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "The existing D1 binding and Worker secrets were preserved." >> "$GITHUB_STEP_SUMMARY"
+          echo "The tracker target was selected by TRACKER_API_KEY (with 'go' as the legacy fallback)." >> "$GITHUB_STEP_SUMMARY"
