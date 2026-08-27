@@ -50,16 +50,10 @@ public static class QuizYouTubePackaging
         var topicUpper = topic.ToUpperInvariant();
         var perfect = $"{questions.Count}/{questions.Count}";
         var episode = metadata.EpisodeLabel;
-        var series = metadata.SeriesName;
 
-        // Each title/thumbnail pair now represents a different click hypothesis:
-        // A = score challenge, B = identity/expertise, C = category/search intent.
-        var titles = new[]
-        {
-            LimitTitle($"Can You Get {perfect}? | {series} {episode}"),
-            LimitTitle($"Only {ExpertTopic(topic)} Experts Get {perfect} | {series} {episode}"),
-            LimitTitle($"{topic} Quiz: {questions.Count} Questions | {series} {episode}"),
-        };
+        // A/B/C retain three different click hypotheses, while the wording rotates by
+        // topic + episode so a batch does not look like 15 copies of the same title.
+        var titles = BuildClickTitles(metadata, topic, questions.Count);
         EnsureDistinctTitles(titles, topic, perfect, episode);
 
         var expertLabel = ExpertThumbnailTopic(topic);
@@ -68,7 +62,7 @@ public static class QuizYouTubePackaging
         [
             new QuizYouTubePackagingVariant(
                 "A",
-                "Score challenge: direct 10/10-style challenge + featured question preview",
+                "Score challenge: direct score hook + featured question preview",
                 titles[0],
                 new QuizThumbnailSettings($"CAN YOU GET {perfect}?", topicUpper).Normalize(),
                 QuizYouTubeThumbnailLayout.ScoreChallenge,
@@ -144,6 +138,83 @@ public static class QuizYouTubePackaging
         WriteAtomic(manifestPath, manifest);
 
         return new QuizYouTubePackagingResult(folder, manifestPath, variants);
+    }
+
+    private static string[] BuildClickTitles(QuizPublishMetadata metadata, string topic, int questionCount)
+    {
+        var perfect = $"{questionCount}/{questionCount}";
+        var threshold = Math.Max(1, questionCount - 2);
+        var episode = EpisodeSuffix(metadata.EpisodeLabel);
+        var expert = ExpertTopic(topic);
+
+        var scorePattern = TitlePatternIndex(metadata, topic, 0);
+        var expertPattern = TitlePatternIndex(metadata, topic, 2);
+        var searchPattern = TitlePatternIndex(metadata, topic, 4);
+
+        var scoreTitle = scorePattern switch
+        {
+            0 => $"Can You Get {perfect}? | {topic} Quiz{episode}",
+            1 => $"How Many Can You Get Right? | {topic} Quiz{episode}",
+            2 => $"Can You Ace All {questionCount}? | {topic} Quiz{episode}",
+            3 => $"{questionCount} Questions. Can You Get a Perfect Score? | {topic}{episode}",
+            4 => $"What's Your Score Out of {questionCount}? | {topic} Quiz{episode}",
+            _ => $"Can You Beat {threshold}/{questionCount}? | {topic} Quiz{episode}",
+        };
+
+        var expertTitle = expertPattern switch
+        {
+            0 => $"Think You're a {expert} Expert? Prove It | {topic}{episode}",
+            1 => $"Are You a Real {expert} Expert? | {questionCount}-Question Challenge{episode}",
+            2 => $"{expert} Fans: Can You Score {perfect}? | {topic}{episode}",
+            3 => $"How Strong Is Your {topic} Knowledge? | {questionCount} Questions{episode}",
+            4 => $"Know {topic}? This Quiz Will Test You | {questionCount} Questions{episode}",
+            _ => $"{expert} Expert or Lucky Guesser? Try These {questionCount} Questions{episode}",
+        };
+
+        var searchTitle = searchPattern switch
+        {
+            0 => $"{topic} Quiz: {questionCount} Questions to Test Your Knowledge{episode}",
+            1 => $"{questionCount} {topic} Questions — How Many Can You Answer?{episode}",
+            2 => $"{topic} Trivia Challenge: {questionCount} Questions{episode}",
+            3 => $"Test Your {topic} Knowledge: {questionCount}-Question Quiz{episode}",
+            4 => $"{topic} Quiz Challenge — {questionCount} Questions, Keep Score{episode}",
+            _ => $"Ultimate {topic} Quiz: {questionCount} Questions{episode}",
+        };
+
+        return
+        [
+            LimitTitle(scoreTitle),
+            LimitTitle(expertTitle),
+            LimitTitle(searchTitle),
+        ];
+    }
+
+    private static int TitlePatternIndex(QuizPublishMetadata metadata, string topic, int offset)
+    {
+        const int patternCount = 6;
+        var episodeNumber = ParseEpisodeNumber(metadata.EpisodeLabel);
+        var topicOffset = StableTopicOffset(topic);
+        return (episodeNumber + topicOffset + offset) % patternCount;
+    }
+
+    private static int ParseEpisodeNumber(string? episodeLabel)
+    {
+        var digits = new string((episodeLabel ?? "").Where(char.IsDigit).ToArray());
+        return int.TryParse(digits, out var value) ? Math.Max(0, value) : 0;
+    }
+
+    private static int StableTopicOffset(string topic)
+    {
+        var hash = 17;
+        foreach (var character in (topic ?? "").ToUpperInvariant())
+            hash = unchecked((hash * 31) + character);
+        return (hash & int.MaxValue) % 97;
+    }
+
+    private static string EpisodeSuffix(string? episodeLabel)
+    {
+        var episode = (episodeLabel ?? "").Trim();
+        return episode.Length == 0 ? "" : " " + episode;
     }
 
     private static string TopicName(
