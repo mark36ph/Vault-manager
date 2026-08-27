@@ -1,12 +1,12 @@
 {
     "latest_version": "1.0.7",
-    "build": 24,
+    "build": 25,
     "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
     "release_notes": [
+        "Added batch preparation of missing promo Shorts from Scheduled Release Readiness, with one shared Fable CTA narration reused across the batch and no automatic publishing.",
         "Added Scheduled Release Readiness for future quiz launches, promo preparation, tracking links, platform uploads, Related video and first-comment checks.",
         "Strengthened DaVinci Resolve Free export validation, including portable package manifest and FCPXML media integrity checks.",
         "Improved production completion, scheduling, publishing, rollback, and project-state recovery workflows.",
-        "Added project integrity checks with guarded safe repair, orphan recovery, and orphan deletion tools.",
         "Expanded automated regression coverage and release-readiness checks."
     ]
 }
