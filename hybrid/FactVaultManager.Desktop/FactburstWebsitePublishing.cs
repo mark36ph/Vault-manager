@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Windows.Media.Imaging;
 
 namespace FactVaultManager.Desktop;
 
@@ -10,7 +11,8 @@ public sealed record FactburstWebsiteQuizQuestion(
     [property: JsonPropertyName("question")] string Question,
     [property: JsonPropertyName("answers")] IReadOnlyList<string> Answers,
     [property: JsonPropertyName("correct_answer")] string CorrectAnswer,
-    [property: JsonPropertyName("explanation")] string Explanation);
+    [property: JsonPropertyName("explanation")] string Explanation,
+    [property: JsonPropertyName("image_data_url")] string ImageDataUrl);
 
 public sealed record FactburstWebsiteQuizPayload(
     [property: JsonPropertyName("slug")] string Slug,
@@ -122,9 +124,14 @@ public sealed class FactburstWebsitePublishingClient : IDisposable
 
 public static class FactburstWebsiteQuizBuilder
 {
+    private const int WebsiteImageDecodeWidth = 640;
+    private const long MaxSourceImageBytes = 12L * 1024 * 1024;
+    private const int MaxEncodedImageBytes = 900_000;
+
     public static FactburstWebsiteQuizPayload Build(
         QuizHistorySummary history,
-        DateTimeOffset publishAt)
+        DateTimeOffset publishAt,
+        IReadOnlyDictionary<int, string>? questionImagePaths = null)
     {
         ArgumentNullException.ThrowIfNull(history);
         if (string.IsNullOrWhiteSpace(history.ProjectFolder))
@@ -156,6 +163,10 @@ public static class FactburstWebsiteQuizBuilder
                 "The website copy was not staged because the project may be incomplete.");
         }
 
+        var category = history.AnalyticsCategory.Trim();
+        if (category.Length == 0) category = "General Knowledge";
+        var logoQuiz = string.Equals(category, "Logos", StringComparison.OrdinalIgnoreCase);
+
         var questions = new List<FactburstWebsiteQuizQuestion>(questionCount);
         var index = 0;
         foreach (var saved in savedQuestions.EnumerateArray())
@@ -170,15 +181,29 @@ public static class FactburstWebsiteQuizBuilder
             var answers = answersElement.EnumerateArray()
                 .Select(value => value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : "")
                 .ToArray();
+
+            var imageDataUrl = "";
+            var questionId = Int(saved, "id", 0);
+            if (questionId > 0 && questionImagePaths is not null &&
+                questionImagePaths.TryGetValue(questionId, out var imagePath) &&
+                !string.IsNullOrWhiteSpace(imagePath))
+            {
+                imageDataUrl = EncodeQuestionImageDataUrl(imagePath);
+            }
+            else if (logoQuiz)
+            {
+                throw new InvalidDataException(
+                    $"Logo question {index} has no local image available. Restore or relink its question image before syncing this quiz to the website.");
+            }
+
             questions.Add(BuildQuestion(
                 RequiredText(saved, "question", index),
                 answers,
                 Int(saved, "correct_index", -1),
-                Text(saved, "explanation")));
+                Text(saved, "explanation"),
+                imageDataUrl));
         }
 
-        var category = history.AnalyticsCategory.Trim();
-        if (category.Length == 0) category = "General Knowledge";
         var title = history.UploadTitleDisplay.Trim();
         if (title.Length == 0) title = history.Title.Trim();
         if (title.Length == 0) title = "Factburst Quiz";
@@ -201,7 +226,8 @@ public static class FactburstWebsiteQuizBuilder
         string question,
         IReadOnlyList<string> answers,
         int correctIndex,
-        string explanation)
+        string explanation,
+        string imageDataUrl = "")
     {
         var prompt = (question ?? "").Trim();
         if (prompt.Length == 0)
@@ -218,11 +244,49 @@ public static class FactburstWebsiteQuizBuilder
         if (correctIndex is < 0 or > 3)
             throw new InvalidDataException("A website quiz question has an invalid correct-answer index.");
 
+        var image = (imageDataUrl ?? "").Trim();
+        if (image.Length > 0 && !image.StartsWith("data:image/png;base64,", StringComparison.Ordinal))
+            throw new InvalidDataException("Website quiz images must be PNG data URLs.");
+
         return new FactburstWebsiteQuizQuestion(
             prompt,
             normalized,
             "ABCD"[correctIndex].ToString(),
-            (explanation ?? "").Trim());
+            (explanation ?? "").Trim(),
+            image);
+    }
+
+    public static string EncodeQuestionImageDataUrl(string? imagePath)
+    {
+        var value = (imagePath ?? "").Trim();
+        if (value.Length == 0) return "";
+
+        var fullPath = Path.GetFullPath(value);
+        if (!File.Exists(fullPath))
+            throw new FileNotFoundException("The quiz question image is unavailable.", fullPath);
+
+        var extension = Path.GetExtension(fullPath).ToLowerInvariant();
+        if (extension is not (".png" or ".jpg" or ".jpeg" or ".bmp"))
+            throw new InvalidDataException("Website quiz images must be PNG, JPG, JPEG or BMP files.");
+        if (new FileInfo(fullPath).Length > MaxSourceImageBytes)
+            throw new InvalidDataException("The quiz question image is too large to prepare for the website.");
+
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.DecodePixelWidth = WebsiteImageDecodeWidth;
+        bitmap.UriSource = new Uri(fullPath, UriKind.Absolute);
+        bitmap.EndInit();
+        bitmap.Freeze();
+
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var stream = new MemoryStream();
+        encoder.Save(stream);
+        if (stream.Length > MaxEncodedImageBytes)
+            throw new InvalidDataException("The prepared quiz question image is too large for website storage.");
+
+        return "data:image/png;base64," + Convert.ToBase64String(stream.ToArray());
     }
 
     private static string RequiredText(JsonElement element, string propertyName, int questionNumber)
