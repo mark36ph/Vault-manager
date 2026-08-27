@@ -161,8 +161,9 @@ public static class ScheduledReleaseReadinessPlanner
         if (string.Equals(tracking, "Missing", StringComparison.Ordinal)) return "Create tracking link";
         if (string.Equals(tracking, "Unavailable", StringComparison.Ordinal)) return "Check tracker connection";
         if (string.Equals(tracking, "Not configured", StringComparison.Ordinal)) return "Configure Link Tracker";
-        if (!youtubePromo || !facebookPromo || !instagramPromo) return "Upload promo";
+        if (!youtubePromo || !facebookPromo) return "Schedule promo";
         if (!relatedReady) return "Set Related video";
+        if (!instagramPromo) return "Publish Instagram promo";
         if (!firstCommentReady) return "Prepare first comment";
         return "Ready for release";
     }
