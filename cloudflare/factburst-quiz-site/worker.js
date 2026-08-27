@@ -113,10 +113,35 @@ async function ensureSchema(db) {
   schemaReady = true;
 }
 
+async function getLaunchQuizSlug(db, now) {
+  const alreadyLive = await db.prepare(`
+    SELECT id
+    FROM site_quizzes
+    WHERE status = 'published'
+      AND (publish_at IS NULL OR publish_at <= ?)
+    LIMIT 1
+  `).bind(now).first();
+
+  if (alreadyLive) return "";
+
+  const launchQuiz = await db.prepare(`
+    SELECT slug
+    FROM site_quizzes
+    WHERE status = 'published'
+      AND publish_at > ?
+    ORDER BY publish_at ASC, id ASC
+    LIMIT 1
+  `).bind(now).first();
+
+  return String(launchQuiz?.slug || "");
+}
+
 async function listQuizzes(db, url) {
   const requestedLimit = Number.parseInt(url.searchParams.get("limit") || "24", 10);
   const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 24;
   const category = (url.searchParams.get("category") || "").trim();
+  const now = new Date().toISOString();
+  const launchSlug = await getLaunchQuizSlug(db, now);
 
   let statement;
   if (category) {
@@ -149,12 +174,23 @@ async function listQuizzes(db, url) {
   }
 
   const result = await statement.all();
-  return json({ quizzes: result.results || [] });
+  const quizzes = (result.results || []).map((quiz) => {
+    if (launchSlug && quiz.slug === launchSlug) {
+      return {
+        ...quiz,
+        publish_at: now,
+        launch_quiz: true,
+      };
+    }
+    return quiz;
+  });
+
+  return json({ quizzes });
 }
 
 async function latestQuiz(db) {
   const now = new Date().toISOString();
-  const quiz = await db.prepare(`
+  let quiz = await db.prepare(`
     SELECT q.id, q.slug, q.title, q.category, q.description, q.youtube_url, q.publish_at,
            COUNT(sq.id) AS question_count
     FROM site_quizzes q
@@ -166,22 +202,59 @@ async function latestQuiz(db) {
     LIMIT 1
   `).bind(now).first();
 
+  if (quiz) return json({ quiz });
+
+  quiz = await db.prepare(`
+    SELECT q.id, q.slug, q.title, q.category, q.description, '' AS youtube_url,
+           q.publish_at AS scheduled_publish_at, ? AS publish_at,
+           COUNT(sq.id) AS question_count
+    FROM site_quizzes q
+    LEFT JOIN site_questions sq ON sq.quiz_id = q.id
+    WHERE q.status = 'published'
+      AND q.publish_at > ?
+    GROUP BY q.id
+    ORDER BY q.publish_at ASC, q.id ASC
+    LIMIT 1
+  `).bind(now, now).first();
+
+  if (quiz) quiz.launch_quiz = true;
   return quiz ? json({ quiz }) : json({ quiz: null });
+}
+
+async function loadPlayableQuiz(db, slug, now, columns) {
+  const quiz = await db.prepare(`
+    SELECT ${columns}
+    FROM site_quizzes
+    WHERE slug = ?
+      AND status = 'published'
+    LIMIT 1
+  `).bind(slug).first();
+
+  if (!quiz) return null;
+  if (!quiz.publish_at || quiz.publish_at <= now) {
+    return { quiz, launchQuiz: false };
+  }
+
+  const launchSlug = await getLaunchQuizSlug(db, now);
+  if (launchSlug && launchSlug === slug) {
+    return { quiz, launchQuiz: true };
+  }
+
+  return null;
 }
 
 async function getQuiz(db, slug) {
   const now = new Date().toISOString();
-  const quiz = await db.prepare(`
-    SELECT id, slug, title, category, description, youtube_url, publish_at
-    FROM site_quizzes
-    WHERE slug = ?
-      AND status = 'published'
-      AND (publish_at IS NULL OR publish_at <= ?)
-    LIMIT 1
-  `).bind(slug, now).first();
+  const playable = await loadPlayableQuiz(
+    db,
+    slug,
+    now,
+    "id, slug, title, category, description, youtube_url, publish_at",
+  );
 
-  if (!quiz) return json({ error: "Quiz not found." }, 404);
+  if (!playable) return json({ error: "Quiz not found." }, 404);
 
+  const { quiz, launchQuiz } = playable;
   const questions = await db.prepare(`
     SELECT position, question, answer_a, answer_b, answer_c, answer_d
     FROM site_questions
@@ -192,6 +265,9 @@ async function getQuiz(db, slug) {
   return json({
     quiz: {
       ...quiz,
+      youtube_url: launchQuiz ? "" : (quiz.youtube_url || ""),
+      publish_at: launchQuiz ? now : quiz.publish_at,
+      launch_quiz: launchQuiz,
       questions: (questions.results || []).map((row) => ({
         position: row.position,
         question: row.question,
@@ -205,18 +281,11 @@ async function scoreQuiz(request, db, slug) {
   const body = await readJson(request);
   const answers = Array.isArray(body?.answers) ? body.answers.map(normalizeAnswer) : [];
   const now = new Date().toISOString();
+  const playable = await loadPlayableQuiz(db, slug, now, "id, slug, title, youtube_url, publish_at");
 
-  const quiz = await db.prepare(`
-    SELECT id, slug, title, youtube_url
-    FROM site_quizzes
-    WHERE slug = ?
-      AND status = 'published'
-      AND (publish_at IS NULL OR publish_at <= ?)
-    LIMIT 1
-  `).bind(slug, now).first();
+  if (!playable) return json({ error: "Quiz not found." }, 404);
 
-  if (!quiz) return json({ error: "Quiz not found." }, 404);
-
+  const { quiz, launchQuiz } = playable;
   const questionResult = await db.prepare(`
     SELECT position, correct_answer, explanation
     FROM site_questions
@@ -258,7 +327,7 @@ async function scoreQuiz(request, db, slug) {
     total: questions.length,
     percentage: Math.round((score / questions.length) * 100),
     results,
-    youtube_url: quiz.youtube_url || "",
+    youtube_url: launchQuiz ? "" : (quiz.youtube_url || ""),
   });
 }
 
