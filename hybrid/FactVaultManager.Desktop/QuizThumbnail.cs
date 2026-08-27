@@ -133,6 +133,17 @@ public sealed class QuizThumbnailRenderer
         using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
             encoder.Save(stream);
         File.Move(temporary, path, overwrite: true);
+
+        if (!vertical)
+        {
+            QuizYouTubePackaging.Write(
+                folder,
+                metadata,
+                questions,
+                visual,
+                logoPath,
+                vertical: false);
+        }
         return path;
     }
 
