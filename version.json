@@ -1,12 +1,12 @@
 {
     "latest_version": "1.0.7",
-    "build": 26,
+    "build": 27,
     "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
     "release_notes": [
+        "Added batch scheduling of missing promo Shorts from Release Readiness: YouTube and Facebook upload now and publish later on each quiz release day, while Instagram remains pending for release-day publishing.",
         "Promo Shorts now prefer the first Insane question but fall back to the final quiz question when a quiz has no Insane-round question.",
         "Added batch preparation of missing promo Shorts from Scheduled Release Readiness, with one shared Fable CTA narration reused across the batch and no automatic publishing.",
         "Added Scheduled Release Readiness for future quiz launches, promo preparation, tracking links, platform uploads, Related video and first-comment checks.",
-        "Improved production completion, scheduling, publishing, rollback, and project-state recovery workflows.",
         "Expanded automated regression coverage and release-readiness checks."
     ]
 }
