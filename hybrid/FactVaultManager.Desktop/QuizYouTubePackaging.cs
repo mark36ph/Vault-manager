@@ -59,32 +59,26 @@ public static class QuizYouTubePackaging
         };
         EnsureDistinctTitles(titles, topic, perfect, episode);
 
-        var subtitles = new[]
-        {
-            topicUpper,
-            topicUpper,
-            topicUpper,
-        };
         var categoryHook = CategoryHook(topic);
         return
         [
             new QuizYouTubePackagingVariant(
                 "A",
-                "Score challenge",
+                "Search-focused title + score-challenge thumbnail",
                 titles[0],
-                new QuizThumbnailSettings($"CAN YOU GET {perfect}?", subtitles[0]).Normalize(),
+                new QuizThumbnailSettings($"CAN YOU SCORE {perfect}?", topicUpper).Normalize(),
                 "Thumbnail A - Score.png"),
             new QuizYouTubePackagingVariant(
                 "B",
-                "Expert challenge",
+                "Score-challenge title + expert thumbnail",
                 titles[1],
-                new QuizThumbnailSettings("ONLY EXPERTS", subtitles[1]).Normalize(),
+                new QuizThumbnailSettings("ONLY EXPERTS", topicUpper).Normalize(),
                 "Thumbnail B - Experts.png"),
             new QuizYouTubePackagingVariant(
                 "C",
-                "Category challenge",
+                "Expert title + category-specific thumbnail",
                 titles[2],
-                new QuizThumbnailSettings(categoryHook, subtitles[2]).Normalize(),
+                new QuizThumbnailSettings(categoryHook, topicUpper).Normalize(),
                 "Thumbnail C - Category.png"),
         ];
     }
@@ -165,8 +159,6 @@ public static class QuizYouTubePackaging
             return "Quiz";
         if (string.Equals(topic, "Nature & Animals", StringComparison.OrdinalIgnoreCase))
             return "Nature";
-        if (string.Equals(topic, "Arts & Literature", StringComparison.OrdinalIgnoreCase))
-            return "Arts & Literature";
         return topic;
     }
 
