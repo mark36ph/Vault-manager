@@ -84,7 +84,7 @@ public sealed class QuizFinalRenderTimelineTests
             .ToArray();
         Assert.Equal(new[] { QuizAnimatedBackground.TrackName, QuizFinalRenderTimeline.PrimaryVideoTrackName }, videoNames);
         Assert.DoesNotContain(auxiliaryClip.Id, prepared.Scenes.Single().ClipIds);
-        Assert.Single(prepared.Tracks.Where(track => track.Kind == NativeTimelineTrackKind.Audio));
+        Assert.Single(prepared.Tracks, track => track.Kind == NativeTimelineTrackKind.Audio);
 
         var plan = NativeQuizFinalRenderer.CreatePlan(prepared);
         Assert.Equal(2, plan.ForegroundClips.Count);
