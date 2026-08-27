@@ -30,7 +30,7 @@ public partial class MainShellWindow
             {
                 exportNav.Click += (_, _) => Dispatcher.BeginInvoke(
                     DispatcherPriority.ContextIdle,
-                    new Action(EnsureQuizBatchRenderButton));
+                    new Action(() => EnsureQuizBatchRenderButton()));
                 _quizBatchButtonExportNavHooked = true;
             }
         }
