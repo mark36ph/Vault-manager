@@ -1,3 +1,5 @@
+import { listSiteQuizzes, upsertSiteQuiz } from "./site-quiz-admin.js";
+
 const SOURCES = {
   fb: "facebook",
   facebook: "facebook",
@@ -43,6 +45,16 @@ export default {
       if (path === "api/campaigns" && request.method === "GET") {
         requireApiKey(request, env);
         return listCampaigns(env);
+      }
+
+      if (path === "api/site/quizzes" && request.method === "GET") {
+        requireApiKey(request, env);
+        return listSiteQuizzes(env);
+      }
+
+      if (path === "api/site/quizzes" && request.method === "POST") {
+        requireApiKey(request, env);
+        return upsertSiteQuiz(request, env);
       }
 
       if (path === "api/stats" && request.method === "GET") {
