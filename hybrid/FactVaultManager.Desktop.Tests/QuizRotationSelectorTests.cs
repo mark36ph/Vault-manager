@@ -126,7 +126,7 @@ public sealed class QuizRotationSelectorTests
         var selected = QuizDifficultyProgressionSelector.Select(questions, 10, random: new Random(123));
 
         Assert.Equal(10, selected.Count);
-        Assert.Empty(selected.Where(question => question.DifficultyLevel == QuizDifficulty.Insane));
+        Assert.DoesNotContain(selected, question => question.DifficultyLevel == QuizDifficulty.Insane);
         Assert.Equal(selected.OrderBy(question => question.DifficultyLevel).Select(question => question.Id),
             selected.Select(question => question.Id));
     }
