@@ -194,7 +194,7 @@ public partial class MainShellWindow
         root.Children.Add(stats);
 
         _scheduledReadinessGrid = BuildManagerGrid();
-        _scheduledReadinessGrid.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
+        ScrollViewer.SetHorizontalScrollBarVisibility(_scheduledReadinessGrid, ScrollBarVisibility.Auto);
         _scheduledReadinessGrid.MouseDoubleClick += (_, _) => OpenScheduledReadinessInUploadManager();
         _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn
         {
