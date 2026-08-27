@@ -63,10 +63,12 @@ public partial class MainShellWindow
         try
         {
             var result = GenerateHistoricalYouTubePackage(history);
+            RefreshUploadManager();
             MessageBox.Show(
                 this,
                 "YouTube A/B package created.\n\n" +
                 "3 title candidates and 3 thumbnail candidates are ready for YouTube Test & Compare.\n\n" +
+                "The Upload Manager now shows Package A's varied click-focused title instead of the older generic publishing title.\n\n" +
                 $"Saved in:\n{result.ProjectFolder}\n\n" +
                 $"Manifest:\n{result.ManifestPath}\n\n" +
                 "Thumbnail.png and your existing upload records were not changed.",
@@ -102,7 +104,7 @@ public partial class MainShellWindow
         if (MessageBox.Show(
                 this,
                 $"Generate 3 YouTube title candidates and 3 thumbnail candidates for {histories.Count:N0} long-form quiz{(histories.Count == 1 ? "" : "zes")} created today?\n\n" +
-                "This is ideal for backfilling the category batch you have just rendered. Thumbnail.png, videos and upload records will not be changed.",
+                "This also refreshes each Upload Manager row to the varied Package A title. Thumbnail.png, videos and upload records will not be changed.",
                 "Generate Today's YouTube A/B Packages",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question) != MessageBoxResult.Yes)
@@ -138,6 +140,8 @@ public partial class MainShellWindow
             sourceButton.IsEnabled = true;
         }
 
+        RefreshUploadManager();
+
         var summary = new StringBuilder();
         summary.AppendLine($"A/B packages created: {succeeded:N0}");
         summary.AppendLine($"Failed: {failed.Count:N0}");
@@ -152,6 +156,7 @@ public partial class MainShellWindow
         }
         summary.AppendLine();
         summary.AppendLine("Each successful project now contains YouTube Title A/B/C files, Thumbnail A/B/C PNGs and YouTube Packaging.json.");
+        summary.AppendLine("Upload Manager has also been refreshed to show each quiz's Package A title.");
 
         MessageBox.Show(this, summary.ToString().Trim(), "YouTube A/B Packages",
             MessageBoxButton.OK,
@@ -169,12 +174,17 @@ public partial class MainShellWindow
             _data.GetQuizHistoryQuestions(history.Id),
             CreateQuizQuestionLookup(),
             _data.LoadQuizLogoPath());
-        return QuizYouTubePackaging.Write(
+        var result = QuizYouTubePackaging.Write(
             plan.ProjectFolder,
             plan.Metadata,
             plan.Questions,
             plan.Visual,
             plan.LogoPath,
             plan.Vertical);
+        var initialTitle = result.Variants.FirstOrDefault(variant =>
+            string.Equals(variant.Key, "A", StringComparison.OrdinalIgnoreCase))?.Title;
+        if (!string.IsNullOrWhiteSpace(initialTitle))
+            _data.UpdateQuizHistoryYouTubeTitle(history.Id, initialTitle);
+        return result;
     }
 }
