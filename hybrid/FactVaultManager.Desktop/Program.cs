@@ -34,6 +34,7 @@ public static class Program
             mainWindow.InitializeQuizHeaderActionsForApp();
             mainWindow.InitializeQuizWorkspaceNavigationForApp();
             mainWindow.InitializeFactburstTrackerForApp();
+            mainWindow.InitializeScheduledReleaseReadinessForApp();
             mainWindow.InitializePromoRelatedVideoChecklistForApp();
             application.Run(mainWindow);
         }
