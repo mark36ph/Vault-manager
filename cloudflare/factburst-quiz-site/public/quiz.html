@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07103d">
+  <meta name="description" content="Play a Factburst quiz and see how many questions you can get right.">
+  <title>Play Quiz | Factburst Quiz</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body data-page="quiz">
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Factburst Quiz home">
+      <span class="brand-mark">F</span>
+      <span>Factburst Quiz</span>
+    </a>
+    <nav class="top-nav" aria-label="Main navigation">
+      <a href="/">All quizzes</a>
+    </nav>
+  </header>
+
+  <main class="shell quiz-shell">
+    <section id="quiz-loading" class="quiz-stage loading-card">
+      <p>Loading quiz…</p>
+    </section>
+
+    <section id="quiz-player" class="quiz-stage hidden" aria-live="polite">
+      <div class="quiz-meta-row">
+        <span class="category-pill" id="quiz-category"></span>
+        <span id="quiz-progress-text">Question 1 of 10</span>
+      </div>
+      <h1 id="quiz-title" class="quiz-title"></h1>
+      <div class="progress-track" aria-hidden="true">
+        <div id="quiz-progress-bar" class="progress-bar"></div>
+      </div>
+      <div class="question-card">
+        <p class="question-number" id="question-number"></p>
+        <h2 id="question-text"></h2>
+        <div id="answer-list" class="answer-list"></div>
+      </div>
+      <div class="quiz-controls">
+        <button id="next-question" class="button button-primary" type="button" disabled>Next question</button>
+      </div>
+    </section>
+
+    <section id="quiz-results" class="results-card hidden" aria-live="polite">
+      <p class="eyebrow">Quiz complete</p>
+      <div class="result-score" id="result-score">0/10</div>
+      <h1 id="result-heading">Nice work</h1>
+      <p id="result-copy" class="result-copy"></p>
+      <div id="result-breakdown" class="result-breakdown"></div>
+      <div class="result-actions">
+        <a id="watch-video" class="button button-primary hidden" target="_blank" rel="noopener noreferrer">Watch the full quiz</a>
+        <button id="share-score" class="button button-secondary" type="button">Share score</button>
+        <a class="button button-secondary" href="/">Play another quiz</a>
+      </div>
+    </section>
+
+    <section id="quiz-error" class="empty-state hidden">
+      <h1>Quiz unavailable</h1>
+      <p id="quiz-error-copy">This quiz could not be loaded.</p>
+      <a class="button button-primary" href="/">Back to quizzes</a>
+    </section>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
