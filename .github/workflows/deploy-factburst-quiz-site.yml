@@ -1,0 +1,175 @@
+name: Deploy Factburst Quiz Website
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "cloudflare/factburst-quiz-site/**"
+      - ".github/workflows/deploy-factburst-quiz-site.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: factburst-quiz-site-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy quiz website
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check Cloudflare credentials
+        id: credentials
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [[ -z "${CLOUDFLARE_API_TOKEN}" || -z "${CLOUDFLARE_ACCOUNT_ID}" ]]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::error::CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are required."
+            exit 1
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Resolve Factburst D1 database
+        id: resolve
+        shell: bash
+        working-directory: cloudflare/factburst-quiz-site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+
+          api="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
+          auth=(--header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" --header "Content-Type: application/json")
+
+          scripts="$(curl --fail-with-body --silent --show-error "${auth[@]}" "${api}/workers/scripts")"
+          if [[ "$(jq -r '.success // false' <<<"${scripts}")" != "true" ]]; then
+            echo "Cloudflare did not return the account Workers." >&2
+            jq -r '.errors[]?.message // empty' <<<"${scripts}" >&2
+            exit 1
+          fi
+
+          matches=()
+          while IFS= read -r script_id; do
+            [[ -z "${script_id}" ]] && continue
+            encoded_id="$(jq -rn --arg value "${script_id}" '$value|@uri')"
+            settings="$(curl --fail-with-body --silent --show-error "${auth[@]}" "${api}/workers/scripts/${encoded_id}/settings" 2>/dev/null || true)"
+            if [[ -z "${settings}" || "$(jq -r '.success // false' <<<"${settings}" 2>/dev/null)" != "true" ]]; then
+              continue
+            fi
+            d1_id="$(jq -r '.result.bindings[]? | select(.type == "d1" and .name == "DB") | (.database_id // .id // empty)' <<<"${settings}" | head -n 1)"
+            [[ -z "${d1_id}" ]] && continue
+            matches+=("${script_id}|${d1_id}")
+          done < <(jq -r '.result[]?.id // empty' <<<"${scripts}")
+
+          if [[ ${#matches[@]} -eq 0 ]]; then
+            echo "Could not find the existing Factburst D1 database binding." >&2
+            echo "The tracker Worker should have a D1 binding named DB." >&2
+            exit 1
+          fi
+
+          selected=""
+          for candidate in "${matches[@]}"; do
+            candidate_name="${candidate%%|*}"
+            if [[ "${candidate_name}" == "factburst-quiz-site" ]]; then
+              selected="${candidate}"
+              break
+            fi
+          done
+
+          if [[ -z "${selected}" ]]; then
+            preferred=()
+            for candidate in "${matches[@]}"; do
+              candidate_name="${candidate%%|*}"
+              if [[ "${candidate_name}" =~ [Tt][Rr][Aa][Cc][Kk][Ee][Rr] ]]; then
+                preferred+=("${candidate}")
+              fi
+            done
+
+            if [[ ${#preferred[@]} -eq 1 ]]; then
+              selected="${preferred[0]}"
+            elif [[ ${#matches[@]} -eq 1 ]]; then
+              selected="${matches[0]}"
+            else
+              echo "More than one Worker has a DB binding and the Factburst database could not be selected safely." >&2
+              printf 'Candidate: %s\n' "${matches[@]%%|*}" >&2
+              exit 1
+            fi
+          fi
+
+          IFS='|' read -r source_worker d1_id <<<"${selected}"
+          database="$(curl --fail-with-body --silent --show-error "${auth[@]}" "${api}/d1/database/${d1_id}")"
+          if [[ "$(jq -r '.success // false' <<<"${database}")" != "true" ]]; then
+            echo "Cloudflare could not read the D1 database details. The token needs D1 Read permission." >&2
+            jq -r '.errors[]?.message // empty' <<<"${database}" >&2
+            exit 1
+          fi
+
+          d1_name="$(jq -r '.result.name // empty' <<<"${database}")"
+          if [[ -z "${d1_name}" ]]; then
+            echo "The Factburst D1 database did not have a name." >&2
+            exit 1
+          fi
+
+          jq -n \
+            --arg database_id "${d1_id}" \
+            --arg database_name "${d1_name}" \
+            '{
+              name: "factburst-quiz-site",
+              main: "worker.js",
+              compatibility_date: "2026-08-27",
+              keep_vars: true,
+              assets: {
+                directory: "./public",
+                binding: "ASSETS"
+              },
+              d1_databases: [
+                {
+                  binding: "DB",
+                  database_name: $database_name,
+                  database_id: $database_id
+                }
+              ]
+            }' > wrangler.ci.json
+
+          echo "database_name=${d1_name}" >> "$GITHUB_OUTPUT"
+          echo "source_worker=${source_worker}" >> "$GITHUB_OUTPUT"
+          echo "Using D1 database '${d1_name}' from Worker '${source_worker}'."
+
+      - name: Deploy to Cloudflare
+        id: deploy
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare/factburst-quiz-site
+          wranglerVersion: "4"
+          command: deploy --config wrangler.ci.json
+
+      - name: Deployment summary
+        if: success()
+        shell: bash
+        env:
+          DATABASE_NAME: ${{ steps.resolve.outputs.database_name }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          echo "### Factburst Quiz Website deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Worker: \`factburst-quiz-site\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "D1: \`${DATABASE_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "${DEPLOYMENT_URL}" ]]; then
+            echo "Website: ${DEPLOYMENT_URL}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "The site tables are created automatically on the first API request." >> "$GITHUB_STEP_SUMMARY"
