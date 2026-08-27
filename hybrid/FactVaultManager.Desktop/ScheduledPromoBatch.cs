@@ -43,6 +43,19 @@ public static class ScheduledPromoBatchPlanner
             .ToList();
     }
 
+    public static IReadOnlyList<ScheduledReleaseReadinessRow> SelectMissingRelatedVideos(
+        IEnumerable<ScheduledReleaseReadinessRow> rows)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        return rows
+            .Where(row => string.Equals(row.YouTubePromo, "Uploaded", StringComparison.Ordinal) &&
+                          string.Equals(row.RelatedVideo, "Needs setting", StringComparison.Ordinal))
+            .OrderBy(row => row.PublishAt)
+            .ThenBy(row => row.Quiz, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(row => row.HistoryId)
+            .ToList();
+    }
+
     public static DateTimeOffset ResolvePromoPublishAt(
         DateTimeOffset longFormPublishAt,
         string? timeText,
