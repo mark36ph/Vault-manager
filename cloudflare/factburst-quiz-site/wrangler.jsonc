@@ -6,5 +6,11 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS"
-  }
+  },
+  "r2_buckets": [
+    {
+      "binding": "QUIZ_IMAGES",
+      "bucket_name": "factburst-quiz-images"
+    }
+  ]
 }
