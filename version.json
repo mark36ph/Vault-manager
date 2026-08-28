@@ -1,12 +1,13 @@
 {
-    "latest_version": "1.0.11",
-    "build": 36,
+    "latest_version": "1.0.12",
+    "build": 37,
     "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
     "release_notes": [
-        "Growth Autopilot now creates or reuses public YouTube category playlists such as Science Quizzes and automatically adds each newly scheduled full quiz to the matching playlist.",
-        "Long-form quizzes keep the zero-second opening so Question 1 starts immediately instead of spending viewer retention on an intro.",
-        "Full quizzes now finish on a stable 15-second end-screen-safe card with dedicated Next Quiz and Quiz Playlist areas instead of spinning away at the end.",
-        "Playlist failures are non-blocking: the quiz stays scheduled and the app reports the playlist problem without stopping the rest of Autopilot.",
-        "Existing Autopilot release preparation still creates promos, tracking links and website releases and prepares YouTube/Facebook promo scheduling."
+        "Analytics Autopilot now reads YouTube watch-time, average-view-percentage, subscriber and engagement metrics for published full quizzes after YouTube is reconnected with analytics permission.",
+        "Full quizzes are automatically classified as Learning, Winner, Healthy, Packaging rescue or Weak topic using view velocity and watch quality against the channel baseline.",
+        "Generate + Autopilot now steers future batch categories toward proven performers while reserving rotation and experiment slots so the channel keeps learning.",
+        "Packaging-rescue videos automatically get a fresh local A/B title and thumbnail package prepared without silently changing a live YouTube video.",
+        "Analytics refresh runs automatically after startup and alongside YouTube Manager refreshes; existing public view history is used as a fallback until richer analytics is available.",
+        "Growth Autopilot continues to organise category playlists, start Question 1 at zero seconds and reserve the final 15 seconds for YouTube end-screen elements."
     ]
 }

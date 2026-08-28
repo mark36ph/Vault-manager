@@ -17,6 +17,8 @@ public sealed record YouTubeOAuthTokens(
 public sealed class YouTubeOAuthService
 {
     public const string ManagementScope = "https://www.googleapis.com/auth/youtube.force-ssl";
+    public const string AnalyticsReadonlyScope = "https://www.googleapis.com/auth/yt-analytics.readonly";
+    public static string RequiredScopes => $"{ManagementScope} {AnalyticsReadonlyScope}";
     private const string AuthorizationEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
     private const string TokenEndpoint = "https://oauth2.googleapis.com/token";
     private const string RevokeEndpoint = "https://oauth2.googleapis.com/revoke";
@@ -119,7 +121,7 @@ public sealed class YouTubeOAuthService
             ["client_id"] = clientId,
             ["redirect_uri"] = redirectUri,
             ["response_type"] = "code",
-            ["scope"] = ManagementScope,
+            ["scope"] = RequiredScopes,
             ["access_type"] = "offline",
             ["prompt"] = "consent",
             ["state"] = state,
