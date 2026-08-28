@@ -1,13 +1,12 @@
 {
-  "latest_version": "1.0.13",
-  "build": 38,
+  "latest_version": "1.0.14",
+  "build": 39,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "YouTube Manager Analytics is now a long-form Growth Autopilot dashboard instead of being dominated by Shorts.",
-    "The main table now shows full-video category, views per day, average percentage viewed, watch minutes, subscriber gain, Growth score and Winner/Healthy/Packaging rescue/Weak topic status.",
-    "The recommendation card now shows the actual next full-video category Growth Autopilot would choose and explains the performance signal behind that choice.",
-    "Summary cards now focus on full-video growth: videos scored, 28-day full-video views/likes/comments and the top category by Growth score.",
-    "Refresh waits for both public YouTube statistics and richer Analytics Autopilot data so the growth dashboard remains the final visible state.",
-    "Existing Growth Autopilot category steering, A/B rescue-package preparation, playlists, promos, tracking, website preparation and scheduling remain automatic."
+    "YouTube Growth Analytics now wires directly from the Main window instead of relying on a dynamically discovered WPF Loaded hook.",
+    "Rebuilding or revisiting the Analytics section automatically reattaches Growth dashboard wiring and restores the long-form view.",
+    "Refresh from YouTube now explicitly waits for public YouTube statistics and the richer Growth Analytics refresh before rendering the final dashboard.",
+    "The Analytics page remains long-form first with full-video views/day, average viewed percentage, watch minutes, subscriber change, Growth score and status.",
+    "The recommendation card continues to show the next full-video category Growth Autopilot will actually choose."
   ]
 }
