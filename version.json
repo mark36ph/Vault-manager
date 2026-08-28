@@ -1,12 +1,11 @@
 {
-  "latest_version": "1.0.15",
-  "build": 40,
+  "latest_version": "1.0.16",
+  "build": 41,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Analytics Autopilot now distinguishes a disabled YouTube Analytics API from a missing OAuth permission instead of treating every HTTP 403 as a reconnect problem.",
-    "When the YouTube Analytics API is disabled, the app now directs you to enable it in the same Google Cloud project as the YouTube OAuth client and confirms that reconnecting is not required.",
-    "Missing Analytics OAuth scope still gives the correct one-time reconnect guidance.",
-    "Other Google Analytics API failures now surface Google's useful error message so setup problems are easier to diagnose.",
-    "Growth Analytics, performance-weighted Autopilot category selection, A/B rescue packages and long-form dashboard behavior remain unchanged."
+    "YouTube Manager's yellow recommendation card now stays aligned with Growth Autopilot and always recommends the next full quiz rather than reverting to a Short after refresh.",
+    "The recommendation uses the same performance-weighted category plan as Generate + Autopilot, so the dashboard and production workflow now agree on what to create next.",
+    "Legacy YouTube refreshes can no longer overwrite the Growth recommendation with the old Short/full-video balancing rule.",
+    "The working long-form Growth Analytics table, watch-time metrics, retention scoring and category learning remain unchanged."
   ]
 }
