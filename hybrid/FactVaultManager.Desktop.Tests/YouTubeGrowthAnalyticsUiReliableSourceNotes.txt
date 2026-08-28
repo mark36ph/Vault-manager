@@ -1,1 +1,0 @@
-Build 39 regression note: Growth Analytics UI initialization is called explicitly from MainShellWindow.BuildInfo and no longer depends solely on DataGrid/Button class Loaded discovery.
