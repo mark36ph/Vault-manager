@@ -70,8 +70,10 @@ public sealed class QuizAutopilotTests
                 42);
             Assert.Equal(QuizTypeCatalog.Logo, promoSource.Visual.QuizType);
             Assert.Equal(
-                Path.Combine(projectFolder, "QuestionMedia", "question-42.png"),
-                promoSource.Question.ImagePath);
+                Path.Combine(projectFolder, "QuestionMedia", "question-42.png")
+                    .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar),
+                promoSource.Question.ImagePath
+                    .Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar));
         }
         finally
         {
