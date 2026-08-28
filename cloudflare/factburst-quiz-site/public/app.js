@@ -248,9 +248,13 @@ async function initQuiz() {
       next.textContent = index === quiz.questions.length - 1 ? "See my score" : "Next question";
       next.disabled = !answers[index];
 
+      const imageUrl = typeof question.image_url === "string" ? question.image_url.trim() : "";
       const imageDataUrl = typeof question.image_data_url === "string" ? question.image_data_url.trim() : "";
-      if (questionVisual && questionImage && imageDataUrl.startsWith("data:image/png;base64,")) {
-        questionImage.src = imageDataUrl;
+      const imageSource = imageUrl.startsWith("/quiz-images/")
+        ? imageUrl
+        : (imageDataUrl.startsWith("data:image/png;base64,") ? imageDataUrl : "");
+      if (questionVisual && questionImage && imageSource) {
+        questionImage.src = imageSource;
         questionImage.alt = `Quiz image for question ${index + 1}`;
         questionVisual.classList.remove("hidden");
       } else if (questionVisual && questionImage) {

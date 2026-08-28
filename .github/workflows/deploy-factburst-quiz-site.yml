@@ -37,6 +37,20 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
+      - name: Ensure quiz image R2 bucket
+        shell: bash
+        working-directory: cloudflare/factburst-quiz-site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          bucket="factburst-quiz-images"
+          if ! npx --yes wrangler@4 r2 bucket info "${bucket}" >/dev/null 2>&1; then
+            echo "Creating R2 bucket '${bucket}'."
+            npx --yes wrangler@4 r2 bucket create "${bucket}" || npx --yes wrangler@4 r2 bucket info "${bucket}" >/dev/null
+          fi
+
       - name: Resolve Factburst D1 database from tracker
         id: resolve
         shell: bash
@@ -120,6 +134,7 @@ jobs:
           jq -n \
             --arg database_id "${d1_id}" \
             --arg database_name "${d1_name}" \
+            --arg r2_bucket_name "factburst-quiz-images" \
             '{
               name: "factburst-quiz-site",
               main: "worker.js",
@@ -135,12 +150,18 @@ jobs:
                   database_name: $database_name,
                   database_id: $database_id
                 }
+              ],
+              r2_buckets: [
+                {
+                  binding: "QUIZ_IMAGES",
+                  bucket_name: $r2_bucket_name
+                }
               ]
             }' > wrangler.ci.json
 
           echo "database_name=${d1_name}" >> "$GITHUB_OUTPUT"
           echo "source_worker=${source_worker}" >> "$GITHUB_OUTPUT"
-          echo "Using D1 database '${d1_name}' from tracker Worker '${source_worker}'."
+          echo "Using D1 database '${d1_name}' from tracker Worker '${source_worker}' with R2 bucket 'factburst-quiz-images'."
 
       - name: Deploy to Cloudflare
         id: deploy
@@ -164,8 +185,9 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Worker: \`factburst-quiz-site\`" >> "$GITHUB_STEP_SUMMARY"
           echo "D1: \`${DATABASE_NAME}\` (resolved from \`${SOURCE_WORKER}\`)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Quiz images: \`factburst-quiz-images\` (R2)" >> "$GITHUB_STEP_SUMMARY"
           if [[ -n "${DEPLOYMENT_URL}" ]]; then
             echo "Website: ${DEPLOYMENT_URL}" >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "The website Worker code and static assets have been restored/deployed independently of the tracker Worker." >> "$GITHUB_STEP_SUMMARY"
+          echo "The website Worker code, static assets, D1 metadata and R2 quiz images are deployed independently of the tracker Worker." >> "$GITHUB_STEP_SUMMARY"
