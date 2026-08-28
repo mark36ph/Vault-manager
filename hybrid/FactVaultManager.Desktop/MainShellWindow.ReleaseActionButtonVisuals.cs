@@ -54,8 +54,8 @@ public partial class MainShellWindow
         button.SetBinding(FrameworkElement.TagProperty, new Binding());
         button.SetValue(FrameworkElement.CursorProperty, System.Windows.Input.Cursors.Hand);
         button.SetValue(FrameworkElement.ToolTipProperty, "Open the workflow for this release task");
-        button.SetValue(FrameworkElement.MarginProperty, new Thickness(6, 4, 6, 4));
-        button.SetValue(FrameworkElement.MinHeightProperty, 30.0);
+        button.SetValue(FrameworkElement.MarginProperty, new Thickness(5, 2, 5, 2));
+        button.SetValue(FrameworkElement.MinHeightProperty, 26.0);
         button.AddHandler(Button.ClickEvent, new RoutedEventHandler(ScheduledReadinessFixRow_Click));
 
         var style = new Style(typeof(Button));
@@ -64,7 +64,8 @@ public partial class MainShellWindow
         style.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(1)));
         style.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
         style.Setters.Add(new Setter(Control.FontWeightProperty, FontWeights.SemiBold));
-        style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(12, 5, 12, 5)));
+        style.Setters.Add(new Setter(Control.FontSizeProperty, 13.0));
+        style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(10, 2, 10, 2)));
         style.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Center));
         style.Setters.Add(new Setter(Control.VerticalContentAlignmentProperty, VerticalAlignment.Center));
 
