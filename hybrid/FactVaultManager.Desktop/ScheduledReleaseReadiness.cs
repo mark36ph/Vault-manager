@@ -25,7 +25,7 @@ public sealed record ScheduledReleaseReadinessRow(
 
 public static class ScheduledReleaseReadinessPlanner
 {
-    public const int CheckCount = 9;
+    public const int CheckCount = 8;
 
     public static IReadOnlyList<ScheduledReleaseReadinessRow> Build(
         IEnumerable<QuizHistorySummary> histories,
@@ -73,7 +73,6 @@ public static class ScheduledReleaseReadinessPlanner
                              Bool(trackingReady) +
                              Bool(youtubePromo is not null) +
                              Bool(facebookPromo is not null) +
-                             Bool(instagramPromo is not null) +
                              Bool(relatedReady) +
                              Bool(firstCommentReady);
 
@@ -83,7 +82,6 @@ public static class ScheduledReleaseReadinessPlanner
                 tracking,
                 youtubePromo is not null,
                 facebookPromo is not null,
-                instagramPromo is not null,
                 relatedReady,
                 firstCommentReady);
 
@@ -99,7 +97,7 @@ public static class ScheduledReleaseReadinessPlanner
                 tracking,
                 youtubePromo is not null ? "Uploaded" : promoReady ? "Ready" : "Missing",
                 facebookPromo is not null ? "Uploaded" : promoReady ? "Ready" : "Missing",
-                instagramPromo is not null ? "Uploaded" : promoReady ? "Ready" : "Missing",
+                instagramPromo is not null ? "Uploaded" : promoReady ? "Release day" : "Waiting",
                 related,
                 firstCommentReady ? "Prepared" : "Missing",
                 readyCount,
@@ -152,7 +150,6 @@ public static class ScheduledReleaseReadinessPlanner
         string tracking,
         bool youtubePromo,
         bool facebookPromo,
-        bool instagramPromo,
         bool relatedReady,
         bool firstCommentReady)
     {
@@ -163,7 +160,6 @@ public static class ScheduledReleaseReadinessPlanner
         if (string.Equals(tracking, "Not configured", StringComparison.Ordinal)) return "Configure Link Tracker";
         if (!youtubePromo || !facebookPromo) return "Schedule promo";
         if (!relatedReady) return "Set Related video";
-        if (!instagramPromo) return "Publish Instagram promo";
         if (!firstCommentReady) return "Prepare first comment";
         return "Ready for release";
     }
