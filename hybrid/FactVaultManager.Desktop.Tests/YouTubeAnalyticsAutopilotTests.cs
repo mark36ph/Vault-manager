@@ -34,6 +34,48 @@ public sealed class YouTubeAnalyticsAutopilotTests
     }
 
     [Fact]
+    public void ApiFailureMessage_DistinguishesDisabledAnalyticsApiFromOAuthScope()
+    {
+        const string json = """
+        {
+          "error": {
+            "code": 403,
+            "message": "YouTube Analytics API has not been used in project 123 before or it is disabled.",
+            "errors": [{ "reason": "accessNotConfigured" }]
+          }
+        }
+        """;
+
+        var message = YouTubeAnalyticsAutopilotService.BuildApiFailureMessage(
+            System.Net.HttpStatusCode.Forbidden,
+            json);
+
+        Assert.Contains("YouTube Analytics API is not enabled", message, StringComparison.Ordinal);
+        Assert.Contains("You do not need to reconnect YouTube", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ApiFailureMessage_UsesReconnectOnlyForMissingPermission()
+    {
+        const string json = """
+        {
+          "error": {
+            "code": 403,
+            "message": "Insufficient Permission",
+            "errors": [{ "reason": "insufficientPermissions" }]
+          }
+        }
+        """;
+
+        var message = YouTubeAnalyticsAutopilotService.BuildApiFailureMessage(
+            System.Net.HttpStatusCode.Forbidden,
+            json);
+
+        Assert.Contains("saved Google token does not include Analytics read access", message, StringComparison.Ordinal);
+        Assert.Contains("reconnect once", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Classifier_FindsWinnerAndPackagingRescue()
     {
         var winner = new YouTubeGrowthMetric("winner", 1200, 0, 0, 52, 8, 0, 50, 7);
