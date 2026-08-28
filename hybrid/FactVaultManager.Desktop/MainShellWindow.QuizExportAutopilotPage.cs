@@ -50,7 +50,6 @@ public partial class MainShellWindow
 
         var actions = new StackPanel
         {
-            GridColumn = 2,
             VerticalAlignment = VerticalAlignment.Center,
             MinWidth = 190,
         };
@@ -103,10 +102,13 @@ public partial class MainShellWindow
 
         var expander = new Expander
         {
-            Header = "Settings & manual render options",
+            Header = new TextBlock
+            {
+                Text = "Settings & manual render options",
+                FontWeight = FontWeights.SemiBold,
+            },
             Content = content,
             IsExpanded = false,
-            FontWeight = FontWeights.SemiBold,
         };
         expander.Expanded += (_, _) => Dispatcher.BeginInvoke(
             DispatcherPriority.ContextIdle,
@@ -116,24 +118,23 @@ public partial class MainShellWindow
 
     private static FrameworkElement AutopilotStep(string number, string text)
     {
-        var row = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Margin = new Thickness(0, 2, 0, 2),
-        };
+        var row = new Grid { Margin = new Thickness(0, 2, 0, 2) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         row.Children.Add(new TextBlock
         {
             Text = number + ".",
-            Width = 20,
             FontWeight = FontWeights.SemiBold,
             Foreground = new SolidColorBrush(Color.FromRgb(37, 99, 235)),
         });
-        row.Children.Add(new TextBlock
+        var copy = new TextBlock
         {
             Text = text,
             TextWrapping = TextWrapping.Wrap,
             Foreground = new SolidColorBrush(Color.FromRgb(51, 65, 85)),
-        });
+        };
+        Grid.SetColumn(copy, 1);
+        row.Children.Add(copy);
         return row;
     }
 
