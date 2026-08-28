@@ -233,6 +233,8 @@ async function initQuiz() {
 
     title.textContent = quiz.title;
     category.textContent = quiz.category || "Quiz";
+    const quizLabel = `${quiz.category || ""} ${quiz.title || ""}`;
+    player.classList.toggle("logo-quiz", /\blogos?\b/i.test(quizLabel));
 
     let index = 0;
     const answers = new Array(quiz.questions.length).fill("");
@@ -289,7 +291,6 @@ async function initQuiz() {
       if (index < quiz.questions.length - 1) {
         index++;
         renderQuestion();
-        window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
 
