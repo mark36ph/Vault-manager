@@ -71,13 +71,11 @@ public static class ScheduledPromoBatchPlanner
             throw new ArgumentException("Enter the promo publication time as HH:mm, for example 18:00.");
         }
 
-        var localDate = longFormPublishAt.LocalDateTime.Date;
+        var localDate = longFormPublishAt.LocalDateTime.Date.AddDays(1);
         var localDateTime = DateTime.SpecifyKind(localDate.Add(time.ToTimeSpan()), DateTimeKind.Unspecified);
         if (TimeZoneInfo.Local.IsInvalidTime(localDateTime))
             throw new ArgumentException("That promo publication time does not exist because the clocks change then. Choose another time.");
         var scheduled = new DateTimeOffset(localDateTime, TimeZoneInfo.Local.GetUtcOffset(localDateTime));
-        if (scheduled < longFormPublishAt.AddMinutes(30))
-            throw new ArgumentException("Schedule each promo at least 30 minutes after its long-form quiz goes live.");
         if (scheduled < now.AddMinutes(10))
             throw new ArgumentException("Schedule promo publication for at least 10 minutes from now.");
         return scheduled;
