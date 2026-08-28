@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.16",
-  "build": 41,
+  "latest_version": "1.0.17",
+  "build": 42,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "YouTube Manager's yellow recommendation card now stays aligned with Growth Autopilot and always recommends the next full quiz rather than reverting to a Short after refresh.",
-    "The recommendation uses the same performance-weighted category plan as Generate + Autopilot, so the dashboard and production workflow now agree on what to create next.",
-    "Legacy YouTube refreshes can no longer overwrite the Growth recommendation with the old Short/full-video balancing rule.",
-    "The working long-form Growth Analytics table, watch-time metrics, retention scoring and category learning remain unchanged."
+    "YouTube Growth Analytics now always shows a real quiz category in the Top growth category card instead of the Learning status.",
+    "While all recent full videos are still learning, the card uses the highest average Growth score among their actual categories.",
+    "Once mature Growth evidence exists, learning rows remain excluded from the top-category ranking so early data cannot displace established performance.",
+    "The full-video recommendation card and existing Growth Autopilot scoring behavior remain unchanged."
   ]
 }
