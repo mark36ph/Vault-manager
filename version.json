@@ -1,11 +1,13 @@
 {
-  "latest_version": "1.0.18",
-  "build": 43,
+  "latest_version": "1.0.19",
+  "build": 44,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "First Comment Autopilot now watches newly scheduled full YouTube quizzes and automatically posts the prepared first comment after YouTube confirms the video is public.",
-    "Before posting, the app reuses the existing remote comment-dedupe check, so an existing comment from the connected Factburst channel is recorded instead of duplicated.",
-    "The watchdog runs shortly after startup and every five minutes while the app is open, and continues watching future releases across app restarts.",
-    "Build 43 avoids retroactive back-catalogue commenting by activating only for new/future scheduled releases, with a small grace window for a quiz that has just gone live."
+    "Full Autopilot adds Facebook first-comment posting with remote Page-comment dedupe after a scheduled Reel is confirmed live.",
+    "A post-release YouTube audit now verifies public status, saved title, thumbnail presence, category playlist, tracker campaign, website quiz and first-comment state, and safely repairs missing playlist, tracking and website steps.",
+    "Winner full videos automatically queue an extra production slot for their category and generate up to three native Factburst promo Shorts from different questions, scheduled across later days with subscriber notifications disabled.",
+    "Packaging rescue remains automatic and now has one clear Open rescue package action beside YouTube Analytics for the selected rescue video.",
+    "YouTube comment triage now refreshes unattended, identifies comments needing replies and prepares short reply drafts in the Comments manager for approval instead of sending viewer replies automatically.",
+    "All Full Autopilot subsystems retry independently, so a temporary failure on one platform does not stop the other automation work."
   ]
 }
