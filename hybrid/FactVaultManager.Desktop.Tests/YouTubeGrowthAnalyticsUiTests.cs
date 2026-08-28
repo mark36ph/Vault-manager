@@ -24,7 +24,7 @@ public sealed class YouTubeGrowthAnalyticsUiTests
     }
 
     [Fact]
-    public void Summary_IgnoresLearningRowsWhenChoosingTopGrowthCategory()
+    public void Summary_IgnoresLearningRowsWhenChoosingTopGrowthCategoryIfMatureEvidenceExists()
     {
         var now = DateTime.UtcNow;
         var snapshots = new List<YouTubeGrowthSnapshot>
@@ -42,16 +42,31 @@ public sealed class YouTubeGrowthAnalyticsUiTests
     }
 
     [Fact]
-    public void Summary_ExplainsLearningWhenNoMatureFullVideoExists()
+    public void Summary_UsesBestRealCategoryWhileAllFullVideosAreLearning()
     {
         var now = DateTime.UtcNow;
         var summary = YouTubeGrowthUiSummaryBuilder.Build(
             ["Mathematics"],
-            [Snapshot(1, "Mathematics", 55, "Learning", now)]);
+            [
+                Snapshot(1, "Mathematics", 55, "Learning", now),
+                Snapshot(2, "Space", 72, "Learning", now),
+                Snapshot(3, "Space", 82, "Learning", now),
+                Snapshot(4, "History", 76, "Learning", now),
+            ]);
 
         Assert.Equal("Mathematics", summary.RecommendedCategory);
-        Assert.Equal("Learning", summary.TopCategory);
+        Assert.Equal("Space", summary.TopCategory);
+        Assert.NotEqual("Learning", summary.TopCategory);
         Assert.Contains("still learning", summary.RecommendationReason, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Summary_FallsBackToRecommendedCategoryWhenNoSnapshotsExist()
+    {
+        var summary = YouTubeGrowthUiSummaryBuilder.Build(["Mathematics"], []);
+
+        Assert.Equal("Mathematics", summary.TopCategory);
+        Assert.NotEqual("Learning", summary.TopCategory);
     }
 
     private static YouTubeGrowthSnapshot Snapshot(
