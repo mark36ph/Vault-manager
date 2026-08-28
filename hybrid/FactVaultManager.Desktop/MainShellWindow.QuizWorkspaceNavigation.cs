@@ -147,8 +147,9 @@ public partial class MainShellWindow
             BuildQuizWorkflowContinueButton("export", "Continue to Export"));
         _quizWorkspacePages["export"] = BuildQuizWorkspacePage(
             "Export",
-            "Configure Resolve format, quiz branding, presentation, narration, sound effects, and background music.",
-            exportCard);
+            "For normal production, use Autopilot. Open the settings section only when you want to change voice, branding, effects, music, video format, or use a manual render.",
+            BuildQuizAutopilotPrimaryPanel(),
+            BuildQuizExportSettingsExpander(exportCard));
 
         SelectQuizWorkspacePage(_quizWorkspaceSelectedPage);
     }
