@@ -38,8 +38,10 @@ public static class YouTubeGrowthUiSummaryBuilder
             .Where(snapshot => !string.Equals(snapshot.Label, "Learning", StringComparison.OrdinalIgnoreCase))
             .Where(snapshot => !string.Equals(snapshot.Label, "Historical", StringComparison.OrdinalIgnoreCase))
             .ToList();
-        var topCategory = mature
-            .GroupBy(snapshot => snapshot.Category, StringComparer.OrdinalIgnoreCase)
+        var topCategorySource = mature.Count > 0 ? mature : latest;
+        var topCategory = topCategorySource
+            .Where(snapshot => !string.IsNullOrWhiteSpace(snapshot.Category))
+            .GroupBy(snapshot => snapshot.Category.Trim(), StringComparer.OrdinalIgnoreCase)
             .Select(group => new
             {
                 Category = group.Key,
@@ -48,7 +50,7 @@ public static class YouTubeGrowthUiSummaryBuilder
             .OrderByDescending(item => item.Score)
             .ThenBy(item => item.Category, StringComparer.OrdinalIgnoreCase)
             .Select(item => item.Category)
-            .FirstOrDefault() ?? "Learning";
+            .FirstOrDefault() ?? recommended;
 
         var recommendedRows = mature
             .Where(snapshot => string.Equals(snapshot.Category, recommended, StringComparison.OrdinalIgnoreCase))
