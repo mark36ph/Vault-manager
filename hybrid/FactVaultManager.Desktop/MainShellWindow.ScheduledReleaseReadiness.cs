@@ -14,11 +14,14 @@ public partial class MainShellWindow
     private int _scheduledReadinessTabIndex = -1;
     private DataGrid? _scheduledReadinessGrid;
     private ComboBox? _scheduledReadinessHorizon;
+    private ComboBox? _scheduledReadinessView;
+    private Button? _scheduledReadinessOpenButton;
     private TextBlock? _scheduledReadinessScheduledText;
     private TextBlock? _scheduledReadinessReadyText;
-    private TextBlock? _scheduledReadinessPromoText;
-    private TextBlock? _scheduledReadinessTrackingText;
+    private TextBlock? _scheduledReadinessAttentionText;
     private TextBlock? _scheduledReadinessStatusText;
+    private IReadOnlyList<ScheduledReleaseReadinessRow> _scheduledReadinessRows = Array.Empty<ScheduledReleaseReadinessRow>();
+    private string _scheduledReadinessTrackerNote = "";
     private bool _scheduledReadinessRefreshing;
 
     public void InitializeScheduledReleaseReadinessForApp()
@@ -87,7 +90,7 @@ public partial class MainShellWindow
         {
             Content = "◷   Release Readiness",
             Tag = _scheduledReadinessTabIndex.ToString(),
-            ToolTip = "Check every scheduled long-form quiz, promo, tracking link and release task before it goes live.",
+            ToolTip = "See which scheduled quizzes still need attention before release.",
         };
         if (FindResource("NavButtonStyle") is Style navStyle)
             button.Style = navStyle;
@@ -106,16 +109,14 @@ public partial class MainShellWindow
         var root = new Grid { Margin = new Thickness(22, 18, 22, 20) };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        var header = new Grid { Margin = new Thickness(0, 0, 0, 14) };
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var heading = new StackPanel();
+        var heading = new StackPanel { Margin = new Thickness(0, 0, 0, 14) };
         heading.Children.Add(new TextBlock
         {
-            Text = "Scheduled Release Readiness",
+            Text = "Release Readiness",
             FontFamily = new FontFamily("Segoe UI Variable Display"),
             FontSize = 28,
             FontWeight = FontWeights.SemiBold,
@@ -123,79 +124,119 @@ public partial class MainShellWindow
         });
         heading.Children.Add(new TextBlock
         {
-            Text = "See what is ready before each scheduled long-form quiz goes live: package, promo, tracking, platform uploads, Related video and first comment.",
+            Text = "Start with anything that needs attention. The page now shows the next thing to fix instead of every release check at once.",
             Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             Margin = new Thickness(0, 3, 0, 0),
             TextWrapping = TextWrapping.Wrap,
         });
-        header.Children.Add(heading);
+        root.Children.Add(heading);
 
-        var actions = new StackPanel
+        var stats = new Grid { Margin = new Thickness(0, 0, 0, 14) };
+        for (var index = 0; index < 3; index++)
+            stats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        AddScheduledReadinessStat(stats, 0, 3, "Scheduled", Color.FromRgb(0, 204, 255), out _scheduledReadinessScheduledText);
+        AddScheduledReadinessStat(stats, 1, 3, "Ready", Color.FromRgb(70, 235, 115), out _scheduledReadinessReadyText);
+        AddScheduledReadinessStat(stats, 2, 3, "Need attention", Color.FromRgb(255, 202, 45), out _scheduledReadinessAttentionText);
+        Grid.SetRow(stats, 1);
+        root.Children.Add(stats);
+
+        var toolbar = new Grid { Margin = new Thickness(0, 0, 0, 12) };
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        toolbar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var filters = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            VerticalAlignment = VerticalAlignment.Bottom,
+            VerticalAlignment = VerticalAlignment.Center,
         };
+        filters.Children.Add(new TextBlock
+        {
+            Text = "Show",
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 7, 0),
+        });
+        _scheduledReadinessView = new ComboBox
+        {
+            MinWidth = 150,
+            Height = 36,
+            ItemsSource = new[] { "Needs attention", "All scheduled", "Ready only" },
+            SelectedIndex = 0,
+        };
+        _scheduledReadinessView.SelectionChanged += (_, _) => ApplyScheduledReadinessView();
+        filters.Children.Add(_scheduledReadinessView);
+        filters.Children.Add(new TextBlock
+        {
+            Text = "Range",
+            Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(14, 0, 7, 0),
+        });
         _scheduledReadinessHorizon = new ComboBox
         {
             MinWidth = 130,
             Height = 36,
-            Margin = new Thickness(0, 0, 8, 0),
             ItemsSource = new[] { "Next 7 days", "Next 14 days", "All scheduled" },
-            SelectedIndex = 2,
+            SelectedIndex = 1,
         };
         _scheduledReadinessHorizon.SelectionChanged += async (_, _) =>
             await RefreshScheduledReleaseReadinessAsync(false);
-        actions.Children.Add(_scheduledReadinessHorizon);
+        filters.Children.Add(_scheduledReadinessHorizon);
+        toolbar.Children.Add(filters);
 
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+        };
         var createLinks = new Button
         {
-            Content = "Create missing links",
-            MinWidth = 148,
+            Content = "Create missing tracking links",
+            MinWidth = 188,
             MinHeight = 36,
-            ToolTip = "Create missing Factburst tracking campaigns for the scheduled quizzes currently shown.",
+            ToolTip = "Create missing Factburst tracking campaigns for quizzes in the selected date range.",
         };
         StyleQuizHistoryButton(createLinks, Color.FromRgb(255, 202, 45));
         createLinks.Click += async (_, _) => await CreateMissingScheduledTrackingLinksAsync(createLinks);
         actions.Children.Add(createLinks);
 
-        var uploadManager = new Button
+        _scheduledReadinessOpenButton = new Button
         {
-            Content = "Open Upload Manager",
-            MinWidth = 152,
+            Content = "Open selected quiz",
+            MinWidth = 150,
             MinHeight = 36,
             Margin = new Thickness(8, 0, 0, 0),
+            IsEnabled = false,
+            ToolTip = "Open the selected quiz in Upload Manager so you can fix its next release task.",
         };
-        StyleQuizHistoryButton(uploadManager, Color.FromRgb(70, 235, 115));
-        uploadManager.Click += (_, _) => OpenScheduledReadinessInUploadManager();
-        actions.Children.Add(uploadManager);
+        StyleQuizHistoryButton(_scheduledReadinessOpenButton, Color.FromRgb(70, 235, 115));
+        _scheduledReadinessOpenButton.Click += (_, _) => OpenScheduledReadinessInUploadManager();
+        actions.Children.Add(_scheduledReadinessOpenButton);
 
         var refresh = new Button
         {
-            Content = "Refresh readiness",
-            MinWidth = 138,
+            Content = "Refresh",
+            MinWidth = 92,
             MinHeight = 36,
             Margin = new Thickness(8, 0, 0, 0),
         };
         StyleQuizHistoryButton(refresh, Color.FromRgb(0, 204, 255));
         refresh.Click += async (_, _) => await RefreshScheduledReleaseReadinessAsync(true);
         actions.Children.Add(refresh);
-        Grid.SetColumn(actions, 1);
-        header.Children.Add(actions);
-        root.Children.Add(header);
-
-        var stats = new Grid { Margin = new Thickness(0, 0, 0, 14) };
-        for (var index = 0; index < 4; index++)
-            stats.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        AddScheduledReadinessStat(stats, 0, "Scheduled", Color.FromRgb(0, 204, 255), out _scheduledReadinessScheduledText);
-        AddScheduledReadinessStat(stats, 1, "Fully ready", Color.FromRgb(70, 235, 115), out _scheduledReadinessReadyText);
-        AddScheduledReadinessStat(stats, 2, "Need promo", Color.FromRgb(204, 70, 255), out _scheduledReadinessPromoText);
-        AddScheduledReadinessStat(stats, 3, "Need tracking", Color.FromRgb(255, 202, 45), out _scheduledReadinessTrackingText);
-        Grid.SetRow(stats, 1);
-        root.Children.Add(stats);
+        Grid.SetColumn(actions, 2);
+        toolbar.Children.Add(actions);
+        Grid.SetRow(toolbar, 2);
+        root.Children.Add(toolbar);
 
         _scheduledReadinessGrid = BuildManagerGrid();
-        ScrollViewer.SetHorizontalScrollBarVisibility(_scheduledReadinessGrid, ScrollBarVisibility.Auto);
+        ScrollViewer.SetHorizontalScrollBarVisibility(_scheduledReadinessGrid, ScrollBarVisibility.Disabled);
         _scheduledReadinessGrid.MouseDoubleClick += (_, _) => OpenScheduledReadinessInUploadManager();
+        _scheduledReadinessGrid.SelectionChanged += (_, _) =>
+        {
+            if (_scheduledReadinessOpenButton is not null)
+                _scheduledReadinessOpenButton.IsEnabled = _scheduledReadinessGrid.SelectedItem is ScheduledReleaseReadinessRow;
+        };
         _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Publish",
@@ -206,22 +247,24 @@ public partial class MainShellWindow
         {
             Header = "Quiz",
             Binding = new Binding(nameof(ScheduledReleaseReadinessRow.Quiz)),
-            Width = new DataGridLength(1, DataGridLengthUnitType.Star),
-            MinWidth = 260,
+            Width = new DataGridLength(2, DataGridLengthUnitType.Star),
+            MinWidth = 300,
         });
-        _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn { Header = "Category", Binding = new Binding(nameof(ScheduledReleaseReadinessRow.Category)), Width = 118 });
-        _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn { Header = "Package", Binding = new Binding(nameof(ScheduledReleaseReadinessRow.Package)), Width = 86 });
-        _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn { Header = "Promo", Binding = new Binding(nameof(ScheduledReleaseReadinessRow.Promo)), Width = 80 });
-        _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn { Header = "Tracking", Binding = new Binding(nameof(ScheduledReleaseReadinessRow.Tracking)), Width = 104 });
-        _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn { Header = "YT promo", Binding = new Binding(nameof(ScheduledReleaseReadinessRow.YouTubePromo)), Width = 86 });
-        _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn { Header = "Facebook", Binding = new Binding(nameof(ScheduledReleaseReadinessRow.FacebookPromo)), Width = 88 });
-        _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn { Header = "Instagram", Binding = new Binding(nameof(ScheduledReleaseReadinessRow.InstagramPromo)), Width = 88 });
-        _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn { Header = "Related", Binding = new Binding(nameof(ScheduledReleaseReadinessRow.RelatedVideo)), Width = 110 });
-        _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn { Header = "First comment", Binding = new Binding(nameof(ScheduledReleaseReadinessRow.FirstComment)), Width = 105 });
-        _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn { Header = "Readiness", Binding = new Binding(nameof(ScheduledReleaseReadinessRow.Readiness)), Width = 130 });
-        _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn { Header = "Next action", Binding = new Binding(nameof(ScheduledReleaseReadinessRow.NextAction)), Width = 170 });
+        _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Status",
+            Binding = new Binding(nameof(ScheduledReleaseReadinessRow.Readiness)),
+            Width = 145,
+        });
+        _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Next thing to fix",
+            Binding = new Binding(nameof(ScheduledReleaseReadinessRow.NextAction)),
+            Width = new DataGridLength(1, DataGridLengthUnitType.Star),
+            MinWidth = 210,
+        });
         var card = ManagerCard(_scheduledReadinessGrid);
-        Grid.SetRow(card, 2);
+        Grid.SetRow(card, 3);
         root.Children.Add(card);
 
         _scheduledReadinessStatusText = new TextBlock
@@ -231,7 +274,7 @@ public partial class MainShellWindow
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 10, 0, 0),
         };
-        Grid.SetRow(_scheduledReadinessStatusText, 3);
+        Grid.SetRow(_scheduledReadinessStatusText, 4);
         root.Children.Add(_scheduledReadinessStatusText);
 
         return new Border
@@ -249,7 +292,13 @@ public partial class MainShellWindow
         };
     }
 
-    private static void AddScheduledReadinessStat(Grid parent, int column, string label, Color colour, out TextBlock value)
+    private static void AddScheduledReadinessStat(
+        Grid parent,
+        int column,
+        int columnCount,
+        string label,
+        Color colour,
+        out TextBlock value)
     {
         var card = new Border
         {
@@ -258,7 +307,7 @@ public partial class MainShellWindow
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(10),
             Padding = new Thickness(12, 9, 12, 9),
-            Margin = new Thickness(column == 0 ? 0 : 5, 0, column == 3 ? 0 : 5, 0),
+            Margin = new Thickness(column == 0 ? 0 : 5, 0, column == columnCount - 1 ? 0 : 5, 0),
         };
         var stack = new StackPanel();
         stack.Children.Add(new TextBlock
@@ -292,7 +341,7 @@ public partial class MainShellWindow
             var histories = _data.GetQuizHistory(2_000);
             var trackerSettings = FactburstTrackerSettingsStore.Load(_data.SettingsPath);
             HashSet<string>? trackerCampaigns = null;
-            var trackerNote = "";
+            _scheduledReadinessTrackerNote = "";
             if (trackerSettings.IsConfigured)
             {
                 try
@@ -302,7 +351,7 @@ public partial class MainShellWindow
                 }
                 catch (Exception error)
                 {
-                    trackerNote = " Tracker unavailable: " + error.Message;
+                    _scheduledReadinessTrackerNote = " Tracker unavailable: " + error.Message;
                 }
             }
 
@@ -319,26 +368,18 @@ public partial class MainShellWindow
                 rows = rows.Where(row => row.PublishAt <= cutoff).ToList();
             }
 
-            _scheduledReadinessGrid.ItemsSource = rows;
-            if (rows.Count > 0 && _scheduledReadinessGrid.SelectedItem is null)
-                _scheduledReadinessGrid.SelectedIndex = 0;
-
-            _scheduledReadinessScheduledText!.Text = rows.Count.ToString("N0");
-            _scheduledReadinessReadyText!.Text = rows.Count(row => row.ReadyCount == row.TotalChecks).ToString("N0");
-            _scheduledReadinessPromoText!.Text = rows.Count(row => string.Equals(row.Promo, "Missing", StringComparison.Ordinal)).ToString("N0");
-            _scheduledReadinessTrackingText!.Text = rows.Count(row => string.Equals(row.Tracking, "Missing", StringComparison.Ordinal)).ToString("N0");
-
+            _scheduledReadinessRows = rows;
             var ready = rows.Count(row => row.ReadyCount == row.TotalChecks);
-            SetScheduledReadinessStatus(
-                rows.Count == 0
-                    ? "No future scheduled long-form quizzes are in the selected range." + trackerNote
-                    : $"{rows.Count:N0} scheduled quiz(es) shown • {ready:N0} fully ready • double-click a row to open it in Upload Manager." + trackerNote);
+            _scheduledReadinessScheduledText!.Text = rows.Count.ToString("N0");
+            _scheduledReadinessReadyText!.Text = ready.ToString("N0");
+            _scheduledReadinessAttentionText!.Text = (rows.Count - ready).ToString("N0");
+            ApplyScheduledReadinessView();
         }
         catch (Exception error)
         {
             SetScheduledReadinessStatus(error.Message);
             if (showErrors)
-                MessageBox.Show(this, error.Message, "Scheduled Release Readiness", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(this, error.Message, "Release Readiness", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
@@ -346,11 +387,54 @@ public partial class MainShellWindow
         }
     }
 
+    private void ApplyScheduledReadinessView()
+    {
+        if (_scheduledReadinessGrid is null) return;
+
+        var selectedHistoryId = (_scheduledReadinessGrid.SelectedItem as ScheduledReleaseReadinessRow)?.HistoryId;
+        IEnumerable<ScheduledReleaseReadinessRow> filtered = _scheduledReadinessRows;
+        filtered = _scheduledReadinessView?.SelectedIndex switch
+        {
+            0 => filtered.Where(row => row.ReadyCount < row.TotalChecks),
+            2 => filtered.Where(row => row.ReadyCount == row.TotalChecks),
+            _ => filtered,
+        };
+
+        var visibleRows = filtered.ToList();
+        _scheduledReadinessGrid.ItemsSource = visibleRows;
+        var selected = selectedHistoryId.HasValue
+            ? visibleRows.FirstOrDefault(row => row.HistoryId == selectedHistoryId.Value)
+            : null;
+        _scheduledReadinessGrid.SelectedItem = selected ?? visibleRows.FirstOrDefault();
+        if (_scheduledReadinessOpenButton is not null)
+            _scheduledReadinessOpenButton.IsEnabled = _scheduledReadinessGrid.SelectedItem is ScheduledReleaseReadinessRow;
+
+        UpdateScheduledReadinessStatus(visibleRows.Count);
+    }
+
+    private void UpdateScheduledReadinessStatus(int visibleCount)
+    {
+        if (_scheduledReadinessRows.Count == 0)
+        {
+            SetScheduledReadinessStatus("No future scheduled long-form quizzes are in the selected range." + _scheduledReadinessTrackerNote);
+            return;
+        }
+
+        var ready = _scheduledReadinessRows.Count(row => row.ReadyCount == row.TotalChecks);
+        var attention = _scheduledReadinessRows.Count - ready;
+        var viewName = _scheduledReadinessView?.SelectedIndex switch
+        {
+            0 => "needing attention",
+            2 => "ready",
+            _ => "scheduled",
+        };
+        SetScheduledReadinessStatus(
+            $"Showing {visibleCount:N0} {viewName} quiz(es) • {attention:N0} need attention • {ready:N0} ready. Select a row and click Open selected quiz to fix the next task." +
+            _scheduledReadinessTrackerNote);
+    }
+
     private async Task CreateMissingScheduledTrackingLinksAsync(Button button)
     {
-        if (_scheduledReadinessGrid?.ItemsSource is not IEnumerable<ScheduledReleaseReadinessRow> visibleRows)
-            return;
-
         var settings = FactburstTrackerSettingsStore.Load(_data.SettingsPath);
         if (!settings.IsConfigured)
         {
@@ -358,12 +442,12 @@ public partial class MainShellWindow
             return;
         }
 
-        var targets = visibleRows
+        var targets = _scheduledReadinessRows
             .Where(row => string.Equals(row.Tracking, "Missing", StringComparison.Ordinal))
             .ToList();
         if (targets.Count == 0)
         {
-            MessageBox.Show(this, "Every scheduled quiz shown already has a tracking campaign.", "Create Tracking Links", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(this, "Every scheduled quiz in the selected date range already has a tracking campaign.", "Create Tracking Links", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
 
@@ -417,10 +501,12 @@ public partial class MainShellWindow
     {
         if (_uploadManagerTabIndex < 0 || MainTabs is null) return;
         var selected = _scheduledReadinessGrid?.SelectedItem as ScheduledReleaseReadinessRow;
+        if (selected is null) return;
+
         MainTabs.SelectedIndex = _uploadManagerTabIndex;
         ApplyNavigationSelection(_uploadManagerTabIndex);
         RefreshUploadManager();
-        if (selected is null || _uploadManagerGrid is null) return;
+        if (_uploadManagerGrid is null) return;
         var history = _uploadManagerGrid.Items.OfType<QuizHistorySummary>()
             .FirstOrDefault(item => item.Id == selected.HistoryId);
         if (history is null) return;
