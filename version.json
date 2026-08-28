@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.14",
-  "build": 39,
+  "latest_version": "1.0.15",
+  "build": 40,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "YouTube Growth Analytics now wires directly from the Main window instead of relying on a dynamically discovered WPF Loaded hook.",
-    "Rebuilding or revisiting the Analytics section automatically reattaches Growth dashboard wiring and restores the long-form view.",
-    "Refresh from YouTube now explicitly waits for public YouTube statistics and the richer Growth Analytics refresh before rendering the final dashboard.",
-    "The Analytics page remains long-form first with full-video views/day, average viewed percentage, watch minutes, subscriber change, Growth score and status.",
-    "The recommendation card continues to show the next full-video category Growth Autopilot will actually choose."
+    "Analytics Autopilot now distinguishes a disabled YouTube Analytics API from a missing OAuth permission instead of treating every HTTP 403 as a reconnect problem.",
+    "When the YouTube Analytics API is disabled, the app now directs you to enable it in the same Google Cloud project as the YouTube OAuth client and confirms that reconnecting is not required.",
+    "Missing Analytics OAuth scope still gives the correct one-time reconnect guidance.",
+    "Other Google Analytics API failures now surface Google's useful error message so setup problems are easier to diagnose.",
+    "Growth Analytics, performance-weighted Autopilot category selection, A/B rescue packages and long-form dashboard behavior remain unchanged."
   ]
 }
