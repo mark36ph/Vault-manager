@@ -18,6 +18,7 @@ public static class QuizLongFormZeroIntro
 
         var trimmedSeconds = TrimTimeline(timeline);
         QuizOutroSequence.RenderAndApply(timeline, projectFolder, options);
+        QuizGrowthEndScreen.Apply(timeline, projectFolder, options);
         timeline.Metadata["opening_sequence_applied"] = true;
         timeline.Metadata["opening_countdown_seconds"] = 0;
         timeline.Metadata["opening_spin_frames"] = 0;
