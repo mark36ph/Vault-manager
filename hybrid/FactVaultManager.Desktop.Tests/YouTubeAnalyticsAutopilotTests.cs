@@ -37,7 +37,7 @@ public sealed class YouTubeAnalyticsAutopilotTests
     public void Classifier_FindsWinnerAndPackagingRescue()
     {
         var winner = new YouTubeGrowthMetric("winner", 1200, 0, 0, 52, 8, 0, 50, 7);
-        var rescue = new YouTubeGrowthMetric("rescue", 120, 0, 0, 58, 1, 0, 8, 2);
+        var rescue = new YouTubeGrowthMetric("rescue", 120, 0, 0, 58, 0, 0, 8, 2);
 
         var winnerResult = YouTubeGrowthClassifier.Assess(winner, ageDays: 7, medianViewsPerDay: 80);
         var rescueResult = YouTubeGrowthClassifier.Assess(rescue, ageDays: 7, medianViewsPerDay: 80);
