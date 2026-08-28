@@ -45,10 +45,13 @@ public sealed class ScheduledReleaseReadinessTests
         Assert.Equal("Missing", row.Promo);
         Assert.Equal("Missing", row.Tracking);
         Assert.Equal("Missing", row.YouTubePromo);
+        Assert.Equal("Missing", row.FacebookPromo);
+        Assert.Equal("Waiting", row.InstagramPromo);
         Assert.Equal("Waiting", row.RelatedVideo);
         Assert.Equal("Prepared", row.FirstComment);
         Assert.Equal(2, row.ReadyCount);
-        Assert.Equal(ScheduledReleaseReadinessPlanner.CheckCount, row.TotalChecks);
+        Assert.Equal(8, row.TotalChecks);
+        Assert.Equal(8, ScheduledReleaseReadinessPlanner.CheckCount);
         Assert.Equal("Create YouTube package", row.NextAction);
     }
 
@@ -75,10 +78,10 @@ public sealed class ScheduledReleaseReadinessTests
     }
 
     [Theory]
-    [InlineData(9, 9, "9/9 • Ready")]
-    [InlineData(8, 9, "8/9 • Nearly ready")]
-    [InlineData(7, 9, "7/9 • Nearly ready")]
-    [InlineData(6, 9, "6/9 • Needs work")]
+    [InlineData(8, 8, "8/8 • Ready")]
+    [InlineData(7, 8, "7/8 • Nearly ready")]
+    [InlineData(6, 8, "6/8 • Nearly ready")]
+    [InlineData(5, 8, "5/8 • Needs work")]
     public void ReadinessLabel_summarizes_progress(int ready, int total, string expected)
     {
         Assert.Equal(expected, ScheduledReleaseReadinessPlanner.ReadinessLabel(ready, total));
