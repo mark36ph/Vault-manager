@@ -1,12 +1,12 @@
 {
-    "latest_version": "1.0.7",
-    "build": 32,
+    "latest_version": "1.0.8",
+    "build": 33,
     "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
     "release_notes": [
+        "Upgraded Generate + Schedule to Generate + Autopilot: new quiz batches keep running through tracking creation, website preparation, and the batch promo-scheduling step after the full videos are scheduled.",
+        "Logo and other visual-question media are now copied into each newly generated quiz project before promo creation, so logo quiz promo Shorts keep the actual logo artwork instead of becoming text-only.",
+        "Autopilot keeps the remaining manual work focused on platform limitations such as Instagram publishing and YouTube Shorts Related video setup.",
         "Added website support for visual quiz questions: accessible logo/question images are resized safely and synced to Cloudflare, then shown above the website question without exposing the answer.",
-        "Factburst website pages now use the app icon for the browser favicon and header branding instead of the temporary F badge.",
-        "Prepare website now refreshes existing staged quiz copies as well as new ones, so website media improvements can be applied without deleting or duplicating quizzes.",
-        "Fixed the Release Readiness layout at high DPI or narrower effective window widths by moving Prepare website out of the crowded header action row.",
-        "Added NAS-safe website staging from Scheduled Release Readiness: accessible scheduled quizzes can be copied to Cloudflare now and automatically appear at release time, while unavailable project folders are skipped for a later retry."
+        "Prepare website now refreshes existing staged quiz copies as well as new ones, so website media improvements can be applied without deleting or duplicating quizzes."
     ]
 }
