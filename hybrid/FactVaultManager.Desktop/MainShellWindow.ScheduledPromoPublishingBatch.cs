@@ -76,7 +76,7 @@ public partial class MainShellWindow
             MinWidth = 132,
             MinHeight = 36,
             Margin = new Thickness(8, 0, 0, 0),
-            ToolTip = "Upload missing promo Shorts to YouTube and Facebook now, then schedule them for later on each quiz's release day. Instagram remains pending because Instagram Reel scheduling is not available through the current API.",
+            ToolTip = "Upload missing promo Shorts to YouTube and Facebook now, then schedule them for the day after each full quiz goes live. Instagram remains pending because Instagram Reel scheduling is not available through the current API.",
         };
         StyleQuizHistoryButton(button, Color.FromRgb(105, 164, 255));
         button.Click += async (_, _) => await ScheduleMissingPromosAsync(button);
@@ -365,8 +365,8 @@ public partial class MainShellWindow
                 this,
                 ScheduledPromoBatchPlanner.PublishingSummary(youtubeScheduled, facebookScheduled, failed) +
                 skippedText +
-                "\n\nYouTube and Facebook promos are uploaded now but scheduled to go public at the chosen time on each quiz's release day." +
-                "\n\nInstagram remains pending because scheduled Instagram Reel publishing is not available through the current API. It can be published on the release day without affecting the YouTube/Facebook schedules." +
+                "\n\nYouTube and Facebook promos are uploaded now but scheduled to go public at the chosen time on the day after each full quiz goes live." +
+                "\n\nInstagram remains pending because scheduled Instagram Reel publishing is not available through the current API. It can be published the following day without affecting the YouTube/Facebook schedules." +
                 detail + warningText,
                 dialogTitle,
                 MessageBoxButton.OK,
@@ -407,7 +407,7 @@ public partial class MainShellWindow
         });
         root.Children.Add(new TextBlock
         {
-            Text = "Each missing YouTube and Facebook promo will upload now and go public at this local time on the same day its full quiz is scheduled. The promo must be at least 30 minutes after the long-form release.",
+            Text = "Each missing YouTube and Facebook promo will upload now and go public at this local time on the day after its full quiz is scheduled.",
             TextWrapping = TextWrapping.Wrap,
             Foreground = QuizMutedBrush(),
             Margin = new Thickness(0, 7, 0, 16),
@@ -449,7 +449,7 @@ public partial class MainShellWindow
         root.Children.Add(notify);
         root.Children.Add(new TextBlock
         {
-            Text = "Instagram will not be published by this batch because Instagram does not currently support scheduled Reel publishing through the API.",
+            Text = "Instagram will not be published by this batch because Instagram does not currently support scheduled Reel publishing through the API. Publish it manually on the following day.",
             TextWrapping = TextWrapping.Wrap,
             Foreground = new SolidColorBrush(Color.FromRgb(185, 95, 20)),
             Margin = new Thickness(0, 14, 0, 0),

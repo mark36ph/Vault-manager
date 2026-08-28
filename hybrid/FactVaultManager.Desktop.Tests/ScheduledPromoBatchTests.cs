@@ -79,29 +79,29 @@ public sealed class ScheduledPromoBatchTests
     }
 
     [Fact]
-    public void ResolvePromoPublishAt_uses_same_release_day_and_requested_local_time()
+    public void ResolvePromoPublishAt_uses_following_day_and_requested_local_time()
     {
         var longForm = LocalDateTime(2026, 8, 28, 9, 0);
         var now = LocalDateTime(2026, 8, 27, 18, 0);
 
         var scheduled = ScheduledPromoBatchPlanner.ResolvePromoPublishAt(longForm, "18:00", now);
 
-        Assert.Equal(longForm.Date, scheduled.Date);
+        Assert.Equal(longForm.Date.AddDays(1), scheduled.Date);
         Assert.Equal(18, scheduled.Hour);
         Assert.Equal(0, scheduled.Minute);
-        Assert.True(scheduled >= longForm.AddMinutes(30));
     }
 
     [Fact]
-    public void ResolvePromoPublishAt_rejects_time_before_long_form_release()
+    public void ResolvePromoPublishAt_allows_an_early_time_on_the_following_day()
     {
         var longForm = LocalDateTime(2026, 8, 28, 9, 0);
         var now = LocalDateTime(2026, 8, 27, 18, 0);
 
-        var error = Assert.Throws<ArgumentException>(() =>
-            ScheduledPromoBatchPlanner.ResolvePromoPublishAt(longForm, "09:15", now));
+        var scheduled = ScheduledPromoBatchPlanner.ResolvePromoPublishAt(longForm, "09:15", now);
 
-        Assert.Contains("30 minutes", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(longForm.Date.AddDays(1), scheduled.Date);
+        Assert.Equal(9, scheduled.Hour);
+        Assert.Equal(15, scheduled.Minute);
     }
 
     [Theory]
@@ -152,8 +152,8 @@ public sealed class ScheduledPromoBatchTests
             RelatedVideo: "Waiting",
             FirstComment: "Prepared",
             ReadyCount: 3,
-            TotalChecks: 9,
-            Readiness: "3/9 • Needs work",
+            TotalChecks: 8,
+            Readiness: "3/8 • Needs work",
             NextAction: promo == "Missing" ? "Create promo Short" : "Upload promo",
             ProjectFolder: $"C:/Quiz/{id}");
 

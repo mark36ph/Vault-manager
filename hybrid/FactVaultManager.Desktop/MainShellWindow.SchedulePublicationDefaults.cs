@@ -10,9 +10,18 @@ public static class QuizScheduleDatePlanner
     public static DateTime FindNextOpenDate(
         IEnumerable<QuizHistorySummary> histories,
         DateTime startDate,
+        DateTimeOffset now) =>
+        FindNextOpenDates(histories, startDate, 1, now)[0];
+
+    public static IReadOnlyList<DateTime> FindNextOpenDates(
+        IEnumerable<QuizHistorySummary> histories,
+        DateTime startDate,
+        int count,
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(histories);
+        if (count < 1)
+            throw new ArgumentOutOfRangeException(nameof(count), "Choose at least one schedule date.");
 
         var occupiedDates = histories
             .SelectMany(history => new[]
@@ -24,11 +33,19 @@ public static class QuizScheduleDatePlanner
             .Select(schedule => schedule!.Value.LocalDateTime.Date)
             .ToHashSet();
 
+        var result = new List<DateTime>(count);
         var candidate = startDate.Date;
-        while (occupiedDates.Contains(candidate))
+        while (result.Count < count)
+        {
+            if (!occupiedDates.Contains(candidate))
+            {
+                result.Add(candidate);
+                occupiedDates.Add(candidate);
+            }
             candidate = candidate.AddDays(1);
+        }
 
-        return candidate;
+        return result;
     }
 
     private static DateTimeOffset? ParseFutureSchedule(string? value, DateTimeOffset now) =>

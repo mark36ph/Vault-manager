@@ -97,7 +97,7 @@ public static class ScheduledReleaseReadinessPlanner
                 tracking,
                 youtubePromo is not null ? "Uploaded" : promoReady ? "Ready" : "Missing",
                 facebookPromo is not null ? "Uploaded" : promoReady ? "Ready" : "Missing",
-                instagramPromo is not null ? "Uploaded" : promoReady ? "Release day" : "Waiting",
+                instagramPromo is not null ? "Uploaded" : promoReady ? "Next day" : "Waiting",
                 related,
                 firstCommentReady ? "Prepared" : "Missing",
                 readyCount,
