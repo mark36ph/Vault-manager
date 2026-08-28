@@ -1,12 +1,12 @@
 {
-    "latest_version": "1.0.10",
-    "build": 35,
+    "latest_version": "1.0.11",
+    "build": 36,
     "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
     "release_notes": [
-        "Export now shows a permanent Generate + Autopilot action as the recommended quiz-release workflow instead of relying on runtime button injection.",
-        "The Export page is simplified around Autopilot, with the detailed voice, branding, effects, music and manual render controls moved into a collapsible Settings & manual render options section.",
-        "Legacy injected Generate + Schedule / Generate + Autopilot controls are hidden so there is one obvious automation button.",
-        "Autopilot continues to generate fresh quizzes, schedule full YouTube videos on the next free days, create promo Shorts, tracking links and website releases, and prepare YouTube/Facebook promo scheduling.",
-        "Factburst tracking continues to use the branded https://go.factburstquiz.com domain."
+        "Growth Autopilot now creates or reuses public YouTube category playlists such as Science Quizzes and automatically adds each newly scheduled full quiz to the matching playlist.",
+        "Long-form quizzes keep the zero-second opening so Question 1 starts immediately instead of spending viewer retention on an intro.",
+        "Full quizzes now finish on a stable 15-second end-screen-safe card with dedicated Next Quiz and Quiz Playlist areas instead of spinning away at the end.",
+        "Playlist failures are non-blocking: the quiz stays scheduled and the app reports the playlist problem without stopping the rest of Autopilot.",
+        "Existing Autopilot release preparation still creates promos, tracking links and website releases and prepares YouTube/Facebook promo scheduling."
     ]
 }
