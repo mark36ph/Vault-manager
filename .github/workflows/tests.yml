@@ -8,6 +8,60 @@ permissions:
   contents: read
 
 jobs:
+  desktop-build-number-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
+      - name: Require build bump for desktop app changes
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+
+          if ! printf '%s\n' "$changed" | grep -q '^hybrid/FactVaultManager.Desktop/'; then
+            echo "No desktop app changes detected; build bump is not required."
+            exit 0
+          fi
+
+          build_info='hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs'
+          if ! printf '%s\n' "$changed" | grep -qx "$build_info"; then
+            echo "Desktop app code changed but $build_info was not updated. Bump CurrentBuildNumber."
+            exit 1
+          fi
+          if ! printf '%s\n' "$changed" | grep -qx 'version.json'; then
+            echo "Desktop app code changed but version.json was not updated. Keep its build number in sync."
+            exit 1
+          fi
+
+          base_build="$(git show "$BASE_SHA:$build_info" | sed -n 's/.*CurrentBuildNumber = \([0-9][0-9]*\).*/\1/p' | head -n 1)"
+          head_build="$(git show "$HEAD_SHA:$build_info" | sed -n 's/.*CurrentBuildNumber = \([0-9][0-9]*\).*/\1/p' | head -n 1)"
+          version_build="$(git show "$HEAD_SHA:version.json" | python -c 'import json,sys; print(json.load(sys.stdin)["build"])')"
+
+          if [[ -z "$base_build" || -z "$head_build" ]]; then
+            echo "Could not read desktop build numbers."
+            exit 1
+          fi
+          if (( head_build <= base_build )); then
+            echo "Desktop build number must increase: base=$base_build head=$head_build."
+            exit 1
+          fi
+          if [[ "$version_build" != "$head_build" ]]; then
+            echo "version.json build ($version_build) must match CurrentBuildNumber ($head_build)."
+            exit 1
+          fi
+
+          echo "Desktop build bump verified: $base_build -> $head_build."
+
   dotnet-test:
     runs-on: windows-latest
     timeout-minutes: 20

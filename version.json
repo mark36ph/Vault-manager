@@ -1,6 +1,6 @@
 {
     "latest_version": "1.0.7",
-    "build": 31,
+    "build": 32,
     "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
     "release_notes": [
         "Added website support for visual quiz questions: accessible logo/question images are resized safely and synced to Cloudflare, then shown above the website question without exposing the answer.",
