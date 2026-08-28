@@ -1,13 +1,13 @@
 {
-    "latest_version": "1.0.12",
-    "build": 37,
-    "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
-    "release_notes": [
-        "Analytics Autopilot now reads YouTube watch-time, average-view-percentage, subscriber and engagement metrics for published full quizzes after YouTube is reconnected with analytics permission.",
-        "Full quizzes are automatically classified as Learning, Winner, Healthy, Packaging rescue or Weak topic using view velocity and watch quality against the channel baseline.",
-        "Generate + Autopilot now steers future batch categories toward proven performers while reserving rotation and experiment slots so the channel keeps learning.",
-        "Packaging-rescue videos automatically get a fresh local A/B title and thumbnail package prepared without silently changing a live YouTube video.",
-        "Analytics refresh runs automatically after startup and alongside YouTube Manager refreshes; existing public view history is used as a fallback until richer analytics is available.",
-        "Growth Autopilot continues to organise category playlists, start Question 1 at zero seconds and reserve the final 15 seconds for YouTube end-screen elements."
-    ]
+  "latest_version": "1.0.13",
+  "build": 38,
+  "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
+  "release_notes": [
+    "YouTube Manager Analytics is now a long-form Growth Autopilot dashboard instead of being dominated by Shorts.",
+    "The main table now shows full-video category, views per day, average percentage viewed, watch minutes, subscriber gain, Growth score and Winner/Healthy/Packaging rescue/Weak topic status.",
+    "The recommendation card now shows the actual next full-video category Growth Autopilot would choose and explains the performance signal behind that choice.",
+    "Summary cards now focus on full-video growth: videos scored, 28-day full-video views/likes/comments and the top category by Growth score.",
+    "Refresh waits for both public YouTube statistics and richer Analytics Autopilot data so the growth dashboard remains the final visible state.",
+    "Existing Growth Autopilot category steering, A/B rescue-package preparation, playlists, promos, tracking, website preparation and scheduling remain automatic."
+  ]
 }
