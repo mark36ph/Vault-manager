@@ -50,7 +50,7 @@ public partial class MainShellWindow
             Height = batchRenderButton.Height,
             Padding = new Thickness(13, 0, 13, 0),
             Margin = new Thickness(0),
-            ToolTip = "Generate a batch of fresh quizzes, schedule each full quiz to YouTube on the next free 09:00 day, then create its promo Short ready for the following day.",
+            ToolTip = "Generate fresh quizzes, schedule each full quiz to YouTube on the next free 09:00 day, then create each promo Short ready for the following day.",
         };
         button.Click += window.GenerateAndScheduleQuizBatch_Click;
 
@@ -78,9 +78,9 @@ public partial class MainShellWindow
         var renderFailures = new List<string>();
         var scheduleFailures = new List<string>();
         var promoFailures = new List<string>();
+        var warnings = new List<string>();
         var scheduled = new List<QuizBatchAutomationScheduledItem>();
         var promosCreated = 0;
-        var warnings = new List<string>();
 
         _quizBatchAutomationRunning = true;
         _quizBatchRenderRunning = true;
@@ -100,11 +100,10 @@ public partial class MainShellWindow
 
                 try
                 {
-                    var result = await RenderOneBatchQuizAsync(
+                    rendered.Add(await RenderOneBatchQuizAsync(
                         number,
                         requested.Value,
-                        stage => detailText.Text = stage);
-                    rendered.Add(result);
+                        stage => detailText.Text = stage));
                 }
                 catch (Exception error)
                 {
@@ -186,7 +185,6 @@ public partial class MainShellWindow
                 return;
             }
 
-            var journal = _data.SocialUploadJournal;
             for (var index = 0; index < workItems.Count; index++)
             {
                 var item = workItems[index];
@@ -206,29 +204,16 @@ public partial class MainShellWindow
                         description,
                         requireFullYouTubeVideoLink: false);
 
-                    journal.Begin(item.History.Id, "YouTube", uploadRequested: true, thumbnailRequested: true, commentRequested: false);
-                    journal.RecordStepStarted(item.History.Id, "YouTube", SocialUploadJournalStep.Upload);
-                    YouTubeVideoUploadResult result;
-                    try
-                    {
-                        result = await _youtubeVideoUpload.UploadAsync(
-                            preflight.YouTubeAccessToken,
-                            videoPath,
-                            new YouTubeVideoUpload(
-                                title,
-                                description,
-                                "private",
-                                NotifySubscribers: true,
-                                PublishAt: item.PublishAt));
-                        journal.RecordStepCompleted(item.History.Id, "YouTube", SocialUploadJournalStep.Upload);
-                    }
-                    catch (Exception error)
-                    {
-                        journal.RecordFailure(item.History.Id, "YouTube", SocialUploadJournalStep.Upload, error.Message);
-                        throw;
-                    }
+                    var result = await _youtubeVideoUpload.UploadAsync(
+                        preflight.YouTubeAccessToken,
+                        videoPath,
+                        new YouTubeVideoUpload(
+                            title,
+                            description,
+                            "private",
+                            NotifySubscribers: true,
+                            PublishAt: item.PublishAt));
 
-                    journal.RecordStepStarted(item.History.Id, "YouTube", SocialUploadJournalStep.Verification);
                     try
                     {
                         await _youtubeManagement.VerifyUploadedVideoAsync(
@@ -237,11 +222,9 @@ public partial class MainShellWindow
                             preflight.YouTubeChannel!.Id,
                             title,
                             "private");
-                        journal.RecordStepCompleted(item.History.Id, "YouTube", SocialUploadJournalStep.Verification);
                     }
                     catch (Exception error)
                     {
-                        journal.RecordFailure(item.History.Id, "YouTube", SocialUploadJournalStep.Verification, error.Message);
                         warnings.Add($"{title}: YouTube verification: {error.Message}");
                     }
 
@@ -254,18 +237,15 @@ public partial class MainShellWindow
                         item.PublishAt.LocalDateTime.Date);
                     _data.UpdateQuizHistoryYouTubeUploadState(item.History.Id, "private", item.PublishAt);
 
-                    journal.RecordStepStarted(item.History.Id, "YouTube", SocialUploadJournalStep.Thumbnail);
                     try
                     {
                         await _youtubeVideoUpload.SetThumbnailAsync(
                             preflight.YouTubeAccessToken,
                             result.VideoId,
                             item.ThumbnailPath);
-                        journal.RecordStepCompleted(item.History.Id, "YouTube", SocialUploadJournalStep.Thumbnail);
                     }
                     catch (Exception error)
                     {
-                        journal.RecordFailure(item.History.Id, "YouTube", SocialUploadJournalStep.Thumbnail, error.Message);
                         warnings.Add($"{title}: thumbnail: {error.Message}");
                     }
 
@@ -298,7 +278,7 @@ public partial class MainShellWindow
                 var item = scheduled[index];
                 progressText.Text = $"Creating promo {index + 1:N0} of {scheduled.Count:N0}";
                 progressBar.Value = 84 + ((index + 1) * 16.0 / scheduled.Count);
-                detailText.Text = $"For the day after {item.PublishAt:ddd dd MMM} • {item.History.UploadTitleDisplay}";
+                detailText.Text = $"Ready for {item.PublishAt.AddDays(1):ddd dd MMM} • {item.History.UploadTitleDisplay}";
                 await Dispatcher.Yield(DispatcherPriority.Background);
 
                 try
@@ -460,7 +440,7 @@ public partial class MainShellWindow
         panel.Children.Add(detailText);
         panel.Children.Add(new TextBlock
         {
-            Text = "Keep the app running until the summary appears. A failed item will be reported while the rest of the batch continues.",
+            Text = "Keep the app running until the summary appears. A failed item is reported while the rest of the batch continues.",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 14, 0, 0),
         });
@@ -480,14 +460,22 @@ public partial class MainShellWindow
     private QuizHistorySummary? FindQuizHistoryByProjectFolder(string projectFolder)
     {
         string expected;
-        try { expected = Path.GetFullPath(projectFolder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); }
-        catch { return null; }
+        try
+        {
+            expected = Path.GetFullPath(projectFolder)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+        catch
+        {
+            return null;
+        }
 
         foreach (var history in _data.GetQuizHistory(2_000).OrderByDescending(item => item.Id))
         {
             try
             {
-                var actual = Path.GetFullPath(history.ProjectFolder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var actual = Path.GetFullPath(history.ProjectFolder)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 if (string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
                     return history;
             }
@@ -525,7 +513,7 @@ public partial class MainShellWindow
             if (scheduled.Count > 12)
                 lines.Add($"• …and {scheduled.Count - 12:N0} more");
             lines.Add("");
-            lines.Add("Each promo is now prepared locally for the day after its full quiz. Release Readiness can create any remaining tracking links and schedule the YouTube/Facebook promo uploads.");
+            lines.Add("Each promo is prepared locally for the following day. Release Readiness can finish tracking links and schedule the YouTube/Facebook promo uploads; Instagram remains a next-day manual publication task.");
         }
 
         var problems = renderFailures.Concat(scheduleFailures).Concat(promoFailures).ToList();
