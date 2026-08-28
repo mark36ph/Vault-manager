@@ -124,7 +124,7 @@ public partial class MainShellWindow
         });
         heading.Children.Add(new TextBlock
         {
-            Text = "Start with anything that needs attention. The page now shows the next thing to fix instead of every release check at once.",
+            Text = "Start with anything that needs attention. Use Next action to go straight to the workflow that fixes it.",
             Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             Margin = new Thickness(0, 3, 0, 0),
             TextWrapping = TextWrapping.Wrap,
@@ -256,13 +256,7 @@ public partial class MainShellWindow
             Binding = new Binding(nameof(ScheduledReleaseReadinessRow.Readiness)),
             Width = 145,
         });
-        _scheduledReadinessGrid.Columns.Add(new DataGridTextColumn
-        {
-            Header = "Next thing to fix",
-            Binding = new Binding(nameof(ScheduledReleaseReadinessRow.NextAction)),
-            Width = new DataGridLength(1, DataGridLengthUnitType.Star),
-            MinWidth = 210,
-        });
+        _scheduledReadinessGrid.Columns.Add(BuildVisibleScheduledReadinessActionColumn());
         var card = ManagerCard(_scheduledReadinessGrid);
         Grid.SetRow(card, 3);
         root.Children.Add(card);
@@ -429,7 +423,7 @@ public partial class MainShellWindow
             _ => "scheduled",
         };
         SetScheduledReadinessStatus(
-            $"Showing {visibleCount:N0} {viewName} quiz(es) • {attention:N0} need attention • {ready:N0} ready. Select a row and click Open selected quiz to fix the next task." +
+            $"Showing {visibleCount:N0} {viewName} quiz(es) • {attention:N0} need attention • {ready:N0} ready. Use Next action or Fix selected to work on a quiz." +
             _scheduledReadinessTrackerNote);
     }
 
