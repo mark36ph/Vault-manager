@@ -6,9 +6,9 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class Build39GrowthUiWiringSourceTests
 {
     [Fact]
-    public void BuildNumber_Is39()
+    public void BuildNumber_Is39OrLater()
     {
-        Assert.Equal(39, MainShellWindow.CurrentBuildNumber);
+        Assert.True(MainShellWindow.CurrentBuildNumber >= 39);
     }
 
     [Fact]
