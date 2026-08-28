@@ -85,19 +85,77 @@ public sealed class YouTubeAnalyticsAutopilotService
             using var response = await _client.SendAsync(request, cancellationToken);
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!response.IsSuccessStatusCode)
-            {
-                var permissionHint = response.StatusCode is System.Net.HttpStatusCode.Forbidden or System.Net.HttpStatusCode.Unauthorized
-                    ? " Reconnect YouTube in Settings once to grant Analytics Autopilot read access."
-                    : "";
-                throw new InvalidOperationException(
-                    $"YouTube Analytics could not be refreshed (HTTP {(int)response.StatusCode}).{permissionHint}");
-            }
+                throw new InvalidOperationException(BuildApiFailureMessage(response.StatusCode, json));
 
             foreach (var metric in ParseResponse(json))
                 results[metric.VideoId] = metric;
         }
 
         return results;
+    }
+
+    public static string BuildApiFailureMessage(System.Net.HttpStatusCode statusCode, string json)
+    {
+        var googleMessage = "";
+        var reason = "";
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.TryGetProperty("error", out var error))
+            {
+                if (error.ValueKind == JsonValueKind.Object)
+                {
+                    if (error.TryGetProperty("message", out var message))
+                        googleMessage = message.GetString()?.Trim() ?? "";
+                    if (error.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)
+                    {
+                        var first = errors.EnumerateArray().FirstOrDefault();
+                        if (first.ValueKind == JsonValueKind.Object && first.TryGetProperty("reason", out var reasonElement))
+                            reason = reasonElement.GetString()?.Trim() ?? "";
+                    }
+                }
+                else if (error.ValueKind == JsonValueKind.String)
+                {
+                    googleMessage = error.GetString()?.Trim() ?? "";
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            // Keep the HTTP status fallback when Google returns a non-JSON error body.
+        }
+
+        var combined = reason + " " + googleMessage;
+        var apiDisabled = statusCode == System.Net.HttpStatusCode.Forbidden &&
+            (combined.Contains("accessNotConfigured", StringComparison.OrdinalIgnoreCase) ||
+             combined.Contains("SERVICE_DISABLED", StringComparison.OrdinalIgnoreCase) ||
+             combined.Contains("has not been used in project", StringComparison.OrdinalIgnoreCase) ||
+             combined.Contains("is disabled", StringComparison.OrdinalIgnoreCase) ||
+             combined.Contains("API has not been used", StringComparison.OrdinalIgnoreCase));
+        if (apiDisabled)
+        {
+            return "The YouTube Analytics API is not enabled for the Google Cloud project used by this YouTube connection. " +
+                   "Open Google Cloud Console → APIs & Services → Library, select the same project as the YouTube OAuth client, enable YouTube Analytics API, wait about a minute, then refresh here. You do not need to reconnect YouTube.";
+        }
+
+        var missingPermission = statusCode == System.Net.HttpStatusCode.Unauthorized ||
+            combined.Contains("insufficientPermissions", StringComparison.OrdinalIgnoreCase) ||
+            combined.Contains("insufficient permission", StringComparison.OrdinalIgnoreCase);
+        if (missingPermission)
+        {
+            return "YouTube is connected, but the saved Google token does not include Analytics read access. " +
+                   "Open Settings → YouTube and reconnect once, approving the YouTube Analytics permission, then refresh here.";
+        }
+
+        if (statusCode == System.Net.HttpStatusCode.Forbidden)
+        {
+            return "Google denied YouTube Analytics access (HTTP 403). " +
+                   (googleMessage.Length > 0 ? "Google says: " + googleMessage + " " : "") +
+                   "Check that the YouTube Analytics API is enabled in the OAuth client's Google Cloud project and that the connected Google account owns or manages this channel.";
+        }
+
+        return $"YouTube Analytics could not be refreshed (HTTP {(int)statusCode})." +
+               (googleMessage.Length > 0 ? " Google says: " + googleMessage : "");
     }
 
     public static IReadOnlyList<YouTubeGrowthMetric> ParseResponse(string json)
