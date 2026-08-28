@@ -1,12 +1,12 @@
 {
-    "latest_version": "1.0.9",
-    "build": 34,
+    "latest_version": "1.0.10",
+    "build": 35,
     "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
     "release_notes": [
-        "Factburst Link Tracker now defaults to https://go.factburstquiz.com, and existing settings using the legacy go.factburstquiz.workers.dev address migrate automatically in the app.",
-        "Tracking links created for new promos now use the branded go.factburstquiz.com domain once that Worker custom domain is active.",
-        "Upgraded Generate + Schedule to Generate + Autopilot: new quiz batches keep running through tracking creation, website preparation, and the batch promo-scheduling step after the full videos are scheduled.",
-        "Logo and other visual-question media are copied into each newly generated quiz project before promo creation, so logo quiz promo Shorts keep the actual logo artwork.",
-        "Autopilot keeps the remaining manual work focused on platform limitations such as Instagram publishing and YouTube Shorts Related video setup."
+        "Export now shows a permanent Generate + Autopilot action as the recommended quiz-release workflow instead of relying on runtime button injection.",
+        "The Export page is simplified around Autopilot, with the detailed voice, branding, effects, music and manual render controls moved into a collapsible Settings & manual render options section.",
+        "Legacy injected Generate + Schedule / Generate + Autopilot controls are hidden so there is one obvious automation button.",
+        "Autopilot continues to generate fresh quizzes, schedule full YouTube videos on the next free days, create promo Shorts, tracking links and website releases, and prepare YouTube/Facebook promo scheduling.",
+        "Factburst tracking continues to use the branded https://go.factburstquiz.com domain."
     ]
 }
