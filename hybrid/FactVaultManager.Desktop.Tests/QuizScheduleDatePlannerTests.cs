@@ -54,6 +54,38 @@ public sealed class QuizScheduleDatePlannerTests
     }
 
     [Fact]
+    public void FindNextOpenDates_FillsGapsThenContinuesWithUnoccupiedDays()
+    {
+        var now = new DateTimeOffset(2026, 8, 27, 12, 0, 0, TimeSpan.FromHours(1));
+        var start = new DateTime(2026, 8, 28);
+        var histories = new[]
+        {
+            History(youtube: Schedule(now, 2026, 8, 28, 9)),
+            History(youtube: Schedule(now, 2026, 8, 30, 9)),
+        };
+
+        var result = QuizScheduleDatePlanner.FindNextOpenDates(histories, start, 3, now);
+
+        Assert.Equal(
+            new[]
+            {
+                new DateTime(2026, 8, 29),
+                new DateTime(2026, 8, 31),
+                new DateTime(2026, 9, 1),
+            },
+            result);
+    }
+
+    [Fact]
+    public void FindNextOpenDates_RejectsEmptyBatch()
+    {
+        var now = new DateTimeOffset(2026, 8, 27, 12, 0, 0, TimeSpan.FromHours(1));
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            QuizScheduleDatePlanner.FindNextOpenDates(Array.Empty<QuizHistorySummary>(), DateTime.Today, 0, now));
+    }
+
+    [Fact]
     public void FindNextOpenDate_IgnoresSchedulesThatAreAlreadyPast()
     {
         var now = new DateTimeOffset(2026, 8, 27, 12, 0, 0, TimeSpan.FromHours(1));
