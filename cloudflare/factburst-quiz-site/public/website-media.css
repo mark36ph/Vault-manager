@@ -27,8 +27,8 @@
   display: block;
   width: auto;
   height: auto;
-  max-width: min(100%, 520px);
-  max-height: 280px;
+  max-width: min(100%, 320px);
+  max-height: 180px;
   object-fit: contain;
 }
 
@@ -39,6 +39,7 @@
   }
 
   .question-visual img {
-    max-height: 220px;
+    max-width: min(100%, 240px);
+    max-height: 140px;
   }
 }
