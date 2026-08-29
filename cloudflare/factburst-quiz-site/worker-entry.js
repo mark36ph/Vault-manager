@@ -4,6 +4,7 @@ import {
   recordAuthenticatedScore,
 } from "./accounts.js";
 import { handleAuthApi } from "./account-auth.js";
+import { handleEmailChangeApi } from "./account-email-change.js";
 import { prepareAccountSchema } from "./account-schema.js";
 import {
   activeSessionUser,
@@ -61,6 +62,9 @@ export default {
         ...env,
         EMAIL: createResendEmailAdapter(env),
       };
+
+      const emailChangeResponse = await handleEmailChangeApi(request, accountEnv, url);
+      if (emailChangeResponse) return emailChangeResponse;
 
       const authResponse = await handleAuthApi(request, accountEnv, url);
       if (authResponse) return authResponse;
