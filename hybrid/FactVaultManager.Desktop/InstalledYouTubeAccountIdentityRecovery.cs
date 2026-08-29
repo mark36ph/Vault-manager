@@ -174,18 +174,19 @@ public static class InstalledYouTubeAccountIdentityRecovery
     private static IEnumerable<string> CandidateSettingsPaths(string appDataRoot)
     {
         var migrationMarker = Path.Combine(appDataRoot, "installed-data-migration-v2.json");
+        var sourceData = "";
         if (File.Exists(migrationMarker))
         {
             try
             {
-                var sourceData = JsonNode.Parse(File.ReadAllText(migrationMarker))?["source_data"]?.GetValue<string>()?.Trim() ?? "";
-                if (sourceData.Length > 0)
-                    yield return Path.Combine(sourceData, "settings.json");
+                sourceData = JsonNode.Parse(File.ReadAllText(migrationMarker))?["source_data"]?.GetValue<string>()?.Trim() ?? "";
             }
             catch (JsonException)
             {
             }
         }
+        if (sourceData.Length > 0)
+            yield return Path.Combine(sourceData, "settings.json");
 
         var developmentRoot = Path.Combine(appDataRoot, "development-root.txt");
         if (File.Exists(developmentRoot))
