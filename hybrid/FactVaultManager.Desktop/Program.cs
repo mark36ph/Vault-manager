@@ -26,6 +26,7 @@ public static class Program
         {
             VelopackApp.Build().Run();
             InstalledDataMigration.Run();
+            InstalledCredentialRecovery.Run();
 
             var application = new Application();
             AppInteractionPolish.Initialize();
