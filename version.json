@@ -1,12 +1,13 @@
 {
-  "latest_version": "1.0.28",
-  "build": 53,
+  "latest_version": "1.0.29",
+  "build": 54,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 53 adds a targeted credential-recovery pass for installed Factburst Quiz Manager settings after the Build 52 data migration.",
-    "Missing OpenAI, Pexels, Pixabay, YouTube, Facebook and Instagram credentials are recovered independently from the previous development settings when a valid source is available.",
-    "Recovered credentials are validated and re-encrypted with Windows DPAPI for the current user; valid credentials already present in the installed app are never overwritten.",
-    "An unusable encrypted credential is cleared only after the installed settings file is backed up, preventing one corrupt token from making every API key appear blank.",
-    "Credential recovery does not replace the database or quiz projects, and it remembers credentials it imported so a key you later clear intentionally is not restored from the old checkout."
+    "Build 54 restores a missing YouTube OAuth desktop client ID from the previous development settings without overwriting an ID already configured in the installed app.",
+    "Existing installations now run a separate project-consolidation pass even when the earlier Build 52 migration marker already exists.",
+    "The configured legacy Quiz Projects folder is merged into the persistent installed projects folder under LocalAppData, while newer installed project files are preserved.",
+    "Quiz History paths, absolute project folder values and common project JSON/XML/text path references are rebased to installed storage so the development checkout can be removed after verification.",
+    "Legacy project files remain untouched during migration, and conflicting installed files that must be replaced are backed up before replacement.",
+    "The installed database, settings, API credentials and quiz projects remain together under the FactVaultManager LocalAppData root."
   ]
 }
