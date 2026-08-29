@@ -8,6 +8,10 @@ on:
         required: false
         default: ""
   push:
+    branches:
+      - main
+    paths:
+      - "version.json"
     tags:
       - "v*.*.*"
 
@@ -41,7 +45,8 @@ jobs:
           } elseif ("${{ github.ref_type }}" -eq "tag") {
             $version = "${{ github.ref_name }}".TrimStart("v")
           } else {
-            $version = "0.1.${{ github.run_number }}"
+            $manifest = Get-Content version.json -Raw | ConvertFrom-Json
+            $version = [string]$manifest.latest_version
           }
           if ($version -notmatch '^\d+\.\d+\.\d+([+-][0-9A-Za-z.-]+)?$') {
             throw "Version must be SemVer, for example 1.0.0"
@@ -108,8 +113,8 @@ jobs:
             --packVersion "${{ steps.version.outputs.version }}" `
             --packDir desktop-build\publish `
             --mainExe FactVaultManager.Desktop.exe `
-            --packTitle "FactVaultManager" `
-            --packAuthors "FactVaultManager" `
+            --packTitle "Factburst Quiz Manager" `
+            --packAuthors "Factburst" `
             --runtime win-x64 `
             --channel win-x64-stable `
             --signParams $signParams `
@@ -141,7 +146,7 @@ jobs:
             --token $env:VPK_TOKEN `
             --publish `
             --merge `
-            --releaseName "FactVaultManager $version" `
+            --releaseName "Factburst Quiz Manager $version" `
             --tag "v$version" `
             --targetCommitish "${{ github.sha }}" `
             --channel win-x64-stable `
