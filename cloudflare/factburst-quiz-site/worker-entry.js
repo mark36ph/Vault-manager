@@ -10,6 +10,8 @@ import {
   enforceAccountRequestPolicy,
   enforceActiveSession,
 } from "./account-access.js";
+import { handleChallengeApi } from "./account-challenges.js";
+import { handleFriendsApi } from "./account-friends.js";
 import { handleFilteredLeaderboardApi } from "./account-leaderboards.js";
 import { handleProfileApi } from "./account-profile.js";
 import { createResendEmailAdapter } from "./resend-email.js";
@@ -28,6 +30,12 @@ export default {
 
       const policyResponse = await enforceAccountRequestPolicy(request, env.DB, url);
       if (policyResponse) return policyResponse;
+
+      const challengeResponse = await handleChallengeApi(request, env.DB, url);
+      if (challengeResponse) return challengeResponse;
+
+      const friendsResponse = await handleFriendsApi(request, env.DB, url);
+      if (friendsResponse) return friendsResponse;
 
       const accountEnv = {
         ...env,
@@ -112,6 +120,10 @@ export default {
 function isAccountRoute(pathname) {
   return pathname === "/api/account" ||
     pathname.startsWith("/api/account/") ||
+    pathname === "/api/friends" ||
+    pathname.startsWith("/api/friends/") ||
+    pathname === "/api/challenges" ||
+    pathname.startsWith("/api/challenges/") ||
     pathname === "/api/leaderboard" ||
     /^\/api\/quizzes\/[a-z0-9][a-z0-9-]{0,79}\/leaderboard$/i.test(pathname);
 }
