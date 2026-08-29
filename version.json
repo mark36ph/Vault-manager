@@ -1,8 +1,10 @@
 {
-  "latest_version": "1.0.46",
-  "build": 71,
+  "latest_version": "1.0.47",
+  "build": 72,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
+    "Build 72 keeps future and waiting Instagram promos out of Needs You until their Instagram posting time has actually arrived.",
+    "The Needs You counter, Instagram task list and publishing workflow now use the same due-time rule, so unavailable promos no longer inflate work requiring attention.",
     "Build 71 excludes comments authored by mark36ph from Full Autopilot viewer-reply approval work, including @mark36ph and case variations.",
     "Existing saved reply drafts for the channel owner's own posts are removed from Autopilot state, so they no longer appear in Viewer reply tasks or inflate the Needs You count.",
     "Build 70 moves Maintenance Mode out of Website Users and into a dedicated Website settings page, with the on/off control and visitor message together.",
