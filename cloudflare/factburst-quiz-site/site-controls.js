@@ -1,8 +1,19 @@
 import { activeSessionUser } from "./account-access.js";
 
 const DEFAULT_MAINTENANCE_MESSAGE = "Factburst Quiz is currently undergoing maintenance. Please check back shortly.";
+let siteControlSchemaPromise = null;
 
 export async function ensureSiteControlSchema(db) {
+  if (!siteControlSchemaPromise) {
+    siteControlSchemaPromise = prepareSiteControlSchema(db).catch(error => {
+      siteControlSchemaPromise = null;
+      throw error;
+    });
+  }
+  return siteControlSchemaPromise;
+}
+
+async function prepareSiteControlSchema(db) {
   await db.prepare(`
     CREATE TABLE IF NOT EXISTS site_settings (
       key TEXT PRIMARY KEY,
@@ -14,7 +25,11 @@ export async function ensureSiteControlSchema(db) {
   const columns = await db.prepare("PRAGMA table_info(site_users)").all();
   const names = new Set((columns.results || []).map(column => String(column?.name || "")));
   if (names.size > 0 && !names.has("role")) {
-    await db.prepare("ALTER TABLE site_users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'").run();
+    try {
+      await db.prepare("ALTER TABLE site_users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'").run();
+    } catch (error) {
+      if (!/duplicate column/i.test(String(error?.message || ""))) throw error;
+    }
   }
 }
 
