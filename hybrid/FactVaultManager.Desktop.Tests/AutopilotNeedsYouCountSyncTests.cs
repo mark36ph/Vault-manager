@@ -67,6 +67,17 @@ public sealed class AutopilotNeedsYouCountSyncTests
     }
 
     [Fact]
+    public void Build76Source_RepairsCardsOverwrittenByLegacyHomeRefresh()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
+
+        Assert.Contains("RenderedAutopilotHomeTaskCardsMatch(cards)", source, StringComparison.Ordinal);
+        Assert.Contains("summaryChanged || !visibleCardsMatch", source, StringComparison.Ordinal);
+        Assert.Contains("Set Related Video on {grouped.RelatedVideos:N0}", source, StringComparison.Ordinal);
+        Assert.Contains("SequenceEqual(expectedTitles, StringComparer.Ordinal)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Build75Source_GuardsHomeCardRenderingAgainstOneSecondRebuilds()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
@@ -82,7 +93,7 @@ public sealed class AutopilotNeedsYouCountSyncTests
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
 
         Assert.Contains("FromAlignedTasks(tasks)", source, StringComparison.Ordinal);
-        Assert.Contains("SyncAutopilotHomeTaskCards(grouped)", source, StringComparison.Ordinal);
+        Assert.Contains("BuildAutopilotHomeTaskCards(grouped)", source, StringComparison.Ordinal);
         Assert.Contains("Set Related Video on {grouped.RelatedVideos:N0}", source, StringComparison.Ordinal);
     }
 
