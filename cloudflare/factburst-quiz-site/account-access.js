@@ -22,10 +22,7 @@ export async function enforceAccountRequestPolicy(request, db, url) {
       SELECT status FROM site_users WHERE username_key = ? LIMIT 1
     `).bind(usernameKey).first();
     if (String(user?.status || "active").toLowerCase() === "suspended") {
-      return json({
-        error: "This account has been suspended and cannot log in.",
-        code: "account_suspended",
-      }, 403);
+      return json({ error: "Username or password is incorrect." }, 401);
     }
     return null;
   }
