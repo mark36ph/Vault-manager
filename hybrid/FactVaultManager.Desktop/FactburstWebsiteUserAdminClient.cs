@@ -47,12 +47,17 @@ public sealed record FactburstWebsiteUserDetail(
     FactburstWebsiteUserSummary User,
     IReadOnlyList<FactburstWebsiteUserQuizActivity> Quizzes);
 
-public sealed class FactburstWebsiteUserAdminClient
+public sealed class FactburstWebsiteUserAdminClient : IDisposable
 {
     private static readonly HttpClient SharedClient = new() { Timeout = TimeSpan.FromSeconds(25) };
     private readonly HttpClient _client;
 
     public FactburstWebsiteUserAdminClient(HttpClient? client = null) => _client = client ?? SharedClient;
+
+    public void Dispose()
+    {
+        // The default client is shared for the lifetime of the app. Injected clients are owned by the caller.
+    }
 
     public async Task<FactburstWebsiteUserList> FetchUsersAsync(
         string baseUrl,
