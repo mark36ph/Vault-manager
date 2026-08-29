@@ -48,6 +48,23 @@ public sealed class AutopilotFirstUiTests
     }
 
     [Fact]
+    public void DueInstagramPromoCount_OnlyCountsNextDayPromosOncePostingTimeArrives()
+    {
+        var publishAt = new DateTimeOffset(2026, 9, 1, 18, 0, 0, TimeSpan.Zero);
+        var due = AutopilotNeedsYouTaskPlanner.PromoDueAt(publishAt);
+        var rows = new[]
+        {
+            Row(41, publishAt, "Ready promo", "Next day"),
+            Row(42, publishAt, "Waiting promo", "Waiting"),
+            Row(43, publishAt, "Already uploaded", "Uploaded"),
+        };
+
+        Assert.Equal(0, AutopilotHomePlanner.DueInstagramPromoCount(rows, due.AddMinutes(-1)));
+        Assert.Equal(1, AutopilotHomePlanner.DueInstagramPromoCount(rows, due));
+        Assert.Equal(1, AutopilotHomePlanner.DueInstagramPromoCount(rows, due.AddDays(2)));
+    }
+
+    [Fact]
     public void Build45Source_ContainsCompactDailyNavigationAndAdvancedFallback()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotFirstUi.cs");
@@ -69,6 +86,32 @@ public sealed class AutopilotFirstUiTests
         Assert.Contains("NavigateLegacy(\"Quizzes\", \"Create\")", source, StringComparison.Ordinal);
         Assert.Contains("SelectQuizWorkspacePage(\"export\")", source, StringComparison.Ordinal);
     }
+
+    private static ScheduledReleaseReadinessRow Row(
+        int historyId,
+        DateTimeOffset publishAt,
+        string quiz,
+        string instagramPromo) =>
+        new(
+            historyId,
+            publishAt,
+            publishAt.ToString("O"),
+            quiz,
+            "General Knowledge",
+            "Scheduled",
+            "Ready",
+            "Ready",
+            "Ready",
+            "Uploaded",
+            "Uploaded",
+            instagramPromo,
+            "Set",
+            "Prepared",
+            8,
+            8,
+            "8/8 • Ready",
+            "Ready for release",
+            $"C:\\Projects\\{historyId}");
 
     private static string ReadRepositoryFile(string relativePath)
     {
