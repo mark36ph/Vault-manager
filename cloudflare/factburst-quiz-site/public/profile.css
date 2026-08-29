@@ -69,13 +69,135 @@
   font-size: 1.75rem;
 }
 
+.profile-friends-panel,
 .profile-history-panel {
   padding: 1.65rem;
+  margin-bottom: 1.25rem;
 }
 
 .profile-help {
   margin: -0.5rem 0 1.4rem;
   color: #b8c3e6;
+}
+
+.profile-help[data-kind="success"] {
+  color: #44f08d;
+}
+
+.profile-help[data-kind="error"] {
+  color: #ff9bb7;
+}
+
+.profile-friends-heading {
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.friend-add-form {
+  display: flex;
+  gap: 0.65rem;
+  align-items: end;
+}
+
+.friend-add-form input,
+.friend-challenge-picker select {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(145, 164, 226, 0.35);
+  background: rgba(4, 12, 48, 0.86);
+  color: white;
+  padding: 0.7rem 0.85rem;
+  font: inherit;
+}
+
+.friend-add-form input {
+  width: min(280px, 52vw);
+}
+
+.friend-request-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.friend-request-grid > section {
+  padding: 1rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(145, 164, 226, 0.14);
+}
+
+.friend-request-grid h3,
+.friends-title-row h3 {
+  margin: 0 0 0.7rem;
+}
+
+.friends-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.friend-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.friend-card {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) auto;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.9rem 1rem;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(145, 164, 226, 0.18);
+}
+
+.friend-identity strong {
+  display: block;
+  font-size: 1.05rem;
+}
+
+.friend-identity span {
+  display: block;
+  margin-top: 0.25rem;
+  color: #aebbe4;
+  font-size: 0.84rem;
+}
+
+.friend-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.friend-actions .button,
+.friend-challenge-picker .button {
+  min-height: 38px;
+  padding: 0.55rem 0.8rem;
+}
+
+.friend-challenge-picker {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 0.6rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid rgba(145, 164, 226, 0.15);
+  color: #b8c3e6;
+}
+
+.friend-empty {
+  padding: 1.1rem;
+  border: 1px dashed rgba(145, 164, 226, 0.3);
+  border-radius: 14px;
+  color: #b8c3e6;
+  text-align: center;
 }
 
 .profile-history {
@@ -136,12 +258,18 @@
 
 .account-profile-link {
   margin-left: auto;
-  color: white;
-  font-weight: 800;
-  text-decoration: none;
-  padding: 0.7rem 0.9rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (max-width: 980px) {
@@ -151,24 +279,45 @@
   .profile-history-card {
     grid-template-columns: 1fr;
   }
+  .friend-request-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 680px) {
   .profile-shell {
     padding-top: 1.5rem;
   }
-  .profile-hero {
+  .profile-hero,
+  .profile-friends-heading {
     align-items: stretch;
     flex-direction: column;
+  }
+  .profile-hero {
     padding: 1.35rem;
   }
   .profile-stat-grid {
     grid-template-columns: 1fr 1fr;
   }
+  .profile-friends-panel,
   .profile-history-panel {
     padding: 1.1rem;
   }
   .profile-history-metrics {
     grid-template-columns: 1fr 1fr;
+  }
+  .friend-add-form,
+  .friend-challenge-picker,
+  .friend-card {
+    grid-template-columns: 1fr;
+  }
+  .friend-add-form {
+    align-items: stretch;
+  }
+  .friend-add-form input {
+    width: 100%;
+  }
+  .friend-actions {
+    justify-content: flex-start;
   }
 }
