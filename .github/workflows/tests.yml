@@ -140,4 +140,4 @@ jobs:
 
       - name: Validate tracker admin Worker bundle
         working-directory: cloudflare/factburst-link-tracker
-        run: npx --yes wrangler@4 deploy admin-worker-entry.js --dry-run --outdir .wrangler-dry-run
+        run: npx --yes wrangler@4 deploy admin-worker-entry.js --name factburst-link-tracker-admin-check --dry-run --outdir .wrangler-dry-run
