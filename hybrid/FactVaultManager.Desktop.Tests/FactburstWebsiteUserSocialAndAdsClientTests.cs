@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Text;
 using FactVaultManager.Desktop;
 
@@ -36,20 +35,20 @@ public sealed class FactburstWebsiteUserSocialAndAdsClientTests
         Assert.Empty(result.Outgoing);
         Assert.Equal("Bearer", captured?.Headers.Authorization?.Scheme);
         Assert.Equal("1234567890abcdef", captured?.Headers.Authorization?.Parameter);
-        Assert.EndsWith("/api/site/users/7/friends", captured?.RequestUri?.AbsoluteUri, StringComparison.Ordinal);
+        Assert.True((captured?.RequestUri?.AbsoluteUri ?? "").EndsWith("/api/site/users/7/friends", StringComparison.Ordinal));
     }
 
     [Fact]
     public async Task Ads_client_fetches_and_saves_optional_side_ad_settings()
     {
-        var calls = new List<HttpRequestMessage>();
+        var calls = new List<(HttpMethod Method, string Url, string Scheme)>();
         var handler = new StubHandler(request =>
         {
-            calls.Add(request);
-            return Json(HttpStatusCode.OK, request.Method == HttpMethod.Get
-                ? """{ "enabled": false, "client": "ca-pub-1234567890123456", "left_slot": "1234567890", "right_slot": "" }"""
-                : """{ "enabled": true, "client": "ca-pub-1234567890123456", "left_slot": "1234567890", "right_slot": "0987654321" }""
-            );
+            calls.Add((request.Method, request.RequestUri?.AbsoluteUri ?? "", request.Headers.Authorization?.Scheme ?? ""));
+            var body = request.Method == HttpMethod.Get
+                ? "{\"enabled\":false,\"client\":\"ca-pub-1234567890123456\",\"left_slot\":\"1234567890\",\"right_slot\":\"\"}"
+                : "{\"enabled\":true,\"client\":\"ca-pub-1234567890123456\",\"left_slot\":\"1234567890\",\"right_slot\":\"0987654321\"}";
+            return Json(HttpStatusCode.OK, body);
         });
         using var http = new HttpClient(handler);
         using var client = new FactburstWebsiteAdsAdminClient(http);
@@ -65,9 +64,9 @@ public sealed class FactburstWebsiteUserSocialAndAdsClientTests
         Assert.True(saved.Enabled);
         Assert.Equal("0987654321", saved.RightSlot);
         Assert.Equal(2, calls.Count);
-        Assert.All(calls, request => Assert.Equal("Bearer", request.Headers.Authorization?.Scheme));
+        Assert.All(calls, call => Assert.Equal("Bearer", call.Scheme));
         Assert.Equal(HttpMethod.Patch, calls[1].Method);
-        Assert.EndsWith("/api/site/ads", calls[1].RequestUri?.AbsoluteUri, StringComparison.Ordinal);
+        Assert.True(calls[1].Url.EndsWith("/api/site/ads", StringComparison.Ordinal));
     }
 
     private static HttpResponseMessage Json(HttpStatusCode status, string body) => new(status)
