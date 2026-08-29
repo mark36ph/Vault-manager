@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Windows.Controls;
 using System.Windows.Threading;
 
 namespace FactVaultManager.Desktop;
@@ -104,9 +105,12 @@ public partial class MainShellWindow
             if (_autopilotHealthText is not null)
                 _autopilotHealthText.Text = health;
 
-            if (AutopilotNeedsYouCountSummary.NeedsCardRefresh(_autopilotNeedsYouRenderedSummary, grouped))
+            var cards = BuildAutopilotHomeTaskCards(grouped);
+            var summaryChanged = AutopilotNeedsYouCountSummary.NeedsCardRefresh(_autopilotNeedsYouRenderedSummary, grouped);
+            var visibleCardsMatch = RenderedAutopilotHomeTaskCardsMatch(cards);
+            if (summaryChanged || !visibleCardsMatch)
             {
-                SyncAutopilotHomeTaskCards(grouped);
+                RenderManualAutopilotTasks(cards);
                 _autopilotNeedsYouRenderedSummary = grouped;
             }
 
@@ -119,7 +123,7 @@ public partial class MainShellWindow
         }
     }
 
-    private void SyncAutopilotHomeTaskCards(AutopilotNeedsYouGroupedSummary grouped)
+    private List<AutopilotManualTask> BuildAutopilotHomeTaskCards(AutopilotNeedsYouGroupedSummary grouped)
     {
         var cards = new List<AutopilotManualTask>();
 
@@ -168,6 +172,30 @@ public partial class MainShellWindow
                 "Review warning"));
         }
 
-        RenderManualAutopilotTasks(cards);
+        return cards;
     }
+
+    private bool RenderedAutopilotHomeTaskCardsMatch(IReadOnlyList<AutopilotManualTask> expectedCards)
+    {
+        if (_autopilotNeedsPanel is null) return false;
+
+        var expectedTitles = expectedCards
+            .Select(card => card.Title.Trim())
+            .ToList();
+        var renderedTitles = _autopilotNeedsPanel.Children
+            .OfType<Grid>()
+            .Select(row => row.Children.OfType<StackPanel>().FirstOrDefault())
+            .Where(stack => stack is not null)
+            .Select(stack => stack!.Children.OfType<TextBlock>().FirstOrDefault()?.Text?.Trim() ?? "")
+            .Where(IsAutopilotHomeTaskCardTitle)
+            .ToList();
+
+        return renderedTitles.SequenceEqual(expectedTitles, StringComparer.Ordinal);
+    }
+
+    private static bool IsAutopilotHomeTaskCardTitle(string title) =>
+        title.StartsWith("Set Related Video on ", StringComparison.Ordinal) ||
+        title.StartsWith("Instagram: ", StringComparison.Ordinal) ||
+        title.StartsWith("Review ", StringComparison.Ordinal) ||
+        title.StartsWith("Check ", StringComparison.Ordinal);
 }
