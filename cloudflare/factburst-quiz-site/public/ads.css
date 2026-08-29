@@ -9,6 +9,7 @@
 .quiz-page-grid .quiz-shell {
   width: 100%;
   min-width: 0;
+  grid-column: 2;
 }
 .quiz-ad-rail {
   position: sticky;
@@ -35,6 +36,9 @@
     width: min(900px, calc(100% - 36px));
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
+  }
+  .quiz-page-grid .quiz-shell {
+    grid-column: 1;
   }
   .quiz-ad-rail { display: none !important; }
 }
