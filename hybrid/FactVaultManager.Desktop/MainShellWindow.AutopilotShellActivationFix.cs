@@ -22,6 +22,27 @@ public static class AutopilotNavigationLocator
     }
 }
 
+public static class AutopilotTopBarLocator
+{
+    public static bool IsHeaderActionPanel(IEnumerable<string?> buttonLabels)
+    {
+        ArgumentNullException.ThrowIfNull(buttonLabels);
+        var labels = buttonLabels
+            .Select(value => (value ?? "").Trim())
+            .Where(value => value.Length > 0)
+            .ToArray();
+
+        return labels.Any(value => value.Contains("Refresh", StringComparison.OrdinalIgnoreCase)) &&
+               labels.Any(value => value.Contains("Updates", StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static bool IsLegacyProductionAction(string? label)
+    {
+        var text = (label ?? "").Trim();
+        return text.Contains("Production", StringComparison.OrdinalIgnoreCase);
+    }
+}
+
 public partial class MainShellWindow
 {
     private bool _autopilotShellActivationFixInitialized;
@@ -90,6 +111,7 @@ public partial class MainShellWindow
         EnsureAutopilotNavigation();
         CompactLegacyNavigation();
         SimplifyTopBar(root);
+        HideLegacyProductionTopBarAction(root);
         EnsureAutopilotNavigationGuard();
 
         if (_autopilotHomeTabIndex < 0)
@@ -122,6 +144,28 @@ public partial class MainShellWindow
         return null;
     }
 
+    private void HideLegacyProductionTopBarAction(DependencyObject root)
+    {
+        foreach (var panel in FindVisualChildren<StackPanel>(root))
+        {
+            var buttons = panel.Children.OfType<Button>().ToArray();
+            if (!AutopilotTopBarLocator.IsHeaderActionPanel(buttons.Select(button => Convert.ToString(button.Content))))
+                continue;
+
+            foreach (var production in buttons.Where(button =>
+                         AutopilotTopBarLocator.IsLegacyProductionAction(Convert.ToString(button.Content))))
+            {
+                production.Visibility = Visibility.Collapsed;
+            }
+        }
+    }
+
+    private void AutopilotTopBarGuardTimer_Tick(object? sender, EventArgs e)
+    {
+        if (Content is DependencyObject root)
+            HideLegacyProductionTopBarAction(root);
+    }
+
     private void EnsureAutopilotNavigationGuard()
     {
         _autopilotNavigationGuardTimer ??= new DispatcherTimer(DispatcherPriority.Background)
@@ -130,6 +174,8 @@ public partial class MainShellWindow
         };
         _autopilotNavigationGuardTimer.Tick -= AutopilotNavigationGuardTimer_Tick;
         _autopilotNavigationGuardTimer.Tick += AutopilotNavigationGuardTimer_Tick;
+        _autopilotNavigationGuardTimer.Tick -= AutopilotTopBarGuardTimer_Tick;
+        _autopilotNavigationGuardTimer.Tick += AutopilotTopBarGuardTimer_Tick;
         _autopilotNavigationGuardTimer.Start();
     }
 }
