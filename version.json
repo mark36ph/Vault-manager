@@ -1,12 +1,15 @@
 {
-  "latest_version": "1.0.42",
-  "build": 67,
+  "latest_version": "1.0.43",
+  "build": 68,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 67 adds a dedicated Website Ads tab in app Settings, with a clear Configure AdSense action for turning website ads on or off and entering AdSense details.",
-    "Website Ads now accepts either a ca-pub publisher ID or a pasted AdSense ad-unit code snippet and extracts the publisher ID and first ad-slot automatically.",
-    "The Factburst Quiz featured/full-quiz panel is compact again instead of expanding into a large empty area.",
-    "Moving to the next quiz question now preserves the current page position instead of jumping back to the top.",
-    "Google AdSense remains disabled by default and only uses wide-screen side-rail placements when explicitly enabled."
+    "Build 68 adds Factburst user groups (User, Moderator and Admin), role controls in the desktop Users page, an explicit View friends popup and website maintenance controls.",
+    "Maintenance mode blocks normal visitors while administrators can still use the live site with a persistent maintenance banner.",
+    "Verified users can change email safely: the existing verified address remains active until the replacement address is confirmed.",
+    "Quiz profiles now gain Daily Quiz streaks, XP and levels, achievements, category progress, saved and recent quizzes, recommendations and richer player statistics.",
+    "Friends gain weekly/monthly/all-time competition views, challenge result/rematch support and live head-to-head quiz matches.",
+    "The site adds notifications, weekly tournaments, quiz reactions, result-card sharing, question reporting and more personalised homepage content.",
+    "Quiz comments gain replies, likes, editing, reporting and moderator/admin management controls, with improved empty-state padding.",
+    "The Website Ads dialog is larger so all AdSense fields, help text and actions are comfortably visible."
   ]
 }
