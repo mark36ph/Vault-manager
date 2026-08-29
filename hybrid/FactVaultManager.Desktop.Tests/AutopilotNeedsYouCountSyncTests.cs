@@ -30,6 +30,41 @@ public sealed class AutopilotNeedsYouCountSyncTests
     }
 
     [Fact]
+    public void FromAlignedTasks_MakesHomeGroupsAddUpToNeedsYouTotal()
+    {
+        var tasks = new[]
+        {
+            Task(AutopilotAlignedTaskKind.RelatedVideo, "related-1"),
+            Task(AutopilotAlignedTaskKind.RelatedVideo, "related-2"),
+            Task(AutopilotAlignedTaskKind.InstagramPromo, "instagram-1"),
+            Task(AutopilotAlignedTaskKind.ViewerReply, "reply-1"),
+            Task(AutopilotAlignedTaskKind.ReleaseWarning, "warning-1"),
+        };
+
+        var grouped = AutopilotNeedsYouCountSummary.FromAlignedTasks(tasks);
+
+        Assert.Equal(5, grouped.Total);
+        Assert.Equal(2, grouped.RelatedVideos);
+        Assert.Equal(1, grouped.InstagramPromos);
+        Assert.Equal(0, grouped.PackagingRescues);
+        Assert.Equal(1, grouped.ViewerReplies);
+        Assert.Equal(1, grouped.ReleaseWarnings);
+        Assert.Equal(
+            grouped.Total,
+            grouped.RelatedVideos + grouped.InstagramPromos + grouped.PackagingRescues + grouped.ViewerReplies + grouped.ReleaseWarnings);
+    }
+
+    [Fact]
+    public void Build74Source_RendersHomeTaskCardsFromSameAlignedSummaryAsCounter()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
+
+        Assert.Contains("FromAlignedTasks(tasks)", source, StringComparison.Ordinal);
+        Assert.Contains("SyncAutopilotHomeTaskCards(grouped)", source, StringComparison.Ordinal);
+        Assert.Contains("Set Related Video on {grouped.RelatedVideos:N0}", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Build59Source_WiresCountSyncAfterTaskQueueInitialization()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
@@ -43,6 +78,21 @@ public sealed class AutopilotNeedsYouCountSyncTests
         Assert.Contains("Actual pending tasks requiring your input", source, StringComparison.Ordinal);
         Assert.Contains("{total:N0} need you", source, StringComparison.Ordinal);
     }
+
+    private static AutopilotAlignedTaskItem Task(AutopilotAlignedTaskKind kind, string key) =>
+        new(
+            kind,
+            key,
+            1,
+            key,
+            "detail",
+            "pending",
+            null,
+            "",
+            "",
+            "",
+            "",
+            true);
 
     private static string ReadRepositoryFile(string relativePath)
     {
