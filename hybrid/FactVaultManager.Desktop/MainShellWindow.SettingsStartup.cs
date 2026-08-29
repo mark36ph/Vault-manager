@@ -11,5 +11,7 @@ public partial class MainShellWindow
         WindowState = GetStartMaximizedSetting()
             ? WindowState.Maximized
             : WindowState.Normal;
+        InitializeWebsiteAdsSettings();
+        InitializeWebsiteAdsSettingsPage();
     }
 }
