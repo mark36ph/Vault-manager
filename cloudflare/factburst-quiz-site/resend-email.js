@@ -1,5 +1,7 @@
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
+// RESEND_API_KEY is a Cloudflare Worker secret. EMAIL_FROM is a normal
+// Worker variable containing a sender address on a domain verified in Resend.
 export function createResendEmailAdapter(env, fetchImpl = fetch) {
   const apiKey = String(env?.RESEND_API_KEY || "").trim();
   if (!apiKey) return null;
