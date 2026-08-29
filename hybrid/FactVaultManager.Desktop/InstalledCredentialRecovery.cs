@@ -16,14 +16,14 @@ public static class InstalledCredentialRecovery
 
     private static readonly CredentialSpec[] CredentialSpecs =
     [
-        new("ai", "api_key"),
-        new("images", "pexels_api_key"),
-        new("images", "pixabay_api_key"),
-        new("youtube", "api_key"),
-        new("youtube", "oauth_client_secret"),
-        new("youtube", "oauth_refresh_token"),
-        new("facebook", "page_access_token"),
-        new("instagram", "access_token"),
+        new("ai", "api_key", "OPENAI_API_KEY"),
+        new("images", "pexels_api_key", "PEXELS_API_KEY"),
+        new("images", "pixabay_api_key", "PIXABAY_API_KEY"),
+        new("youtube", "api_key", "YOUTUBE_API_KEY"),
+        new("youtube", "oauth_client_secret", "YOUTUBE_OAUTH_CLIENT_SECRET"),
+        new("youtube", "oauth_refresh_token", "YOUTUBE_OAUTH_REFRESH_TOKEN"),
+        new("facebook", "page_access_token", "FACEBOOK_PAGE_ACCESS_TOKEN"),
+        new("instagram", "access_token", "INSTAGRAM_ACCESS_TOKEN"),
     ];
 
     public static void Run()
@@ -90,7 +90,8 @@ public static class InstalledCredentialRecovery
             if (!wasInvalid && wasRecoveredPreviously)
                 continue;
 
-            if (TryFindSourceCredential(sources, spec, out var clear))
+            if (TryFindSourceCredential(sources, spec, out var clear) ||
+                TryReadEnvironmentCredential(spec, out clear))
             {
                 SetCredential(destination, spec, LocalSecretProtector.Protect(clear));
                 settingsChanged = true;
@@ -185,6 +186,16 @@ public static class InstalledCredentialRecovery
         return false;
     }
 
+    private static bool TryReadEnvironmentCredential(CredentialSpec spec, out string clear)
+    {
+        clear = "";
+        if (string.IsNullOrWhiteSpace(spec.EnvironmentVariable))
+            return false;
+
+        clear = (Environment.GetEnvironmentVariable(spec.EnvironmentVariable) ?? "").Trim();
+        return clear.Length > 0;
+    }
+
     private static CredentialState ReadCredential(JsonObject root, CredentialSpec spec)
     {
         var section = root[spec.Section] as JsonObject;
@@ -193,7 +204,7 @@ public static class InstalledCredentialRecovery
 
         var node = section[spec.Key];
         if (node is not JsonValue value || !value.TryGetValue<string>(out var rawValue))
-            return new CredentialState(true, "", "", false);
+            return new CredentialState(true, node?.ToJsonString() ?? "<invalid>", "", false);
 
         var raw = (rawValue ?? "").Trim();
         if (raw.Length == 0)
@@ -449,7 +460,7 @@ public static class InstalledCredentialRecovery
         }
     }
 
-    private sealed record CredentialSpec(string Section, string Key)
+    private sealed record CredentialSpec(string Section, string Key, string? EnvironmentVariable = null)
     {
         public string Name => $"{Section}.{Key}";
     }
