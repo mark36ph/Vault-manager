@@ -22,7 +22,7 @@ export async function enforceAccountRequestPolicy(request, db, url) {
       SELECT status FROM site_users WHERE username_key = ? LIMIT 1
     `).bind(usernameKey).first();
     if (String(user?.status || "active").toLowerCase() === "suspended") {
-      return json({ error: "Username or password is incorrect." }, 401);
+      return json({ error: suspendedAccountMessage(), code: "account_suspended" }, 403);
     }
     return null;
   }
@@ -56,7 +56,7 @@ export async function enforceActiveSession(request, db) {
 
   await db.prepare("DELETE FROM site_sessions WHERE token_hash = ?").bind(tokenHash).run();
   return json({
-    error: "This account has been suspended. Contact Factburst support if you think this is a mistake.",
+    error: suspendedAccountMessage(),
     code: "account_suspended",
   }, 403, {
     "set-cookie": `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
@@ -77,6 +77,10 @@ export async function activeSessionUser(request, db) {
       AND COALESCE(u.status, 'active') = 'active'
     LIMIT 1
   `).bind(tokenHash, now).first();
+}
+
+export function suspendedAccountMessage() {
+  return "Your Factburst account has been suspended. Contact Factburst support if you think this is a mistake.";
 }
 
 async function readJsonClone(request) {
