@@ -150,7 +150,7 @@ jobs:
             --arg r2_bucket_name "factburst-quiz-images" \
             '{
               name: $worker_name,
-              main: "worker.js",
+              main: "admin-worker-entry.js",
               compatibility_date: $compatibility_date,
               keep_vars: true,
               d1_databases: [
@@ -181,7 +181,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: cloudflare/factburst-link-tracker
           wranglerVersion: "4"
-          command: deploy --config wrangler.ci.json
+          command: deploy --config wrangler.ci.json --keep-vars
 
       - name: Deployment summary
         if: steps.credentials.outputs.ready == 'true' && success()
@@ -194,6 +194,7 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Worker: \`${WORKER_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Quiz images: \`factburst-quiz-images\` (R2)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Private account administration: \`/api/site/users\`" >> "$GITHUB_STEP_SUMMARY"
           if [[ -n "${DEPLOYMENT_URL}" ]]; then
             echo "Deployment: ${DEPLOYMENT_URL}" >> "$GITHUB_STEP_SUMMARY"
           fi
