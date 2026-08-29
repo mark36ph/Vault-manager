@@ -1,14 +1,11 @@
 {
-  "latest_version": "1.0.33",
-  "build": 58,
+  "latest_version": "1.0.34",
+  "build": 59,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 58 turns Autopilot Needs You into a unified task queue instead of a set of navigation shortcuts.",
-    "Related-video tasks now open the exact YouTube Short in Studio, copy the matching full-quiz title, open the full quiz for verification, and disappear only after the saved Related video is explicitly confirmed.",
-    "Prepared Instagram promos can now be reviewed and published directly from the Autopilot queue with the existing approved-account preflight and Instagram Reel upload service.",
-    "Instagram promo completion is recorded in the project promo metadata so Release Readiness and Autopilot stop asking for work that has already been completed.",
-    "Viewer reply drafts are shown as editable tasks with Open on YouTube and Send reply actions; public replies still require explicit confirmation before posting.",
-    "Successfully sent viewer replies are removed from Full Autopilot state, and replies sent through the existing YouTube Manager are also pruned from the queue during the same app session.",
-    "A Manage task queue button provides one place to work through Related videos, Instagram promos and viewer replies, while the existing Needs You buttons open the same queue pre-filtered to the relevant task type."
+    "Build 59 fixes the Autopilot Needs You count so it shows the actual number of pending work items instead of the number of summary categories.",
+    "The Needs You stat and top Autopilot status now stay synchronized with Related Video, Instagram promo, packaging rescue, viewer reply, and release-warning item counts.",
+    "For the Build 58 example containing 1 Related Video, 8 Instagram promos, and 12 viewer replies, Autopilot now reports 21 need you rather than 3.",
+    "Completed work continues to reduce the count automatically while the unified Needs You task queue remains unchanged."
   ]
 }
