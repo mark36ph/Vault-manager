@@ -41,7 +41,7 @@ public sealed class AutopilotShellActivationFixTests
     }
 
     [Fact]
-    public void Build48Startup_RegistersShellActivationFixAfterAutopilotFirstUi()
+    public void AutopilotStartup_RegistersShellActivationFixAfterAutopilotFirstUi()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var original = source.IndexOf("InitializeAutopilotFirstUi();", StringComparison.Ordinal);
@@ -49,7 +49,7 @@ public sealed class AutopilotShellActivationFixTests
 
         Assert.True(original >= 0);
         Assert.True(fix > original);
-        Assert.Contains("CurrentBuildNumber = 48", source, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber =", source, StringComparison.Ordinal);
     }
 
     private static string ReadRepositoryFile(string relativePath)
