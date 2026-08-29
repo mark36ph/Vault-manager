@@ -1,13 +1,13 @@
 {
-  "latest_version": "1.0.22",
-  "build": 47,
+  "latest_version": "1.0.23",
+  "build": 48,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Autopilot now has a persistent schedule target, defaulting to 14 future release days, with 7, 14, 21 and 30 day choices on the home page.",
-    "Generate + Fill Schedule calculates the real schedule gap and supplies the batch size automatically instead of asking how many quizzes to make.",
-    "An optional Auto-fill switch checks the schedule after startup and every 30 minutes and starts another Autopilot batch when at least two target days are missing.",
-    "Automatic fills pause while production is busy, while YouTube is recovering, or until the YouTube destination has been explicitly approved once.",
-    "After the approved YouTube channel is verified to still match, trusted schedule-target batches no longer stop for the repeated destination confirmation dialog.",
-    "Schedule target preferences persist across restarts in autopilot-preferences.json; Auto-fill is opt-in so installing an update never unexpectedly starts a render batch."
+    "Fixes Build 47 opening on the legacy Quizzes page instead of the new Factburst Autopilot home.",
+    "Autopilot shell activation now waits for the app's quiz-first navigation rebuild instead of looking for the Dashboard button that the rebuild removes.",
+    "The compact Autopilot, Create, Performance, Library, Advanced and Settings navigation is anchored to the stable Quizzes route after startup.",
+    "A startup activation guard retries until the rebuilt navigation is ready, then selects the Autopilot home automatically.",
+    "The shell fix is structural and no longer depends on the legacy Dashboard label, preventing the same startup-order failure when navigation sections change.",
+    "All Build 47 recovery and schedule Auto-fill features remain unchanged."
   ]
 }
