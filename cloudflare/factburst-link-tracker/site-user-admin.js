@@ -151,14 +151,17 @@ async function updateUser(request, env, userId) {
   const reason = String(body?.reason || "").trim().slice(0, 300);
   const now = new Date().toISOString();
   if (status === "suspended") {
-    await env.DB.batch([
+    const statements = [
       env.DB.prepare(`
         UPDATE site_users
         SET status = 'suspended', suspended_at = ?, suspension_reason = ?
         WHERE id = ?
       `).bind(now, reason, userId),
-      env.DB.prepare("DELETE FROM site_sessions WHERE user_id = ?").bind(userId),
-    ]);
+    ];
+    if (await tableExists(env.DB, "site_sessions")) {
+      statements.push(env.DB.prepare("DELETE FROM site_sessions WHERE user_id = ?").bind(userId));
+    }
+    await env.DB.batch(statements);
   } else {
     await env.DB.prepare(`
       UPDATE site_users
@@ -175,13 +178,32 @@ async function deleteUser(env, userId) {
   const existing = await env.DB.prepare("SELECT id, username FROM site_users WHERE id = ? LIMIT 1").bind(userId).first();
   if (!existing) return json({ error: "User not found." }, 404);
 
-  await env.DB.batch([
-    env.DB.prepare("DELETE FROM site_sessions WHERE user_id = ?").bind(userId),
-    env.DB.prepare("DELETE FROM site_email_verifications WHERE user_id = ?").bind(userId),
-    env.DB.prepare("DELETE FROM site_user_scores WHERE user_id = ?").bind(userId),
-    env.DB.prepare("DELETE FROM site_users WHERE id = ?").bind(userId),
-  ]);
+  const statements = [];
+  if (await tableExists(env.DB, "site_sessions")) {
+    statements.push(env.DB.prepare("DELETE FROM site_sessions WHERE user_id = ?").bind(userId));
+  }
+  if (await tableExists(env.DB, "site_email_verifications")) {
+    statements.push(env.DB.prepare("DELETE FROM site_email_verifications WHERE user_id = ?").bind(userId));
+  }
+  if (await tableExists(env.DB, "site_user_scores")) {
+    statements.push(env.DB.prepare("DELETE FROM site_user_scores WHERE user_id = ?").bind(userId));
+  }
+  if (await tableExists(env.DB, "site_challenges")) {
+    const columns = await env.DB.prepare("PRAGMA table_info(site_challenges)").all();
+    const names = new Set((columns.results || []).map(column => String(column.name || "")));
+    statements.push(names.has("challenged_user_id")
+      ? env.DB.prepare("DELETE FROM site_challenges WHERE challenger_user_id = ? OR challenged_user_id = ?").bind(userId, userId)
+      : env.DB.prepare("DELETE FROM site_challenges WHERE challenger_user_id = ?").bind(userId));
+  }
+  if (await tableExists(env.DB, "site_friendships")) {
+    statements.push(env.DB.prepare(`
+      DELETE FROM site_friendships
+      WHERE user_a_id = ? OR user_b_id = ? OR requested_by_user_id = ?
+    `).bind(userId, userId, userId));
+  }
+  statements.push(env.DB.prepare("DELETE FROM site_users WHERE id = ?").bind(userId));
 
+  await env.DB.batch(statements);
   return json({ deleted: true, user_id: userId, username: String(existing.username || "") });
 }
 
@@ -198,6 +220,13 @@ async function ensureUserAdminSchema(db) {
   if (!names.has("suspension_reason")) await db.prepare("ALTER TABLE site_users ADD COLUMN suspension_reason TEXT NOT NULL DEFAULT ''").run();
   await db.prepare("CREATE INDEX IF NOT EXISTS idx_site_users_status ON site_users(status, created_at DESC)").run();
   return true;
+}
+
+async function tableExists(db, tableName) {
+  const row = await db.prepare(`
+    SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1
+  `).bind(tableName).first();
+  return Boolean(row);
 }
 
 function mapUser(row) {
