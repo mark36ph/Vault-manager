@@ -73,15 +73,19 @@ jobs:
         run: |
           Copy-Item assets desktop-build\publish\assets -Recurse
 
-      - name: Require Authenticode signing certificate
+      - name: Prepare optional Authenticode signing certificate
+        id: signing
         shell: pwsh
         env:
           SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
           SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:SIGNING_PFX_BASE64) -or [string]::IsNullOrWhiteSpace($env:SIGNING_PFX_PASSWORD)) {
-            throw "Release publishing requires WINDOWS_SIGNING_PFX_BASE64 and WINDOWS_SIGNING_PFX_PASSWORD secrets."
+            Write-Warning "No Windows signing certificate is configured. Publishing an unsigned installer; Velopack updates remain enabled."
+            "available=false" >> $env:GITHUB_OUTPUT
+            exit 0
           }
+
           $pfx = Join-Path $env:RUNNER_TEMP "factvault-signing.pfx"
           try {
             [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGNING_PFX_BASE64))
@@ -89,6 +93,7 @@ jobs:
             throw "WINDOWS_SIGNING_PFX_BASE64 is not a valid base64-encoded PFX certificate."
           }
           "FACTVAULT_SIGNING_PFX=$pfx" >> $env:GITHUB_ENV
+          "available=true" >> $env:GITHUB_OUTPUT
 
       - name: Restore pinned Velopack CLI
         run: dotnet tool restore
@@ -102,38 +107,62 @@ jobs:
           --channel win-x64-stable
           --outputDir Releases
 
-      - name: Package and sign Velopack release
+      - name: Package Velopack release
         shell: pwsh
         env:
           SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
         run: |
-          $signParams = "/fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /f `"$env:FACTVAULT_SIGNING_PFX`" /p `"$env:SIGNING_PFX_PASSWORD`""
-          dotnet tool run vpk -- pack `
-            --packId FactVaultManager `
-            --packVersion "${{ steps.version.outputs.version }}" `
-            --packDir desktop-build\publish `
-            --mainExe FactVaultManager.Desktop.exe `
-            --packTitle "Factburst Quiz Manager" `
-            --packAuthors "Factburst" `
-            --runtime win-x64 `
-            --channel win-x64-stable `
-            --signParams $signParams `
-            --outputDir Releases
-          if ($LASTEXITCODE -ne 0) { throw "Velopack packaging or Authenticode signing failed." }
+          $packArgs = @(
+            "tool", "run", "vpk", "--", "pack",
+            "--packId", "FactVaultManager",
+            "--packVersion", "${{ steps.version.outputs.version }}",
+            "--packDir", "desktop-build\publish",
+            "--mainExe", "FactVaultManager.Desktop.exe",
+            "--packTitle", "Factburst Quiz Manager",
+            "--packAuthors", "Factburst",
+            "--runtime", "win-x64",
+            "--channel", "win-x64-stable",
+            "--outputDir", "Releases"
+          )
+
+          if ("${{ steps.signing.outputs.available }}" -eq "true") {
+            $signParams = "/fd SHA256 /td SHA256 /tr http://timestamp.digicert.com /f `"$env:FACTVAULT_SIGNING_PFX`" /p `"$env:SIGNING_PFX_PASSWORD`""
+            $packArgs += @("--signParams", $signParams)
+          }
+
+          & dotnet @packArgs
+          if ($LASTEXITCODE -ne 0) { throw "Velopack packaging failed." }
+
+      - name: Validate Windows installer output
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem Releases -File -Filter "*Setup.exe")
+          if ($installers.Count -eq 0) { throw "Velopack did not produce a Windows Setup.exe installer." }
+          $fullPackages = @(Get-ChildItem Releases -File -Filter "*-full.nupkg")
+          if ($fullPackages.Count -eq 0) { throw "Velopack did not produce a full update package." }
+          $feed = @(Get-ChildItem Releases -File -Filter "releases.win-x64-stable.json")
+          if ($feed.Count -eq 0) { throw "Velopack did not produce the win-x64 stable update feed." }
 
       - name: Verify signed Windows installer
+        if: steps.signing.outputs.available == 'true'
         shell: pwsh
         run: |
           $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction Stop |
             Sort-Object FullName -Descending |
             Select-Object -First 1
           if ($null -eq $signtool) { throw "signtool.exe was not found on the GitHub runner." }
-          $installers = @(Get-ChildItem Releases -File -Filter "*.exe")
-          if ($installers.Count -eq 0) { throw "Velopack did not produce a Windows installer." }
+          $installers = @(Get-ChildItem Releases -File -Filter "*Setup.exe")
           foreach ($installer in $installers) {
             & $signtool.FullName verify /pa /v $installer.FullName
             if ($LASTEXITCODE -ne 0) { throw "Authenticode verification failed for $($installer.Name)." }
           }
+
+      - name: Note unsigned Windows installer
+        if: steps.signing.outputs.available != 'true'
+        shell: pwsh
+        run: |
+          "### Windows installer published without Authenticode signing" >> $env:GITHUB_STEP_SUMMARY
+          "A trusted signing certificate is not configured. The installer and Velopack update feed are still valid, but Windows SmartScreen may warn on the first install." >> $env:GITHUB_STEP_SUMMARY
 
       - name: Publish GitHub release
         shell: pwsh

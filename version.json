@@ -1,13 +1,13 @@
 {
-  "latest_version": "1.0.25",
-  "build": 50,
+  "latest_version": "1.0.26",
+  "build": 51,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Factburst Quiz Manager now publishes a signed Windows release automatically whenever a new desktop version is merged to main.",
-    "The Updates button can bootstrap the signed installer when the app is still being run from a development or source folder.",
-    "After the one-time installer handoff, future Updates checks use Velopack to download, apply and restart into the newest release automatically.",
-    "The installed product is now presented as Factburst Quiz Manager while preserving the existing FactVaultManager package ID for upgrade compatibility.",
-    "The legacy Production header button is guarded immediately against becoming visible during Refresh, eliminating the brief flicker seen in Build 49.",
-    "Release versions are read directly from version.json so GitHub releases, the installer and the desktop build stay on the same 1.0.x version line."
+    "Windows releases no longer fail when an Authenticode certificate is not configured; the Velopack installer and update feed still publish automatically.",
+    "If a trusted Windows signing certificate is added later, the same release workflow signs and verifies installers automatically without another app change.",
+    "The first installer may show a Windows SmartScreen warning while releases are unsigned; future in-app Velopack updates remain available after installation.",
+    "The Updates button can bootstrap the current Factburst Quiz Manager installer from a development/source copy, then future updates apply and restart in place.",
+    "The FactVaultManager Velopack package ID remains unchanged so installed versions stay on one compatible update line.",
+    "Build 50's immediate Production-button visibility guard remains included, preventing the legacy header action from flickering after Refresh."
   ]
 }
