@@ -1,14 +1,14 @@
 {
-  "latest_version": "1.0.30",
-  "build": 55,
+  "latest_version": "1.0.31",
+  "build": 56,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 55 adds a targeted recovery for installations whose project path migrated correctly but whose LocalAppData database remained empty.",
-    "The recovery finds the richest legacy FactVault database using project-library, quiz-question, quiz-history and upload-journal records rather than accepting an empty bootstrap database.",
-    "An installed database is replaced only when it contains zero meaningful user rows; any existing installed user data is never overwritten automatically.",
-    "Before recovery the installed database is backed up, the legacy database is copied through SQLite's verified backup API, and recovered record counts are checked before startup continues.",
-    "Recovered project, Quiz History and managed question-image paths are rebased to the persistent LocalAppData projects and data folders.",
-    "The YouTube Manager playlist cache is copied when available, while Analytics, upload history and published-video links are restored from the recovered database.",
-    "The legacy development database and project files remain untouched so the development folder should only be removed after the installed Library and YouTube Manager are verified."
+    "Build 56 adds a second-stage Library recovery for installations where Build 55 still shows an empty Library or YouTube Manager.",
+    "The new pass ignores the old recovery marker unless the installed database actually contains project, quiz-question or Quiz History rows.",
+    "Recovery now follows previous migration markers and project-folder ancestry, then performs a bounded search of common user folders and other fixed drives when the original checkout was stored somewhere unexpected.",
+    "Candidate SQLite databases are identified by the FactVault projects, quiz_questions and quiz_history tables, so the source file does not need to use one exact hard-coded filename or location.",
+    "A database containing only upload-journal rows can no longer block recovery of the real Library and Quiz History database.",
+    "The installed database is still never replaced when it already contains real Library/history rows, and a rollback copy is made before any recovery replacement.",
+    "A local installed-library-recovery-v2-diagnostics.json report records the candidate paths and row counts without storing API credentials, making any remaining path issue directly diagnosable."
   ]
 }
