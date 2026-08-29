@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { suspendedAccountMessage } from "./account-access.js";
 import { normalizeCommentBody } from "./account-comments.js";
 import { normalizeAnswer } from "./guest-score.js";
@@ -29,4 +30,10 @@ test("AdSense identifiers are validated before use", () => {
   assert.equal(normalizeClient("pub-123"), "");
   assert.equal(normalizeSlot("1234567890"), "1234567890");
   assert.equal(normalizeSlot("slot-123"), "");
+});
+
+test("quiz content stays in the centre column when ad rails are hidden", () => {
+  const css = readFileSync(new URL("./public/ads.css", import.meta.url), "utf8");
+  assert.match(css, /\.quiz-page-grid \.quiz-shell\s*\{[^}]*grid-column:\s*2;/s);
+  assert.match(css, /@media \(max-width: 1179px\)[\s\S]*\.quiz-page-grid \.quiz-shell\s*\{[^}]*grid-column:\s*1;/s);
 });
