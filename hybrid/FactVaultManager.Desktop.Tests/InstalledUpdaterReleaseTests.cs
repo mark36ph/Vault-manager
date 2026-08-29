@@ -20,8 +20,32 @@ public sealed class InstalledUpdaterReleaseTests
         Assert.Contains("branches:\n      - main", Normalize(source), StringComparison.Ordinal);
         Assert.Contains("- \"version.json\"", source, StringComparison.Ordinal);
         Assert.Contains("Get-Content version.json -Raw | ConvertFrom-Json", source, StringComparison.Ordinal);
-        Assert.Contains("--packId FactVaultManager", source, StringComparison.Ordinal);
-        Assert.Contains("--packTitle \"Factburst Quiz Manager\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"--packId\", \"FactVaultManager\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"--packTitle\", \"Factburst Quiz Manager\"", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReleaseWorkflow_AllowsUnsignedPublishingWhenCertificateIsMissing()
+    {
+        var source = ReadRepositoryFile(".github/workflows/release-hybrid.yml");
+
+        Assert.Contains("available=false", source, StringComparison.Ordinal);
+        Assert.Contains("Publishing an unsigned installer; Velopack updates remain enabled", source, StringComparison.Ordinal);
+        Assert.Contains("steps.signing.outputs.available", source, StringComparison.Ordinal);
+        Assert.Contains("Validate Windows installer output", source, StringComparison.Ordinal);
+        Assert.Contains("releases.win-x64-stable.json", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Release publishing requires WINDOWS_SIGNING_PFX_BASE64", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReleaseWorkflow_StillSignsAndVerifiesWhenCertificateExists()
+    {
+        var source = ReadRepositoryFile(".github/workflows/release-hybrid.yml");
+
+        Assert.Contains("available=true", source, StringComparison.Ordinal);
+        Assert.Contains("--signParams", source, StringComparison.Ordinal);
+        Assert.Contains("if: steps.signing.outputs.available == 'true'", source, StringComparison.Ordinal);
+        Assert.Contains("signtool.FullName verify /pa /v", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -32,6 +56,7 @@ public sealed class InstalledUpdaterReleaseTests
         Assert.Contains("window._updates.IsInstalled", source, StringComparison.Ordinal);
         Assert.Contains("BootstrapInstallAsync", source, StringComparison.Ordinal);
         Assert.Contains("Application.Current?.Shutdown()", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("current signed Factburst", source, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
