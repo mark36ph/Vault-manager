@@ -156,11 +156,6 @@ jobs:
                   binding: "QUIZ_IMAGES",
                   bucket_name: $r2_bucket_name
                 }
-              ],
-              send_email: [
-                {
-                  name: "EMAIL"
-                }
               ]
             }' > wrangler.ci.json
 
@@ -191,9 +186,8 @@ jobs:
           echo "Worker: \`factburst-quiz-site\`" >> "$GITHUB_STEP_SUMMARY"
           echo "D1: \`${DATABASE_NAME}\` (resolved from \`${SOURCE_WORKER}\`)" >> "$GITHUB_STEP_SUMMARY"
           echo "Quiz images: \`factburst-quiz-images\` (R2)" >> "$GITHUB_STEP_SUMMARY"
-          echo "Verification email binding: \`EMAIL\`" >> "$GITHUB_STEP_SUMMARY"
           if [[ -n "${DEPLOYMENT_URL}" ]]; then
             echo "Website: ${DEPLOYMENT_URL}" >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "The website Worker code, static assets, D1 metadata, R2 quiz images and email binding are deployed independently of the tracker Worker." >> "$GITHUB_STEP_SUMMARY"
+          echo "The website Worker code, static assets, D1 metadata and R2 quiz images are deployed independently of the tracker Worker." >> "$GITHUB_STEP_SUMMARY"
