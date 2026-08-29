@@ -56,23 +56,8 @@ public partial class MainShellWindow
                 .Select(group => group.OrderByDescending(snapshot => snapshot.CheckedAtUtc).First())
                 .ToList();
 
-            var relatedVideoCount = rows.Count(row => RowHasManualState(row, "RelatedVideo", "Related video"));
-            var instagramCount = rows.Count(row => RowHasManualState(row, "Instagram"));
-            var rescueCount = snapshots.Count(snapshot =>
-                string.Equals(snapshot.Label, "Packaging rescue", StringComparison.OrdinalIgnoreCase) &&
-                snapshot.RescuePackagePrepared);
-            var replyCount = state.ReplyDrafts.Count;
-            var auditAttention = state.PostReleaseAudits.Count(record =>
-                !string.IsNullOrWhiteSpace(record.Attention) &&
-                (record.Attention.Contains("title differs", StringComparison.OrdinalIgnoreCase) ||
-                 record.Attention.Contains("thumbnail", StringComparison.OrdinalIgnoreCase)));
-
-            var total = AutopilotNeedsYouCountSummary.Total(
-                relatedVideoCount,
-                instagramCount,
-                rescueCount,
-                replyCount,
-                auditAttention);
+            var tasks = AutopilotNeedsYouAlignedPlanner.Build(rows, state, snapshots);
+            var total = tasks.Count;
             var health = AutopilotHomePlanner.Health(_fullAutopilotRunning, total);
 
             if (_autopilotNeedsText is not null)
