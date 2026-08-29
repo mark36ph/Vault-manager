@@ -38,6 +38,16 @@ public sealed class FullAutopilotTests
         Assert.Contains(expected, YouTubeReplyDraftPlanner.Draft(comment), StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("mark36ph")]
+    [InlineData("@mark36ph")]
+    [InlineData(" @Mark36Ph ")]
+    public void ReplyDraftPlanner_RecognizesOwnChannelPosts(string author)
+    {
+        Assert.True(YouTubeReplyDraftPlanner.IsOwnAuthor(author));
+        Assert.False(YouTubeReplyDraftPlanner.IsOwnAuthor("@viewer123"));
+    }
+
     [Fact]
     public void WinnerFollowUpPlanner_DeduplicatesWinnerAndConsumesOneSlot()
     {
@@ -104,6 +114,37 @@ public sealed class FullAutopilotTests
             Assert.Equal([7], restored.FacebookFirstCommentWatchIds);
             Assert.Equal([9], restored.YouTubePostReleaseWatchIds);
             Assert.Equal("Thanks!", Assert.Single(restored.ReplyDrafts).Draft);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void FullAutopilotStateStore_StripsOwnChannelReplyDrafts()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "factburst-full-autopilot-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var settings = Path.Combine(root, "settings.json");
+            var state = new FactburstFullAutopilotState
+            {
+                ReplyDrafts =
+                [
+                    new YouTubeReplyDraft { CommentId = "own-1", Author = "@mark36ph", Draft = "Do not review" },
+                    new YouTubeReplyDraft { CommentId = "own-2", Author = "Mark36Ph", Draft = "Do not review either" },
+                    new YouTubeReplyDraft { CommentId = "viewer-1", Author = "@viewer123", Draft = "Review this" },
+                ],
+            };
+
+            FactburstFullAutopilotStateStore.Save(settings, state);
+            var restored = FactburstFullAutopilotStateStore.Load(settings);
+
+            var draft = Assert.Single(restored.ReplyDrafts);
+            Assert.Equal("viewer-1", draft.CommentId);
+            Assert.Equal("@viewer123", draft.Author);
         }
         finally
         {

@@ -36,6 +36,7 @@ public static class FactburstFullAutopilotStateStore
                     state.WinnerPromoBundles ??= [];
                     state.ReplyDrafts ??= [];
                     state.PostReleaseAudits ??= [];
+                    YouTubeReplyDraftPlanner.RemoveOwnAuthorDrafts(state);
                     return state;
                 }
             }
@@ -51,6 +52,7 @@ public static class FactburstFullAutopilotStateStore
     public static void Save(string settingsPath, FactburstFullAutopilotState state)
     {
         ArgumentNullException.ThrowIfNull(state);
+        YouTubeReplyDraftPlanner.RemoveOwnAuthorDrafts(state);
         var path = PathFor(settingsPath);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var temporary = path + ".tmp";
@@ -227,6 +229,23 @@ public sealed class YouTubeReplyDraft
 
 public static class YouTubeReplyDraftPlanner
 {
+    private const string OwnAuthor = "mark36ph";
+
+    public static bool IsOwnAuthor(string? author)
+    {
+        var normalized = (author ?? "").Trim();
+        while (normalized.StartsWith('@'))
+            normalized = normalized[1..].TrimStart();
+        return string.Equals(normalized, OwnAuthor, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static int RemoveOwnAuthorDrafts(FactburstFullAutopilotState state)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+        state.ReplyDrafts ??= [];
+        return state.ReplyDrafts.RemoveAll(draft => IsOwnAuthor(draft.Author));
+    }
+
     public static string Draft(string? comment)
     {
         var text = (comment ?? "").Trim();
