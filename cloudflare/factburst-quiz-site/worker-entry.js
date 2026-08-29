@@ -1,10 +1,10 @@
 import quizWorker from "./worker.js";
 import {
-  ensureAccountSchema,
   handleAccountApi,
   recordAuthenticatedScore,
   requireVerifiedQuizAccess,
 } from "./accounts.js";
+import { prepareAccountSchema } from "./account-schema.js";
 import { createResendEmailAdapter } from "./resend-email.js";
 
 let accountSchemaReady = false;
@@ -16,7 +16,8 @@ export default {
 
     if (accountRoute) {
       if (!env.DB) return quizWorker.fetch(request, env, context);
-      await ensureSchemas(env, url);
+      const schemaFailure = await ensureSchemasSafely(env, url);
+      if (schemaFailure) return schemaFailure;
       const accountEnv = {
         ...env,
         EMAIL: createResendEmailAdapter(env),
@@ -31,7 +32,8 @@ export default {
 
     if ((scoreMatch && request.method === "POST") || gatedDetail) {
       if (!env.DB) return quizWorker.fetch(request, env, context);
-      await ensureSchemas(env, url);
+      const schemaFailure = await ensureSchemasSafely(env, url);
+      if (schemaFailure) return schemaFailure;
       const blocked = await requireVerifiedQuizAccess(request, env.DB);
       if (blocked) return blocked;
     }
@@ -40,7 +42,8 @@ export default {
       const scored = await quizWorker.fetch(request, env, context);
       if (!scored.ok || !env.DB) return scored;
 
-      await ensureAccountSchemaOnce(env.DB);
+      const schemaFailure = await ensureAccountSchemaSafely(env.DB);
+      if (schemaFailure) return schemaFailure;
       const quiz = await env.DB.prepare("SELECT id FROM site_quizzes WHERE slug = ? LIMIT 1")
         .bind(scoreMatch[1].toLowerCase()).first();
       if (!quiz) return scored;
@@ -101,6 +104,40 @@ async function ensureSchemas(env, url) {
 
 async function ensureAccountSchemaOnce(db) {
   if (accountSchemaReady) return;
-  await ensureAccountSchema(db);
+  await prepareAccountSchema(db);
   accountSchemaReady = true;
+}
+
+async function ensureSchemasSafely(env, url) {
+  try {
+    await ensureSchemas(env, url);
+    return null;
+  } catch (error) {
+    console.error("Factburst account schema preparation failed", error);
+    return accountSetupFailure();
+  }
+}
+
+async function ensureAccountSchemaSafely(db) {
+  try {
+    await ensureAccountSchemaOnce(db);
+    return null;
+  } catch (error) {
+    console.error("Factburst account schema preparation failed", error);
+    return accountSetupFailure();
+  }
+}
+
+function accountSetupFailure() {
+  return new Response(JSON.stringify({
+    error: "Account setup is temporarily unavailable. Please try again shortly.",
+    code: "account_schema_error",
+  }), {
+    status: 503,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    },
+  });
 }

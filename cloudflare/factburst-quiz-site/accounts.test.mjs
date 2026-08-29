@@ -7,6 +7,7 @@ import {
   totalPercentage,
   verificationExpiry,
 } from "./accounts.js";
+import { missingSiteUserUpgrades } from "./account-schema.js";
 
 test("normalizes safe public usernames", () => {
   assert.equal(normalizeUsername("  Quiz   Master  "), "Quiz Master");
@@ -34,6 +35,27 @@ test("verification links expire after 24 hours", () => {
   assert.equal(
     verificationExpiry("2026-08-29T12:00:00.000Z"),
     "2026-08-30T12:00:00.000Z",
+  );
+});
+
+test("legacy account tables receive every email column in order", () => {
+  const legacyColumns = [
+    { name: "id" },
+    { name: "username" },
+    { name: "username_key" },
+    { name: "password_hash" },
+    { name: "password_salt" },
+    { name: "password_iterations" },
+    { name: "created_at" },
+    { name: "last_login_at" },
+  ];
+  assert.deepEqual(
+    missingSiteUserUpgrades(legacyColumns).map(upgrade => upgrade.name),
+    ["email", "email_key", "email_verified_at"],
+  );
+  assert.deepEqual(
+    missingSiteUserUpgrades([...legacyColumns, { name: "email" }, { name: "email_key" }, { name: "email_verified_at" }]),
+    [],
   );
 });
 
