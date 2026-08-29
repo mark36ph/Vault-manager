@@ -1,14 +1,14 @@
 {
-  "latest_version": "1.0.31",
-  "build": 56,
+  "latest_version": "1.0.32",
+  "build": 57,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 56 adds a second-stage Library recovery for installations where Build 55 still shows an empty Library or YouTube Manager.",
-    "The new pass ignores the old recovery marker unless the installed database actually contains project, quiz-question or Quiz History rows.",
-    "Recovery now follows previous migration markers and project-folder ancestry, then performs a bounded search of common user folders and other fixed drives when the original checkout was stored somewhere unexpected.",
-    "Candidate SQLite databases are identified by the FactVault projects, quiz_questions and quiz_history tables, so the source file does not need to use one exact hard-coded filename or location.",
-    "A database containing only upload-journal rows can no longer block recovery of the real Library and Quiz History database.",
-    "The installed database is still never replaced when it already contains real Library/history rows, and a rollback copy is made before any recovery replacement.",
-    "A local installed-library-recovery-v2-diagnostics.json report records the candidate paths and row counts without storing API credentials, making any remaining path issue directly diagnosable."
+    "Build 57 fixes the remaining Library recovery case where installed Projects exist but the reusable quiz question Library is still empty.",
+    "Recovery now treats quiz_questions as the actual question Library instead of using project rows as proof that Library migration succeeded.",
+    "When the installed database has Projects but no quiz questions, the app searches migration markers, development checkouts, backups and bounded user-drive locations for the richest legacy question database.",
+    "The missing quiz_questions data is merged into the installed database instead of replacing the whole database, so existing installed Project rows are preserved.",
+    "Quiz History, history questions and upload-journal rows are recovered alongside the question Library when those installed tables are still empty.",
+    "A SQLite backup is created before the merge and the import is verified inside a transaction before it is committed.",
+    "A new installed-question-library-recovery-v3-diagnostics.json report records the selected source and row counts without storing API credentials."
   ]
 }
