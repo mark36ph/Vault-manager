@@ -3,6 +3,7 @@ const content = document.querySelector("#profile-content");
 const errorPanel = document.querySelector("#profile-error");
 const errorCopy = document.querySelector("#profile-error-copy");
 const friendStatus = document.querySelector("#friend-status");
+const emailStatus = document.querySelector("#email-change-status");
 let profileQuizzes = [];
 
 initialize().catch(error => showError(error.message || "Could not load your profile."));
@@ -15,6 +16,46 @@ document.querySelector("#profile-logout")?.addEventListener("click", async () =>
     await api("/api/account/logout", { method: "POST" });
   } finally {
     location.href = "/";
+  }
+});
+
+document.querySelector("#email-change-form")?.addEventListener("submit", async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const input = document.querySelector("#profile-email-input");
+  const submit = form.querySelector("button[type='submit']");
+  submit.disabled = true;
+  setEmailStatus("Sending confirmation…", "");
+  try {
+    const response = await api("/api/account/email", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: input.value }),
+    });
+    input.value = "";
+    setEmailStatus(response.message || "Confirmation sent.", response.verification_sent === false ? "" : "success");
+    await refreshEmailSettings();
+  } catch (error) {
+    setEmailStatus(error.message || "Could not start the email change.", "error");
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+document.querySelector("#email-resend-confirmation")?.addEventListener("click", async event => {
+  const button = event.currentTarget;
+  button.disabled = true;
+  button.textContent = "Sending…";
+  setEmailStatus("Resending confirmation…", "");
+  try {
+    const response = await api("/api/account/resend-verification", { method: "POST" });
+    setEmailStatus(response.message || "Confirmation resent.", "success");
+    await refreshEmailSettings();
+  } catch (error) {
+    setEmailStatus(error.message || "Could not resend the confirmation.", "error");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Resend confirmation";
   }
 });
 
@@ -50,11 +91,13 @@ async function initialize() {
     throw new Error("Verify your email before viewing your full Factburst profile.");
   }
 
-  const [history, friends] = await Promise.all([
+  const [history, friends, emailSettings] = await Promise.all([
     api("/api/account/history"),
     api("/api/friends"),
+    api("/api/account/email-status"),
   ]);
   renderProfile(account.user, history);
+  renderEmailSettings(emailSettings);
   renderFriends(friends);
   loading.classList.add("hidden");
   content.classList.remove("hidden");
@@ -81,6 +124,18 @@ function renderProfile(user, history) {
   }
 
   for (const quiz of profileQuizzes) host.append(historyCard(quiz));
+}
+
+async function refreshEmailSettings() {
+  renderEmailSettings(await api("/api/account/email-status"));
+}
+
+function renderEmailSettings(settings) {
+  const current = String(settings?.email || "");
+  const pending = String(settings?.pending_email || "");
+  text("#profile-current-email", current || "—");
+  text("#email-pending-address", pending || "—");
+  document.querySelector("#email-change-pending")?.classList.toggle("hidden", !pending);
 }
 
 async function refreshFriends() {
@@ -271,6 +326,12 @@ function metric(label, value) {
   number.textContent = value;
   item.append(name, number);
   return item;
+}
+
+function setEmailStatus(message, kind) {
+  if (!emailStatus) return;
+  emailStatus.textContent = message;
+  emailStatus.dataset.kind = kind || "";
 }
 
 function setFriendStatus(message, kind) {
