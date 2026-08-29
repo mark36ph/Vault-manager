@@ -8,6 +8,7 @@ import {
   verificationExpiry,
 } from "./accounts.js";
 import { missingSiteUserUpgrades } from "./account-schema.js";
+import { isReservedUsername, reservedUsernameReason } from "./account-policy.js";
 
 test("normalizes safe public usernames", () => {
   assert.equal(normalizeUsername("  Quiz   Master  "), "Quiz Master");
@@ -21,6 +22,29 @@ test("rejects unsafe or invalid public usernames", () => {
   assert.equal(normalizeUsername("-leading"), "");
   assert.equal(normalizeUsername("trailing_"), "");
   assert.equal(normalizeUsername("x".repeat(25)), "");
+});
+
+test("reserves administration moderation support and Factburst names", () => {
+  for (const username of [
+    "admin",
+    "Admin99",
+    "administrator",
+    "mod",
+    "mod42",
+    "moderator",
+    "staff",
+    "support",
+    "Factburst",
+    "factburst-support",
+    "FactburstQuiz",
+  ]) {
+    assert.equal(isReservedUsername(username), true, username);
+    assert.notEqual(reservedUsernameReason(username), "", username);
+  }
+
+  for (const username of ["Quiz Master", "Mark_36", "ModelFan", "SpaceAce", "HistoryBuff"]) {
+    assert.equal(isReservedUsername(username), false, username);
+  }
 });
 
 test("normalizes and validates account emails", () => {
@@ -49,17 +73,23 @@ test("legacy account tables receive every account upgrade in order", () => {
     { name: "created_at" },
     { name: "last_login_at" },
   ];
+  const expected = [
+    "email",
+    "email_key",
+    "email_verified_at",
+    "password_scheme",
+    "status",
+    "suspended_at",
+    "suspension_reason",
+  ];
   assert.deepEqual(
     missingSiteUserUpgrades(legacyColumns).map(upgrade => upgrade.name),
-    ["email", "email_key", "email_verified_at", "password_scheme"],
+    expected,
   );
   assert.deepEqual(
     missingSiteUserUpgrades([
       ...legacyColumns,
-      { name: "email" },
-      { name: "email_key" },
-      { name: "email_verified_at" },
-      { name: "password_scheme" },
+      ...expected.map(name => ({ name })),
     ]),
     [],
   );

@@ -1,13 +1,15 @@
 {
-  "latest_version": "1.0.39",
-  "build": 64,
+  "latest_version": "1.0.40",
+  "build": 65,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 64 adds direct Website visibility controls for every synced quiz: Go live now, Follow schedule and Take offline.",
-    "Taking a quiz offline switches the Cloudflare website copy to draft without deleting its questions, images, metadata or stored release time.",
-    "Go live now makes the selected quiz publicly playable immediately; Follow schedule returns it to the linked local release time and shows it as Upcoming when that time is in the future.",
-    "Normal website content/question resyncs now preserve an existing quiz's website visibility and publish time, preventing Sync scheduled or Autopilot from silently undoing a manual live/offline decision.",
-    "The tracker Worker exposes an authenticated status-only PATCH endpoint, so visibility changes do not re-upload or replace quiz questions.",
-    "Website visibility actions require confirmation and refresh/reselect the changed quiz after Cloudflare confirms the update."
+    "Build 65 adds a private Website Users management page for registered Factburst accounts, including verification/status, signup and activity dates, quiz totals, attempts, scores and accuracy.",
+    "Selecting a website user shows every quiz they have completed, their best result, accuracy, first/last completion and total attempt count.",
+    "Website users can be suspended, reinstated or permanently deleted from FactVaultManager; suspension revokes sessions and hides leaderboard scores while preserving history, and deletion removes the account and stored scores.",
+    "Public usernames now block reserved administration, moderation, support and Factburst impersonation names.",
+    "The Factburst profile is upgraded to a dedicated page with overall rank, score totals, accuracy, attempt count and full quiz history.",
+    "Verified users can send, accept, decline and cancel friend requests by public username, manage accepted friends from their profile, and remove friends without exposing email addresses.",
+    "Quiz results now include Challenge a friend: players can target an accepted Factburst friend or create a shareable 30-day challenge link backed by their stored best score.",
+    "Suspended or deleted accounts are excluded from overall and per-quiz leaderboards, friends surfaces and active challenge links."
   ]
 }

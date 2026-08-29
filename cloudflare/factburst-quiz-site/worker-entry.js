@@ -6,6 +6,14 @@ import {
 } from "./accounts.js";
 import { handleAuthApi } from "./account-auth.js";
 import { prepareAccountSchema } from "./account-schema.js";
+import {
+  enforceAccountRequestPolicy,
+  enforceActiveSession,
+} from "./account-access.js";
+import { handleChallengeApi } from "./account-challenges.js";
+import { handleFriendsApi } from "./account-friends.js";
+import { handleFilteredLeaderboardApi } from "./account-leaderboards.js";
+import { handleProfileApi } from "./account-profile.js";
 import { createResendEmailAdapter } from "./resend-email.js";
 
 let accountSchemaReady = false;
@@ -19,12 +27,30 @@ export default {
       if (!env.DB) return quizWorker.fetch(request, env, context);
       const schemaFailure = await ensureSchemasSafely(env, url);
       if (schemaFailure) return schemaFailure;
+
+      const policyResponse = await enforceAccountRequestPolicy(request, env.DB, url);
+      if (policyResponse) return policyResponse;
+
+      const challengeResponse = await handleChallengeApi(request, env.DB, url);
+      if (challengeResponse) return challengeResponse;
+
+      const friendsResponse = await handleFriendsApi(request, env.DB, url);
+      if (friendsResponse) return friendsResponse;
+
       const accountEnv = {
         ...env,
         EMAIL: createResendEmailAdapter(env),
       };
+
       const authResponse = await handleAuthApi(request, accountEnv, url);
       if (authResponse) return authResponse;
+
+      const profileResponse = await handleProfileApi(request, env.DB, url);
+      if (profileResponse) return profileResponse;
+
+      const leaderboardResponse = await handleFilteredLeaderboardApi(request, env.DB, url);
+      if (leaderboardResponse) return leaderboardResponse;
+
       const response = await handleAccountApi(request, accountEnv, url);
       if (response) return response;
     }
@@ -37,6 +63,10 @@ export default {
       if (!env.DB) return quizWorker.fetch(request, env, context);
       const schemaFailure = await ensureSchemasSafely(env, url);
       if (schemaFailure) return schemaFailure;
+
+      const statusBlocked = await enforceActiveSession(request, env.DB);
+      if (statusBlocked) return statusBlocked;
+
       const blocked = await requireVerifiedQuizAccess(request, env.DB);
       if (blocked) return blocked;
     }
@@ -90,6 +120,10 @@ export default {
 function isAccountRoute(pathname) {
   return pathname === "/api/account" ||
     pathname.startsWith("/api/account/") ||
+    pathname === "/api/friends" ||
+    pathname.startsWith("/api/friends/") ||
+    pathname === "/api/challenges" ||
+    pathname.startsWith("/api/challenges/") ||
     pathname === "/api/leaderboard" ||
     /^\/api\/quizzes\/[a-z0-9][a-z0-9-]{0,79}\/leaderboard$/i.test(pathname);
 }
