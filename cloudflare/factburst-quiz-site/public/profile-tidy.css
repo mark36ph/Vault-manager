@@ -1,0 +1,275 @@
+/* Profile layout polish: clearer hierarchy, more breathing room, fewer competing panels. */
+.profile-shell {
+  width: min(1180px, calc(100% - 40px));
+  padding-top: 2.25rem;
+  padding-bottom: 6rem;
+}
+
+#profile-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* Put the useful profile overview first and account maintenance later. */
+.profile-hero { order: 10; }
+.profile-stat-grid { order: 20; }
+#profile-engagement { order: 30; }
+.profile-friends-panel { order: 40; }
+#friends-leaderboard-panel { order: 50; }
+#live-match-panel { order: 60; }
+#email-change-panel { order: 70; }
+.profile-history-panel { order: 80; }
+
+.profile-hero,
+.profile-panel,
+.profile-stat-grid {
+  margin: 0;
+}
+
+.profile-hero {
+  align-items: center;
+  min-height: 0;
+  padding: 1.65rem 2rem;
+}
+
+.profile-hero h1 {
+  margin: .2rem 0 .35rem;
+  font-size: clamp(2.3rem, 5vw, 3.7rem);
+  line-height: 1;
+}
+
+.profile-hero .eyebrow {
+  margin-bottom: .35rem;
+}
+
+.profile-actions {
+  align-items: center;
+}
+
+.profile-stat-grid {
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid rgba(92, 132, 255, .34);
+  border-radius: 20px;
+  background: rgba(19, 36, 103, .78);
+}
+
+.profile-stat {
+  min-height: 104px;
+  padding: 1.15rem 1.35rem;
+  border: 0;
+  border-right: 1px solid rgba(145, 164, 226, .15);
+  border-radius: 0;
+  background: transparent;
+}
+
+.profile-stat:last-child {
+  border-right: 0;
+}
+
+.profile-stat strong {
+  margin-top: .45rem;
+  font-size: 1.6rem;
+}
+
+.profile-panel,
+.profile-engagement-panel {
+  padding: 1.85rem 2rem;
+}
+
+.profile-panel .section-heading,
+.profile-engagement-panel .section-heading {
+  margin-bottom: 1.25rem;
+}
+
+.profile-panel .section-heading h2,
+.profile-engagement-panel .section-heading h2 {
+  margin-top: .15rem;
+  font-size: clamp(1.55rem, 3vw, 2rem);
+}
+
+/* Progress should feel like a dashboard section, not a second page of tiles. */
+#profile-engagement .engagement-grid {
+  gap: 0;
+  margin: .25rem 0 1.5rem;
+  overflow: hidden;
+  border: 1px solid rgba(145, 164, 226, .16);
+  border-radius: 16px;
+}
+
+#profile-engagement .engagement-grid .engagement-card {
+  min-height: 118px;
+  padding: 1rem 1.1rem;
+  border: 0;
+  border-right: 1px solid rgba(145, 164, 226, .12);
+  border-radius: 0;
+  background: rgba(4, 13, 55, .38);
+  box-shadow: none;
+}
+
+#profile-engagement .engagement-grid .engagement-card:last-child {
+  border-right: 0;
+}
+
+#profile-engagement .engagement-mini-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 0;
+}
+
+#profile-engagement .engagement-mini-grid > .engagement-card {
+  padding: 1.25rem 1.35rem;
+  box-shadow: none;
+}
+
+#profile-engagement > .engagement-card.engagement-section {
+  margin: 1rem 0 0;
+  padding: 1.25rem 1.35rem;
+  box-shadow: none;
+}
+
+.profile-friends-panel,
+.profile-history-panel,
+#friends-leaderboard-panel,
+#live-match-panel,
+#email-change-panel {
+  margin: 0;
+}
+
+.profile-help {
+  margin: 0 0 1.4rem;
+  line-height: 1.6;
+}
+
+.profile-friends-heading {
+  align-items: center;
+}
+
+.friend-add-form {
+  align-items: center;
+}
+
+.friend-card {
+  padding: 1rem 1.15rem;
+}
+
+.friend-list {
+  gap: .85rem;
+}
+
+/* Account settings should be quieter than gameplay/social content. */
+#email-change-panel {
+  background: rgba(9, 20, 67, .82);
+  border-color: rgba(145, 164, 226, .22);
+  box-shadow: none;
+}
+
+#email-change-panel .section-heading {
+  margin-bottom: .6rem;
+}
+
+#email-change-panel p {
+  max-width: 760px;
+}
+
+.email-change-form {
+  max-width: 880px;
+  margin-top: 1rem;
+}
+
+.profile-history {
+  gap: .95rem;
+}
+
+.profile-history-card {
+  padding: 1.15rem 1.25rem;
+}
+
+/* Give injected competition/live sections clearer visual separation. */
+#friends-leaderboard-panel,
+#live-match-panel {
+  box-shadow: none;
+}
+
+#friends-leaderboard-panel .rank-table {
+  margin-top: .75rem;
+}
+
+@media (max-width: 980px) {
+  .profile-shell {
+    width: min(100% - 28px, 1180px);
+  }
+
+  .profile-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profile-stat {
+    border-right: 1px solid rgba(145, 164, 226, .15);
+    border-bottom: 1px solid rgba(145, 164, 226, .15);
+  }
+
+  .profile-stat:nth-child(2n) { border-right: 0; }
+  .profile-stat:nth-last-child(-n + 2) { border-bottom: 0; }
+
+  #profile-engagement .engagement-grid,
+  #profile-engagement .engagement-mini-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #profile-engagement .engagement-grid .engagement-card {
+    border-bottom: 1px solid rgba(145, 164, 226, .12);
+  }
+
+  #profile-engagement .engagement-grid .engagement-card:nth-child(2n) {
+    border-right: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .profile-shell {
+    width: min(100% - 24px, 1180px);
+    padding-top: 1.25rem;
+  }
+
+  #profile-content {
+    gap: 1rem;
+  }
+
+  .profile-hero,
+  .profile-panel,
+  .profile-engagement-panel {
+    padding: 1.25rem;
+  }
+
+  .profile-hero {
+    align-items: stretch;
+  }
+
+  .profile-actions .button {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+
+  .profile-stat-grid,
+  #profile-engagement .engagement-grid,
+  #profile-engagement .engagement-mini-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-stat,
+  #profile-engagement .engagement-grid .engagement-card {
+    border-right: 0;
+    border-bottom: 1px solid rgba(145, 164, 226, .15);
+  }
+
+  .profile-stat:last-child,
+  #profile-engagement .engagement-grid .engagement-card:last-child {
+    border-bottom: 0;
+  }
+
+  .email-change-form {
+    grid-template-columns: 1fr;
+  }
+}
