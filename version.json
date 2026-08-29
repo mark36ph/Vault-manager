@@ -1,8 +1,10 @@
 {
-  "latest_version": "1.0.45",
-  "build": 70,
+  "latest_version": "1.0.46",
+  "build": 71,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
+    "Build 71 excludes comments authored by mark36ph from Full Autopilot viewer-reply approval work, including @mark36ph and case variations.",
+    "Existing saved reply drafts for the channel owner's own posts are removed from Autopilot state, so they no longer appear in Viewer reply tasks or inflate the Needs You count.",
     "Build 70 moves Maintenance Mode out of Website Users and into a dedicated Website settings page, with the on/off control and visitor message together.",
     "Maintenance Mode now has a browser-side full-page fallback so normal visitors see only the maintenance notice even when a cached/static page is loaded; administrators keep full site access with the maintenance banner.",
     "Reported quiz questions now appear in Website settings with the quiz, question, reason, reporter and status, plus Resolve, Dismiss and Reopen actions.",
