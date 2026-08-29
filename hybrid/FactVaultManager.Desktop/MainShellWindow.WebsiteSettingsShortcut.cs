@@ -31,6 +31,9 @@ public partial class MainShellWindow
             DispatcherPriority.ContextIdle,
             new Action(() =>
             {
+                // Preserve the existing Link Tracker configuration page, but make
+                // the consolidated Website page the landing page for this shortcut.
+                InitializeFactburstTrackerUi();
                 InitializeWebsiteSettingsAdministrationPage();
                 EnsureWebsiteSettingsAdministrationPage();
                 if (_settingsPages.ContainsKey("website"))
