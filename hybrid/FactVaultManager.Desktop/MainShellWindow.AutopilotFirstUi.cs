@@ -42,6 +42,16 @@ public static class AutopilotHomePlanner
                !text.Equals("Scheduled", StringComparison.OrdinalIgnoreCase) &&
                !text.Equals("Automatic", StringComparison.OrdinalIgnoreCase);
     }
+
+    public static int DueInstagramPromoCount(
+        IEnumerable<ScheduledReleaseReadinessRow> rows,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(rows);
+        return rows.Count(row =>
+            string.Equals(row.InstagramPromo, "Next day", StringComparison.OrdinalIgnoreCase) &&
+            AutopilotNeedsYouTaskPlanner.PromoDueAt(row.PublishAt) <= now);
+    }
 }
 
 public partial class MainShellWindow
@@ -694,12 +704,12 @@ public partial class MainShellWindow
                 "Open tasks"));
         }
 
-        var instagramCount = rows.Count(row => RowHasManualState(row, "Instagram"));
+        var instagramCount = AutopilotHomePlanner.DueInstagramPromoCount(rows, DateTimeOffset.Now);
         if (instagramCount > 0)
         {
             tasks.Add(new AutopilotManualTask(
                 $"Instagram: {instagramCount:N0} promo{(instagramCount == 1 ? "" : "s")}",
-                "Future Instagram Reel scheduling is still the manual platform exception.",
+                "Only Instagram promos whose posting time has arrived are shown here.",
                 "Instagram Manager",
                 "Open Instagram"));
         }
