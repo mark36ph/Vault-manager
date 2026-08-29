@@ -1,13 +1,13 @@
 {
-  "latest_version": "1.0.26",
-  "build": 51,
+  "latest_version": "1.0.27",
+  "build": 52,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Windows releases no longer fail when an Authenticode certificate is not configured; the Velopack installer and update feed still publish automatically.",
-    "If a trusted Windows signing certificate is added later, the same release workflow signs and verifies installers automatically without another app change.",
-    "The first installer may show a Windows SmartScreen warning while releases are unsigned; future in-app Velopack updates remain available after installation.",
-    "The Updates button can bootstrap the current Factburst Quiz Manager installer from a development/source copy, then future updates apply and restart in place.",
-    "The FactVaultManager Velopack package ID remains unchanged so installed versions stay on one compatible update line.",
-    "Build 50's immediate Production-button visibility guard remains included, preventing the legacy header action from flickering after Refresh."
+    "Build 52 adds a verified one-time migration from the development checkout into the installed Factburst Quiz Manager data folder.",
+    "The migration now chooses the legacy database with real library/quiz content instead of stopping when an empty bootstrap database already exists.",
+    "Saved settings and protected API credentials are carried across with the database on the same Windows user account.",
+    "The configured quiz projects folder is copied into persistent installed storage, verified, and the source project files are left untouched as a rollback copy.",
+    "Quiz History project paths and managed quiz-question image paths are rebased to the new installed locations so reopened projects and logo questions keep working.",
+    "An existing installed database containing user records is never overwritten by the migration, and a completion marker prevents repeat migrations after success."
   ]
 }
