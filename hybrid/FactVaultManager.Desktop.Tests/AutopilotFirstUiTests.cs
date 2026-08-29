@@ -61,6 +61,15 @@ public sealed class AutopilotFirstUiTests
         Assert.Contains("The detailed tools stay out of the way unless you need them", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void HomeLaunchGuard_AlwaysSelectsExportBeforeStartingAutopilot()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotHomeLaunchGuard.cs");
+        Assert.Contains("Generate + Fill Schedule", source, StringComparison.Ordinal);
+        Assert.Contains("NavigateLegacy(\"Quizzes\", \"Create\")", source, StringComparison.Ordinal);
+        Assert.Contains("SelectQuizWorkspacePage(\"export\")", source, StringComparison.Ordinal);
+    }
+
     private static string ReadRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
