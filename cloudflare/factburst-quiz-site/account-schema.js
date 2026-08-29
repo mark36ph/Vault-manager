@@ -6,6 +6,8 @@ const CREATE_SITE_USERS = `
     email TEXT NOT NULL DEFAULT '',
     email_key TEXT NOT NULL DEFAULT '',
     email_verified_at TEXT,
+    pending_email TEXT NOT NULL DEFAULT '',
+    pending_email_key TEXT NOT NULL DEFAULT '',
     password_hash TEXT NOT NULL,
     password_salt TEXT NOT NULL,
     password_iterations INTEGER NOT NULL,
@@ -22,6 +24,8 @@ export const SITE_USER_UPGRADES = [
   { name: "email", sql: "ALTER TABLE site_users ADD COLUMN email TEXT NOT NULL DEFAULT ''" },
   { name: "email_key", sql: "ALTER TABLE site_users ADD COLUMN email_key TEXT NOT NULL DEFAULT ''" },
   { name: "email_verified_at", sql: "ALTER TABLE site_users ADD COLUMN email_verified_at TEXT" },
+  { name: "pending_email", sql: "ALTER TABLE site_users ADD COLUMN pending_email TEXT NOT NULL DEFAULT ''" },
+  { name: "pending_email_key", sql: "ALTER TABLE site_users ADD COLUMN pending_email_key TEXT NOT NULL DEFAULT ''" },
   { name: "password_scheme", sql: "ALTER TABLE site_users ADD COLUMN password_scheme TEXT NOT NULL DEFAULT ''" },
   { name: "status", sql: "ALTER TABLE site_users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'" },
   { name: "suspended_at", sql: "ALTER TABLE site_users ADD COLUMN suspended_at TEXT" },
@@ -102,6 +106,7 @@ const AFTER_USER_SCHEMA = [
   "CREATE INDEX IF NOT EXISTS idx_site_friendships_b ON site_friendships(user_b_id, status, created_at DESC)",
   "CREATE INDEX IF NOT EXISTS idx_site_users_status ON site_users(status, created_at DESC)",
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_site_users_email_unique ON site_users(email_key) WHERE email_key <> ''",
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_site_users_pending_email_unique ON site_users(pending_email_key) WHERE pending_email_key <> ''",
 ];
 
 export function missingSiteUserUpgrades(columns) {
