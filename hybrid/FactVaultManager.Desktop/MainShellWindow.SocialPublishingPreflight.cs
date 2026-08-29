@@ -72,7 +72,18 @@ public partial class MainShellWindow
         lines.Add("");
         lines.Add("Continue with this upload?");
 
-        if (MessageBox.Show(owner, string.Join(Environment.NewLine, lines), "Publishing Preflight",
+        // A schedule-target batch may continue without another modal confirmation only
+        // when this exact YouTube-only batch was armed by Autopilot, contains multiple
+        // items, and the connected channel already passed the saved approved-account guard.
+        var trustedAutopilotBatch =
+            destinations == SocialUploadDestination.YouTube &&
+            itemCount >= 2 &&
+            youtubeChannel is not null &&
+            settings.ApprovedYouTubeChannelId.Length > 0 &&
+            AutopilotTrustedPublishingPreflight.TryConsume();
+
+        if (!trustedAutopilotBatch &&
+            MessageBox.Show(owner, string.Join(Environment.NewLine, lines), "Publishing Preflight",
                 MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return null;
 
