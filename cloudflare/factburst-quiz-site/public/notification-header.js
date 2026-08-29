@@ -6,7 +6,12 @@
     if (!nav || !button) return false;
 
     button.classList.add("notification-button-header");
-    button.textContent = "🔔 Notifications";
+    if (!button.querySelector(".notification-button-label")) {
+      const label = document.createElement("span");
+      label.className = "notification-button-label";
+      label.textContent = "Notifications";
+      button.replaceChildren(document.createTextNode("🔔 "), label);
+    }
     if (button.parentElement !== nav) nav.append(button);
     if (panel) panel.classList.add("notification-panel-header");
     return true;
