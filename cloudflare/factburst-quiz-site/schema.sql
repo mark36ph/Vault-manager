@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS site_users (
     email TEXT NOT NULL DEFAULT '',
     email_key TEXT NOT NULL DEFAULT '',
     email_verified_at TEXT,
+    pending_email TEXT NOT NULL DEFAULT '',
+    pending_email_key TEXT NOT NULL DEFAULT '',
     password_hash TEXT NOT NULL,
     password_salt TEXT NOT NULL,
     password_iterations INTEGER NOT NULL,
@@ -95,6 +97,9 @@ CREATE INDEX IF NOT EXISTS idx_site_user_scores_quiz
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_site_users_email_unique
     ON site_users(email_key) WHERE email_key <> '';
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_site_users_pending_email_unique
+    ON site_users(pending_email_key) WHERE pending_email_key <> '';
 
 CREATE INDEX IF NOT EXISTS idx_site_email_verifications_user
     ON site_email_verifications(user_id, created_at DESC);
