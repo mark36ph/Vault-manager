@@ -30,6 +30,7 @@ public static class Program
             InstalledProjectConsolidation.Run();
             InstalledCredentialRecovery.Run();
             InstalledYouTubeOAuthClientIdRecovery.Run();
+            InstalledYouTubeAccountIdentityRecovery.Run();
 
             var application = new Application();
             AppInteractionPolish.Initialize();
