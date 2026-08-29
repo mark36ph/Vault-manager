@@ -225,10 +225,15 @@ jobs:
 
       - name: Smoke test account API
         shell: bash
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
         run: |
           set -euo pipefail
+          base="${DEPLOYMENT_URL:-https://factburst-quiz-site.factburstquiz.workers.dev}"
+          base="${base%/}"
+          echo "Smoke testing the direct Worker deployment URL so custom-domain bot protection cannot mask Worker health."
           for attempt in 1 2 3 4 5; do
-            if response="$(curl --fail-with-body --silent --show-error --max-time 15 https://factburstquiz.com/api/account)"; then
+            if response="$(curl --fail-with-body --silent --show-error --max-time 15 "${base}/api/account")"; then
               if jq -e '.authenticated == false or (.authenticated == true and (.user.username | type == "string"))' <<<"${response}" >/dev/null; then
                 echo "Live account API is responding correctly."
                 exit 0
@@ -236,7 +241,7 @@ jobs:
             fi
             sleep 3
           done
-          echo "::error::Live Factburst account API smoke test failed."
+          echo "::error::Live Factburst account API smoke test failed at the direct Worker deployment URL."
           exit 1
 
       - name: Deployment summary
