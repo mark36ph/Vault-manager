@@ -49,6 +49,37 @@
         <article class="profile-stat"><span>Accuracy</span><strong id="profile-accuracy">0%</strong></article>
       </div>
 
+      <section class="profile-panel profile-account-panel">
+        <div class="section-heading profile-account-heading">
+          <div>
+            <p class="eyebrow">Account</p>
+            <h2>Email address</h2>
+          </div>
+        </div>
+        <p class="profile-help">Your current verified email stays active until you confirm a replacement address.</p>
+        <div class="profile-email-settings">
+          <div class="profile-current-email">
+            <span>Current email</span>
+            <strong id="profile-current-email">—</strong>
+          </div>
+          <form id="email-change-form" class="email-change-form">
+            <label for="profile-email-input">New email address</label>
+            <div class="email-change-row">
+              <input id="profile-email-input" type="email" maxlength="254" autocomplete="email" placeholder="you@example.com" required>
+              <button class="button button-primary" type="submit">Send confirmation</button>
+            </div>
+          </form>
+        </div>
+        <div id="email-change-pending" class="email-pending hidden">
+          <div>
+            <span>Awaiting confirmation</span>
+            <strong id="email-pending-address">—</strong>
+          </div>
+          <button id="email-resend-confirmation" class="button button-secondary" type="button">Resend confirmation</button>
+        </div>
+        <p id="email-change-status" class="profile-help profile-email-status" aria-live="polite"></p>
+      </section>
+
       <section class="profile-panel profile-friends-panel">
         <div class="section-heading profile-friends-heading">
           <div>
