@@ -6,6 +6,12 @@ import {
 } from "./accounts.js";
 import { handleAuthApi } from "./account-auth.js";
 import { prepareAccountSchema } from "./account-schema.js";
+import {
+  enforceAccountRequestPolicy,
+  enforceActiveSession,
+} from "./account-access.js";
+import { handleFilteredLeaderboardApi } from "./account-leaderboards.js";
+import { handleProfileApi } from "./account-profile.js";
 import { createResendEmailAdapter } from "./resend-email.js";
 
 let accountSchemaReady = false;
@@ -19,12 +25,24 @@ export default {
       if (!env.DB) return quizWorker.fetch(request, env, context);
       const schemaFailure = await ensureSchemasSafely(env, url);
       if (schemaFailure) return schemaFailure;
+
+      const policyResponse = await enforceAccountRequestPolicy(request, env.DB, url);
+      if (policyResponse) return policyResponse;
+
       const accountEnv = {
         ...env,
         EMAIL: createResendEmailAdapter(env),
       };
+
       const authResponse = await handleAuthApi(request, accountEnv, url);
       if (authResponse) return authResponse;
+
+      const profileResponse = await handleProfileApi(request, env.DB, url);
+      if (profileResponse) return profileResponse;
+
+      const leaderboardResponse = await handleFilteredLeaderboardApi(request, env.DB, url);
+      if (leaderboardResponse) return leaderboardResponse;
+
       const response = await handleAccountApi(request, accountEnv, url);
       if (response) return response;
     }
@@ -37,6 +55,10 @@ export default {
       if (!env.DB) return quizWorker.fetch(request, env, context);
       const schemaFailure = await ensureSchemasSafely(env, url);
       if (schemaFailure) return schemaFailure;
+
+      const statusBlocked = await enforceActiveSession(request, env.DB);
+      if (statusBlocked) return statusBlocked;
+
       const blocked = await requireVerifiedQuizAccess(request, env.DB);
       if (blocked) return blocked;
     }
