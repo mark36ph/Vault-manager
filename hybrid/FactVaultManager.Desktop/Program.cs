@@ -27,6 +27,7 @@ public static class Program
             VelopackApp.Build().Run();
             InstalledDataMigration.Run();
             InstalledCredentialRecovery.Run();
+            InstalledYouTubeOAuthClientIdRecovery.Run();
 
             var application = new Application();
             AppInteractionPolish.Initialize();
