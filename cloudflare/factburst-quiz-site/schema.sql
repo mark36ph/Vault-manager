@@ -41,6 +41,9 @@ CREATE TABLE IF NOT EXISTS site_users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL,
     username_key TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL DEFAULT '',
+    email_key TEXT NOT NULL DEFAULT '',
+    email_verified_at TEXT,
     password_hash TEXT NOT NULL,
     password_salt TEXT NOT NULL,
     password_iterations INTEGER NOT NULL,
@@ -69,6 +72,15 @@ CREATE TABLE IF NOT EXISTS site_user_scores (
     FOREIGN KEY (quiz_id) REFERENCES site_quizzes(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS site_email_verifications (
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    email_key TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES site_users(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_site_quizzes_publish
     ON site_quizzes(status, publish_at);
 
@@ -80,3 +92,9 @@ CREATE INDEX IF NOT EXISTS idx_site_sessions_expiry
 
 CREATE INDEX IF NOT EXISTS idx_site_user_scores_quiz
     ON site_user_scores(quiz_id, best_score DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_site_users_email_unique
+    ON site_users(email_key) WHERE email_key <> '';
+
+CREATE INDEX IF NOT EXISTS idx_site_email_verifications_user
+    ON site_email_verifications(user_id, created_at DESC);
