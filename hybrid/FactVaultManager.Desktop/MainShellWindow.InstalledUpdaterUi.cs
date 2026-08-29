@@ -31,7 +31,7 @@ public partial class MainShellWindow
         var answer = MessageBox.Show(
             window,
             "This copy is running from the development/source folder rather than the Windows installer.\n\n" +
-            "Install the current signed Factburst Quiz Manager release now?\n\n" +
+            "Install the current Factburst Quiz Manager release now?\n\n" +
             "After this one-time install, the Updates button will download and apply future versions automatically.",
             "Install Factburst Quiz Manager",
             MessageBoxButton.YesNo,
