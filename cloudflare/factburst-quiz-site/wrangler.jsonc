@@ -12,5 +12,10 @@
       "binding": "QUIZ_IMAGES",
       "bucket_name": "factburst-quiz-images"
     }
+  ],
+  "send_email": [
+    {
+      "name": "EMAIL"
+    }
   ]
 }
