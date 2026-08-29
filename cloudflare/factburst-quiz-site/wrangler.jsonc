@@ -3,6 +3,17 @@
   "name": "factburst-quiz-site",
   "main": "worker-entry.js",
   "compatibility_date": "2026-08-27",
+  "keep_vars": true,
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "factburstquiz.com",
+      "custom_domain": true
+    }
+  ],
+  "vars": {
+    "EMAIL_FROM": "noreply@factburstquiz.com"
+  },
   "assets": {
     "directory": "./public",
     "binding": "ASSETS"
