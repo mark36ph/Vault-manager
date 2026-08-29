@@ -74,16 +74,16 @@ export default {
       const commentsResponse = await handleCommentsApi(request, env.DB, url);
       if (commentsResponse) return commentsResponse;
 
-      const challengeResponse = await handleChallengeApi(request, env.DB, url);
-      if (challengeResponse) return challengeResponse;
-
-      const friendsResponse = await handleFriendsApi(request, env.DB, url);
-      if (friendsResponse) return friendsResponse;
-
       const accountEnv = {
         ...env,
         EMAIL: createResendEmailAdapter(env),
       };
+
+      const challengeResponse = await handleChallengeApi(request, accountEnv, url);
+      if (challengeResponse) return challengeResponse;
+
+      const friendsResponse = await handleFriendsApi(request, env.DB, url);
+      if (friendsResponse) return friendsResponse;
 
       const verifiedEmailChange = await handleVerifiedEmailChangeApi(request, accountEnv, url);
       if (verifiedEmailChange) return verifiedEmailChange;
