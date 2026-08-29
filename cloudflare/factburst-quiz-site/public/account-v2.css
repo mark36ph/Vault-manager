@@ -1,0 +1,27 @@
+.account-header-area {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+.account-welcome {
+  color: var(--muted);
+  font-weight: 700;
+}
+.account-welcome a {
+  color: white;
+  text-decoration: none;
+  font-weight: 850;
+}
+.account-welcome a:hover {
+  color: var(--cyan);
+  text-decoration: underline;
+}
+#account-summary > .account-summary-profile {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+@media (max-width: 840px) {
+  .account-header-area { margin-left: auto; }
+}
