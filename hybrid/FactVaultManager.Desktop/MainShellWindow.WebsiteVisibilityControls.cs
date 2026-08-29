@@ -40,6 +40,9 @@ public partial class MainShellWindow
         if (_websiteManagerGrid is null || _websiteOpenProjectButton?.Parent is not Grid footer || _websiteResyncButton is null)
             return;
 
+        _websiteManagerGrid.SelectionMode = DataGridSelectionMode.Extended;
+        _websiteManagerGrid.SelectionUnit = DataGridSelectionUnit.FullRow;
+
         var statusColumn = _websiteManagerGrid.Columns
             .OfType<DataGridTextColumn>()
             .FirstOrDefault(column => string.Equals(Convert.ToString(column.Header), "Status", StringComparison.Ordinal));
@@ -70,7 +73,7 @@ public partial class MainShellWindow
             MinHeight = 36,
             Margin = new Thickness(0, 0, 6, 0),
             IsEnabled = false,
-            ToolTip = "Make the selected quiz publicly playable immediately.",
+            ToolTip = "Make every selected quiz publicly playable immediately.",
         };
         _websiteFollowScheduleButton = new Button
         {
@@ -79,7 +82,7 @@ public partial class MainShellWindow
             MinHeight = 36,
             Margin = new Thickness(0, 0, 6, 0),
             IsEnabled = false,
-            ToolTip = "Return website timing to this quiz's local scheduled release time.",
+            ToolTip = "Return every selected quiz to its linked local scheduled release time.",
         };
         _websiteTakeOfflineButton = new Button
         {
@@ -87,7 +90,7 @@ public partial class MainShellWindow
             MinWidth = 104,
             MinHeight = 36,
             IsEnabled = false,
-            ToolTip = "Hide the selected quiz from the public website without deleting its questions or metadata.",
+            ToolTip = "Hide every selected quiz without deleting its questions or metadata.",
         };
 
         _websiteGoLiveButton.Click += async (_, _) => await SetSelectedWebsiteLiveNowAsync();
@@ -108,127 +111,155 @@ public partial class MainShellWindow
         _websiteVisibilityControlsTimer?.Stop();
     }
 
+    private IReadOnlyList<WebsiteManagerQuizRow> SelectedWebsiteRows() =>
+        _websiteManagerGrid?.SelectedItems
+            .OfType<WebsiteManagerQuizRow>()
+            .GroupBy(row => row.Slug, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList()
+        ?? [];
+
     private void UpdateWebsiteVisibilityButtons()
     {
-        var row = _websiteManagerGrid?.SelectedItem as WebsiteManagerQuizRow;
-        if (row is null)
+        var rows = SelectedWebsiteRows();
+        if (rows.Count == 0)
         {
-            if (_websiteGoLiveButton is not null) _websiteGoLiveButton.IsEnabled = false;
-            if (_websiteFollowScheduleButton is not null) _websiteFollowScheduleButton.IsEnabled = false;
-            if (_websiteTakeOfflineButton is not null) _websiteTakeOfflineButton.IsEnabled = false;
+            SetWebsiteVisibilityButtonsEnabled(false);
             return;
         }
 
-        var state = FactburstWebsiteVisibility.DisplayState(row.Status, row.RawPublishAt, DateTimeOffset.Now);
-        var schedule = row.HistoryId > 0
-            ? _scheduledReadinessRows.FirstOrDefault(item => item.HistoryId == row.HistoryId)
-            : null;
+        var states = rows
+            .Select(row => FactburstWebsiteVisibility.DisplayState(row.Status, row.RawPublishAt, DateTimeOffset.Now))
+            .ToList();
+        var allScheduled = rows.All(row => row.HistoryId > 0 && _scheduledReadinessRows.Any(item => item.HistoryId == row.HistoryId));
 
         if (_websiteGoLiveButton is not null)
-            _websiteGoLiveButton.IsEnabled = !string.Equals(state, "Live", StringComparison.Ordinal);
+            _websiteGoLiveButton.IsEnabled = states.Any(state => !string.Equals(state, "Live", StringComparison.Ordinal));
         if (_websiteFollowScheduleButton is not null)
-            _websiteFollowScheduleButton.IsEnabled = schedule is not null;
+            _websiteFollowScheduleButton.IsEnabled = allScheduled;
         if (_websiteTakeOfflineButton is not null)
-            _websiteTakeOfflineButton.IsEnabled = !string.Equals(state, "Offline", StringComparison.Ordinal);
+            _websiteTakeOfflineButton.IsEnabled = states.Any(state => !string.Equals(state, "Offline", StringComparison.Ordinal));
 
         if (_websiteStatusText is not null)
         {
-            var scheduleNote = schedule is null
-                ? "No local scheduled release is linked."
-                : $"Local schedule: {schedule.PublishAt.LocalDateTime:g}.";
-            _websiteStatusText.Text = $"Selected: {row.Title} • Website state: {state}. {scheduleNote}";
+            if (rows.Count == 1)
+            {
+                var row = rows[0];
+                var schedule = row.HistoryId > 0
+                    ? _scheduledReadinessRows.FirstOrDefault(item => item.HistoryId == row.HistoryId)
+                    : null;
+                var scheduleNote = schedule is null
+                    ? "No local scheduled release is linked."
+                    : $"Local schedule: {schedule.PublishAt.LocalDateTime:g}.";
+                _websiteStatusText.Text = $"Selected: {row.Title} • Website state: {states[0]}. {scheduleNote}";
+            }
+            else
+            {
+                var live = states.Count(state => string.Equals(state, "Live", StringComparison.Ordinal));
+                var upcoming = states.Count(state => string.Equals(state, "Upcoming", StringComparison.Ordinal));
+                var offline = states.Count(state => string.Equals(state, "Offline", StringComparison.Ordinal));
+                _websiteStatusText.Text = $"Selected {rows.Count:N0} quizzes • {live:N0} live • {upcoming:N0} upcoming • {offline:N0} offline" +
+                    (allScheduled ? " • all linked to local schedules" : " • some are not linked to a local schedule");
+            }
         }
     }
 
     private async Task SetSelectedWebsiteLiveNowAsync()
     {
-        if (_websiteManagerGrid?.SelectedItem is not WebsiteManagerQuizRow row) return;
+        var rows = SelectedWebsiteRows();
+        if (rows.Count == 0) return;
         const string title = "Go Live on Website";
-        if (MessageBox.Show(
-                this,
-                $"Make {row.Title} live on the Factburst website now?\n\nThe quiz will become publicly playable immediately. Its questions and project data are not changed.",
-                title,
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question) != MessageBoxResult.Yes)
+        var prompt = rows.Count == 1
+            ? $"Make {rows[0].Title} live on the Factburst website now?\n\nThe quiz will become publicly playable immediately. Its questions and project data are not changed."
+            : $"Make all {rows.Count:N0} selected quizzes live on the Factburst website now?\n\nThey will become publicly playable immediately. Their questions and project data are not changed.";
+        if (MessageBox.Show(this, prompt, title, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
         await ChangeSelectedWebsiteVisibilityAsync(
-            row,
+            rows,
             title,
-            "Making quiz live…",
-            async (client, tracker) => await client.SetLiveNowAsync(
+            $"Making {rows.Count:N0} selected quiz{(rows.Count == 1 ? "" : "zes")} live…",
+            async (client, tracker, row) => await client.SetLiveNowAsync(
                 tracker.BaseUrl,
                 tracker.ApiKey,
                 row.Slug,
-                DateTimeOffset.UtcNow));
+                DateTimeOffset.UtcNow),
+            $"{rows.Count:N0} quiz{(rows.Count == 1 ? "" : "zes")} set live.");
     }
 
     private async Task SetSelectedWebsiteOfflineAsync()
     {
-        if (_websiteManagerGrid?.SelectedItem is not WebsiteManagerQuizRow row) return;
+        var rows = SelectedWebsiteRows();
+        if (rows.Count == 0) return;
         const string title = "Take Quiz Offline";
-        if (MessageBox.Show(
-                this,
-                $"Take {row.Title} offline?\n\nIt will disappear from the public quiz website, but its Cloudflare quiz record, questions, images and release time are kept. You can put it live again at any time.",
-                title,
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        var prompt = rows.Count == 1
+            ? $"Take {rows[0].Title} offline?\n\nIt will disappear from the public quiz website, but its Cloudflare quiz record, questions, images and release time are kept. You can put it live again at any time."
+            : $"Take all {rows.Count:N0} selected quizzes offline?\n\nThey will disappear from the public website, but their Cloudflare records, questions, images and release times are kept. You can put them live again at any time.";
+        if (MessageBox.Show(this, prompt, title, MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             return;
 
         await ChangeSelectedWebsiteVisibilityAsync(
-            row,
+            rows,
             title,
-            "Taking quiz offline…",
-            async (client, tracker) => await client.SetOfflineAsync(
+            $"Taking {rows.Count:N0} selected quiz{(rows.Count == 1 ? "" : "zes")} offline…",
+            async (client, tracker, row) => await client.SetOfflineAsync(
                 tracker.BaseUrl,
                 tracker.ApiKey,
                 row.Slug,
-                row.RawPublishAt));
+                row.RawPublishAt),
+            $"{rows.Count:N0} quiz{(rows.Count == 1 ? "" : "zes")} taken offline.");
     }
 
     private async Task SetSelectedWebsiteFollowScheduleAsync()
     {
-        if (_websiteManagerGrid?.SelectedItem is not WebsiteManagerQuizRow row) return;
-        var scheduled = row.HistoryId > 0
-            ? _scheduledReadinessRows.FirstOrDefault(item => item.HistoryId == row.HistoryId)
-            : null;
-        if (scheduled is null)
+        var rows = SelectedWebsiteRows();
+        if (rows.Count == 0) return;
+        var scheduledRows = rows.Select(row => new
+        {
+            Row = row,
+            Schedule = row.HistoryId > 0
+                ? _scheduledReadinessRows.FirstOrDefault(item => item.HistoryId == row.HistoryId)
+                : null,
+        }).ToList();
+        var missing = scheduledRows.Where(item => item.Schedule is null).Select(item => item.Row.Title).ToList();
+        if (missing.Count > 0)
         {
             MessageBox.Show(
                 this,
-                "This website quiz is not linked to a local scheduled release.",
+                $"Follow schedule needs every selected quiz to be linked to a local scheduled release.\n\nMissing schedule: {string.Join(", ", missing.Take(6))}{(missing.Count > 6 ? "…" : "")}",
                 "Follow Website Schedule",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             return;
         }
 
-        var resultingState = scheduled.PublishAt > DateTimeOffset.Now ? "Upcoming" : "Live";
+        var upcoming = scheduledRows.Count(item => item.Schedule!.PublishAt > DateTimeOffset.Now);
+        var live = scheduledRows.Count - upcoming;
         const string title = "Follow Website Schedule";
-        if (MessageBox.Show(
-                this,
-                $"Return {row.Title} to its local release schedule?\n\nWebsite state: {resultingState}\nRelease time: {scheduled.PublishAt.LocalDateTime:f}\n\nFuture content resyncs will preserve this website timing until you change it again here.",
-                title,
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question) != MessageBoxResult.Yes)
+        var prompt = rows.Count == 1
+            ? $"Return {rows[0].Title} to its local release schedule?\n\nWebsite state: {(upcoming == 1 ? "Upcoming" : "Live")}\nRelease time: {scheduledRows[0].Schedule!.PublishAt.LocalDateTime:f}\n\nFuture content resyncs will preserve this website timing until you change it again here."
+            : $"Return all {rows.Count:N0} selected quizzes to their local release schedules?\n\nResult: {live:N0} live • {upcoming:N0} upcoming\n\nFuture content resyncs will preserve these website timings until you change them again here.";
+        if (MessageBox.Show(this, prompt, title, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
 
         await ChangeSelectedWebsiteVisibilityAsync(
-            row,
+            rows,
             title,
-            "Applying scheduled website time…",
-            async (client, tracker) => await client.FollowScheduleAsync(
-                tracker.BaseUrl,
-                tracker.ApiKey,
-                row.Slug,
-                scheduled.PublishAt));
+            $"Applying schedules to {rows.Count:N0} selected quiz{(rows.Count == 1 ? "" : "zes")}…",
+            async (client, tracker, row) =>
+            {
+                var scheduled = scheduledRows.First(item => string.Equals(item.Row.Slug, row.Slug, StringComparison.OrdinalIgnoreCase)).Schedule!;
+                await client.FollowScheduleAsync(tracker.BaseUrl, tracker.ApiKey, row.Slug, scheduled.PublishAt);
+            },
+            $"{rows.Count:N0} quiz{(rows.Count == 1 ? "" : "zes")} returned to schedule.");
     }
 
     private async Task ChangeSelectedWebsiteVisibilityAsync(
-        WebsiteManagerQuizRow row,
+        IReadOnlyList<WebsiteManagerQuizRow> rows,
         string title,
         string progress,
-        Func<FactburstWebsiteVisibilityClient, FactburstTrackerSettings, Task> change)
+        Func<FactburstWebsiteVisibilityClient, FactburstTrackerSettings, WebsiteManagerQuizRow, Task> change,
+        string success)
     {
         try
         {
@@ -239,11 +270,39 @@ public partial class MainShellWindow
             SetWebsiteVisibilityButtonsEnabled(false);
             if (_websiteStatusText is not null) _websiteStatusText.Text = progress;
 
+            var failures = new List<string>();
             using var client = new FactburstWebsiteVisibilityClient();
-            await change(client, tracker);
+            foreach (var row in rows)
+            {
+                try
+                {
+                    await change(client, tracker, row);
+                }
+                catch (Exception error)
+                {
+                    failures.Add($"{row.Title}: {error.Message}");
+                }
+            }
+
+            var slugs = rows.Select(row => row.Slug).ToList();
             await RefreshWebsiteManagerAsync(false);
-            ReselectWebsiteQuiz(row.Slug);
+            ReselectWebsiteQuizzes(slugs);
             UpdateWebsiteVisibilityButtons();
+
+            if (failures.Count > 0)
+            {
+                if (_websiteStatusText is not null)
+                    _websiteStatusText.Text = $"Updated {rows.Count - failures.Count:N0} of {rows.Count:N0} selected quizzes.";
+                MessageBox.Show(
+                    this,
+                    $"{failures.Count:N0} selected quiz{(failures.Count == 1 ? "" : "zes")} could not be updated:\n\n{string.Join("\n", failures.Take(8))}{(failures.Count > 8 ? "\n…" : "")}",
+                    title,
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            if (_websiteStatusText is not null) _websiteStatusText.Text = success;
         }
         catch (Exception error)
         {
@@ -259,13 +318,15 @@ public partial class MainShellWindow
         if (_websiteTakeOfflineButton is not null) _websiteTakeOfflineButton.IsEnabled = enabled;
     }
 
-    private void ReselectWebsiteQuiz(string slug)
+    private void ReselectWebsiteQuizzes(IReadOnlyCollection<string> slugs)
     {
-        if (_websiteManagerGrid?.ItemsSource is not IEnumerable<WebsiteManagerQuizRow> rows) return;
-        var match = rows.FirstOrDefault(item => string.Equals(item.Slug, slug, StringComparison.OrdinalIgnoreCase));
-        if (match is null) return;
-        _websiteManagerGrid.SelectedItem = match;
-        _websiteManagerGrid.ScrollIntoView(match);
+        if (_websiteManagerGrid?.ItemsSource is not IEnumerable<WebsiteManagerQuizRow> rows || slugs.Count == 0) return;
+        var selected = rows.Where(item => slugs.Contains(item.Slug, StringComparer.OrdinalIgnoreCase)).ToList();
+        if (selected.Count == 0) return;
+        _websiteManagerGrid.SelectedItems.Clear();
+        foreach (var row in selected)
+            _websiteManagerGrid.SelectedItems.Add(row);
+        _websiteManagerGrid.ScrollIntoView(selected[0]);
     }
 }
 

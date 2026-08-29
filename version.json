@@ -1,15 +1,15 @@
 {
-  "latest_version": "1.0.40",
-  "build": 65,
+  "latest_version": "1.0.41",
+  "build": 66,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 65 adds a private Website Users management page for registered Factburst accounts, including verification/status, signup and activity dates, quiz totals, attempts, scores and accuracy.",
-    "Selecting a website user shows every quiz they have completed, their best result, accuracy, first/last completion and total attempt count.",
-    "Website users can be suspended, reinstated or permanently deleted from FactVaultManager; suspension revokes sessions and hides leaderboard scores while preserving history, and deletion removes the account and stored scores.",
-    "Public usernames now block reserved administration, moderation, support and Factburst impersonation names.",
-    "The Factburst profile is upgraded to a dedicated page with overall rank, score totals, accuracy, attempt count and full quiz history.",
-    "Verified users can send, accept, decline and cancel friend requests by public username, manage accepted friends from their profile, and remove friends without exposing email addresses.",
-    "Quiz results now include Challenge a friend: players can target an accepted Factburst friend or create a shareable 30-day challenge link backed by their stored best score.",
-    "Suspended or deleted accounts are excluded from overall and per-quiz leaderboards, friends surfaces and active challenge links."
+    "Build 66 separates Website and Users from the main workspace with a navigation divider above the Website section.",
+    "Website quiz visibility now supports multi-select so Go live now, Follow schedule and Take offline can be applied to several selected quizzes at once.",
+    "Website Users now shows each selected account's accepted friends plus incoming and outgoing friend requests alongside quiz activity.",
+    "Suspended accounts now receive a clear suspension message when they attempt to log in or use a still-active session.",
+    "Factburst quizzes can now be played without signing in. Guest results are calculated statelessly and are not stored in account history or leaderboards.",
+    "The signed-in website header is simplified to Welcome {username}; the username links directly to the full profile instead of opening the compact account summary.",
+    "Every quiz now has public comments. Anyone can read them, while posting requires a signed-in verified account; suspended/deleted users' comments are hidden automatically.",
+    "Website Ads settings can configure optional Google AdSense side-rail display ads. Ads are disabled by default, never use popups/overlays, only appear on wide quiz pages, and no Google ad script loads until enabled."
   ]
 }

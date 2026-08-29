@@ -1,14 +1,23 @@
 import trackerWorker from "./worker.js";
 import { handleSiteUserAdmin } from "./site-user-admin.js";
+import { handleSiteUserFriendsAdmin } from "./site-user-friends-admin.js";
+import { handleSiteAdAdmin } from "./site-ad-admin.js";
 
 export default {
   async fetch(request, env, context) {
     const url = new URL(request.url);
-    if (url.pathname === "/api/site/users" || url.pathname.startsWith("/api/site/users/")) {
+    if (isSiteAdminRoute(url.pathname)) {
       try {
         requireApiKey(request, env);
-        const response = await handleSiteUserAdmin(request, env, url);
-        if (response) return response;
+
+        const adResponse = await handleSiteAdAdmin(request, env, url);
+        if (adResponse) return adResponse;
+
+        const friendsResponse = await handleSiteUserFriendsAdmin(request, env, url);
+        if (friendsResponse) return friendsResponse;
+
+        const userResponse = await handleSiteUserAdmin(request, env, url);
+        if (userResponse) return userResponse;
         return json({ error: "Not found" }, 404);
       } catch (error) {
         console.error(error);
@@ -22,6 +31,12 @@ export default {
     return trackerWorker.fetch(request, env, context);
   },
 };
+
+function isSiteAdminRoute(pathname) {
+  return pathname === "/api/site/ads" ||
+    pathname === "/api/site/users" ||
+    pathname.startsWith("/api/site/users/");
+}
 
 function requireApiKey(request, env) {
   if (!env.TRACKER_API_KEY) {
