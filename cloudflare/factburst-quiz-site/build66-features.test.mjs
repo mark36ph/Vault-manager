@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { suspendedAccountMessage } from "./account-access.js";
 import { normalizeCommentBody } from "./account-comments.js";
+import { normalizeEmailAddress, verificationTarget } from "./account-email-change.js";
 import { normalizeAnswer } from "./guest-score.js";
 import { normalizeClient, normalizeSlot } from "./site-ads.js";
 
@@ -15,6 +16,26 @@ test("comments are normalized and bounded", () => {
   assert.equal(normalizeCommentBody("  Great   quiz!\r\n\r\n\r\nLoved it.  "), "Great quiz!\n\nLoved it.");
   assert.equal(normalizeCommentBody("x"), "");
   assert.equal(normalizeCommentBody("x".repeat(601)), "");
+});
+
+test("email changes validate the new address and distinguish pending confirmation tokens", () => {
+  assert.equal(normalizeEmailAddress(" player@example.com "), "player@example.com");
+  assert.equal(normalizeEmailAddress("not-an-email"), "");
+  assert.equal(verificationTarget({
+    email_key: "new@example.com",
+    pending_email_key: "new@example.com",
+    current_email_key: "old@example.com",
+  }), "pending");
+  assert.equal(verificationTarget({
+    email_key: "old@example.com",
+    pending_email_key: "",
+    current_email_key: "old@example.com",
+  }), "current");
+  assert.equal(verificationTarget({
+    email_key: "stale@example.com",
+    pending_email_key: "new@example.com",
+    current_email_key: "old@example.com",
+  }), "");
 });
 
 test("guest score answers only accept A through D", () => {
