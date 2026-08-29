@@ -1,18 +1,19 @@
 {
-  "latest_version": "1.0.44",
-  "build": 69,
+  "latest_version": "1.0.45",
+  "build": 70,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
+    "Build 70 moves Maintenance Mode out of Website Users and into a dedicated Website settings page, with the on/off control and visitor message together.",
+    "Maintenance Mode now has a browser-side full-page fallback so normal visitors see only the maintenance notice even when a cached/static page is loaded; administrators keep full site access with the maintenance banner.",
+    "Reported quiz questions now appear in Website settings with the quiz, question, reason, reporter and status, plus Resolve, Dismiss and Reopen actions.",
     "Build 69 lets website administrators create player accounts directly from the desktop Users page, including usernames that are reserved from public signup such as Admin, Support and Factburst.",
     "Admin-created accounts use a short-lived one-use provisioning token and the website's normal PBKDF2 password hashing path, so the reserved-name bypass is never exposed to ordinary visitors.",
     "Administrators can activate an existing unverified website profile without the user clicking the verification email; activation also restores the account to active status if it was suspended.",
     "Build 68 adds Factburst user groups (User, Moderator and Admin), role controls in the desktop Users page, an explicit View friends popup and website maintenance controls.",
-    "Maintenance mode blocks normal visitors while administrators can still use the live site with a persistent maintenance banner.",
     "Verified users can change email safely: the existing verified address remains active until the replacement address is confirmed.",
-    "Quiz profiles now gain Daily Quiz streaks, XP and levels, achievements, category progress, saved and recent quizzes, recommendations and richer player statistics.",
-    "Friends gain weekly/monthly/all-time competition views, challenge result/rematch support and live head-to-head quiz matches.",
-    "The site adds notifications, weekly tournaments, quiz reactions, result-card sharing, question reporting and more personalised homepage content.",
-    "Quiz comments gain replies, likes, editing, reporting and moderator/admin management controls, with improved empty-state padding.",
-    "The Website Ads dialog is larger so all AdSense fields, help text and actions are comfortably visible."
+    "Quiz profiles include Daily Quiz streaks, XP and levels, achievements, category progress, saved and recent quizzes, recommendations and richer player statistics.",
+    "Friends include weekly/monthly/all-time competition views, challenge result/rematch support and live head-to-head quiz matches.",
+    "The site includes notifications, weekly tournaments, quiz reactions, result-card sharing, question reporting and personalised homepage content.",
+    "Quiz comments include replies, likes, editing, reporting and moderator/admin management controls."
   ]
 }

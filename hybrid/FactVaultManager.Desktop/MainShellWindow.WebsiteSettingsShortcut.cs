@@ -27,15 +27,20 @@ public partial class MainShellWindow
             return;
         }
 
-        // The Website button's existing handler already navigates to Settings.
-        // Select the injected Link Tracker page after that navigation completes.
         Dispatcher.BeginInvoke(
             DispatcherPriority.ContextIdle,
             new Action(() =>
             {
+                // Preserve the existing Link Tracker configuration page, but make
+                // the consolidated Website page the landing page for this shortcut.
                 InitializeFactburstTrackerUi();
-                if (_settingsPages.ContainsKey("tracker"))
-                    SelectSettingsPage("tracker");
+                InitializeWebsiteSettingsAdministrationPage();
+                EnsureWebsiteSettingsAdministrationPage();
+                if (_settingsPages.ContainsKey("website"))
+                {
+                    SelectSettingsPage("website");
+                    _ = RefreshWebsiteAdministrationSettingsAsync(false);
+                }
             }));
     }
 }
