@@ -1,8 +1,10 @@
 {
-  "latest_version": "1.0.47",
-  "build": 72,
+  "latest_version": "1.0.48",
+  "build": 73,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
+    "Build 73 makes the Autopilot home Instagram card use the same due-time rule as Needs You, so future and waiting promos are no longer shown as work requiring attention.",
+    "The home Instagram card now appears only for Next day promos whose posting time has arrived, and its count reflects only promos that can actually be published now.",
     "Build 72 keeps future and waiting Instagram promos out of Needs You until their Instagram posting time has actually arrived.",
     "The Needs You counter, Instagram task list and publishing workflow now use the same due-time rule, so unavailable promos no longer inflate work requiring attention.",
     "Build 71 excludes comments authored by mark36ph from Full Autopilot viewer-reply approval work, including @mark36ph and case variations.",
