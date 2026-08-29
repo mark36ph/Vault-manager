@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07103d">
-  <meta name="description" content="View your Factburst Quiz scores, rankings and quiz history.">
+  <meta name="description" content="View your Factburst Quiz scores, rankings, friends and quiz history.">
   <title>Your Profile | Factburst Quiz</title>
   <link rel="icon" href="/favicon.ico">
   <link rel="stylesheet" href="/styles.css">
@@ -48,6 +48,40 @@
         <article class="profile-stat"><span>Total attempts</span><strong id="profile-attempts">0</strong></article>
         <article class="profile-stat"><span>Accuracy</span><strong id="profile-accuracy">0%</strong></article>
       </div>
+
+      <section class="profile-panel profile-friends-panel">
+        <div class="section-heading profile-friends-heading">
+          <div>
+            <p class="eyebrow">Friends</p>
+            <h2>Quiz together</h2>
+          </div>
+          <form id="friend-add-form" class="friend-add-form">
+            <label>
+              <span class="sr-only">Friend username</span>
+              <input id="friend-username" type="text" maxlength="24" placeholder="Add by username" autocomplete="off" required>
+            </label>
+            <button class="button button-primary" type="submit">Add friend</button>
+          </form>
+        </div>
+        <p id="friend-status" class="profile-help" aria-live="polite">Friends can challenge each other directly without sharing email addresses.</p>
+
+        <div id="friend-requests-wrap" class="friend-request-grid hidden">
+          <section>
+            <h3>Requests for you</h3>
+            <div id="friend-incoming" class="friend-list"></div>
+          </section>
+          <section>
+            <h3>Sent requests</h3>
+            <div id="friend-outgoing" class="friend-list"></div>
+          </section>
+        </div>
+
+        <div class="friends-title-row">
+          <h3>Your friends</h3>
+          <span id="friend-count" class="category-pill">0 friends</span>
+        </div>
+        <div id="friend-list" class="friend-list"></div>
+      </section>
 
       <section class="profile-panel profile-history-panel">
         <div class="section-heading">
