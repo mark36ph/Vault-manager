@@ -4,6 +4,7 @@ let incomingChallenge = null;
 let resultObserver = null;
 
 if (document.body.dataset.page === "quiz" && /^[a-z0-9][a-z0-9-]{0,79}$/i.test(slug)) {
+  document.addEventListener("click", interceptLegacyRematch, true);
   initializeChallenges().catch(error => console.error("Challenge UI failed", error));
 }
 
@@ -165,6 +166,45 @@ async function sendFriendChallenge(friend, button) {
   } catch (error) {
     buttons.forEach(item => { item.disabled = false; });
     if (status) status.textContent = error.message || "Could not send challenge.";
+  }
+}
+
+async function interceptLegacyRematch(event) {
+  if (!challengeToken || !event.target?.closest) return;
+  const button = event.target.closest("button");
+  if (!button || String(button.textContent || "").trim() !== "Rematch") return;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  button.disabled = true;
+  button.textContent = "Sending rematch…";
+
+  try {
+    const result = await api(`/api/engagement/challenge-result?token=${encodeURIComponent(challengeToken)}`);
+    const account = await api("/api/account");
+    const myId = Number(account?.user?.id || 0);
+    const challengerId = Number(result?.challenger?.user_id || 0);
+    const challengedId = Number(result?.challenged?.user_id || 0);
+    const friendId = myId === challengerId ? challengedId : challengerId;
+    if (!friendId || friendId === myId) throw new Error("Could not find the friend for this rematch.");
+
+    const response = await api("/api/challenges", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ slug, friend_user_id: friendId }),
+    });
+    const challenge = response.challenge || {};
+    button.textContent = "Rematch sent";
+    showChallengeNotice(
+      challenge.email_sent
+        ? `Rematch sent to ${challenge.challenged_username || "your friend"}. They have a Factburst notification and an email alert.`
+        : `Rematch sent to ${challenge.challenged_username || "your friend"}. It’s waiting in their Factburst notifications.`,
+      "success",
+    );
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = "Rematch";
+    showChallengeNotice(error.message || "Could not send rematch.", "error");
   }
 }
 
