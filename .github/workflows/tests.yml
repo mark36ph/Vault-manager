@@ -110,10 +110,21 @@ jobs:
           node --check cloudflare/factburst-quiz-site/accounts.js
           node --check cloudflare/factburst-quiz-site/account-auth.js
           node --check cloudflare/factburst-quiz-site/account-schema.js
+          node --check cloudflare/factburst-quiz-site/account-access.js
+          node --check cloudflare/factburst-quiz-site/account-policy.js
+          node --check cloudflare/factburst-quiz-site/account-profile.js
+          node --check cloudflare/factburst-quiz-site/account-leaderboards.js
+          node --check cloudflare/factburst-quiz-site/account-friends.js
+          node --check cloudflare/factburst-quiz-site/account-challenges.js
           node --check cloudflare/factburst-quiz-site/resend-email.js
           node --check cloudflare/factburst-quiz-site/public/app.js
           node --check cloudflare/factburst-quiz-site/public/account-ui.js
+          node --check cloudflare/factburst-quiz-site/public/profile.js
+          node --check cloudflare/factburst-quiz-site/public/profile-link.js
+          node --check cloudflare/factburst-quiz-site/public/challenge-ui.js
           node --check cloudflare/factburst-link-tracker/worker.js
+          node --check cloudflare/factburst-link-tracker/admin-worker-entry.js
+          node --check cloudflare/factburst-link-tracker/site-user-admin.js
           node --check cloudflare/factburst-link-tracker/site-quiz-admin.js
 
       - name: Run website account tests
@@ -123,6 +134,10 @@ jobs:
           cloudflare/factburst-quiz-site/accounts.test.mjs
           cloudflare/factburst-quiz-site/resend-email.test.mjs
 
-      - name: Validate Cloudflare Worker bundle
+      - name: Validate quiz website Worker bundle
         working-directory: cloudflare/factburst-quiz-site
         run: npx --yes wrangler@4 deploy --dry-run --outdir .wrangler-dry-run
+
+      - name: Validate tracker admin Worker bundle
+        working-directory: cloudflare/factburst-link-tracker
+        run: npx --yes wrangler@4 deploy admin-worker-entry.js --dry-run --outdir .wrangler-dry-run
