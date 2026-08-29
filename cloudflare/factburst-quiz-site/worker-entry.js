@@ -5,6 +5,7 @@ import {
   recordAuthenticatedScore,
   requireVerifiedQuizAccess,
 } from "./accounts.js";
+import { createResendEmailAdapter } from "./resend-email.js";
 
 let accountSchemaReady = false;
 
@@ -16,7 +17,11 @@ export default {
     if (accountRoute) {
       if (!env.DB) return quizWorker.fetch(request, env, context);
       await ensureSchemas(env, url);
-      const response = await handleAccountApi(request, env, url);
+      const accountEnv = {
+        ...env,
+        EMAIL: createResendEmailAdapter(env),
+      };
+      const response = await handleAccountApi(request, accountEnv, url);
       if (response) return response;
     }
 
