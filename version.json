@@ -1,8 +1,11 @@
 {
-  "latest_version": "1.0.43",
-  "build": 68,
+  "latest_version": "1.0.44",
+  "build": 69,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
+    "Build 69 lets website administrators create player accounts directly from the desktop Users page, including usernames that are reserved from public signup such as Admin, Support and Factburst.",
+    "Admin-created accounts use a short-lived one-use provisioning token and the website's normal PBKDF2 password hashing path, so the reserved-name bypass is never exposed to ordinary visitors.",
+    "Administrators can activate an existing unverified website profile without the user clicking the verification email; activation also restores the account to active status if it was suspended.",
     "Build 68 adds Factburst user groups (User, Moderator and Admin), role controls in the desktop Users page, an explicit View friends popup and website maintenance controls.",
     "Maintenance mode blocks normal visitors while administrators can still use the live site with a persistent maintenance banner.",
     "Verified users can change email safely: the existing verified address remains active until the replacement address is confirmed.",

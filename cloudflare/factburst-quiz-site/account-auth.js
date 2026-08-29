@@ -11,12 +11,17 @@ export const PASSWORD_POLICY = Object.freeze({
 
 export async function handleAuthApi(request, env, url) {
   const { pathname } = url;
-  if (pathname !== "/api/account/signup" && pathname !== "/api/account/login") return null;
+  if (pathname !== "/api/account/signup" &&
+      pathname !== "/api/account/login" &&
+      pathname !== "/api/account/admin-signup") return null;
   if (!sameOrigin(request, url)) return json({ error: "Request origin was not accepted." }, 403);
 
   try {
     if (pathname === "/api/account/signup" && request.method === "POST") {
       return signup(request, env, url);
+    }
+    if (pathname === "/api/account/admin-signup" && request.method === "POST") {
+      return adminSignup(request, env);
     }
     if (pathname === "/api/account/login" && request.method === "POST") {
       return login(request, env);
@@ -139,6 +144,120 @@ async function signup(request, env, url) {
       ? "Account created. Check your email and verify it before playing."
       : delivery.error,
   }, 201, { "set-cookie": session.cookie });
+}
+
+async function adminSignup(request, env) {
+  const body = await readJson(request);
+  const username = normalizeUsername(body?.username);
+  const email = normalizeEmail(body?.email);
+  const password = String(body?.password || "");
+  const signupToken = String(body?.admin_signup_token || "").trim();
+
+  if (!username) {
+    return json({ error: "Choose a username 3–24 characters long using letters, numbers, spaces, dots, dashes or underscores." }, 400);
+  }
+  if (!email) return json({ error: "Enter a valid email address." }, 400);
+  const passwordError = validatePassword(password);
+  if (passwordError) return json({ error: passwordError }, 400);
+  if (signupToken.length < 32) return json({ error: "Admin signup authorization is missing or invalid." }, 403);
+
+  const pepper = String(env.PASSWORD_PEPPER || "").trim();
+  if (pepper.length < 32) {
+    return json({
+      error: "Account password security is temporarily unavailable. Please try again shortly.",
+      code: "password_security_not_configured",
+    }, 503);
+  }
+
+  const usernameKey = username.toLowerCase();
+  const emailKey = email.toLowerCase();
+  const now = new Date().toISOString();
+  const tokenHash = await sha256(signupToken);
+  const provision = await env.DB.prepare(`
+    SELECT token_hash, email_verified
+    FROM site_admin_signup_tokens
+    WHERE token_hash = ?
+      AND username_key = ?
+      AND email_key = ?
+      AND expires_at > ?
+    LIMIT 1
+  `).bind(tokenHash, usernameKey, emailKey, now).first();
+  if (!provision) {
+    return json({ error: "Admin signup authorization is invalid, expired or does not match this account." }, 403);
+  }
+
+  const existing = await env.DB.prepare(`
+    SELECT username_key, email_key FROM site_users
+    WHERE username_key = ? OR email_key = ? LIMIT 1
+  `).bind(usernameKey, emailKey).first();
+  if (existing?.username_key === usernameKey) return json({ error: "That username is already taken." }, 409);
+  if (existing?.email_key === emailKey) return json({ error: "That email address is already in use." }, 409);
+
+  const consumed = await env.DB.prepare(`
+    DELETE FROM site_admin_signup_tokens
+    WHERE token_hash = ?
+      AND username_key = ?
+      AND email_key = ?
+      AND expires_at > ?
+  `).bind(tokenHash, usernameKey, emailKey, now).run();
+  const consumedCount = Number(consumed?.meta?.changes ?? consumed?.changes ?? 0);
+  if (consumedCount !== 1) {
+    return json({ error: "Admin signup authorization has already been used or expired." }, 409);
+  }
+
+  const salt = randomToken(18);
+  const hash = await derivePasswordHash(password, salt, pepper, PASSWORD_ITERATIONS);
+  const verifiedAt = Number(provision.email_verified || 0) === 1 ? now : null;
+
+  try {
+    await env.DB.prepare(`
+      INSERT INTO site_users
+        (username, username_key, email, email_key, email_verified_at,
+         password_hash, password_salt, password_iterations, password_scheme,
+         created_at, last_login_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      username,
+      usernameKey,
+      email,
+      emailKey,
+      verifiedAt,
+      hash,
+      salt,
+      PASSWORD_ITERATIONS,
+      PASSWORD_SCHEME,
+      now,
+      now,
+    ).run();
+  } catch (error) {
+    if (/unique/i.test(String(error?.message || ""))) {
+      return json({ error: "That username or email address is already in use." }, 409);
+    }
+    console.error("Factburst admin signup user insert failed", error);
+    return json({ error: "Could not create the administrator-provisioned account.", code: "admin_signup_user_write_failed" }, 503);
+  }
+
+  const user = await env.DB.prepare(`
+    SELECT id, username, email, email_verified_at
+    FROM site_users WHERE username_key = ? LIMIT 1
+  `).bind(usernameKey).first();
+  if (!user) {
+    return json({ error: "Could not finish creating the administrator-provisioned account." }, 503);
+  }
+
+  return json({
+    created: true,
+    user: {
+      id: Number(user.id || 0),
+      username: String(user.username || username),
+      email: String(user.email || email),
+      email_verified: Boolean(user.email_verified_at),
+      email_verified_at: user.email_verified_at || null,
+    },
+    message: user.email_verified_at
+      ? "Account created and activated by an administrator."
+      : "Account created by an administrator and still requires email verification.",
+  }, 201);
 }
 
 async function login(request, env) {
