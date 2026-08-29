@@ -1,13 +1,13 @@
 {
-  "latest_version": "1.0.35",
-  "build": 60,
+  "latest_version": "1.0.36",
+  "build": 61,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 60 makes the Autopilot Needs You home count and Manage task queue use the same underlying task planner, preventing the two totals from drifting apart.",
-    "Waiting Related Video and Instagram prerequisites now remain visible in the task queue, while publish or completion actions stay disabled until the prerequisite state is ready.",
-    "Packaging rescue and release-warning items are also represented in the unified queue when they contribute to the Needs You count.",
-    "A new Website page is added to the main Factburst navigation for managing the Cloudflare quiz catalogue without opening Advanced tools.",
-    "The Website page shows connection state, live and upcoming website quizzes, stored question totals, scheduled sync coverage, and scheduled quizzes missing from the website.",
-    "Website controls include Refresh, Sync scheduled, Resync selected, Open project, and Website settings, using the existing safe Cloudflare website publishing service."
+    "Build 61 restores the Website connection for installed users by recovering the existing Factburst Link Tracker configuration from legacy or development storage when available.",
+    "The tracker API key is never copied as a raw protected blob: it is read through the existing same-user credential protector and saved again into the installed app's persistent data folder.",
+    "A successful one-time recovery is recorded so a tracker configuration deliberately cleared later is not silently resurrected.",
+    "Existing installed Link Tracker settings are preserved and are never overwritten by legacy recovery.",
+    "Website settings now opens Settings directly on the Link Tracker page, where the existing Save and test action can be used if no recoverable configuration is available.",
+    "Build 60's aligned Needs You queue is unchanged: the current home count and queue count continue to use the same pending-task planner."
   ]
 }
