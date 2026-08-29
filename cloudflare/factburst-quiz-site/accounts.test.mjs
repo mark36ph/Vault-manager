@@ -38,7 +38,7 @@ test("verification links expire after 24 hours", () => {
   );
 });
 
-test("legacy account tables receive every email column in order", () => {
+test("legacy account tables receive every account upgrade in order", () => {
   const legacyColumns = [
     { name: "id" },
     { name: "username" },
@@ -51,10 +51,16 @@ test("legacy account tables receive every email column in order", () => {
   ];
   assert.deepEqual(
     missingSiteUserUpgrades(legacyColumns).map(upgrade => upgrade.name),
-    ["email", "email_key", "email_verified_at"],
+    ["email", "email_key", "email_verified_at", "password_scheme"],
   );
   assert.deepEqual(
-    missingSiteUserUpgrades([...legacyColumns, { name: "email" }, { name: "email_key" }, { name: "email_verified_at" }]),
+    missingSiteUserUpgrades([
+      ...legacyColumns,
+      { name: "email" },
+      { name: "email_key" },
+      { name: "email_verified_at" },
+      { name: "password_scheme" },
+    ]),
     [],
   );
 });
