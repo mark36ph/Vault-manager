@@ -293,9 +293,7 @@ public static class InstalledCredentialRecovery
 
         Directory.CreateDirectory(Path.GetDirectoryName(markerPath)!);
         var temporary = markerPath + ".tmp";
-        File.WriteAllText(
-            temporary,
-            marker.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllText(temporary, marker.ToJsonString());
         File.Move(temporary, markerPath, overwrite: true);
     }
 
