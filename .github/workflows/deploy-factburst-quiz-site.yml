@@ -140,6 +140,16 @@ jobs:
               main: "worker-entry.js",
               compatibility_date: "2026-08-27",
               keep_vars: true,
+              workers_dev: true,
+              routes: [
+                {
+                  pattern: "factburstquiz.com",
+                  custom_domain: true
+                }
+              ],
+              vars: {
+                EMAIL_FROM: "noreply@factburstquiz.com"
+              },
               assets: {
                 directory: "./public",
                 binding: "ASSETS"
@@ -163,6 +173,28 @@ jobs:
           echo "source_worker=${source_worker}" >> "$GITHUB_OUTPUT"
           echo "Using D1 database '${d1_name}' from tracker Worker '${source_worker}' with R2 bucket 'factburst-quiz-images'."
 
+      - name: Verify Resend configuration
+        shell: bash
+        working-directory: cloudflare/factburst-quiz-site
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
+          auth=(--header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" --header "Content-Type: application/json")
+          settings="$(curl --fail-with-body --silent --show-error "${auth[@]}" "${api}/workers/scripts/factburst-quiz-site/settings")"
+          if [[ "$(jq -r '.success // false' <<<"${settings}")" != "true" ]]; then
+            echo "::error::Cloudflare could not read factburst-quiz-site settings."
+            exit 1
+          fi
+          has_resend_key="$(jq -r '[.result.bindings[]? | select(.name == "RESEND_API_KEY")] | length' <<<"${settings}")"
+          if [[ "${has_resend_key}" -ne 1 ]]; then
+            echo "::error::RESEND_API_KEY is not configured on factburst-quiz-site. Add it as a Worker secret before deployment."
+            exit 1
+          fi
+          echo "Resend secret is configured. EMAIL_FROM and the custom domain route are deployment-managed."
+
       - name: Deploy to Cloudflare
         id: deploy
         uses: cloudflare/wrangler-action@v4
@@ -171,7 +203,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: cloudflare/factburst-quiz-site
           wranglerVersion: "4"
-          command: deploy --config wrangler.ci.json
+          command: deploy --config wrangler.ci.json --keep-vars
 
       - name: Deployment summary
         if: success()
@@ -186,6 +218,8 @@ jobs:
           echo "Worker: \`factburst-quiz-site\`" >> "$GITHUB_STEP_SUMMARY"
           echo "D1: \`${DATABASE_NAME}\` (resolved from \`${SOURCE_WORKER}\`)" >> "$GITHUB_STEP_SUMMARY"
           echo "Quiz images: \`factburst-quiz-images\` (R2)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Custom domain: \`factburstquiz.com\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Verification email: Resend via \`noreply@factburstquiz.com\`" >> "$GITHUB_STEP_SUMMARY"
           if [[ -n "${DEPLOYMENT_URL}" ]]; then
             echo "Website: ${DEPLOYMENT_URL}" >> "$GITHUB_STEP_SUMMARY"
           fi
