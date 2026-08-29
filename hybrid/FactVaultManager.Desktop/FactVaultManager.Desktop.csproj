@@ -7,8 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>FactVaultManager.Desktop</RootNamespace>
     <AssemblyName>FactVaultManager.Desktop</AssemblyName>
-    <AssemblyTitle>Content Vault Manager</AssemblyTitle>
-    <Product>Content Vault Manager</Product>
+    <AssemblyTitle>Factburst Quiz Manager</AssemblyTitle>
+    <Product>Factburst Quiz Manager</Product>
     <StartupObject>FactVaultManager.Desktop.Program</StartupObject>
     <ApplicationIcon>Assets\FactVaultManager.ico</ApplicationIcon>
   </PropertyGroup>

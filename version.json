@@ -1,12 +1,13 @@
 {
-  "latest_version": "1.0.24",
-  "build": 49,
+  "latest_version": "1.0.25",
+  "build": 50,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Keeps the legacy Production action hidden while the Factburst Autopilot shell is active.",
-    "Top-bar cleanup now identifies the header action group structurally instead of relying on one exact Production label string.",
-    "Production remains hidden even when another startup hook changes its icon or spacing after Autopilot loads.",
-    "The compact Autopilot navigation and Build 48 startup activation fix are unchanged.",
-    "No sidebar geometry changes are included; the left-edge clipping seen in the supplied screenshot was from the screenshot crop rather than the app layout."
+    "Factburst Quiz Manager now publishes a signed Windows release automatically whenever a new desktop version is merged to main.",
+    "The Updates button can bootstrap the signed installer when the app is still being run from a development or source folder.",
+    "After the one-time installer handoff, future Updates checks use Velopack to download, apply and restart into the newest release automatically.",
+    "The installed product is now presented as Factburst Quiz Manager while preserving the existing FactVaultManager package ID for upgrade compatibility.",
+    "The legacy Production header button is guarded immediately against becoming visible during Refresh, eliminating the brief flicker seen in Build 49.",
+    "Release versions are read directly from version.json so GitHub releases, the installer and the desktop build stay on the same 1.0.x version line."
   ]
 }

@@ -48,6 +48,7 @@ public partial class MainShellWindow
     private bool _autopilotShellActivationFixInitialized;
     private bool _autopilotShellActivationFixApplied;
     private DispatcherTimer? _autopilotShellActivationTimer;
+    private readonly HashSet<Button> _autopilotGuardedProductionButtons = new();
 
     public void InitializeAutopilotShellActivationFix()
     {
@@ -86,9 +87,6 @@ public partial class MainShellWindow
         if (_autopilotShellActivationFixApplied || MainTabs is null || Content is not DependencyObject root)
             return;
 
-        // The legacy navigation is rebuilt during startup. That rebuild deliberately removes
-        // the old Dashboard button, so Autopilot must attach only after the stable quiz-first
-        // navigation has been created.
         ApplyNavigationSections();
         if (!_navigationSectionsApplied)
             return;
@@ -118,7 +116,7 @@ public partial class MainShellWindow
             return;
 
         _autopilotShellActivationFixApplied = true;
-        _autopilotFirstUiAttempts = 50; // stop the obsolete Dashboard-based retry loop.
+        _autopilotFirstUiAttempts = 50;
         MainTabs.SelectedIndex = _autopilotHomeTabIndex;
         SelectAutopilotNav("Autopilot");
         _ = RefreshAutopilotHomeAsync();
@@ -155,6 +153,15 @@ public partial class MainShellWindow
             foreach (var production in buttons.Where(button =>
                          AutopilotTopBarLocator.IsLegacyProductionAction(Convert.ToString(button.Content))))
             {
+                if (_autopilotGuardedProductionButtons.Add(production))
+                {
+                    production.IsVisibleChanged += (_, _) =>
+                    {
+                        if (production.Visibility != Visibility.Collapsed)
+                            production.Visibility = Visibility.Collapsed;
+                    };
+                }
+
                 production.Visibility = Visibility.Collapsed;
             }
         }
