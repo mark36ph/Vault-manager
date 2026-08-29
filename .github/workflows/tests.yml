@@ -108,6 +108,8 @@ jobs:
           node --check cloudflare/factburst-quiz-site/worker.js
           node --check cloudflare/factburst-quiz-site/worker-entry.js
           node --check cloudflare/factburst-quiz-site/accounts.js
+          node --check cloudflare/factburst-quiz-site/account-auth.js
+          node --check cloudflare/factburst-quiz-site/account-schema.js
           node --check cloudflare/factburst-quiz-site/resend-email.js
           node --check cloudflare/factburst-quiz-site/public/app.js
           node --check cloudflare/factburst-quiz-site/public/account-ui.js
@@ -117,6 +119,7 @@ jobs:
       - name: Run website account tests
         run: >-
           node --test
+          cloudflare/factburst-quiz-site/account-auth.test.mjs
           cloudflare/factburst-quiz-site/accounts.test.mjs
           cloudflare/factburst-quiz-site/resend-email.test.mjs
 

@@ -4,6 +4,7 @@ import {
   recordAuthenticatedScore,
   requireVerifiedQuizAccess,
 } from "./accounts.js";
+import { handleAuthApi } from "./account-auth.js";
 import { prepareAccountSchema } from "./account-schema.js";
 import { createResendEmailAdapter } from "./resend-email.js";
 
@@ -22,6 +23,8 @@ export default {
         ...env,
         EMAIL: createResendEmailAdapter(env),
       };
+      const authResponse = await handleAuthApi(request, accountEnv, url);
+      if (authResponse) return authResponse;
       const response = await handleAccountApi(request, accountEnv, url);
       if (response) return response;
     }

@@ -173,7 +173,7 @@ jobs:
           echo "source_worker=${source_worker}" >> "$GITHUB_OUTPUT"
           echo "Using D1 database '${d1_name}' from tracker Worker '${source_worker}' with R2 bucket 'factburst-quiz-images'."
 
-      - name: Verify Resend configuration
+      - name: Verify account secrets
         shell: bash
         working-directory: cloudflare/factburst-quiz-site
         env:
@@ -188,12 +188,30 @@ jobs:
             echo "::error::Cloudflare could not read factburst-quiz-site settings."
             exit 1
           fi
+
           has_resend_key="$(jq -r '[.result.bindings[]? | select(.name == "RESEND_API_KEY")] | length' <<<"${settings}")"
           if [[ "${has_resend_key}" -ne 1 ]]; then
-            echo "::error::RESEND_API_KEY is not configured on factburst-quiz-site. Add it as a Worker secret before deployment."
+            echo "::error::RESEND_API_KEY is not configured on factburst-quiz-site."
             exit 1
           fi
-          echo "Resend secret is configured. EMAIL_FROM and the custom domain route are deployment-managed."
+
+          has_password_pepper="$(jq -r '[.result.bindings[]? | select(.name == "PASSWORD_PEPPER")] | length' <<<"${settings}")"
+          if [[ "${has_password_pepper}" -ne 1 ]]; then
+            echo "Generating a stable Factburst password pepper in Cloudflare."
+            pepper="$(openssl rand -hex 32)"
+            payload="$(jq -n --arg text "${pepper}" '{name:"PASSWORD_PEPPER", text:$text, type:"secret_text"}')"
+            result="$(curl --fail-with-body --silent --show-error -X PUT "${auth[@]}" \
+              --data "${payload}" \
+              "${api}/workers/scripts/factburst-quiz-site/secrets")"
+            unset pepper
+            if [[ "$(jq -r '.success // false' <<<"${result}")" != "true" ]]; then
+              echo "::error::Could not create PASSWORD_PEPPER on factburst-quiz-site."
+              jq -r '.errors[]?.message // empty' <<<"${result}" >&2
+              exit 1
+            fi
+          fi
+
+          echo "Resend and password-security secrets are configured."
 
       - name: Deploy to Cloudflare
         id: deploy
@@ -204,6 +222,22 @@ jobs:
           workingDirectory: cloudflare/factburst-quiz-site
           wranglerVersion: "4"
           command: deploy --config wrangler.ci.json --keep-vars
+
+      - name: Smoke test account API
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if response="$(curl --fail-with-body --silent --show-error --max-time 15 https://factburstquiz.com/api/account)"; then
+              if jq -e '.authenticated == false or (.authenticated == true and (.user.username | type == "string"))' <<<"${response}" >/dev/null; then
+                echo "Live account API is responding correctly."
+                exit 0
+              fi
+            fi
+            sleep 3
+          done
+          echo "::error::Live Factburst account API smoke test failed."
+          exit 1
 
       - name: Deployment summary
         if: success()
@@ -220,6 +254,7 @@ jobs:
           echo "Quiz images: \`factburst-quiz-images\` (R2)" >> "$GITHUB_STEP_SUMMARY"
           echo "Custom domain: \`factburstquiz.com\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Verification email: Resend via \`noreply@factburstquiz.com\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Password storage: PBKDF2-SHA256 + private Cloudflare pepper" >> "$GITHUB_STEP_SUMMARY"
           if [[ -n "${DEPLOYMENT_URL}" ]]; then
             echo "Website: ${DEPLOYMENT_URL}" >> "$GITHUB_STEP_SUMMARY"
           fi

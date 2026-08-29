@@ -9,6 +9,7 @@ const CREATE_SITE_USERS = `
     password_hash TEXT NOT NULL,
     password_salt TEXT NOT NULL,
     password_iterations INTEGER NOT NULL,
+    password_scheme TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     last_login_at TEXT NOT NULL
   )
@@ -18,6 +19,7 @@ export const SITE_USER_UPGRADES = [
   { name: "email", sql: "ALTER TABLE site_users ADD COLUMN email TEXT NOT NULL DEFAULT ''" },
   { name: "email_key", sql: "ALTER TABLE site_users ADD COLUMN email_key TEXT NOT NULL DEFAULT ''" },
   { name: "email_verified_at", sql: "ALTER TABLE site_users ADD COLUMN email_verified_at TEXT" },
+  { name: "password_scheme", sql: "ALTER TABLE site_users ADD COLUMN password_scheme TEXT NOT NULL DEFAULT ''" },
 ];
 
 const AFTER_USER_SCHEMA = [
@@ -66,9 +68,6 @@ export function missingSiteUserUpgrades(columns) {
 }
 
 export async function prepareAccountSchema(db) {
-  // Keep DDL sequential. Production already has the pre-email site_users table,
-  // and D1 is more reliable when ALTER TABLE migrations complete before later
-  // tables/indexes are prepared against the upgraded account schema.
   await db.prepare(CREATE_SITE_USERS).run();
 
   const columns = await db.prepare("PRAGMA table_info(site_users)").all();
