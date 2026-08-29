@@ -1,13 +1,12 @@
 {
-  "latest_version": "1.0.23",
-  "build": 48,
+  "latest_version": "1.0.24",
+  "build": 49,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Fixes Build 47 opening on the legacy Quizzes page instead of the new Factburst Autopilot home.",
-    "Autopilot shell activation now waits for the app's quiz-first navigation rebuild instead of looking for the Dashboard button that the rebuild removes.",
-    "The compact Autopilot, Create, Performance, Library, Advanced and Settings navigation is anchored to the stable Quizzes route after startup.",
-    "A startup activation guard retries until the rebuilt navigation is ready, then selects the Autopilot home automatically.",
-    "The shell fix is structural and no longer depends on the legacy Dashboard label, preventing the same startup-order failure when navigation sections change.",
-    "All Build 47 recovery and schedule Auto-fill features remain unchanged."
+    "Keeps the legacy Production action hidden while the Factburst Autopilot shell is active.",
+    "Top-bar cleanup now identifies the header action group structurally instead of relying on one exact Production label string.",
+    "Production remains hidden even when another startup hook changes its icon or spacing after Autopilot loads.",
+    "The compact Autopilot navigation and Build 48 startup activation fix are unchanged.",
+    "No sidebar geometry changes are included; the left-edge clipping seen in the supplied screenshot was from the screenshot crop rather than the app layout."
   ]
 }
