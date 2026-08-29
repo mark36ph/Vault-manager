@@ -1,10 +1,14 @@
 import { activeSessionUser } from "./account-access.js";
+import { ensureEngagementSchema } from "./account-engagement.js";
 
 const CHALLENGE_DAYS = 30;
 
-export async function handleChallengeApi(request, db, url) {
+export async function handleChallengeApi(request, env, url) {
+  const db = env?.DB;
+  if (!db) return null;
+
   if (request.method === "POST" && url.pathname === "/api/challenges") {
-    return createChallenge(request, db, url);
+    return createChallenge(request, env, url);
   }
 
   const match = url.pathname.match(/^\/api\/challenges\/([A-Za-z0-9_-]{20,120})$/);
@@ -15,7 +19,8 @@ export async function handleChallengeApi(request, db, url) {
   return null;
 }
 
-async function createChallenge(request, db, url) {
+async function createChallenge(request, env, url) {
+  const db = env.DB;
   const user = await activeSessionUser(request, db);
   if (!user || !user.email_verified_at) {
     return json({ error: "Log in with a verified account to challenge a friend.", code: "verified_account_required" }, 401);
@@ -33,32 +38,30 @@ async function createChallenge(request, db, url) {
     return json({ error: "That quiz is not valid." }, 400);
   }
 
-  let challengedUserId = null;
-  let challengedUsername = "";
-  if (body?.friend_user_id !== undefined && body?.friend_user_id !== null && String(body.friend_user_id).trim() !== "") {
-    const friendUserId = Number.parseInt(String(body.friend_user_id), 10);
-    if (!Number.isInteger(friendUserId) || friendUserId <= 0 || friendUserId === Number(user.id)) {
-      return json({ error: "Choose a valid friend." }, 400);
-    }
-
-    const userA = Math.min(Number(user.id), friendUserId);
-    const userB = Math.max(Number(user.id), friendUserId);
-    const friendship = await db.prepare(`
-      SELECT f.id, other.id AS friend_id, other.username
-      FROM site_friendships f
-      JOIN site_users other ON other.id = ?
-      WHERE f.user_a_id = ? AND f.user_b_id = ?
-        AND f.status = 'accepted'
-        AND other.email_verified_at IS NOT NULL
-        AND COALESCE(other.status, 'active') = 'active'
-      LIMIT 1
-    `).bind(friendUserId, userA, userB).first();
-    if (!friendship) {
-      return json({ error: "You can only send a direct challenge to an accepted friend." }, 403);
-    }
-    challengedUserId = Number(friendship.friend_id);
-    challengedUsername = String(friendship.username || "");
+  const friendUserId = Number.parseInt(String(body?.friend_user_id ?? ""), 10);
+  if (!Number.isInteger(friendUserId) || friendUserId <= 0 || friendUserId === Number(user.id)) {
+    return json({ error: "Choose a Factburst friend to challenge." }, 400);
   }
+
+  const userA = Math.min(Number(user.id), friendUserId);
+  const userB = Math.max(Number(user.id), friendUserId);
+  const friendship = await db.prepare(`
+    SELECT f.id, other.id AS friend_id, other.username, other.email
+    FROM site_friendships f
+    JOIN site_users other ON other.id = ?
+    WHERE f.user_a_id = ? AND f.user_b_id = ?
+      AND f.status = 'accepted'
+      AND other.email_verified_at IS NOT NULL
+      AND COALESCE(other.status, 'active') = 'active'
+    LIMIT 1
+  `).bind(friendUserId, userA, userB).first();
+  if (!friendship) {
+    return json({ error: "You can only challenge an accepted Factburst friend." }, 403);
+  }
+
+  const challengedUserId = Number(friendship.friend_id);
+  const challengedUsername = String(friendship.username || "");
+  const challengedEmail = String(friendship.email || "").trim();
 
   const score = await db.prepare(`
     SELECT q.id AS quiz_id, q.slug, q.title, s.best_score, s.total
@@ -70,6 +73,8 @@ async function createChallenge(request, db, url) {
   if (!score) {
     return json({ error: "Finish this quiz before challenging a friend." }, 409);
   }
+
+  await ensureEngagementSchema(db);
 
   const token = randomToken(24);
   const tokenHash = await sha256(token);
@@ -94,20 +99,87 @@ async function createChallenge(request, db, url) {
   const challengeUrl = new URL("/quiz.html", url.origin);
   challengeUrl.searchParams.set("slug", String(score.slug));
   challengeUrl.searchParams.set("challenge", token);
+  const challengePath = challengeUrl.pathname + challengeUrl.search;
+  const challengerName = String(user.username || "Factburst player");
+  const quizTitle = String(score.title || score.slug);
+  const challengeMessage = `${challengerName} challenged you to beat ${Number(score.best_score)}/${Number(score.total)} on ${quizTitle}.`;
+
+  await db.prepare(`
+    INSERT INTO site_notifications (user_id, type, title, message, url, read_at, created_at)
+    VALUES (?, 'challenge', 'New quiz challenge', ?, ?, NULL, ?)
+  `).bind(challengedUserId, challengeMessage, challengePath, now).run();
+
+  const emailSent = await sendChallengeEmail(env, {
+    to: challengedEmail,
+    challengedUsername,
+    challengerName,
+    quizTitle,
+    score: Number(score.best_score),
+    total: Number(score.total),
+    challengeUrl: challengeUrl.toString(),
+  });
 
   return json({
     challenge: {
-      challenger: String(user.username || "Factburst player"),
+      challenger: challengerName,
       challenged_user_id: challengedUserId,
       challenged_username: challengedUsername,
       quiz_slug: String(score.slug),
-      quiz_title: String(score.title || score.slug),
+      quiz_title: quizTitle,
       score: Number(score.best_score),
       total: Number(score.total),
       expires_at: expiresAt,
-      url: challengeUrl.toString(),
+      notification_sent: true,
+      email_sent: emailSent,
     },
   }, 201);
+}
+
+async function sendChallengeEmail(env, details) {
+  if (!env?.EMAIL || typeof env.EMAIL.send !== "function") return false;
+  const from = String(env.EMAIL_FROM || "").trim();
+  const to = String(details?.to || "").trim();
+  if (!from || !to) return false;
+
+  const challengedName = String(details?.challengedUsername || "Factburst player");
+  const challengerName = String(details?.challengerName || "A Factburst friend");
+  const quizTitle = String(details?.quizTitle || "Factburst Quiz");
+  const challengeUrl = String(details?.challengeUrl || "");
+  const score = Number(details?.score || 0);
+  const total = Number(details?.total || 0);
+  const text = [
+    `Hi ${challengedName},`,
+    "",
+    `${challengerName} challenged you to beat ${score}/${total} on “${quizTitle}”.`,
+    "",
+    "Your challenge is waiting in your Factburst notifications.",
+    challengeUrl ? `Open the challenge: ${challengeUrl}` : "Log in to Factburst Quiz to play.",
+    "",
+    "Good luck!",
+  ].join("\n");
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.55;color:#101828">
+      <h2>You have a new Factburst challenge</h2>
+      <p>Hi ${escapeHtml(challengedName)},</p>
+      <p><strong>${escapeHtml(challengerName)}</strong> challenged you to beat <strong>${score}/${total}</strong> on <strong>${escapeHtml(quizTitle)}</strong>.</p>
+      <p>Your challenge is also waiting in your Factburst notifications.</p>
+      ${challengeUrl ? `<p><a href="${escapeHtml(challengeUrl)}" style="display:inline-block;padding:12px 18px;background:#087ea4;color:white;text-decoration:none;border-radius:8px;font-weight:700">Play challenge</a></p>` : ""}
+      <p>Good luck!</p>
+    </div>`;
+
+  try {
+    await env.EMAIL.send({
+      from: { email: from, name: "Factburst Quiz" },
+      to: [to],
+      subject: `${challengerName} challenged you on Factburst Quiz`,
+      text,
+      html,
+    });
+    return true;
+  } catch (error) {
+    console.error("Factburst challenge email failed", error);
+    return false;
+  }
 }
 
 async function getChallenge(request, db, token) {
@@ -187,6 +259,15 @@ function base64UrlEncode(bytes) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function json(value, status = 200) {
