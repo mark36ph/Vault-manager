@@ -1,15 +1,12 @@
 {
-  "latest_version": "1.0.41",
-  "build": 66,
+  "latest_version": "1.0.42",
+  "build": 67,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 66 separates Website and Users from the main workspace with a navigation divider above the Website section.",
-    "Website quiz visibility now supports multi-select so Go live now, Follow schedule and Take offline can be applied to several selected quizzes at once.",
-    "Website Users now shows each selected account's accepted friends plus incoming and outgoing friend requests alongside quiz activity.",
-    "Suspended accounts now receive a clear suspension message when they attempt to log in or use a still-active session.",
-    "Factburst quizzes can now be played without signing in. Guest results are calculated statelessly and are not stored in account history or leaderboards.",
-    "The signed-in website header is simplified to Welcome {username}; the username links directly to the full profile instead of opening the compact account summary.",
-    "Every quiz now has public comments. Anyone can read them, while posting requires a signed-in verified account; suspended/deleted users' comments are hidden automatically.",
-    "Website Ads settings can configure optional Google AdSense side-rail display ads. Ads are disabled by default, never use popups/overlays, only appear on wide quiz pages, and no Google ad script loads until enabled."
+    "Build 67 adds a dedicated Website Ads tab in app Settings, with a clear Configure AdSense action for turning website ads on or off and entering AdSense details.",
+    "Website Ads now accepts either a ca-pub publisher ID or a pasted AdSense ad-unit code snippet and extracts the publisher ID and first ad-slot automatically.",
+    "The Factburst Quiz featured/full-quiz panel is compact again instead of expanding into a large empty area.",
+    "Moving to the next quiz question now preserves the current page position instead of jumping back to the top.",
+    "Google AdSense remains disabled by default and only uses wide-screen side-rail placements when explicitly enabled."
   ]
 }
