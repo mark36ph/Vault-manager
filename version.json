@@ -1,13 +1,14 @@
 {
-  "latest_version": "1.0.29",
-  "build": 54,
+  "latest_version": "1.0.30",
+  "build": 55,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 54 restores a missing YouTube OAuth desktop client ID from the previous development settings without overwriting an ID already configured in the installed app.",
-    "Existing installations now run a separate project-consolidation pass even when the earlier Build 52 migration marker already exists.",
-    "The configured legacy Quiz Projects folder is merged into the persistent installed projects folder under LocalAppData, while newer installed project files are preserved.",
-    "Quiz History paths, absolute project folder values and common project JSON/XML/text path references are rebased to installed storage so the development checkout can be removed after verification.",
-    "Legacy project files remain untouched during migration, and conflicting installed files that must be replaced are backed up before replacement.",
-    "The installed database, settings, API credentials and quiz projects remain together under the FactVaultManager LocalAppData root."
+    "Build 55 adds a targeted recovery for installations whose project path migrated correctly but whose LocalAppData database remained empty.",
+    "The recovery finds the richest legacy FactVault database using project-library, quiz-question, quiz-history and upload-journal records rather than accepting an empty bootstrap database.",
+    "An installed database is replaced only when it contains zero meaningful user rows; any existing installed user data is never overwritten automatically.",
+    "Before recovery the installed database is backed up, the legacy database is copied through SQLite's verified backup API, and recovered record counts are checked before startup continues.",
+    "Recovered project, Quiz History and managed question-image paths are rebased to the persistent LocalAppData projects and data folders.",
+    "The YouTube Manager playlist cache is copied when available, while Analytics, upload history and published-video links are restored from the recovered database.",
+    "The legacy development database and project files remain untouched so the development folder should only be removed after the installed Library and YouTube Manager are verified."
   ]
 }
