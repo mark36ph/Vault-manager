@@ -98,9 +98,8 @@ async function openChallengePicker() {
       <button type="button" class="challenge-picker-close" aria-label="Close">×</button>
       <p class="eyebrow">Challenge a friend</p>
       <h2 id="challenge-picker-title">Who can beat your score?</h2>
-      <p class="challenge-picker-copy">Choose a Factburst friend, or make a link you can send to anyone.</p>
+      <p class="challenge-picker-copy">Choose a Factburst friend. We’ll put the challenge in their notifications and email them when email delivery is available.</p>
       <div id="challenge-friend-list" class="challenge-friend-list"><p>Loading friends…</p></div>
-      <button type="button" id="challenge-share-anyone" class="button button-secondary">Share challenge link</button>
       <p id="challenge-picker-status" class="challenge-picker-status" aria-live="polite"></p>
     </section>`;
   document.body.append(overlay);
@@ -109,7 +108,6 @@ async function openChallengePicker() {
   overlay.addEventListener("click", event => {
     if (event.target === overlay) closeChallengePicker();
   });
-  overlay.querySelector("#challenge-share-anyone")?.addEventListener("click", () => createAndShareChallenge(null));
 
   try {
     const response = await api("/api/friends");
@@ -127,7 +125,7 @@ function renderChallengeFriends(friends) {
   if (friends.length === 0) {
     const empty = document.createElement("p");
     empty.className = "challenge-empty";
-    empty.textContent = "You do not have any Factburst friends yet. Use the shareable link below or add friends from your profile.";
+    empty.textContent = "You do not have any Factburst friends yet. Add friends from your profile first.";
     host.append(empty);
     return;
   }
@@ -141,33 +139,32 @@ function renderChallengeFriends(friends) {
     const stats = document.createElement("span");
     stats.textContent = `${friend.quizzes_completed || 0} quizzes • ${friend.percentage || 0}% accuracy`;
     button.append(name, stats);
-    button.addEventListener("click", () => createAndShareChallenge(friend));
+    button.addEventListener("click", () => sendFriendChallenge(friend, button));
     host.append(button);
   }
 }
 
-async function createAndShareChallenge(friend) {
+async function sendFriendChallenge(friend, button) {
   const status = document.querySelector("#challenge-picker-status");
-  if (status) status.textContent = "Creating challenge…";
+  if (status) status.textContent = `Sending challenge to ${friend?.username || "friend"}…`;
+  const buttons = Array.from(document.querySelectorAll(".challenge-friend"));
+  buttons.forEach(item => { item.disabled = true; });
   try {
     const response = await api("/api/challenges", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ slug, friend_user_id: friend?.user_id ?? null }),
+      body: JSON.stringify({ slug, friend_user_id: friend?.user_id }),
     });
-    const challenge = response.challenge;
-    const recipient = friend ? ` ${friend.username}` : "";
-    const text = `${challenge.challenger} challenges${recipient} to beat ${challenge.score}/${challenge.total} on “${challenge.quiz_title}” at Factburst Quiz.`;
-    if (navigator.share) {
-      await navigator.share({ title: "Factburst Quiz challenge", text, url: challenge.url });
-      if (status) status.textContent = "Challenge ready to send.";
-    } else {
-      await navigator.clipboard.writeText(`${text} ${challenge.url}`);
-      if (status) status.textContent = "Challenge copied to your clipboard.";
+    const challenge = response.challenge || {};
+    if (button) button.dataset.sent = "true";
+    if (status) {
+      status.textContent = challenge.email_sent
+        ? `Challenge sent to ${friend.username}. It’s in their Factburst notifications and an email alert was sent.`
+        : `Challenge sent to ${friend.username}. It’s waiting in their Factburst notifications.`;
     }
   } catch (error) {
-    if (error?.name === "AbortError") return;
-    if (status) status.textContent = error.message || "Could not create challenge.";
+    buttons.forEach(item => { item.disabled = false; });
+    if (status) status.textContent = error.message || "Could not send challenge.";
   }
 }
 
