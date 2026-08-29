@@ -1,6 +1,7 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
+using System.Windows.Data;
 using System.Windows.Threading;
 
 namespace FactVaultManager.Desktop;
@@ -38,6 +39,19 @@ public partial class MainShellWindow
 
         if (_websiteManagerGrid is null || _websiteOpenProjectButton?.Parent is not Grid footer || _websiteResyncButton is null)
             return;
+
+        var statusColumn = _websiteManagerGrid.Columns
+            .OfType<DataGridTextColumn>()
+            .FirstOrDefault(column => string.Equals(Convert.ToString(column.Header), "Status", StringComparison.Ordinal));
+        if (statusColumn is not null)
+        {
+            statusColumn.Header = "Website state";
+            statusColumn.Width = 110;
+            statusColumn.Binding = new Binding(".")
+            {
+                Converter = WebsiteVisibilityStateConverter.Instance,
+            };
+        }
 
         if (footer.ColumnDefinitions.Count < 4)
             footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -253,4 +267,17 @@ public partial class MainShellWindow
         _websiteManagerGrid.SelectedItem = match;
         _websiteManagerGrid.ScrollIntoView(match);
     }
+}
+
+internal sealed class WebsiteVisibilityStateConverter : IValueConverter
+{
+    public static WebsiteVisibilityStateConverter Instance { get; } = new();
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture) =>
+        value is WebsiteManagerQuizRow row
+            ? FactburstWebsiteVisibility.DisplayState(row.Status, row.RawPublishAt, DateTimeOffset.Now)
+            : "Unknown";
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+        Binding.DoNothing;
 }
