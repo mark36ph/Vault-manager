@@ -28,6 +28,7 @@ public static class Program
             InstalledDataMigration.Run();
             InstalledDatabaseRecovery.Run();
             InstalledLibraryRecoveryV2.Run();
+            InstalledQuestionLibraryRecoveryV3.Run();
             InstalledProjectConsolidation.Run();
             InstalledCredentialRecovery.Run();
             InstalledYouTubeOAuthClientIdRecovery.Run();
