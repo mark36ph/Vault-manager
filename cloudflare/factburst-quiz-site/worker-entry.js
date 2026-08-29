@@ -15,6 +15,10 @@ import { handleFriendsApi } from "./account-friends.js";
 import { handleFilteredLeaderboardApi } from "./account-leaderboards.js";
 import { handleProfileApi } from "./account-profile.js";
 import { handleCommentsApi } from "./account-comments.js";
+import { handleCommunityApi } from "./account-community.js";
+import { handleEngagementApi, recordEngagementAttempt } from "./account-engagement.js";
+import { handleVerifiedEmailChangeApi } from "./account-email-change.js";
+import { enforceMaintenanceMode, handleSiteStatusApi } from "./site-controls.js";
 import { handlePublicAdsConfig } from "./site-ads.js";
 import { scoreGuestQuiz } from "./guest-score.js";
 import { createResendEmailAdapter } from "./resend-email.js";
@@ -25,6 +29,17 @@ export default {
   async fetch(request, env, context) {
     const url = new URL(request.url);
 
+    if (env.DB && shouldCheckSiteControls(url.pathname)) {
+      const schemaFailure = await ensureSchemasSafely(env, url);
+      if (schemaFailure) return schemaFailure;
+
+      const statusResponse = await handleSiteStatusApi(request, env.DB, url);
+      if (statusResponse) return statusResponse;
+
+      const maintenanceResponse = await enforceMaintenanceMode(request, env.DB, url);
+      if (maintenanceResponse) return maintenanceResponse;
+    }
+
     if (url.pathname === "/api/site/ads" && request.method === "GET") {
       if (!env.DB) {
         return new Response(JSON.stringify({ enabled: false, client: "", left_slot: "", right_slot: "" }), {
@@ -32,6 +47,14 @@ export default {
         });
       }
       return handlePublicAdsConfig(request, env.DB, url);
+    }
+
+    if (env.DB) {
+      const communityResponse = await handleCommunityApi(request, env.DB, url);
+      if (communityResponse) return communityResponse;
+
+      const engagementResponse = await handleEngagementApi(request, env.DB, url);
+      if (engagementResponse) return engagementResponse;
     }
 
     const accountRoute = isAccountRoute(url.pathname);
@@ -61,6 +84,9 @@ export default {
         ...env,
         EMAIL: createResendEmailAdapter(env),
       };
+
+      const verifiedEmailChange = await handleVerifiedEmailChangeApi(request, accountEnv, url);
+      if (verifiedEmailChange) return verifiedEmailChange;
 
       const authResponse = await handleAuthApi(request, accountEnv, url);
       if (authResponse) return authResponse;
@@ -109,20 +135,30 @@ export default {
         return scored;
       }
 
+      const completedAt = new Date().toISOString();
       const accountScore = await recordAuthenticatedScore(
         request,
         env.DB,
         Number(quiz.id),
         score,
         total,
-        new Date().toISOString(),
+        completedAt,
       );
       if (!accountScore) return scored;
+
+      const engagement = await recordEngagementAttempt(
+        request,
+        env.DB,
+        Number(quiz.id),
+        score,
+        total,
+        completedAt,
+      );
 
       const headers = new Headers(scored.headers);
       headers.set("content-type", "application/json; charset=utf-8");
       headers.set("cache-control", "no-store");
-      return new Response(JSON.stringify({ ...payload, account_score: accountScore, guest: false, saved: true }), {
+      return new Response(JSON.stringify({ ...payload, account_score: accountScore, engagement, guest: false, saved: true }), {
         status: scored.status,
         headers,
       });
@@ -146,6 +182,12 @@ function isAccountRoute(pathname) {
 
 function isCommentRoute(pathname) {
   return /^\/api\/quizzes\/[a-z0-9][a-z0-9-]{0,79}\/comments$/i.test(pathname);
+}
+
+function shouldCheckSiteControls(pathname) {
+  if (pathname === "/api/site/status") return true;
+  if (pathname.startsWith("/api/")) return true;
+  return !/\.(?:css|js|ico|png|jpg|jpeg|gif|webp|svg|woff2?)$/i.test(pathname);
 }
 
 async function ensureSchemas(env, url) {

@@ -33,6 +33,8 @@
   line-height: 1.5;
   outline: none;
 }
+.comment-reply-form { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
+.comment-reply-form textarea { min-height: 76px; }
 .comment-form textarea:focus {
   border-color: var(--cyan);
   box-shadow: 0 0 0 3px rgba(0,204,255,0.12);
@@ -45,9 +47,14 @@
   color: var(--muted);
   font-size: 12px;
 }
-.comment-login-note,
+.comment-login-note {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
 .comments-message {
   margin: 0;
+  padding: 18px 20px;
   color: var(--muted);
   line-height: 1.55;
 }
@@ -60,11 +67,19 @@
 #quiz-comment-status[data-kind="success"] { color: var(--green); }
 #quiz-comment-status[data-kind="error"] { color: #ff9bbd; }
 #quiz-comments-list { display: grid; }
+.comment-thread { border-top: 1px solid rgba(255,255,255,0.08); }
+.comment-thread:first-child { border-top: 0; }
 .comment-card {
   padding: 18px;
-  border-top: 1px solid rgba(255,255,255,0.08);
 }
-.comment-card:first-child { border-top: 0; }
+.comment-replies {
+  margin: 0 18px 14px 48px;
+  border-left: 2px solid rgba(66,207,255,0.2);
+  border-radius: 0 12px 12px 0;
+  background: rgba(2,10,43,0.28);
+}
+.comment-replies .comment-card { padding: 14px 16px; border-top: 1px solid rgba(255,255,255,0.06); }
+.comment-replies .comment-card:first-child { border-top: 0; }
 .comment-meta {
   display: flex;
   justify-content: space-between;
@@ -80,8 +95,27 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.comment-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.comment-action {
+  appearance: none;
+  border: 1px solid rgba(125,160,225,0.26);
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: rgba(255,255,255,0.035);
+  color: #aac3ec;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.comment-action:hover { border-color: rgba(78,220,255,0.5); color: white; }
+.comment-action.active { color: #ff8faf; border-color: rgba(255,143,175,0.4); }
+.comment-action.moderator { color: #ffd75d; border-color: rgba(255,215,93,0.35); }
+.comment-status-hidden { opacity: 0.78; }
+.comment-status-hidden > p { font-style: italic; color: #9aadd0; }
 @media (max-width: 560px) {
   .comment-meta { align-items: flex-start; flex-direction: column; gap: 4px; }
   .comment-form-actions { align-items: stretch; flex-direction: column; }
   .comment-form-actions .button { width: 100%; }
+  .comment-replies { margin-left: 18px; }
 }
