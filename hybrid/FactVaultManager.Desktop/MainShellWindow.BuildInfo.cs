@@ -4,7 +4,7 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    public const int CurrentBuildNumber = 66;
+    public const int CurrentBuildNumber = 67;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
 
