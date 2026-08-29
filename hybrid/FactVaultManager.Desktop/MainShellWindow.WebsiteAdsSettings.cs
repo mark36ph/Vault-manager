@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -95,10 +96,10 @@ internal sealed class WebsiteAdsSettingsDialog : Window
     public WebsiteAdsSettingsDialog(FactburstWebsiteAdsSettings current)
     {
         Title = "Website Ads";
-        Width = 560;
-        Height = 500;
-        MinWidth = 500;
-        MinHeight = 450;
+        Width = 580;
+        Height = 560;
+        MinWidth = 520;
+        MinHeight = 500;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ResizeMode = ResizeMode.NoResize;
         Background = Brushes.White;
@@ -137,7 +138,12 @@ internal sealed class WebsiteAdsSettingsDialog : Window
             Margin = new Thickness(0, 0, 0, 16),
         };
         form.Children.Add(_enabled);
-        _client = AddField(form, "AdSense publisher ID", current.Client, "Example: ca-pub-1234567890123456");
+        _client = AddField(
+            form,
+            "AdSense publisher ID or code",
+            current.Client,
+            "Paste ca-pub-1234567890123456 or a Google AdSense ad-unit snippet. The publisher ID is extracted automatically; the first data-ad-slot is also used for the left slot if that field is empty.",
+            multiline: true);
         _leftSlot = AddField(form, "Left side ad slot", current.LeftSlot, "Digits from the AdSense display ad unit");
         _rightSlot = AddField(form, "Right side ad slot", current.RightSlot, "Optional second display ad unit slot");
         form.Children.Add(new TextBlock
@@ -161,19 +167,35 @@ internal sealed class WebsiteAdsSettingsDialog : Window
         Content = root;
     }
 
-    public FactburstWebsiteAdsSettings Settings => new(
-        _enabled.IsChecked == true,
-        _client.Text.Trim(),
-        _leftSlot.Text.Trim(),
-        _rightSlot.Text.Trim());
+    public FactburstWebsiteAdsSettings Settings
+    {
+        get
+        {
+            var rawClient = _client.Text.Trim();
+            var client = ExtractAdsenseClient(rawClient);
+            var leftSlot = _leftSlot.Text.Trim();
+            var rightSlot = _rightSlot.Text.Trim();
+            if (leftSlot.Length == 0)
+                leftSlot = ExtractAdsenseSlot(rawClient);
 
-    private static TextBox AddField(Panel parent, string label, string value, string hint)
+            return new FactburstWebsiteAdsSettings(
+                _enabled.IsChecked == true,
+                client,
+                leftSlot,
+                rightSlot);
+        }
+    }
+
+    private static TextBox AddField(Panel parent, string label, string value, string hint, bool multiline = false)
     {
         parent.Children.Add(new TextBlock { Text = label, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 5) });
         var box = new TextBox
         {
             Text = value,
-            Height = 36,
+            Height = multiline ? 72 : 36,
+            AcceptsReturn = multiline,
+            TextWrapping = multiline ? TextWrapping.Wrap : TextWrapping.NoWrap,
+            VerticalScrollBarVisibility = multiline ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled,
             Padding = new Thickness(9, 5, 9, 5),
             Margin = new Thickness(0, 0, 0, 3),
         };
@@ -183,8 +205,21 @@ internal sealed class WebsiteAdsSettingsDialog : Window
             Text = hint,
             Foreground = new SolidColorBrush(Color.FromRgb(102, 112, 133)),
             FontSize = 11,
+            TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 13),
         });
         return box;
+    }
+
+    private static string ExtractAdsenseClient(string text)
+    {
+        var match = Regex.Match(text ?? string.Empty, @"ca-pub-\d{10,24}", RegexOptions.IgnoreCase);
+        return match.Success ? match.Value.ToLowerInvariant() : string.Empty;
+    }
+
+    private static string ExtractAdsenseSlot(string text)
+    {
+        var match = Regex.Match(text ?? string.Empty, @"data-ad-slot\s*=\s*[""'](?<slot>\d{4,20})[""']", RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups["slot"].Value : string.Empty;
     }
 }
