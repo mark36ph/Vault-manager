@@ -54,7 +54,9 @@
 }
 
 .profile-stat span,
-.profile-history-metrics span {
+.profile-history-metrics span,
+.profile-current-email span,
+.email-pending span {
   display: block;
   color: #aebbe4;
   font-size: 0.82rem;
@@ -69,6 +71,7 @@
   font-size: 1.75rem;
 }
 
+.profile-account-panel,
 .profile-friends-panel,
 .profile-history-panel {
   padding: 1.65rem;
@@ -88,17 +91,49 @@
   color: #ff9bb7;
 }
 
+.profile-account-heading,
 .profile-friends-heading {
   gap: 1rem;
   align-items: flex-end;
 }
 
-.friend-add-form {
-  display: flex;
-  gap: 0.65rem;
+.profile-email-settings {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.7fr) minmax(320px, 1.3fr);
+  gap: 1rem;
   align-items: end;
 }
 
+.profile-current-email,
+.email-pending {
+  padding: 1rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(145, 164, 226, 0.18);
+}
+
+.profile-current-email strong,
+.email-pending strong {
+  display: block;
+  margin-top: 0.3rem;
+  overflow-wrap: anywhere;
+}
+
+.email-change-form label {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: #c7d2f2;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.email-change-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
+  gap: 0.65rem;
+}
+
+.email-change-row input,
 .friend-add-form input,
 .friend-challenge-picker select {
   min-height: 44px;
@@ -108,6 +143,26 @@
   color: white;
   padding: 0.7rem 0.85rem;
   font: inherit;
+}
+
+.email-pending {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.9rem;
+  border-color: rgba(255, 206, 92, 0.35);
+}
+
+.profile-email-status {
+  margin: 0.9rem 0 0;
+  min-height: 1.4em;
+}
+
+.friend-add-form {
+  display: flex;
+  gap: 0.65rem;
+  align-items: end;
 }
 
 .friend-add-form input {
@@ -276,6 +331,7 @@
   .profile-stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .profile-email-settings,
   .profile-history-card {
     grid-template-columns: 1fr;
   }
@@ -289,6 +345,7 @@
     padding-top: 1.5rem;
   }
   .profile-hero,
+  .profile-account-heading,
   .profile-friends-heading {
     align-items: stretch;
     flex-direction: column;
@@ -299,6 +356,7 @@
   .profile-stat-grid {
     grid-template-columns: 1fr 1fr;
   }
+  .profile-account-panel,
   .profile-friends-panel,
   .profile-history-panel {
     padding: 1.1rem;
@@ -306,10 +364,15 @@
   .profile-history-metrics {
     grid-template-columns: 1fr 1fr;
   }
+  .email-change-row,
   .friend-add-form,
   .friend-challenge-picker,
   .friend-card {
     grid-template-columns: 1fr;
+  }
+  .email-pending {
+    align-items: stretch;
+    flex-direction: column;
   }
   .friend-add-form {
     align-items: stretch;
