@@ -1,13 +1,12 @@
 {
-  "latest_version": "1.0.37",
-  "build": 62,
+  "latest_version": "1.0.38",
+  "build": 63,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 62 broadens Website Link Tracker recovery after Build 61 proved too dependent on expected settings.json locations.",
-    "Recovery now searches directly for factburst-link-tracker.json in the recorded development root, migration source, FactVaultManager app-data and recovery backups, plus common repository layouts.",
-    "Unexpected legacy runtime layouts such as hybrid/FactVaultManager.Desktop/data are now recoverable even when there is no matching settings.json file beside the tracker.",
-    "Recovered tracker keys are decrypted only for the current Windows user and are immediately re-encrypted into installed persistent storage; keys are never written to logs or recovery markers.",
-    "Existing installed tracker settings remain untouched, and both Build 61 and Build 62 recovery markers prevent a deliberately cleared configuration being resurrected later.",
-    "The Website settings shortcut continues to open Settings directly on Link Tracker if no recoverable local configuration exists."
+    "Build 63 recovers Website Link Tracker settings when the recorded development folder was renamed after migration, including names such as FactVaultManager-backup, FactVaultManager-old and similar sibling folders.",
+    "The renamed-folder pass uses the existing development-root marker to inspect matching sibling folders and recover factburst-link-tracker.json without modifying or deleting the backup folder.",
+    "Recovered tracker credentials still pass through the existing same-user protection and are saved into the installed app's persistent data folder; the tracker key is never logged or written into release metadata.",
+    "The recovery preserves any already-configured installed tracker and continues to respect previous successful recovery markers so deliberately cleared settings are not resurrected.",
+    "Regression coverage includes the exact case where development-root.txt points to FactVaultManager but the surviving tracker file is under FactVaultManager-backup/data."
   ]
 }
