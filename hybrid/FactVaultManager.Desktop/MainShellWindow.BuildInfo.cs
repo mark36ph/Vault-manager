@@ -43,8 +43,8 @@ public partial class MainShellWindow
             window.InitializeWebsiteUsersPage();
             window.InitializeWebsiteUserProvisioningControls();
             window.InitializeWebsiteUsersFriendsPanel();
+            window.InitializeWebsiteMaintenancePlacement();
             window.InitializeWebsiteAdministrationEnhancements();
-            window.InitializeWebsiteSettingsAdministrationPage();
             window.InitializeWebsiteNavigationDivider();
             window.InitializeWebsiteAdsSettings();
             window.InitializeWebsiteSettingsShortcut();
