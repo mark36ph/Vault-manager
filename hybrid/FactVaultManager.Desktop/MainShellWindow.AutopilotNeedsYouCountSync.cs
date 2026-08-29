@@ -46,11 +46,17 @@ public static class AutopilotNeedsYouCountSummary
             viewerReplies,
             releaseWarnings);
     }
+
+    public static bool NeedsCardRefresh(
+        AutopilotNeedsYouGroupedSummary? previous,
+        AutopilotNeedsYouGroupedSummary current) =>
+        previous is null || previous != current;
 }
 
 public partial class MainShellWindow
 {
     private DispatcherTimer? _autopilotNeedsYouCountSyncTimer;
+    private AutopilotNeedsYouGroupedSummary? _autopilotNeedsYouRenderedSummary;
 
     public void InitializeAutopilotNeedsYouCountSync()
     {
@@ -98,7 +104,11 @@ public partial class MainShellWindow
             if (_autopilotHealthText is not null)
                 _autopilotHealthText.Text = health;
 
-            SyncAutopilotHomeTaskCards(grouped);
+            if (AutopilotNeedsYouCountSummary.NeedsCardRefresh(_autopilotNeedsYouRenderedSummary, grouped))
+            {
+                SyncAutopilotHomeTaskCards(grouped);
+                _autopilotNeedsYouRenderedSummary = grouped;
+            }
 
             if (MainTabs.SelectedIndex == _autopilotHomeTabIndex)
                 HeaderStatusText.Text = $"Autopilot: {health} • {rows.Count:N0} scheduled • {total:N0} need you";
