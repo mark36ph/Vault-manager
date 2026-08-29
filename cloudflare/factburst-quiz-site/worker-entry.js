@@ -3,7 +3,9 @@ import {
   ensureAccountSchema,
   handleAccountApi,
   recordAuthenticatedScore,
+  requireVerifiedQuizAccess,
 } from "./accounts.js";
+import { createResendEmailAdapter } from "./resend-email.js";
 
 let accountSchemaReady = false;
 
@@ -15,11 +17,25 @@ export default {
     if (accountRoute) {
       if (!env.DB) return quizWorker.fetch(request, env, context);
       await ensureSchemas(env, url);
-      const response = await handleAccountApi(request, env, url);
+      const accountEnv = {
+        ...env,
+        EMAIL: createResendEmailAdapter(env),
+      };
+      const response = await handleAccountApi(request, accountEnv, url);
       if (response) return response;
     }
 
     const scoreMatch = url.pathname.match(/^\/api\/quizzes\/([a-z0-9][a-z0-9-]{0,79})\/score$/i);
+    const detailMatch = url.pathname.match(/^\/api\/quizzes\/([a-z0-9][a-z0-9-]{0,79})$/i);
+    const gatedDetail = detailMatch && detailMatch[1].toLowerCase() !== "latest" && request.method === "GET";
+
+    if ((scoreMatch && request.method === "POST") || gatedDetail) {
+      if (!env.DB) return quizWorker.fetch(request, env, context);
+      await ensureSchemas(env, url);
+      const blocked = await requireVerifiedQuizAccess(request, env.DB);
+      if (blocked) return blocked;
+    }
+
     if (scoreMatch && request.method === "POST") {
       const scored = await quizWorker.fetch(request, env, context);
       if (!scored.ok || !env.DB) return scored;
@@ -75,8 +91,6 @@ function isAccountRoute(pathname) {
 async function ensureSchemas(env, url) {
   if (accountSchemaReady) return;
 
-  // Reuse the existing quiz worker's proven lazy schema bootstrap before
-  // adding account tables that reference site_quizzes.
   const bootstrapUrl = new URL("/api/quizzes?limit=1", url);
   const bootstrap = await quizWorker.fetch(new Request(bootstrapUrl, { method: "GET" }), env);
   if (!bootstrap.ok && bootstrap.status >= 500) {

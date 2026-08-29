@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  normalizeEmail,
   normalizeLeaderboardLimit,
   normalizeUsername,
   totalPercentage,
+  verificationExpiry,
 } from "./accounts.js";
 
 test("normalizes safe public usernames", () => {
@@ -18,6 +20,21 @@ test("rejects unsafe or invalid public usernames", () => {
   assert.equal(normalizeUsername("-leading"), "");
   assert.equal(normalizeUsername("trailing_"), "");
   assert.equal(normalizeUsername("x".repeat(25)), "");
+});
+
+test("normalizes and validates account emails", () => {
+  assert.equal(normalizeEmail("  Player@example.com "), "Player@example.com");
+  assert.equal(normalizeEmail("player+quiz@example.co.uk"), "player+quiz@example.co.uk");
+  assert.equal(normalizeEmail("not-an-email"), "");
+  assert.equal(normalizeEmail("a@b"), "");
+  assert.equal(normalizeEmail("bad @example.com"), "");
+});
+
+test("verification links expire after 24 hours", () => {
+  assert.equal(
+    verificationExpiry("2026-08-29T12:00:00.000Z"),
+    "2026-08-30T12:00:00.000Z",
+  );
 });
 
 test("leaderboard limits are bounded", () => {
