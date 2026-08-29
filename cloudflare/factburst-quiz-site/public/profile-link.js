@@ -9,7 +9,7 @@ async function initializeProfileLink() {
   const header = document.querySelector(".site-header");
   if (!header || header.querySelector(".account-profile-link")) return;
   const link = document.createElement("a");
-  link.className = "account-profile-link";
+  link.className = "button button-secondary account-profile-link";
   link.href = "/profile.html";
   link.textContent = "Profile";
   const trigger = header.querySelector(".account-trigger");
