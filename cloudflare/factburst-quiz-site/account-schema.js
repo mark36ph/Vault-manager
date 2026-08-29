@@ -62,9 +62,24 @@ const AFTER_USER_SCHEMA = [
       FOREIGN KEY (user_id) REFERENCES site_users(id) ON DELETE CASCADE
     )
   `,
+  `
+    CREATE TABLE IF NOT EXISTS site_challenges (
+      token_hash TEXT PRIMARY KEY,
+      challenger_user_id INTEGER NOT NULL,
+      quiz_id INTEGER NOT NULL,
+      challenger_score INTEGER NOT NULL,
+      total INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      FOREIGN KEY (challenger_user_id) REFERENCES site_users(id) ON DELETE CASCADE,
+      FOREIGN KEY (quiz_id) REFERENCES site_quizzes(id) ON DELETE CASCADE
+    )
+  `,
   "CREATE INDEX IF NOT EXISTS idx_site_sessions_expiry ON site_sessions(expires_at)",
   "CREATE INDEX IF NOT EXISTS idx_site_user_scores_quiz ON site_user_scores(quiz_id, best_score DESC)",
   "CREATE INDEX IF NOT EXISTS idx_site_email_verifications_user ON site_email_verifications(user_id, created_at DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_site_challenges_expiry ON site_challenges(expires_at)",
+  "CREATE INDEX IF NOT EXISTS idx_site_challenges_user ON site_challenges(challenger_user_id, created_at DESC)",
   "CREATE INDEX IF NOT EXISTS idx_site_users_status ON site_users(status, created_at DESC)",
   "CREATE UNIQUE INDEX IF NOT EXISTS idx_site_users_email_unique ON site_users(email_key) WHERE email_key <> ''",
 ];
