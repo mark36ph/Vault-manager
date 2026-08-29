@@ -60,13 +60,28 @@ test("engagement and maintenance handlers are exported for the Worker", () => {
 });
 
 test("new public engagement scripts parse and quiz page loads the v2 comments UI", () => {
-  for (const file of ["engagement.js", "site-status.js", "comments-v2.js"]) {
+  for (const file of ["engagement.js", "site-status.js", "comments-v2.js", "challenge-ui.js"]) {
     const source = readFileSync(new URL(`./public/${file}`, import.meta.url), "utf8");
     assert.doesNotThrow(() => new Function(source), `${file} should parse as JavaScript`);
   }
   const html = readFileSync(new URL("./public/quiz.html", import.meta.url), "utf8");
   assert.match(html, /engagement\.js/);
   assert.match(html, /comments-v2\.js/);
+});
+
+test("direct friend challenges use Factburst notifications instead of share links", () => {
+  const apiSource = readFileSync(new URL("./account-challenges.js", import.meta.url), "utf8");
+  const uiSource = readFileSync(new URL("./public/challenge-ui.js", import.meta.url), "utf8");
+  const workerSource = readFileSync(new URL("./worker-entry.js", import.meta.url), "utf8");
+
+  assert.match(apiSource, /INSERT INTO site_notifications/);
+  assert.match(apiSource, /email_sent/);
+  assert.match(apiSource, /env\.EMAIL\.send/);
+  assert.match(workerSource, /handleChallengeApi\(request, accountEnv, url\)/);
+  assert.doesNotMatch(uiSource, /navigator\.share/);
+  assert.doesNotMatch(uiSource, /clipboard\.writeText/);
+  assert.doesNotMatch(uiSource, /Share challenge link/);
+  assert.match(uiSource, /Factburst notifications/);
 });
 
 test("empty comment state keeps padding away from the card edge", () => {
