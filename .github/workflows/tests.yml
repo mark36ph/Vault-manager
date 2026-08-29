@@ -116,15 +116,23 @@ jobs:
           node --check cloudflare/factburst-quiz-site/account-leaderboards.js
           node --check cloudflare/factburst-quiz-site/account-friends.js
           node --check cloudflare/factburst-quiz-site/account-challenges.js
+          node --check cloudflare/factburst-quiz-site/account-comments.js
+          node --check cloudflare/factburst-quiz-site/guest-score.js
+          node --check cloudflare/factburst-quiz-site/site-ads.js
           node --check cloudflare/factburst-quiz-site/resend-email.js
           node --check cloudflare/factburst-quiz-site/public/app.js
           node --check cloudflare/factburst-quiz-site/public/account-ui.js
+          node --check cloudflare/factburst-quiz-site/public/account-ui-v2.js
           node --check cloudflare/factburst-quiz-site/public/profile.js
           node --check cloudflare/factburst-quiz-site/public/profile-link.js
           node --check cloudflare/factburst-quiz-site/public/challenge-ui.js
+          node --check cloudflare/factburst-quiz-site/public/comments.js
+          node --check cloudflare/factburst-quiz-site/public/ads.js
           node --check cloudflare/factburst-link-tracker/worker.js
           node --check cloudflare/factburst-link-tracker/admin-worker-entry.js
           node --check cloudflare/factburst-link-tracker/site-user-admin.js
+          node --check cloudflare/factburst-link-tracker/site-user-friends-admin.js
+          node --check cloudflare/factburst-link-tracker/site-ad-admin.js
           node --check cloudflare/factburst-link-tracker/site-quiz-admin.js
 
       - name: Run website account tests
@@ -132,6 +140,7 @@ jobs:
           node --test
           cloudflare/factburst-quiz-site/account-auth.test.mjs
           cloudflare/factburst-quiz-site/accounts.test.mjs
+          cloudflare/factburst-quiz-site/build66-features.test.mjs
           cloudflare/factburst-quiz-site/resend-email.test.mjs
 
       - name: Validate quiz website Worker bundle
