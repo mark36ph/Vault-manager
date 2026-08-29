@@ -55,6 +55,28 @@ public sealed class AutopilotNeedsYouCountSyncTests
     }
 
     [Fact]
+    public void NeedsCardRefresh_DoesNotRebuildUnchangedCards()
+    {
+        var summary = new AutopilotNeedsYouGroupedSummary(9, 9, 0, 0, 0, 0);
+
+        Assert.True(AutopilotNeedsYouCountSummary.NeedsCardRefresh(null, summary));
+        Assert.False(AutopilotNeedsYouCountSummary.NeedsCardRefresh(summary, summary));
+        Assert.True(AutopilotNeedsYouCountSummary.NeedsCardRefresh(
+            summary,
+            summary with { Total = 8, RelatedVideos = 8 }));
+    }
+
+    [Fact]
+    public void Build75Source_GuardsHomeCardRenderingAgainstOneSecondRebuilds()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
+
+        Assert.Contains("_autopilotNeedsYouRenderedSummary", source, StringComparison.Ordinal);
+        Assert.Contains("NeedsCardRefresh(_autopilotNeedsYouRenderedSummary, grouped)", source, StringComparison.Ordinal);
+        Assert.Contains("_autopilotNeedsYouRenderedSummary = grouped", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Build74Source_RendersHomeTaskCardsFromSameAlignedSummaryAsCounter()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
