@@ -1,14 +1,14 @@
 {
-  "latest_version": "1.0.32",
-  "build": 57,
+  "latest_version": "1.0.33",
+  "build": 58,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 57 fixes the remaining Library recovery case where installed Projects exist but the reusable quiz question Library is still empty.",
-    "Recovery now treats quiz_questions as the actual question Library instead of using project rows as proof that Library migration succeeded.",
-    "When the installed database has Projects but no quiz questions, the app searches migration markers, development checkouts, backups and bounded user-drive locations for the richest legacy question database.",
-    "The missing quiz_questions data is merged into the installed database instead of replacing the whole database, so existing installed Project rows are preserved.",
-    "Quiz History, history questions and upload-journal rows are recovered alongside the question Library when those installed tables are still empty.",
-    "A SQLite backup is created before the merge and the import is verified inside a transaction before it is committed.",
-    "A new installed-question-library-recovery-v3-diagnostics.json report records the selected source and row counts without storing API credentials."
+    "Build 58 turns Autopilot Needs You into a unified task queue instead of a set of navigation shortcuts.",
+    "Related-video tasks now open the exact YouTube Short in Studio, copy the matching full-quiz title, open the full quiz for verification, and disappear only after the saved Related video is explicitly confirmed.",
+    "Prepared Instagram promos can now be reviewed and published directly from the Autopilot queue with the existing approved-account preflight and Instagram Reel upload service.",
+    "Instagram promo completion is recorded in the project promo metadata so Release Readiness and Autopilot stop asking for work that has already been completed.",
+    "Viewer reply drafts are shown as editable tasks with Open on YouTube and Send reply actions; public replies still require explicit confirmation before posting.",
+    "Successfully sent viewer replies are removed from Full Autopilot state, and replies sent through the existing YouTube Manager are also pruned from the queue during the same app session.",
+    "A Manage task queue button provides one place to work through Related videos, Instagram promos and viewer replies, while the existing Needs You buttons open the same queue pre-filtered to the relevant task type."
   ]
 }
