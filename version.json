@@ -1,8 +1,10 @@
 {
-  "latest_version": "1.0.50",
-  "build": 75,
+  "latest_version": "1.0.51",
+  "build": 76,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
+    "Build 76 keeps the visible Autopilot Needs You cards synchronized with the aligned task list even if an older home refresh temporarily writes stale counts.",
+    "If the home panel shows a stale Related Video count such as 14 while Needs You is 9, the sync now detects the rendered title mismatch and repairs it without returning to the one-second button flashing fixed in Build 75.",
     "Build 75 stops the Autopilot Needs You panel from rebuilding its buttons every second when the task counts have not changed.",
     "The Needs You counter still refreshes every second, but the task cards are only reconstructed when the actual Related Video, Instagram, reply, rescue or warning breakdown changes, eliminating the flashing Manage task queue button.",
     "Build 74 makes the Autopilot Needs You total and grouped home task cards use the same aligned task list, so completed Related Video items no longer inflate the Shorts count.",
