@@ -21,7 +21,7 @@ public partial class MainShellWindow
 
     private void WebsiteSettingsShortcut_Click(object sender, RoutedEventArgs eventArgs)
     {
-        if (eventArgs.OriginalSource is not Button button ||
+        if (eventArgs.Source is not Button button ||
             !string.Equals(Convert.ToString(button.Content), "Website settings", StringComparison.Ordinal))
         {
             return;
