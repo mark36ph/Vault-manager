@@ -1,12 +1,13 @@
 {
-  "latest_version": "1.0.38",
-  "build": 63,
+  "latest_version": "1.0.39",
+  "build": 64,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 63 recovers Website Link Tracker settings when the recorded development folder was renamed after migration, including names such as FactVaultManager-backup, FactVaultManager-old and similar sibling folders.",
-    "The renamed-folder pass uses the existing development-root marker to inspect matching sibling folders and recover factburst-link-tracker.json without modifying or deleting the backup folder.",
-    "Recovered tracker credentials still pass through the existing same-user protection and are saved into the installed app's persistent data folder; the tracker key is never logged or written into release metadata.",
-    "The recovery preserves any already-configured installed tracker and continues to respect previous successful recovery markers so deliberately cleared settings are not resurrected.",
-    "Regression coverage includes the exact case where development-root.txt points to FactVaultManager but the surviving tracker file is under FactVaultManager-backup/data."
+    "Build 64 adds direct Website visibility controls for every synced quiz: Go live now, Follow schedule and Take offline.",
+    "Taking a quiz offline switches the Cloudflare website copy to draft without deleting its questions, images, metadata or stored release time.",
+    "Go live now makes the selected quiz publicly playable immediately; Follow schedule returns it to the linked local release time and shows it as Upcoming when that time is in the future.",
+    "Normal website content/question resyncs now preserve an existing quiz's website visibility and publish time, preventing Sync scheduled or Autopilot from silently undoing a manual live/offline decision.",
+    "The tracker Worker exposes an authenticated status-only PATCH endpoint, so visibility changes do not re-upload or replace quiz questions.",
+    "Website visibility actions require confirmation and refresh/reselect the changed quiz after Cloudflare confirms the update."
   ]
 }

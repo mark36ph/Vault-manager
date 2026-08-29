@@ -1,4 +1,8 @@
-import { listSiteQuizzes, upsertSiteQuiz } from "./site-quiz-admin.js";
+import { listSiteQuizzes } from "./site-quiz-admin.js";
+import {
+  upsertSiteQuizPreservingVisibility,
+  updateSiteQuizVisibility,
+} from "./site-quiz-visibility.js";
 
 const SOURCES = {
   fb: "facebook",
@@ -54,7 +58,18 @@ export default {
 
       if (path === "api/site/quizzes" && request.method === "POST") {
         requireApiKey(request, env);
-        return upsertSiteQuiz(request, env);
+        return upsertSiteQuizPreservingVisibility(request, env);
+      }
+
+      if (
+        parts.length === 4 &&
+        parts[0] === "api" &&
+        parts[1] === "site" &&
+        parts[2] === "quizzes" &&
+        request.method === "PATCH"
+      ) {
+        requireApiKey(request, env);
+        return updateSiteQuizVisibility(request, env, parts[3]);
       }
 
       if (path === "api/stats" && request.method === "GET") {
