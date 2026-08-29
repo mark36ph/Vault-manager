@@ -2,6 +2,7 @@ import trackerWorker from "./worker.js";
 import { handleSiteUserAdmin } from "./site-user-admin.js";
 import { handleSiteUserFriendsAdmin } from "./site-user-friends-admin.js";
 import { handleSiteAdAdmin } from "./site-ad-admin.js";
+import { handleSiteAccessAdmin } from "./site-access-admin.js";
 
 export default {
   async fetch(request, env, context) {
@@ -9,6 +10,9 @@ export default {
     if (isSiteAdminRoute(url.pathname)) {
       try {
         requireApiKey(request, env);
+
+        const accessResponse = await handleSiteAccessAdmin(request, env, url);
+        if (accessResponse) return accessResponse;
 
         const adResponse = await handleSiteAdAdmin(request, env, url);
         if (adResponse) return adResponse;
@@ -34,6 +38,7 @@ export default {
 
 function isSiteAdminRoute(pathname) {
   return pathname === "/api/site/ads" ||
+    pathname === "/api/site/settings" ||
     pathname === "/api/site/users" ||
     pathname.startsWith("/api/site/users/");
 }
