@@ -1,13 +1,13 @@
 {
-  "latest_version": "1.0.36",
-  "build": 61,
+  "latest_version": "1.0.37",
+  "build": 62,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 61 restores the Website connection for installed users by recovering the existing Factburst Link Tracker configuration from legacy or development storage when available.",
-    "The tracker API key is never copied as a raw protected blob: it is read through the existing same-user credential protector and saved again into the installed app's persistent data folder.",
-    "A successful one-time recovery is recorded so a tracker configuration deliberately cleared later is not silently resurrected.",
-    "Existing installed Link Tracker settings are preserved and are never overwritten by legacy recovery.",
-    "Website settings now opens Settings directly on the Link Tracker page, where the existing Save and test action can be used if no recoverable configuration is available.",
-    "Build 60's aligned Needs You queue is unchanged: the current home count and queue count continue to use the same pending-task planner."
+    "Build 62 broadens Website Link Tracker recovery after Build 61 proved too dependent on expected settings.json locations.",
+    "Recovery now searches directly for factburst-link-tracker.json in the recorded development root, migration source, FactVaultManager app-data and recovery backups, plus common repository layouts.",
+    "Unexpected legacy runtime layouts such as hybrid/FactVaultManager.Desktop/data are now recoverable even when there is no matching settings.json file beside the tracker.",
+    "Recovered tracker keys are decrypted only for the current Windows user and are immediately re-encrypted into installed persistent storage; keys are never written to logs or recovery markers.",
+    "Existing installed tracker settings remain untouched, and both Build 61 and Build 62 recovery markers prevent a deliberately cleared configuration being resurrected later.",
+    "The Website settings shortcut continues to open Settings directly on Link Tracker if no recoverable local configuration exists."
   ]
 }

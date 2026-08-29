@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using FactVaultManager.Desktop;
 
 namespace FactVaultManager.Desktop.Tests;
@@ -25,7 +26,49 @@ public sealed class InstalledTrackerSettingsRecoveryTests : IDisposable
         Assert.Equal("https://go.factburstquiz.com", installed.BaseUrl);
         Assert.Equal(key, installed.ApiKey);
         Assert.True(File.Exists(FactburstTrackerSettingsStore.PathFor(legacySettings)));
-        Assert.True(File.Exists(Path.Combine(appDataRoot, "installed-tracker-settings-recovery-v1.json")));
+        Assert.True(File.Exists(Path.Combine(appDataRoot, "installed-tracker-settings-recovery-v2.json")));
+    }
+
+    [Fact]
+    public void RecoversFromDirectTrackerFileInUnexpectedLegacyLayout()
+    {
+        var appDataRoot = Path.Combine(_root, "installed");
+        var legacySettings = Path.Combine(_root, "legacy", "hybrid", "FactVaultManager.Desktop", "data", "placeholder.json");
+        const string key = "tracker-direct-file-key-123456";
+        Directory.CreateDirectory(Path.GetDirectoryName(legacySettings)!);
+        FactburstTrackerSettingsStore.Save(legacySettings, "https://go.factburstquiz.com", key);
+        var directTracker = FactburstTrackerSettingsStore.PathFor(legacySettings);
+
+        var result = InstalledTrackerSettingsRecovery.Run(
+            appDataRoot,
+            Array.Empty<string>(),
+            [directTracker]);
+
+        var installed = FactburstTrackerSettingsStore.Load(Path.Combine(appDataRoot, "data", "settings.json"));
+        Assert.True(result.Recovered);
+        Assert.Equal("legacy-tracker-file", result.Source);
+        Assert.True(installed.IsConfigured);
+        Assert.Equal(key, installed.ApiKey);
+    }
+
+    [Fact]
+    public void CandidateTrackerPathsSearchRecordedDevelopmentRoot()
+    {
+        var appDataRoot = Path.Combine(_root, "installed");
+        var developmentRoot = Path.Combine(_root, "custom-development-location");
+        var trackerDirectory = Path.Combine(developmentRoot, "hybrid", "FactVaultManager.Desktop", "data");
+        var legacySettings = Path.Combine(trackerDirectory, "placeholder.json");
+        Directory.CreateDirectory(trackerDirectory);
+        FactburstTrackerSettingsStore.Save(legacySettings, "https://go.factburstquiz.com", "tracker-search-key-123456789");
+        var trackerPath = FactburstTrackerSettingsStore.PathFor(legacySettings);
+
+        Directory.CreateDirectory(appDataRoot);
+        File.WriteAllText(Path.Combine(appDataRoot, "development-root.txt"), developmentRoot);
+
+        var candidates = InstalledTrackerSettingsRecovery.CandidateTrackerPaths(appDataRoot).ToList();
+
+        Assert.Contains(candidates, candidate =>
+            string.Equals(Path.GetFullPath(candidate), Path.GetFullPath(trackerPath), StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -71,6 +114,36 @@ public sealed class InstalledTrackerSettingsRecoveryTests : IDisposable
         Assert.False(second.Recovered);
         Assert.True(second.SuppressedByMarker);
         Assert.False(installed.IsConfigured);
+    }
+
+    [Fact]
+    public void RespectsSuccessfulBuild61RecoveryMarker()
+    {
+        var appDataRoot = Path.Combine(_root, "installed");
+        var directSettings = Path.Combine(_root, "legacy", "unexpected", "placeholder.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(directSettings)!);
+        FactburstTrackerSettingsStore.Save(directSettings, "https://go.factburstquiz.com", "tracker-legacy-key-123456789");
+        var directTracker = FactburstTrackerSettingsStore.PathFor(directSettings);
+
+        Directory.CreateDirectory(appDataRoot);
+        var marker = new JsonObject
+        {
+            ["version"] = 1,
+            ["recovered"] = true,
+            ["source"] = "legacy-file",
+        };
+        File.WriteAllText(
+            Path.Combine(appDataRoot, "installed-tracker-settings-recovery-v1.json"),
+            marker.ToJsonString());
+
+        var result = InstalledTrackerSettingsRecovery.Run(
+            appDataRoot,
+            Array.Empty<string>(),
+            [directTracker]);
+
+        Assert.False(result.Recovered);
+        Assert.True(result.SuppressedByMarker);
+        Assert.False(FactburstTrackerSettingsStore.Load(Path.Combine(appDataRoot, "data", "settings.json")).IsConfigured);
     }
 
     [Fact]
