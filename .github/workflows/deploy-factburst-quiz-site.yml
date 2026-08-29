@@ -137,7 +137,7 @@ jobs:
             --arg r2_bucket_name "factburst-quiz-images" \
             '{
               name: "factburst-quiz-site",
-              main: "worker.js",
+              main: "worker-entry.js",
               compatibility_date: "2026-08-27",
               keep_vars: true,
               assets: {

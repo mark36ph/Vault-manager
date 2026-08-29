@@ -106,9 +106,15 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check cloudflare/factburst-quiz-site/worker.js
+          node --check cloudflare/factburst-quiz-site/worker-entry.js
+          node --check cloudflare/factburst-quiz-site/accounts.js
           node --check cloudflare/factburst-quiz-site/public/app.js
+          node --check cloudflare/factburst-quiz-site/public/account-ui.js
           node --check cloudflare/factburst-link-tracker/worker.js
           node --check cloudflare/factburst-link-tracker/site-quiz-admin.js
+
+      - name: Run website account tests
+        run: node --test cloudflare/factburst-quiz-site/accounts.test.mjs
 
       - name: Validate Cloudflare Worker bundle
         working-directory: cloudflare/factburst-quiz-site

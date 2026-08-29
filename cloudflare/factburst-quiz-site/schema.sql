@@ -37,8 +37,46 @@ CREATE TABLE IF NOT EXISTS site_attempts (
     FOREIGN KEY (quiz_id) REFERENCES site_quizzes(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS site_users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL,
+    username_key TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    password_salt TEXT NOT NULL,
+    password_iterations INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    last_login_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS site_sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES site_users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS site_user_scores (
+    user_id INTEGER NOT NULL,
+    quiz_id INTEGER NOT NULL,
+    best_score INTEGER NOT NULL,
+    total INTEGER NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 1,
+    first_completed_at TEXT NOT NULL,
+    last_completed_at TEXT NOT NULL,
+    PRIMARY KEY (user_id, quiz_id),
+    FOREIGN KEY (user_id) REFERENCES site_users(id) ON DELETE CASCADE,
+    FOREIGN KEY (quiz_id) REFERENCES site_quizzes(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_site_quizzes_publish
     ON site_quizzes(status, publish_at);
 
 CREATE INDEX IF NOT EXISTS idx_site_attempts_quiz
     ON site_attempts(quiz_id, completed_at);
+
+CREATE INDEX IF NOT EXISTS idx_site_sessions_expiry
+    ON site_sessions(expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_site_user_scores_quiz
+    ON site_user_scores(quiz_id, best_score DESC);
