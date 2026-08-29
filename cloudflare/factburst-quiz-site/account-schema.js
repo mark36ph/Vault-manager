@@ -98,7 +98,6 @@ const AFTER_USER_SCHEMA = [
   "CREATE INDEX IF NOT EXISTS idx_site_email_verifications_user ON site_email_verifications(user_id, created_at DESC)",
   "CREATE INDEX IF NOT EXISTS idx_site_challenges_expiry ON site_challenges(expires_at)",
   "CREATE INDEX IF NOT EXISTS idx_site_challenges_user ON site_challenges(challenger_user_id, created_at DESC)",
-  "CREATE INDEX IF NOT EXISTS idx_site_challenges_target ON site_challenges(challenged_user_id, created_at DESC)",
   "CREATE INDEX IF NOT EXISTS idx_site_friendships_a ON site_friendships(user_a_id, status, created_at DESC)",
   "CREATE INDEX IF NOT EXISTS idx_site_friendships_b ON site_friendships(user_b_id, status, created_at DESC)",
   "CREATE INDEX IF NOT EXISTS idx_site_users_status ON site_users(status, created_at DESC)",
@@ -128,4 +127,7 @@ export async function prepareAccountSchema(db) {
   if (!challengeNames.has("challenged_user_id")) {
     await db.prepare("ALTER TABLE site_challenges ADD COLUMN challenged_user_id INTEGER").run();
   }
+  await db.prepare(
+    "CREATE INDEX IF NOT EXISTS idx_site_challenges_target ON site_challenges(challenged_user_id, created_at DESC)",
+  ).run();
 }
