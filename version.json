@@ -1,13 +1,12 @@
 {
-  "latest_version": "1.0.27",
-  "build": 52,
+  "latest_version": "1.0.28",
+  "build": 53,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 52 adds a verified one-time migration from the development checkout into the installed Factburst Quiz Manager data folder.",
-    "The migration now chooses the legacy database with real library/quiz content instead of stopping when an empty bootstrap database already exists.",
-    "Saved settings and protected API credentials are carried across with the database on the same Windows user account.",
-    "The configured quiz projects folder is copied into persistent installed storage, verified, and the source project files are left untouched as a rollback copy.",
-    "Quiz History project paths and managed quiz-question image paths are rebased to the new installed locations so reopened projects and logo questions keep working.",
-    "An existing installed database containing user records is never overwritten by the migration, and a completion marker prevents repeat migrations after success."
+    "Build 53 adds a targeted credential-recovery pass for installed Factburst Quiz Manager settings after the Build 52 data migration.",
+    "Missing OpenAI, Pexels, Pixabay, YouTube, Facebook and Instagram credentials are recovered independently from the previous development settings when a valid source is available.",
+    "Recovered credentials are validated and re-encrypted with Windows DPAPI for the current user; valid credentials already present in the installed app are never overwritten.",
+    "An unusable encrypted credential is cleared only after the installed settings file is backed up, preventing one corrupt token from making every API key appear blank.",
+    "Credential recovery does not replace the database or quiz projects, and it remembers credentials it imported so a key you later clear intentionally is not restored from the old checkout."
   ]
 }
