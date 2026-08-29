@@ -60,7 +60,7 @@ test("engagement and maintenance handlers are exported for the Worker", () => {
 });
 
 test("new public engagement scripts parse and quiz page loads the v2 comments UI", () => {
-  for (const file of ["engagement.js", "site-status.js", "comments-v2.js", "challenge-ui.js"]) {
+  for (const file of ["engagement.js", "site-status.js", "comments-v2.js", "challenge-ui.js", "notification-header.js"]) {
     const source = readFileSync(new URL(`./public/${file}`, import.meta.url), "utf8");
     assert.doesNotThrow(() => new Function(source), `${file} should parse as JavaScript`);
   }
@@ -82,6 +82,20 @@ test("direct friend challenges use Factburst notifications instead of share link
   assert.doesNotMatch(uiSource, /clipboard\.writeText/);
   assert.doesNotMatch(uiSource, /Share challenge link/);
   assert.match(uiSource, /Factburst notifications/);
+});
+
+test("signed-in notifications are promoted into the website header", () => {
+  const script = readFileSync(new URL("./public/notification-header.js", import.meta.url), "utf8");
+  const css = readFileSync(new URL("./public/engagement.css", import.meta.url), "utf8");
+  assert.match(script, /\.top-nav/);
+  assert.match(script, /notification-button-header/);
+  assert.match(script, /notification-panel-header/);
+  assert.match(css, /\.notification-button\.notification-button-header/);
+  assert.match(css, /\.notification-panel\.notification-panel-header/);
+  for (const page of ["index.html", "profile.html", "quiz.html"]) {
+    const html = readFileSync(new URL(`./public/${page}`, import.meta.url), "utf8");
+    assert.match(html, /notification-header\.js/, `${page} should load the notification header enhancement`);
+  }
 });
 
 test("empty comment state keeps padding away from the card edge", () => {
