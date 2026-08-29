@@ -1,13 +1,13 @@
 {
-  "latest_version": "1.0.20",
-  "build": 45,
+  "latest_version": "1.0.21",
+  "build": 46,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "The app now opens into a new Autopilot-first home instead of exposing the legacy workspace as the main workflow.",
-    "Daily navigation is reduced to Autopilot, Create, Performance, Library, Advanced and Settings; the detailed managers remain available under Advanced.",
-    "The Autopilot home shows the next release, schedule coverage, only tasks that genuinely need human input, and the current Growth Analytics category signal.",
-    "Generate + Fill Schedule launches the existing Generate + Autopilot production flow directly from the home page.",
-    "The home page separates work Autopilot handles automatically from platform-limited/manual tasks such as Related Video, Instagram scheduling, packaging rescue approval and viewer-reply approval.",
-    "The top bar is simplified and the old Production shortcut is removed from normal daily use without deleting any underlying tools."
+    "Autopilot now continuously checks the YouTube, Facebook, branded tracker and website connections without interrupting normal work.",
+    "Temporary network/API failures are saved as Recovering and retried automatically with increasing backoff instead of repeatedly demanding manual attention.",
+    "Successful retries clear the failure state automatically when a service comes back online.",
+    "Authentication/account/configuration failures are separated from transient failures and shown as Needs setup rather than being hammered with rapid retries.",
+    "Recovery state persists across app restarts in autopilot-recovery.json and individual subsystem failures remain isolated.",
+    "The Autopilot home reflects Recovering or Needs setup while all unaffected automation continues normally."
   ]
 }
