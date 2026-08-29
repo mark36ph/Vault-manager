@@ -1,11 +1,13 @@
 {
-  "latest_version": "1.0.34",
-  "build": 59,
+  "latest_version": "1.0.35",
+  "build": 60,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 59 fixes the Autopilot Needs You count so it shows the actual number of pending work items instead of the number of summary categories.",
-    "The Needs You stat and top Autopilot status now stay synchronized with Related Video, Instagram promo, packaging rescue, viewer reply, and release-warning item counts.",
-    "For the Build 58 example containing 1 Related Video, 8 Instagram promos, and 12 viewer replies, Autopilot now reports 21 need you rather than 3.",
-    "Completed work continues to reduce the count automatically while the unified Needs You task queue remains unchanged."
+    "Build 60 makes the Autopilot Needs You home count and Manage task queue use the same underlying task planner, preventing the two totals from drifting apart.",
+    "Waiting Related Video and Instagram prerequisites now remain visible in the task queue, while publish or completion actions stay disabled until the prerequisite state is ready.",
+    "Packaging rescue and release-warning items are also represented in the unified queue when they contribute to the Needs You count.",
+    "A new Website page is added to the main Factburst navigation for managing the Cloudflare quiz catalogue without opening Advanced tools.",
+    "The Website page shows connection state, live and upcoming website quizzes, stored question totals, scheduled sync coverage, and scheduled quizzes missing from the website.",
+    "Website controls include Refresh, Sync scheduled, Resync selected, Open project, and Website settings, using the existing safe Cloudflare website publishing service."
   ]
 }
