@@ -553,14 +553,6 @@ public partial class MainShellWindow
                 history.UploadTitleDisplay,
                 history.YouTubeUrl,
                 history.Hashtags);
-            var tracker = FactburstTrackerSettingsStore.Load(_data.SettingsPath);
-            if (tracker.IsConfigured)
-            {
-                var links = FactburstLinkTrackerClient.BuildLinks(
-                    tracker.BaseUrl,
-                    FactburstLinkTrackerClient.CampaignSlug(history));
-                description = FactburstLinkTrackerClient.ReplaceFullQuizLink(description, links.InstagramUrl);
-            }
             var caption = SocialVideoUploadRules.InstagramCaption(description);
             var preflight = await ConfirmSocialPublishingPreflightAsync(
                 window,
