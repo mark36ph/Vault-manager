@@ -5,7 +5,7 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class AutopilotNeedsYouAlignedPlannerTests
 {
     [Fact]
-    public void ScreenshotState_BuildsFortyTasksMatchingHomeCount()
+    public void ScreenshotState_ExcludesFutureAndWaitingInstagramPromosFromNeedsYou()
     {
         var publishAt = new DateTimeOffset(2026, 8, 30, 8, 0, 0, TimeSpan.Zero);
         var rows = Enumerable.Range(0, 14)
@@ -31,18 +31,43 @@ public sealed class AutopilotNeedsYouAlignedPlannerTests
                 })
                 .ToList(),
         };
+        var beforeAnyInstagramDue = AutopilotNeedsYouTaskPlanner.PromoDueAt(publishAt).AddMinutes(-1);
 
-        var tasks = AutopilotNeedsYouAlignedPlanner.Build(rows, state, []);
+        var tasks = AutopilotNeedsYouAlignedPlanner.Build(rows, state, [], beforeAnyInstagramDue);
 
-        Assert.Equal(40, tasks.Count);
+        Assert.Equal(26, tasks.Count);
         Assert.Equal(14, AutopilotNeedsYouAlignedPlanner.Count(tasks, AutopilotAlignedTaskKind.RelatedVideo));
-        Assert.Equal(14, AutopilotNeedsYouAlignedPlanner.Count(tasks, AutopilotAlignedTaskKind.InstagramPromo));
+        Assert.Equal(0, AutopilotNeedsYouAlignedPlanner.Count(tasks, AutopilotAlignedTaskKind.InstagramPromo));
         Assert.Equal(12, AutopilotNeedsYouAlignedPlanner.Count(tasks, AutopilotAlignedTaskKind.ViewerReply));
         Assert.Single(tasks.Where(task => task.Kind == AutopilotAlignedTaskKind.RelatedVideo && task.ActionReady));
-        Assert.Equal(8, tasks.Count(task => task.Kind == AutopilotAlignedTaskKind.InstagramPromo && task.ActionReady));
         Assert.Contains(tasks, task => task.Kind == AutopilotAlignedTaskKind.RelatedVideo && task.State == "Waiting" && !task.ActionReady);
-        Assert.Contains(tasks, task => task.Kind == AutopilotAlignedTaskKind.InstagramPromo && task.State == "Waiting" && !task.ActionReady);
-        Assert.Equal("40 shown • 14 Related video • 14 Instagram • 12 Replies", AutopilotNeedsYouAlignedPlanner.Summary(tasks, tasks.Count));
+        Assert.Equal("26 shown • 14 Related video • 0 Instagram • 12 Replies", AutopilotNeedsYouAlignedPlanner.Summary(tasks, tasks.Count));
+    }
+
+    [Fact]
+    public void InstagramPromo_AppearsOnlyWhenNextDayAndPostingTimeHasArrived()
+    {
+        var publishAt = new DateTimeOffset(2026, 9, 1, 18, 0, 0, TimeSpan.Zero);
+        var due = AutopilotNeedsYouTaskPlanner.PromoDueAt(publishAt);
+        var nextDay = Row(41, publishAt, "Ready promo", "Uploaded", "Next day", "Set");
+        var waiting = Row(42, publishAt, "Waiting promo", "Uploaded", "Waiting", "Set");
+
+        var beforeDue = AutopilotNeedsYouAlignedPlanner.Build(
+            [nextDay, waiting],
+            new FactburstFullAutopilotState(),
+            [],
+            due.AddMinutes(-1));
+        var atDue = AutopilotNeedsYouAlignedPlanner.Build(
+            [nextDay, waiting],
+            new FactburstFullAutopilotState(),
+            [],
+            due);
+
+        Assert.DoesNotContain(beforeDue, task => task.Kind == AutopilotAlignedTaskKind.InstagramPromo);
+        var instagram = Assert.Single(atDue.Where(task => task.Kind == AutopilotAlignedTaskKind.InstagramPromo));
+        Assert.Equal(41, instagram.HistoryId);
+        Assert.True(instagram.ActionReady);
+        Assert.Equal(due, instagram.DueAt);
     }
 
     [Fact]

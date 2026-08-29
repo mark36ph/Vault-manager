@@ -40,8 +40,9 @@ public sealed class AutopilotNeedsYouTaskQueueTests
                 },
             ],
         };
+        var due = AutopilotNeedsYouTaskPlanner.PromoDueAt(publishAt);
 
-        var tasks = AutopilotNeedsYouTaskPlanner.Build(rows, state);
+        var tasks = AutopilotNeedsYouTaskPlanner.Build(rows, state, due);
 
         Assert.Equal(3, tasks.Count);
         Assert.Single(tasks.Where(task => task.Kind == AutopilotNeedsYouTaskKind.RelatedVideo));
@@ -52,20 +53,40 @@ public sealed class AutopilotNeedsYouTaskQueueTests
     }
 
     [Fact]
-    public void DoesNotQueueCompletedRelatedVideoOrUploadedInstagramPromo()
+    public void FutureInstagramPromoDoesNotAppearUntilDue()
     {
+        var publishAt = new DateTimeOffset(2026, 9, 1, 18, 0, 0, TimeSpan.Zero);
+        var row = Row(
+            historyId: 41,
+            publishAt,
+            quiz: "Space Quiz Episode 10",
+            youtubePromo: "Uploaded",
+            instagramPromo: "Next day",
+            relatedVideo: "Set");
+        var due = AutopilotNeedsYouTaskPlanner.PromoDueAt(publishAt);
+
+        var beforeDue = AutopilotNeedsYouTaskPlanner.Build([row], new FactburstFullAutopilotState(), due.AddMinutes(-1));
+        var atDue = AutopilotNeedsYouTaskPlanner.Build([row], new FactburstFullAutopilotState(), due);
+
+        Assert.DoesNotContain(beforeDue, task => task.Kind == AutopilotNeedsYouTaskKind.InstagramPromo);
+        var instagram = Assert.Single(atDue.Where(task => task.Kind == AutopilotNeedsYouTaskKind.InstagramPromo));
+        Assert.Equal(due, instagram.DueAt);
+    }
+
+    [Fact]
+    public void DoesNotQueueWaitingOrUploadedInstagramPromo()
+    {
+        var publishAt = DateTimeOffset.UtcNow.AddDays(-2);
         var rows = new[]
         {
-            Row(
-                historyId: 9,
-                DateTimeOffset.UtcNow.AddDays(2),
-                quiz: "Science Quiz",
-                youtubePromo: "Uploaded",
-                instagramPromo: "Uploaded",
-                relatedVideo: "Set"),
+            Row(9, publishAt, "Waiting Quiz", "Uploaded", "Waiting", "Set"),
+            Row(10, publishAt, "Uploaded Quiz", "Uploaded", "Uploaded", "Set"),
         };
 
-        var tasks = AutopilotNeedsYouTaskPlanner.Build(rows, new FactburstFullAutopilotState());
+        var tasks = AutopilotNeedsYouTaskPlanner.Build(
+            rows,
+            new FactburstFullAutopilotState(),
+            DateTimeOffset.Now.AddDays(7));
 
         Assert.Empty(tasks);
     }

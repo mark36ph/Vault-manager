@@ -45,11 +45,13 @@ public static class AutopilotNeedsYouTaskPlanner
 {
     public static IReadOnlyList<AutopilotNeedsYouTaskItem> Build(
         IEnumerable<ScheduledReleaseReadinessRow> readinessRows,
-        FactburstFullAutopilotState state)
+        FactburstFullAutopilotState state,
+        DateTimeOffset? now = null)
     {
         ArgumentNullException.ThrowIfNull(readinessRows);
         ArgumentNullException.ThrowIfNull(state);
 
+        var current = now ?? DateTimeOffset.Now;
         var rows = readinessRows.ToList();
         var tasks = new List<AutopilotNeedsYouTaskItem>();
 
@@ -68,19 +70,26 @@ public static class AutopilotNeedsYouTaskPlanner
                 ""));
         }
 
-        foreach (var row in rows
+        foreach (var item in rows
                      .Where(row => string.Equals(row.InstagramPromo, "Next day", StringComparison.OrdinalIgnoreCase))
-                     .OrderBy(row => row.PublishAt)
-                     .ThenBy(row => row.Quiz, StringComparer.OrdinalIgnoreCase)
-                     .ThenBy(row => row.HistoryId))
+                     .Select(row => new
+                     {
+                         Row = row,
+                         DueAt = PromoDueAt(row.PublishAt),
+                     })
+                     .Where(item => item.DueAt <= current)
+                     .OrderBy(item => item.DueAt)
+                     .ThenBy(item => item.Row.Quiz, StringComparer.OrdinalIgnoreCase)
+                     .ThenBy(item => item.Row.HistoryId))
         {
+            var row = item.Row;
             tasks.Add(new AutopilotNeedsYouTaskItem(
                 AutopilotNeedsYouTaskKind.InstagramPromo,
                 $"instagram:{row.HistoryId}",
                 row.HistoryId,
                 row.Quiz,
-                "The promo is prepared. Instagram does not support this app's future Reel scheduling flow, so approve and publish it when you are ready.",
-                PromoDueAt(row.PublishAt),
+                "The promo is prepared and its Instagram posting time has arrived. Review it, then approve and publish it now.",
+                item.DueAt,
                 row.ProjectFolder,
                 "",
                 "",

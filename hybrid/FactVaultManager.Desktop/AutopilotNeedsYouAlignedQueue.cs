@@ -52,12 +52,14 @@ public static class AutopilotNeedsYouAlignedPlanner
     public static IReadOnlyList<AutopilotAlignedTaskItem> Build(
         IEnumerable<ScheduledReleaseReadinessRow> readinessRows,
         FactburstFullAutopilotState state,
-        IEnumerable<YouTubeGrowthSnapshot> snapshots)
+        IEnumerable<YouTubeGrowthSnapshot> snapshots,
+        DateTimeOffset? now = null)
     {
         ArgumentNullException.ThrowIfNull(readinessRows);
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(snapshots);
 
+        var current = now ?? DateTimeOffset.Now;
         var rows = readinessRows.ToList();
         var tasks = new List<AutopilotAlignedTaskItem>();
 
@@ -90,28 +92,32 @@ public static class AutopilotNeedsYouAlignedPlanner
                 ready));
         }
 
-        foreach (var row in rows
-                     .Where(row => IsPending(row.InstagramPromo, "Uploaded"))
-                     .OrderBy(row => row.PublishAt)
-                     .ThenBy(row => row.Quiz, StringComparer.OrdinalIgnoreCase)
-                     .ThenBy(row => row.HistoryId))
+        foreach (var item in rows
+                     .Where(row => string.Equals(row.InstagramPromo, "Next day", StringComparison.OrdinalIgnoreCase))
+                     .Select(row => new
+                     {
+                         Row = row,
+                         DueAt = AutopilotNeedsYouTaskPlanner.PromoDueAt(row.PublishAt),
+                     })
+                     .Where(item => item.DueAt <= current)
+                     .OrderBy(item => item.DueAt)
+                     .ThenBy(item => item.Row.Quiz, StringComparer.OrdinalIgnoreCase)
+                     .ThenBy(item => item.Row.HistoryId))
         {
-            var ready = string.Equals(row.InstagramPromo, "Next day", StringComparison.OrdinalIgnoreCase);
+            var row = item.Row;
             tasks.Add(new AutopilotAlignedTaskItem(
                 AutopilotAlignedTaskKind.InstagramPromo,
                 $"instagram:{row.HistoryId}",
                 row.HistoryId,
                 row.Quiz,
-                ready
-                    ? "The promo is prepared and ready for your Instagram publishing approval."
-                    : "The promo is not ready to publish yet. It remains visible so the manual Instagram step is not lost.",
+                "The promo is prepared and its Instagram posting time has arrived. Approve and publish it now.",
                 row.InstagramPromo,
-                AutopilotNeedsYouTaskPlanner.PromoDueAt(row.PublishAt),
+                item.DueAt,
                 row.ProjectFolder,
                 "",
                 "",
                 "",
-                ready));
+                true));
         }
 
         foreach (var draft in state.ReplyDrafts
@@ -391,7 +397,7 @@ public partial class MainShellWindow
         heading.Children.Add(headingTitle);
         heading.Children.Add(new TextBlock
         {
-            Text = "This is the same task list used by the Autopilot counter. Waiting prerequisites remain visible; actionable work opens the existing tested workflow.",
+            Text = "This is the same task list used by the Autopilot counter. Only work that is ready for you now appears here.",
             Foreground = new SolidColorBrush(Color.FromRgb(190, 215, 255)),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 20, 0),
