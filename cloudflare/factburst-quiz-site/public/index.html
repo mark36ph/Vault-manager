@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="google-adsense-account" content="ca-pub-8781546997969568">
   <meta name="theme-color" content="#060a12">
-  <meta name="description" content="Play fast, factual Factburst quizzes, save your high scores and climb the leaderboard.">
+  <meta name="description" content="Play fast, factual Factburst quizzes across science, history, space, technology, entertainment and more.">
   <title>Factburst Quiz</title>
   <link rel="icon" href="/favicon.ico">
   <link rel="stylesheet" href="/styles.css">
@@ -16,18 +16,19 @@
   <link rel="stylesheet" href="/engagement.css">
   <link rel="stylesheet" href="/dashboard-tidy.css">
   <link rel="stylesheet" href="/professional-redesign.css">
+  <link rel="stylesheet" href="/page-split.css">
 </head>
-<body data-page="home">
+<body data-page="home" data-layout="landing">
   <header class="site-header">
     <a class="brand" href="/" aria-label="Factburst Quiz home">
       <span class="brand-mark"><img src="/favicon.ico" alt=""></span>
       <span>Factburst Quiz</span>
     </a>
     <nav class="top-nav" aria-label="Main navigation">
-      <a href="#latest">Latest quiz</a>
-      <a href="#upcoming">Coming up</a>
-      <a href="#browse">Browse</a>
-      <a href="#leaderboard">Leaderboard</a>
+      <a href="/">Home</a>
+      <a href="/quizzes.html">Quizzes</a>
+      <a href="/leaderboard.html">Leaderboard</a>
+      <a href="/profile.html">Profile</a>
     </nav>
   </header>
 
@@ -39,7 +40,7 @@
         <p class="hero-text">Quick factual quizzes across science, history, space, technology, entertainment and more.</p>
         <div class="hero-actions">
           <a class="button button-primary" id="latest-cta" href="#latest">Play the latest quiz</a>
-          <a class="button button-secondary" href="#browse">Browse quizzes</a>
+          <a class="button button-secondary" href="/quizzes.html">Browse quizzes</a>
         </div>
       </div>
       <div class="score-orbit" aria-hidden="true">
@@ -50,23 +51,11 @@
       </div>
     </section>
 
-    <section class="shell section" id="your-scores">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Your scores</p>
-          <h2>Build your Factburst total</h2>
-        </div>
-      </div>
-      <div id="account-summary" aria-live="polite">
-        <p>Loading account…</p>
-      </div>
-    </section>
-
     <section class="shell section" id="latest">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Featured</p>
-          <h2>Latest quiz</h2>
+          <p class="eyebrow">Latest</p>
+          <h2>Play the newest quiz</h2>
         </div>
       </div>
       <div id="latest-card" class="quiz-feature loading-card" aria-live="polite">
@@ -74,46 +63,20 @@
       </div>
     </section>
 
-    <section class="shell section hidden" id="upcoming">
+    <section class="shell section" id="more-quizzes">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">Scheduled</p>
-          <h2>Coming up</h2>
+          <p class="eyebrow">More to play</p>
+          <h2>Recent quizzes</h2>
         </div>
       </div>
-      <div id="upcoming-grid" class="quiz-grid" aria-live="polite"></div>
-    </section>
-
-    <section class="shell section" id="browse">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Keep playing</p>
-          <h2>Browse quizzes</h2>
-        </div>
-        <label class="filter-label">
-          Category
-          <select id="category-filter">
-            <option value="">All categories</option>
-          </select>
-        </label>
+      <div id="home-more-grid" class="quiz-grid" aria-live="polite"></div>
+      <div id="home-more-empty" class="empty-state hidden">
+        <h3>No more quizzes yet</h3>
+        <p>New Factburst quizzes will appear here as they are published.</p>
       </div>
-      <div id="quiz-grid" class="quiz-grid" aria-live="polite"></div>
-      <div id="empty-state" class="empty-state hidden">
-        <h3>No quizzes live yet</h3>
-        <p>Your scheduled quizzes are ready and will unlock automatically at their release times.</p>
-      </div>
-    </section>
-
-    <section class="shell section" id="leaderboard">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">High scores</p>
-          <h2>Overall leaderboard</h2>
-        </div>
-      </div>
-      <p class="hero-text">Each quiz counts once using that player's best score. Retakes can improve a result but cannot inflate the total by repeating the same quiz.</p>
-      <div id="overall-leaderboard" class="leaderboard-card" aria-live="polite">
-        <p class="leaderboard-message">Loading overall scores…</p>
+      <div class="home-more-actions">
+        <a class="button button-secondary" href="/quizzes.html">View all quizzes →</a>
       </div>
     </section>
   </main>
@@ -128,7 +91,7 @@
   <script src="/site-status.js"></script>
   <script src="/engagement.js"></script>
   <script src="/notification-header.js"></script>
-  <script type="module" src="/app.js"></script>
+  <script type="module" src="/landing.js"></script>
   <script type="module" src="/account-ui-v2.js"></script>
 </body>
 </html>
