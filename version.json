@@ -1,8 +1,10 @@
 {
-  "latest_version": "1.0.56",
-  "build": 81,
+  "latest_version": "1.0.57",
+  "build": 82,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
+    "Build 82 fixes the Questions importer UI so the Open Trivia DB workflow is configured even when the Import tab was hidden during app startup.",
+    "The importer now reaches the hidden tab content directly and also rechecks on tab selection, so the visible tab reads Import Questions with Load JSON file and Preview and import JSON instead of falling back to the old ChatGPT-only controls.",
     "Build 81 upgrades the Questions importer to accept Open Trivia DB JSON dumps alongside the existing Factburst and ChatGPT JSON format, with automatic HTML decoding, category mapping and answer shuffling.",
     "Bulk imports now preview detected, ready, duplicate, invalid and category-mapping counts before writing; unsupported two-answer boolean questions are skipped safely and indexed duplicate checking keeps large 10,000+ question imports practical.",
     "Build 80 preserves Logo quiz artwork for promotional Shorts instead of allowing the promo renderer to fall back to a text-only quiz when image metadata is missing.",
