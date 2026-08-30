@@ -57,11 +57,26 @@ public partial class MainShellWindow
             return;
         }
 
-        var buttons = FindVisualChildren<Button>(root).ToArray();
-        var importButton = buttons.FirstOrDefault(button =>
-            string.Equals(button.Content?.ToString(), "Import pasted JSON", StringComparison.Ordinal));
-        var loadButton = buttons.FirstOrDefault(button =>
-            string.Equals(button.Content?.ToString(), "Load downloaded JSON file", StringComparison.Ordinal));
+        var importTab = FindQuizBulkImportTab(root);
+        if (importTab?.Content is not DependencyObject importRoot)
+        {
+            RetryQuizBulkImporterConfiguration();
+            return;
+        }
+
+        var controls = FindQuizBulkImportDescendants<FrameworkElement>(importRoot).ToArray();
+        var importButton = controls
+            .OfType<Button>()
+            .FirstOrDefault(button => string.Equals(
+                button.Content?.ToString(),
+                "Import pasted JSON",
+                StringComparison.Ordinal));
+        var loadButton = controls
+            .OfType<Button>()
+            .FirstOrDefault(button => string.Equals(
+                button.Content?.ToString(),
+                "Load downloaded JSON file",
+                StringComparison.Ordinal));
         if (importButton is null || loadButton is null)
         {
             RetryQuizBulkImporterConfiguration();
@@ -80,12 +95,10 @@ public partial class MainShellWindow
         loadButton.Content = "Load JSON file";
         loadButton.ToolTip = "Load Factburst/ChatGPT JSON or an Open Trivia DB JSON file";
 
-        var importTab = FindVisualChildren<TabItem>(root)
-            .FirstOrDefault(tab => string.Equals(tab.Header?.ToString(), "Import from ChatGPT", StringComparison.Ordinal));
-        if (importTab is not null)
-            importTab.Header = "Import Questions";
+        importTab.Header = "Import Questions";
 
-        var instructions = FindVisualChildren<TextBlock>(root)
+        var instructions = controls
+            .OfType<TextBlock>()
             .FirstOrDefault(text => text.Text.Contains(
                 "Download the quiz-questions.json file ChatGPT creates",
                 StringComparison.Ordinal));
@@ -93,6 +106,45 @@ public partial class MainShellWindow
         {
             instructions.Text =
                 "Load a Factburst/ChatGPT JSON file or an Open Trivia DB JSON dump. OpenTDB categories are mapped automatically, HTML text is cleaned, answers are shuffled, and duplicate questions are skipped. A preview is shown before anything is imported.";
+        }
+    }
+
+    private static TabItem? FindQuizBulkImportTab(DependencyObject root)
+    {
+        foreach (var tabs in FindVisualChildren<TabControl>(root))
+        {
+            foreach (var tab in tabs.Items.OfType<TabItem>())
+            {
+                var header = tab.Header?.ToString();
+                if (string.Equals(header, "Import from ChatGPT", StringComparison.Ordinal) ||
+                    string.Equals(header, "Import Questions", StringComparison.Ordinal))
+                {
+                    return tab;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<T> FindQuizBulkImportDescendants<T>(DependencyObject root)
+        where T : DependencyObject
+    {
+        if (root is T match)
+            yield return match;
+
+        IEnumerable<DependencyObject> children = root switch
+        {
+            Panel panel => panel.Children.Cast<UIElement>(),
+            Decorator decorator when decorator.Child is not null => [decorator.Child],
+            ContentControl contentControl when contentControl.Content is DependencyObject content => [content],
+            _ => [],
+        };
+
+        foreach (var child in children)
+        {
+            foreach (var descendant in FindQuizBulkImportDescendants<T>(child))
+                yield return descendant;
         }
     }
 
