@@ -1,10 +1,4 @@
 (() => {
-  const NAV_ITEMS = [
-    ["Home", "/"],
-    ["Quizzes", "/quizzes.html"],
-    ["Leaderboard", "/leaderboard.html"],
-    ["Profile", "/profile.html"],
-  ];
   const CONSENT_KEY = "factburst-cookie-consent-v1";
   const CONSENT_ACCEPTED = "accepted";
   const CONSENT_ESSENTIAL = "essential";
@@ -48,22 +42,27 @@
     document.head.append(style);
   }
 
-  function normalizeNavigation() {
+  function prepareNavigation() {
     const nav = document.querySelector(".top-nav");
     if (!nav) return false;
 
     const currentPath = location.pathname.replace(/\/+$/, "") || "/";
-    const notificationButton = nav.querySelector("#notification-button");
+    const activePath = currentPath === "/quiz.html" ? "/quizzes.html" : currentPath;
 
-    nav.replaceChildren();
-    for (const [label, href] of NAV_ITEMS) {
-      const link = document.createElement("a");
-      link.href = href;
-      link.textContent = label;
-      if (currentPath === href) link.setAttribute("aria-current", "page");
-      nav.append(link);
+    for (const link of nav.querySelectorAll("a[href]")) {
+      link.removeAttribute("aria-current");
+      const linkPath = new URL(link.href, location.origin).pathname.replace(/\/+$/, "") || "/";
+      if (linkPath === activePath) link.setAttribute("aria-current", "page");
     }
-    if (notificationButton) nav.append(notificationButton);
+
+    const hasEngagement = Boolean(document.querySelector('script[src="/engagement.js"]'));
+    if (hasEngagement && !nav.querySelector("#notification-button") && !nav.querySelector(".notification-button-placeholder")) {
+      const placeholder = document.createElement("span");
+      placeholder.className = "notification-button-placeholder";
+      placeholder.setAttribute("aria-hidden", "true");
+      placeholder.style.cssText = "display:inline-block;width:42px;height:38px;flex:0 0 42px";
+      nav.append(placeholder);
+    }
 
     const profilePlay = document.querySelector('.profile-actions a[href="/#browse"]');
     if (profilePlay) profilePlay.href = "/quizzes.html";
@@ -88,7 +87,13 @@
       label.textContent = "Notifications";
       button.replaceChildren(document.createTextNode("🔔 "), label);
     }
-    if (button.parentElement !== nav) nav.append(button);
+
+    if (button.parentElement !== nav) {
+      const placeholder = nav.querySelector(".notification-button-placeholder");
+      if (placeholder) placeholder.replaceWith(button);
+      else nav.append(button);
+    }
+
     if (panel) panel.classList.add("notification-panel-header");
     return true;
   }
@@ -246,7 +251,7 @@
 
   function initializeSharedShell() {
     installSharedStyles();
-    normalizeNavigation();
+    prepareNavigation();
     buildFooter();
     buildCookieBanner();
     showCookieBanner();
@@ -267,7 +272,9 @@
     window.setTimeout(() => observer.disconnect(), 10000);
   }
 
-  if (document.readyState === "loading") {
+  if (document.querySelector(".site-header")) {
+    initializeSharedShell();
+  } else if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initializeSharedShell, { once: true });
   } else {
     initializeSharedShell();
