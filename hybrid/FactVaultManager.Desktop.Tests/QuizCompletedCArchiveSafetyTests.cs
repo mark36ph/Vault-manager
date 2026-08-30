@@ -45,7 +45,7 @@ public sealed class QuizCompletedCArchiveSafetyTests
 
             var destination = QuizProjectArchive.CopyAndVerifyToQuizArchive(source, archive);
 
-            Assert.NotEqual(existing, destination, ignoreCase: true);
+            Assert.False(string.Equals(existing, destination, StringComparison.OrdinalIgnoreCase));
             Assert.Contains("archived-copy 001", destination, StringComparison.OrdinalIgnoreCase);
             Assert.Equal("old-archive-must-remain", File.ReadAllText(Path.Combine(existing, "keep.txt")));
             Assert.Equal("new-project", File.ReadAllText(Path.Combine(destination, "quiz.json")));
