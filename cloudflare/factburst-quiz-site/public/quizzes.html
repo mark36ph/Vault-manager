@@ -8,6 +8,7 @@
   <meta name="description" content="Browse all Factburst quizzes by category and see what's coming next.">
   <title>Quizzes | Factburst Quiz</title>
   <link rel="icon" href="/favicon.ico">
+  <link rel="preload" href="/brand-icon.png?v=2" as="image">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/website-media.css">
   <link rel="stylesheet" href="/accounts.css">
@@ -16,8 +17,8 @@
   <link rel="stylesheet" href="/engagement.css">
   <link rel="stylesheet" href="/dashboard-tidy.css">
   <link rel="stylesheet" href="/professional-redesign.css">
-  <link rel="stylesheet" href="/brand-logo.css?v=2">
   <link rel="stylesheet" href="/page-split.css">
+  <link rel="stylesheet" href="/site-shell.css?v=1">
 </head>
 <body data-page="home" data-layout="directory">
   <header class="site-header">
@@ -27,9 +28,10 @@
     </a>
     <nav class="top-nav" aria-label="Main navigation">
       <a href="/">Home</a>
-      <a href="/quizzes.html">Quizzes</a>
+      <a href="/quizzes.html" aria-current="page">Quizzes</a>
       <a href="/leaderboard.html">Leaderboard</a>
       <a href="/profile.html">Profile</a>
+      <span class="notification-slot" aria-hidden="true"></span>
     </nav>
   </header>
 
@@ -50,7 +52,14 @@
         </div>
       </div>
       <div id="latest-card" class="quiz-feature loading-card" aria-live="polite">
-        <p>Loading the latest quiz…</p>
+        <span class="sr-only">Loading the latest quiz…</span>
+        <div class="skeleton-feature-copy" aria-hidden="true">
+          <span class="skeleton-pill"></span>
+          <span class="skeleton-line skeleton-line-lg skeleton-w-60"></span>
+          <span class="skeleton-line skeleton-w-90"></span>
+          <span class="skeleton-line skeleton-w-75"></span>
+        </div>
+        <span class="skeleton-button" aria-hidden="true"></span>
       </div>
     </section>
 
@@ -77,7 +86,14 @@
           </select>
         </label>
       </div>
-      <div id="quiz-grid" class="quiz-grid" aria-live="polite"></div>
+      <div id="quiz-grid" class="quiz-grid" aria-live="polite">
+        <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-75"></span><span class="skeleton-line skeleton-w-90"></span><span class="skeleton-line skeleton-w-60"></span></article>
+        <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-60"></span><span class="skeleton-line skeleton-w-75"></span><span class="skeleton-line skeleton-w-45"></span></article>
+        <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-75"></span><span class="skeleton-line skeleton-w-90"></span><span class="skeleton-line skeleton-w-75"></span></article>
+        <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-60"></span><span class="skeleton-line skeleton-w-75"></span><span class="skeleton-line skeleton-w-60"></span></article>
+        <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-75"></span><span class="skeleton-line skeleton-w-90"></span><span class="skeleton-line skeleton-w-45"></span></article>
+        <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-60"></span><span class="skeleton-line skeleton-w-75"></span><span class="skeleton-line skeleton-w-60"></span></article>
+      </div>
       <div id="empty-state" class="empty-state hidden">
         <h3>No quizzes live yet</h3>
         <p>Your scheduled quizzes are ready and will unlock automatically at their release times.</p>
@@ -85,10 +101,29 @@
     </section>
   </main>
 
-  <footer class="site-footer">
-    <div class="shell footer-inner">
-      <span>Factburst Quiz</span>
-      <span>Fast questions. Factual answers.</span>
+  <footer id="factburst-professional-footer" class="site-footer professional-footer">
+    <div class="shell professional-footer-grid">
+      <div class="professional-footer-brand">
+        <a class="professional-footer-brand-link" href="/">Factburst Quiz</a>
+        <p>Fast questions. Factual answers.</p>
+      </div>
+      <nav class="professional-footer-links" aria-label="Explore Factburst">
+        <strong>Explore</strong>
+        <a href="/">Home</a>
+        <a href="/quizzes.html">Quizzes</a>
+        <a href="/leaderboard.html">Leaderboard</a>
+        <a href="/profile.html">Profile</a>
+      </nav>
+      <nav class="professional-footer-links" aria-label="Legal and privacy">
+        <strong>Legal</strong>
+        <a href="/terms.html">Terms of use</a>
+        <a href="/privacy.html">Privacy notice</a>
+        <button type="button" class="footer-link-button" data-cookie-settings>Cookie settings</button>
+      </nav>
+    </div>
+    <div class="shell professional-footer-bottom">
+      <span>© <span data-footer-year>2026</span> Factburst Quiz</span>
+      <span>Quiz content is provided for entertainment and general information.</span>
     </div>
   </footer>
 
