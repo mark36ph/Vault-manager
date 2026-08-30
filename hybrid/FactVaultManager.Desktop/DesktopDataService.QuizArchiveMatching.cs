@@ -29,7 +29,7 @@ public sealed record QuizArchiveFolderAudit(
 {
     public string ArchiveName => Path.GetFileName(ArchiveFolder);
     public string ConfidenceDisplay => QuizArchiveDeepMatcher.ConfidenceDisplay(Confidence) +
-        (Confidence is QuizArchiveMatchConfidence.Exact or QuizArchiveMatchConfidence.High && !IsUnique
+        (((Confidence is QuizArchiveMatchConfidence.Exact or QuizArchiveMatchConfidence.High) && !IsUnique)
             ? " (ambiguous)"
             : "");
     public string SuggestedQuiz => HistoryId.HasValue
@@ -190,12 +190,13 @@ public sealed partial class DesktopDataService
             var best = candidates[0];
             var folderUnique = candidates.Count == 1 || best.Score - candidates[1].Score >= ArchiveUniquenessMargin;
             var historyCandidates = candidatesByHistory[best.HistoryId];
+            var otherHistoryFolderScore = historyCandidates
+                .Where(candidate => !string.Equals(candidate.ArchiveFolder, archiveFolder, StringComparison.OrdinalIgnoreCase))
+                .Select(candidate => candidate.Score)
+                .DefaultIfEmpty(int.MinValue / 2)
+                .Max();
             var historyUnique = historyCandidates.Count == 1 ||
-                                best.Score - historyCandidates
-                                    .Where(candidate => !string.Equals(candidate.ArchiveFolder, archiveFolder, StringComparison.OrdinalIgnoreCase))
-                                    .Select(candidate => candidate.Score)
-                                    .DefaultIfEmpty(int.MinValue / 2)
-                                    .Max() >= ArchiveUniquenessMargin;
+                                best.Score - otherHistoryFolderScore >= ArchiveUniquenessMargin;
             var unique = folderUnique && historyUnique;
             var evidence = best.Evidence.ToList();
             if (!folderUnique)
@@ -294,11 +295,12 @@ public sealed partial class DesktopDataService
     public QuizArchiveMatchApplyResult ApplyQuizArchiveMatches(IReadOnlyList<QuizArchivePathMatch> matches)
     {
         ArgumentNullException.ThrowIfNull(matches);
+        var histories = GetQuizHistory().ToDictionary(history => history.Id);
         var requests = matches
             .Select(match => new QuizArchiveRelinkRequest(
                 match.HistoryId,
                 match.Label,
-                GetQuizHistory().FirstOrDefault(history => history.Id == match.HistoryId)?.ProjectFolder ?? "",
+                histories.TryGetValue(match.HistoryId, out var history) ? history.ProjectFolder : "",
                 match.ArchiveFolder,
                 QuizArchiveMatchConfidence.High))
             .ToList();
@@ -329,7 +331,11 @@ public sealed partial class DesktopDataService
                 return (history.Id, Folder: top);
             })
             .Where(item => item.Folder is not null)
-            .ToDictionary(item => item.Folder!, item => item.Id, StringComparer.OrdinalIgnoreCase);
+            .GroupBy(item => item.Folder!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(item => item.Id).ToHashSet(),
+                StringComparer.OrdinalIgnoreCase);
 
         var updated = 0;
         var skipped = 0;
@@ -365,7 +371,8 @@ public sealed partial class DesktopDataService
                 continue;
             }
 
-            if (linkedArchiveOwners.TryGetValue(archiveFolder, out var ownerId) && ownerId != history.Id)
+            if (linkedArchiveOwners.TryGetValue(archiveFolder, out var ownerIds) &&
+                ownerIds.Any(ownerId => ownerId != history.Id))
             {
                 skipped++;
                 continue;
@@ -387,7 +394,7 @@ public sealed partial class DesktopDataService
             if (UpdateQuizHistoryProjectFolder(history.Id, archiveFolder))
             {
                 updated++;
-                linkedArchiveOwners[archiveFolder] = history.Id;
+                linkedArchiveOwners[archiveFolder] = new HashSet<int> { history.Id };
             }
             else
             {
