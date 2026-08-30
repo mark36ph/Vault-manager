@@ -29,6 +29,33 @@ public sealed class QuizCompletedCArchiveSafetyTests
     }
 
     [Fact]
+    public void FileMapsHaveStrongCopyIdentity_AllowsSmallRebasedMetadataSizeChanges()
+    {
+        var source = Enumerable.Range(1, 20)
+            .ToDictionary(index => $"file-{index:00}.dat", index => (long)(1000 + index), StringComparer.OrdinalIgnoreCase);
+        var archive = new Dictionary<string, long>(source, StringComparer.OrdinalIgnoreCase)
+        {
+            ["file-03.dat"] = 5003,
+            ["file-11.dat"] = 5011,
+            ["file-19.dat"] = 5019,
+        };
+
+        Assert.True(QuizProjectArchive.FileMapsHaveStrongCopyIdentity(source, archive));
+    }
+
+    [Fact]
+    public void FileMapsHaveStrongCopyIdentity_RejectsDifferentRelativeFileSet()
+    {
+        var source = Enumerable.Range(1, 20)
+            .ToDictionary(index => $"file-{index:00}.dat", index => (long)(1000 + index), StringComparer.OrdinalIgnoreCase);
+        var archive = new Dictionary<string, long>(source, StringComparer.OrdinalIgnoreCase);
+        archive.Remove("file-20.dat");
+        archive["different-file.dat"] = 1020;
+
+        Assert.False(QuizProjectArchive.FileMapsHaveStrongCopyIdentity(source, archive));
+    }
+
+    [Fact]
     public void CopyAndVerifyToQuizArchive_DoesNotOverwriteExistingFolder()
     {
         var root = Path.Combine(Path.GetTempPath(), "FactVaultManager-archive-copy-" + Guid.NewGuid().ToString("N"));
