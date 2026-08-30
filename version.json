@@ -1,14 +1,14 @@
 {
-  "latest_version": "1.0.64",
-  "build": 89,
+  "latest_version": "1.0.65",
+  "build": 90,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 89 keeps the Quiz Archive Audit window open after Relink selected instead of closing back to Quiz History.",
-    "After each relink, the archive audit automatically rescans and refreshes its grid and full report in place, then selects the next row so multiple matches can be reviewed consecutively.",
-    "Relink confident Z copies also refreshes in the same audit window and always rescans immediately before applying a batch so it cannot act on stale recommendations.",
-    "Copy report uses the refreshed audit after in-window relinks.",
-    "Relinking still changes Quiz History database paths only; existing C: folders remain untouched and no archive files are copied, moved, renamed, overwritten, or deleted.",
-    "Build 88 added Exact/High/Possible deep archive matching and guarded relink controls.",
+    "Build 90 makes Match archive faster by fingerprinting each project folder once per scan and caching verified folder fingerprints for repeated in-window rescans.",
+    "The matcher now walks project files once for file-size and JSON evidence instead of separately re-enumerating the same folder tree.",
+    "Exact stored folder name plus at least five same relative files with identical sizes now acts as a strong copy-identity anchor, outranking looser same-series/title candidates and resolving false ambiguities.",
+    "The stronger copy-identity rule keeps the same safety model: only one-to-one Exact/High matches become confident relink candidates, and genuine competing copies remain ambiguous.",
+    "Build 89 keeps the Quiz Archive Audit open and refreshes it in place after each relink.",
+    "Relinking changes Quiz History database paths only; existing C: folders remain untouched and no archive files are copied, moved, renamed, overwritten, or deleted.",
     "Build 83 changes Full and Marathon quizzes to a 5-second default and adds safe post-upload archiving."
   ]
 }
