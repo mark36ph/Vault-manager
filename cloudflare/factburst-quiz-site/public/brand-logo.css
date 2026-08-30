@@ -1,25 +1,47 @@
-/* Sharper, more legible Factburst header branding. */
+/* Larger, sharper Factburst header branding. */
 .brand-mark {
-  width: 46px;
-  height: 46px;
-  flex: 0 0 46px;
-  padding: 2px;
-  border-radius: 13px;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 16px;
 }
 
 .brand-mark img {
   width: 100%;
   height: 100%;
+  display: block;
   object-fit: contain;
-  border-radius: 10px;
+  border-radius: 16px;
   image-rendering: auto;
+}
+
+.site-header {
+  min-height: 82px;
 }
 
 @media (max-width: 840px) {
   .brand-mark {
-    width: 40px;
-    height: 40px;
-    flex-basis: 40px;
-    border-radius: 12px;
+    width: 52px;
+    height: 52px;
+    flex-basis: 52px;
+    border-radius: 14px;
+  }
+
+  .brand-mark img {
+    border-radius: 14px;
+  }
+
+  .site-header {
+    min-height: 72px;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-mark {
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
   }
 }
