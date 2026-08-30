@@ -1,8 +1,10 @@
 {
-  "latest_version": "1.0.52",
-  "build": 77,
+  "latest_version": "1.0.53",
+  "build": 78,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
+    "Build 78 moves Comment moderation out of Settings and into the main app sidebar directly after Website and Users.",
+    "The existing Reported, Visible, Hidden and All queues, search, Hide, Restore, Dismiss reports, Delete and Open quiz actions are unchanged.",
     "Build 77 adds a dedicated Comment moderation page to the desktop app Settings, with Reported, Visible, Hidden and All queues plus search across comments, users and quizzes.",
     "Website administrators can hide, restore, dismiss reports, safely delete comments and open the affected quiz directly from the app; the secured tracker admin API uses the website's existing comment/report data.",
     "Build 76 keeps the visible Autopilot Needs You cards synchronized with the aligned task list even if an older home refresh temporarily writes stale counts.",
