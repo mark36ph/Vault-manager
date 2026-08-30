@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="/profile-tidy.css">
   <link rel="stylesheet" href="/professional-redesign.css">
   <link rel="stylesheet" href="/site-shell.css?v=1">
+  <link rel="stylesheet" href="/visual-polish.css?v=1">
 </head>
 <body data-page="profile">
   <header class="site-header">
@@ -58,10 +59,13 @@
 
     <section id="profile-content" class="hidden" aria-live="polite">
       <div class="profile-hero">
-        <div>
-          <p class="eyebrow">Your Factburst profile</p>
-          <h1 id="profile-username">Player</h1>
-          <p id="profile-email" class="profile-verified"></p>
+        <div class="profile-identity">
+          <div id="profile-avatar" class="profile-avatar" aria-hidden="true">P</div>
+          <div class="profile-identity-copy">
+            <p class="eyebrow">Your Factburst profile</p>
+            <h1 id="profile-username">Player</h1>
+            <p id="profile-email" class="profile-verified"></p>
+          </div>
         </div>
         <div class="profile-actions">
           <a class="button button-primary" href="/quizzes.html">Play a quiz</a>
@@ -159,6 +163,7 @@
   <script src="/site-status.js"></script>
   <script src="/engagement.js"></script>
   <script src="/notification-header.js"></script>
+  <script src="/visual-polish.js"></script>
   <script type="module" src="/profile.js"></script>
 </body>
 </html>
