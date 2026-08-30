@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="google-adsense-account" content="ca-pub-8781546997969568">
+  <meta name="theme-color" content="#060a12">
+  <meta name="description" content="See the overall Factburst Quiz leaderboard and compare the best saved scores.">
+  <title>Leaderboard | Factburst Quiz</title>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/website-media.css">
+  <link rel="stylesheet" href="/accounts.css">
+  <link rel="stylesheet" href="/account-v2.css">
+  <link rel="stylesheet" href="/layout-fixes.css">
+  <link rel="stylesheet" href="/engagement.css">
+  <link rel="stylesheet" href="/dashboard-tidy.css">
+  <link rel="stylesheet" href="/professional-redesign.css">
+  <link rel="stylesheet" href="/page-split.css">
+</head>
+<body data-page="home" data-layout="leaderboard">
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Factburst Quiz home">
+      <span class="brand-mark"><img src="/favicon.ico" alt=""></span>
+      <span>Factburst Quiz</span>
+    </a>
+    <nav class="top-nav" aria-label="Main navigation">
+      <a href="/">Home</a>
+      <a href="/quizzes.html">Quizzes</a>
+      <a href="/leaderboard.html">Leaderboard</a>
+      <a href="/profile.html">Profile</a>
+    </nav>
+  </header>
+
+  <main class="leaderboard-main">
+    <section class="shell page-intro">
+      <div class="page-intro-copy">
+        <p class="eyebrow">Competition</p>
+        <h1>Overall leaderboard.</h1>
+        <p class="hero-text">See how your best saved quiz scores compare with other Factburst players.</p>
+      </div>
+    </section>
+
+    <section class="shell section">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">High scores</p>
+          <h2>Top Factburst players</h2>
+        </div>
+      </div>
+      <p class="hero-text leaderboard-intro-note">Each quiz counts once using that player's best result. Retakes can improve a score, but repeating the same quiz cannot inflate the overall total.</p>
+      <div id="overall-leaderboard" class="leaderboard-card" aria-live="polite">
+        <p class="leaderboard-message">Loading overall scores…</p>
+      </div>
+      <div class="page-section-actions">
+        <a class="button button-primary" href="/quizzes.html">Play a quiz</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner">
+      <span>Factburst Quiz</span>
+      <span>Fast questions. Factual answers.</span>
+    </div>
+  </footer>
+
+  <script src="/site-status.js"></script>
+  <script src="/engagement.js"></script>
+  <script src="/notification-header.js"></script>
+  <script type="module" src="/account-ui-v2.js"></script>
+</body>
+</html>
