@@ -12,6 +12,7 @@ public partial class MainShellWindow
     private DispatcherTimer? _autopilotScheduleTargetTimer;
     private bool _autopilotScheduleTargetInitialized;
     private bool _autopilotScheduleFillStarting;
+    private bool _autopilotMasterHoldingFullAutopilot;
     private ComboBox? _autopilotScheduleTargetChoice;
     private CheckBox? _autopilotScheduleAutoFillChoice;
     private TextBlock? _autopilotScheduleTargetStatusText;
@@ -41,15 +42,18 @@ public partial class MainShellWindow
         if (_autopilotScheduleTargetInitialized) return;
         _autopilotScheduleTargetInitialized = true;
 
+        var preferences = AutopilotSchedulePreferencesStore.Load(_data.SettingsPath);
+        ApplyAutopilotMasterState(preferences.AutoFillEnabled);
+
         Loaded += async (_, _) =>
         {
-            await Task.Delay(TimeSpan.FromSeconds(45));
+            await Task.Delay(TimeSpan.FromSeconds(15));
             await EvaluateAutomaticScheduleFillAsync();
         };
 
         _autopilotScheduleTargetTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromMinutes(30),
+            Interval = TimeSpan.FromMinutes(5),
         };
         _autopilotScheduleTargetTimer.Tick += async (_, _) => await EvaluateAutomaticScheduleFillAsync();
         _autopilotScheduleTargetTimer.Start();
@@ -79,15 +83,27 @@ public partial class MainShellWindow
         var stack = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Center,
-            MinWidth = 230,
+            MinWidth = 260,
         };
-        stack.Children.Add(fillButton);
+
+        _autopilotScheduleAutoFillChoice = new CheckBox
+        {
+            Content = preferences.AutoFillEnabled ? "AUTOPILOT ON" : "AUTOPILOT OFF",
+            IsChecked = preferences.AutoFillEnabled,
+            Foreground = System.Windows.Media.Brushes.White,
+            FontWeight = FontWeights.Bold,
+            FontSize = 14,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = "When ON, Factburst keeps the rolling quiz schedule full and runs all available Autopilot supervision while the app is open.",
+            Margin = new Thickness(0, 0, 0, 8),
+        };
+        stack.Children.Add(_autopilotScheduleAutoFillChoice);
 
         var controls = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, 8, 0, 0),
         };
         controls.Children.Add(new TextBlock
         {
@@ -111,21 +127,19 @@ public partial class MainShellWindow
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(4, 0, 9, 0),
         });
-        _autopilotScheduleAutoFillChoice = new CheckBox
-        {
-            Content = "Auto-fill",
-            IsChecked = preferences.AutoFillEnabled,
-            Foreground = System.Windows.Media.Brushes.White,
-            VerticalAlignment = VerticalAlignment.Center,
-        };
-        controls.Children.Add(_autopilotScheduleAutoFillChoice);
         stack.Children.Add(controls);
+
+        fillButton.Content = "Fill schedule now";
+        fillButton.ToolTip = "Manual override. Autopilot fills the schedule automatically while it is ON.";
+        fillButton.Margin = new Thickness(0, 8, 0, 0);
+        stack.Children.Add(fillButton);
 
         _autopilotScheduleTargetStatusText = new TextBlock
         {
             Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(190, 210, 255)),
             FontSize = 10,
             TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 0),
         };
         stack.Children.Add(_autopilotScheduleTargetStatusText);
@@ -144,14 +158,19 @@ public partial class MainShellWindow
             var saved = AutopilotSchedulePreferencesStore.Load(_data.SettingsPath);
             saved.AutoFillEnabled = true;
             AutopilotSchedulePreferencesStore.Save(_data.SettingsPath, saved);
+            UpdateAutopilotMasterToggleLabel(true);
+            ApplyAutopilotMasterState(true);
             UpdateScheduleTargetStatus();
             await EvaluateAutomaticScheduleFillAsync();
+            await RunFullAutopilotAsync();
         };
         _autopilotScheduleAutoFillChoice.Unchecked += (_, _) =>
         {
             var saved = AutopilotSchedulePreferencesStore.Load(_data.SettingsPath);
             saved.AutoFillEnabled = false;
             AutopilotSchedulePreferencesStore.Save(_data.SettingsPath, saved);
+            UpdateAutopilotMasterToggleLabel(false);
+            ApplyAutopilotMasterState(false);
             UpdateScheduleTargetStatus();
         };
 
@@ -163,7 +182,7 @@ public partial class MainShellWindow
     private static void AutopilotScheduleFillButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button button ||
-            !string.Equals(button.Content?.ToString(), "Generate + Fill Schedule", StringComparison.Ordinal) ||
+            !string.Equals(button.Content?.ToString(), "Fill schedule now", StringComparison.Ordinal) ||
             Window.GetWindow(button) is not MainShellWindow window)
         {
             return;
@@ -228,7 +247,7 @@ public partial class MainShellWindow
         if (string.IsNullOrWhiteSpace(appSettings.ApprovedYouTubeChannelId))
         {
             if (_autopilotScheduleTargetStatusText is not null)
-                _autopilotScheduleTargetStatusText.Text = "Auto-fill is waiting for the YouTube destination to be approved once.";
+                _autopilotScheduleTargetStatusText.Text = "Autopilot is waiting for the YouTube destination to be approved once.";
             return;
         }
 
@@ -238,7 +257,7 @@ public partial class MainShellWindow
         if (youtubeHealth?.State is "Recovering" or "Needs setup")
         {
             if (_autopilotScheduleTargetStatusText is not null)
-                _autopilotScheduleTargetStatusText.Text = "Auto-fill is waiting for the YouTube connection to recover.";
+                _autopilotScheduleTargetStatusText.Text = "Autopilot is waiting for the YouTube connection to recover.";
             return;
         }
 
@@ -248,30 +267,65 @@ public partial class MainShellWindow
         _autopilotScheduleFillStarting = true;
         try
         {
-            preferences.LastAutomaticFillUtc = DateTime.UtcNow;
-            AutopilotSchedulePreferencesStore.Save(_data.SettingsPath, preferences);
-            AutopilotBatchCountRequest.Arm(count);
-            AutopilotTrustedPublishingPreflight.Arm();
-            if (_autopilotScheduleTargetStatusText is not null)
-                _autopilotScheduleTargetStatusText.Text = $"Auto-fill starting {count:N0} quiz{(count == 1 ? "" : "zes")} for {missing:N0} missing day{(missing == 1 ? "" : "s")}.";
-
             NavigateLegacy("Quizzes", "Create");
             SelectQuizWorkspacePage("export");
             await Dispatcher.Yield(DispatcherPriority.ContextIdle);
             if (_quizAutopilotPrimaryButton is null || !_quizAutopilotPrimaryButton.IsEnabled)
+            {
+                if (_autopilotScheduleTargetStatusText is not null)
+                    _autopilotScheduleTargetStatusText.Text = "Autopilot is waiting for production to become ready; it will retry in a few minutes.";
                 return;
+            }
+
+            AutopilotBatchCountRequest.Arm(count);
+            AutopilotTrustedPublishingPreflight.Arm();
+            if (_autopilotScheduleTargetStatusText is not null)
+                _autopilotScheduleTargetStatusText.Text = $"Autopilot starting {count:N0} quiz{(count == 1 ? "" : "zes")} for {missing:N0} missing day{(missing == 1 ? "" : "s")}.";
+
             _quizAutopilotPrimaryButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            preferences.LastAutomaticFillUtc = DateTime.UtcNow;
+            AutopilotSchedulePreferencesStore.Save(_data.SettingsPath, preferences);
         }
         catch (Exception error)
         {
             Debug.WriteLine("Automatic schedule fill could not start: " + error);
             if (_autopilotScheduleTargetStatusText is not null)
-                _autopilotScheduleTargetStatusText.Text = "Auto-fill will retry later: " + error.Message;
+                _autopilotScheduleTargetStatusText.Text = "Autopilot will retry later: " + error.Message;
         }
         finally
         {
             _autopilotScheduleFillStarting = false;
         }
+    }
+
+    private void ApplyAutopilotMasterState(bool enabled)
+    {
+        if (enabled)
+        {
+            if (_autopilotMasterHoldingFullAutopilot)
+            {
+                _fullAutopilotRunning = false;
+                _autopilotMasterHoldingFullAutopilot = false;
+            }
+            _fullAutopilotTimer?.Start();
+            return;
+        }
+
+        _fullAutopilotTimer?.Stop();
+        // FullAutopilot has a delayed startup pass of its own. Holding the existing
+        // running gate while master Autopilot is OFF prevents that pending pass from
+        // doing post-release work before the user turns the master switch on.
+        if (!_fullAutopilotRunning)
+        {
+            _fullAutopilotRunning = true;
+            _autopilotMasterHoldingFullAutopilot = true;
+        }
+    }
+
+    private void UpdateAutopilotMasterToggleLabel(bool enabled)
+    {
+        if (_autopilotScheduleAutoFillChoice is not null)
+            _autopilotScheduleAutoFillChoice.Content = enabled ? "AUTOPILOT ON" : "AUTOPILOT OFF";
     }
 
     private void ArmTrustedAutopilotPublishingIfApproved()
@@ -291,9 +345,17 @@ public partial class MainShellWindow
                 _data.GetQuizHistory(2_000),
                 preferences.TargetDays,
                 DateTimeOffset.Now);
+            if (!preferences.AutoFillEnabled)
+            {
+                _autopilotScheduleTargetStatusText.Text = missing == 0
+                    ? $"Autopilot is off • {preferences.TargetDays:N0} days currently covered"
+                    : $"Autopilot is off • {missing:N0} day{(missing == 1 ? "" : "s")} need filling";
+                return;
+            }
+
             _autopilotScheduleTargetStatusText.Text = missing == 0
-                ? $"Target met • {preferences.TargetDays:N0} days covered" + (preferences.AutoFillEnabled ? " • Auto-fill on" : "")
-                : $"{missing:N0} day{(missing == 1 ? "" : "s")} to fill" + (preferences.AutoFillEnabled ? " • Auto-fill on" : "");
+                ? $"Autopilot running • maintaining {preferences.TargetDays:N0} days ready"
+                : $"Autopilot running • {missing:N0} day{(missing == 1 ? "" : "s")} queued to fill";
         }
         catch (Exception error)
         {
