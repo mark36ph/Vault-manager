@@ -1,14 +1,14 @@
 {
-  "latest_version": "1.0.63",
-  "build": 88,
+  "latest_version": "1.0.64",
+  "build": 89,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 88 upgrades Match archive with deep matching across folder names, series/title, explicit episode, Short/full format, rendered-video type, project JSON/timeline text, and matching file names/sizes.",
-    "Every unlinked Z: folder is classified as Exact, High, Possible, or No match with visible evidence in a new archive-folder grid.",
-    "Relink confident Z copies updates only unique one-to-one Exact/High Quiz History paths, including records that still point at an old C:/other backup folder.",
-    "Relink selected allows an individual suggested match to be explicitly approved after reviewing its confidence and evidence.",
-    "Relinking changes database paths only: existing C: folders remain untouched and no Z: files are copied, moved, renamed, overwritten, or deleted.",
-    "Build 87 added the detailed read-only Quiz Archive Audit; Build 86 fixed archive action visibility.",
+    "Build 89 keeps the Quiz Archive Audit window open after Relink selected instead of closing back to Quiz History.",
+    "After each relink, the archive audit automatically rescans and refreshes its grid and full report in place, then selects the next row so multiple matches can be reviewed consecutively.",
+    "Relink confident Z copies also refreshes in the same audit window and always rescans immediately before applying a batch so it cannot act on stale recommendations.",
+    "Copy report uses the refreshed audit after in-window relinks.",
+    "Relinking still changes Quiz History database paths only; existing C: folders remain untouched and no archive files are copied, moved, renamed, overwritten, or deleted.",
+    "Build 88 added Exact/High/Possible deep archive matching and guarded relink controls.",
     "Build 83 changes Full and Marathon quizzes to a 5-second default and adds safe post-upload archiving."
   ]
 }
