@@ -136,6 +136,62 @@ public sealed class QuizArchiveDeepMatcherTests
         }
     }
 
+    [Fact]
+    public void Evaluate_ExactFolderAndFileFingerprint_OutranksLooseSameSeriesCandidate()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"quiz-archive-deep-priority-{Guid.NewGuid():N}");
+        var currentExact = Path.Combine(root, "current", "Technology - 001");
+        var currentLoose = Path.Combine(root, "current", "Technology Backup - 004");
+        var archive = Path.Combine(root, "archive", "Technology - 001");
+        try
+        {
+            Directory.CreateDirectory(currentExact);
+            Directory.CreateDirectory(currentLoose);
+            Directory.CreateDirectory(archive);
+            for (var index = 1; index <= 8; index++)
+            {
+                var name = $"asset-{index:00}.dat";
+                var bytes = Enumerable.Range(0, index + 3).Select(value => (byte)value).ToArray();
+                File.WriteAllBytes(Path.Combine(currentExact, name), bytes);
+                File.WriteAllBytes(Path.Combine(archive, name), bytes);
+            }
+            File.WriteAllText(Path.Combine(archive, "quiz.json"), "{\"title\":\"Technology Quiz\",\"series\":\"Technology Quiz\"}");
+
+            var exactHistory = History(
+                id: 71,
+                title: "Technology Quiz",
+                series: "Technology Quiz",
+                episode: 2,
+                format: "16:9",
+                projectFolder: currentExact);
+            var looseHistory = History(
+                id: 72,
+                title: "Technology Quiz",
+                series: "Technology Quiz",
+                episode: 3,
+                format: "16:9",
+                projectFolder: currentLoose);
+            var archiveFingerprint = QuizArchiveDeepMatcher.InspectProjectFolder(archive);
+
+            var exact = QuizArchiveDeepMatcher.Evaluate(
+                exactHistory,
+                archiveFingerprint,
+                QuizArchiveDeepMatcher.InspectProjectFolder(currentExact));
+            var loose = QuizArchiveDeepMatcher.Evaluate(
+                looseHistory,
+                archiveFingerprint,
+                QuizArchiveDeepMatcher.InspectProjectFolder(currentLoose));
+
+            Assert.Equal(QuizArchiveMatchConfidence.Exact, exact.Confidence);
+            Assert.True(exact.Score - loose.Score >= 200, $"Expected strong copy identity margin; exact={exact.Score}, loose={loose.Score}");
+            Assert.Contains(exact.Evidence, item => item.Contains("confirms the same project copy", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static QuizHistorySummary History(
         int id,
         string title,
