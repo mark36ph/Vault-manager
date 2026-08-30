@@ -5,6 +5,7 @@ import { handleSiteUserProvisionAdmin } from "./site-user-provision-admin.js";
 import { handleSiteAdAdmin } from "./site-ad-admin.js";
 import { handleSiteAccessAdmin } from "./site-access-admin.js";
 import { handleSiteQuestionReportAdmin } from "./site-question-report-admin.js";
+import { handleSiteCommentAdmin } from "./site-comment-admin.js";
 
 export default {
   async fetch(request, env, context) {
@@ -18,6 +19,9 @@ export default {
 
         const adResponse = await handleSiteAdAdmin(request, env, url);
         if (adResponse) return adResponse;
+
+        const commentResponse = await handleSiteCommentAdmin(request, env, url);
+        if (commentResponse) return commentResponse;
 
         const reportResponse = await handleSiteQuestionReportAdmin(request, env, url);
         if (reportResponse) return reportResponse;
@@ -47,6 +51,8 @@ export default {
 function isSiteAdminRoute(pathname) {
   return pathname === "/api/site/ads" ||
     pathname === "/api/site/settings" ||
+    pathname === "/api/site/comments" ||
+    pathname.startsWith("/api/site/comments/") ||
     pathname === "/api/site/question-reports" ||
     pathname.startsWith("/api/site/question-reports/") ||
     pathname === "/api/site/users" ||
