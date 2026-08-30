@@ -2,6 +2,7 @@ using Microsoft.Win32;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Threading;
 
 namespace FactVaultManager.Desktop;
@@ -18,6 +19,11 @@ public partial class MainShellWindow
             typeof(MainShellWindow),
             FrameworkElement.LoadedEvent,
             new RoutedEventHandler(QuizBulkImportWindow_Loaded));
+        EventManager.RegisterClassHandler(
+            typeof(MainShellWindow),
+            Selector.SelectionChangedEvent,
+            new SelectionChangedEventHandler(QuizBulkImportSelectionChanged),
+            handledEventsToo: true);
         return true;
     }
 
@@ -27,6 +33,16 @@ public partial class MainShellWindow
         {
             window.Dispatcher.BeginInvoke(
                 DispatcherPriority.ContextIdle,
+                new Action(window.ConfigureQuizBulkImporter));
+        }
+    }
+
+    private static void QuizBulkImportSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is MainShellWindow window && !window._quizBulkImporterConfigured)
+        {
+            window.Dispatcher.BeginInvoke(
+                DispatcherPriority.Loaded,
                 new Action(window.ConfigureQuizBulkImporter));
         }
     }
