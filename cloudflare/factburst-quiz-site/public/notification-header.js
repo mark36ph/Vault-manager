@@ -5,43 +5,6 @@
 
   let memoryConsent = "";
 
-  function installSharedStyles() {
-    if (!document.querySelector('link[href="/legal-shell.css"]')) {
-      const link = document.createElement("link");
-      link.rel = "stylesheet";
-      link.href = "/legal-shell.css";
-      document.head.append(link);
-    }
-
-    if (document.querySelector("#factburst-page-nav-styles")) return;
-    const style = document.createElement("style");
-    style.id = "factburst-page-nav-styles";
-    style.textContent = `
-      .top-nav a[aria-current="page"] {
-        color: #fff;
-        background: rgba(53, 199, 255, 0.10);
-        border-color: rgba(53, 199, 255, 0.18);
-      }
-      @media (max-width: 420px) {
-        .site-header { flex-wrap: wrap !important; }
-        .top-nav {
-          order: 3 !important;
-          width: 100% !important;
-          flex: 1 0 100% !important;
-          justify-content: flex-start !important;
-          overflow-x: auto !important;
-        }
-        .top-nav a {
-          display: inline-flex !important;
-          flex: 0 0 auto;
-          font-size: 12px !important;
-          padding: 6px 8px !important;
-        }
-      }
-    `;
-    document.head.append(style);
-  }
-
   function prepareNavigation() {
     const nav = document.querySelector(".top-nav");
     if (!nav) return false;
@@ -53,15 +16,6 @@
       link.removeAttribute("aria-current");
       const linkPath = new URL(link.href, location.origin).pathname.replace(/\/+$/, "") || "/";
       if (linkPath === activePath) link.setAttribute("aria-current", "page");
-    }
-
-    const hasEngagement = Boolean(document.querySelector('script[src="/engagement.js"]'));
-    if (hasEngagement && !nav.querySelector("#notification-button") && !nav.querySelector(".notification-button-placeholder")) {
-      const placeholder = document.createElement("span");
-      placeholder.className = "notification-button-placeholder";
-      placeholder.setAttribute("aria-hidden", "true");
-      placeholder.style.cssText = "display:inline-block;width:42px;height:38px;flex:0 0 42px";
-      nav.append(placeholder);
     }
 
     const profilePlay = document.querySelector('.profile-actions a[href="/#browse"]');
@@ -76,9 +30,10 @@
 
   function placeNotificationUi() {
     const nav = document.querySelector(".top-nav");
+    const slot = nav?.querySelector(".notification-slot");
     const button = document.querySelector("#notification-button");
     const panel = document.querySelector("#notification-panel");
-    if (!nav || !button) return false;
+    if (!nav || !slot || !button) return false;
 
     button.classList.add("notification-button-header");
     if (!button.querySelector(".notification-button-label")) {
@@ -88,12 +43,8 @@
       button.replaceChildren(document.createTextNode("🔔 "), label);
     }
 
-    if (button.parentElement !== nav) {
-      const placeholder = nav.querySelector(".notification-button-placeholder");
-      if (placeholder) placeholder.replaceWith(button);
-      else nav.append(button);
-    }
-
+    slot.removeAttribute("aria-hidden");
+    if (button.parentElement !== slot) slot.replaceChildren(button);
     if (panel) panel.classList.add("notification-panel-header");
     return true;
   }
@@ -125,78 +76,22 @@
     }
   }
 
-  function buildFooter() {
-    if (document.querySelector("#factburst-professional-footer")) return;
-
-    const footer = document.createElement("footer");
-    footer.id = "factburst-professional-footer";
-    footer.className = "site-footer professional-footer";
-
-    const inner = document.createElement("div");
-    inner.className = "shell professional-footer-grid";
-
-    const identity = document.createElement("div");
-    identity.className = "professional-footer-brand";
-    const brand = document.createElement("a");
-    brand.href = "/";
-    brand.className = "professional-footer-brand-link";
-    brand.textContent = "Factburst Quiz";
-    const strapline = document.createElement("p");
-    strapline.textContent = "Fast questions. Factual answers.";
-    identity.append(brand, strapline);
-
-    const explore = document.createElement("nav");
-    explore.className = "professional-footer-links";
-    explore.setAttribute("aria-label", "Explore Factburst");
-    const exploreTitle = document.createElement("strong");
-    exploreTitle.textContent = "Explore";
-    explore.append(
-      exploreTitle,
-      footerLink("Home", "/"),
-      footerLink("Quizzes", "/quizzes.html"),
-      footerLink("Leaderboard", "/leaderboard.html"),
-      footerLink("Profile", "/profile.html"),
-    );
-
-    const legal = document.createElement("nav");
-    legal.className = "professional-footer-links";
-    legal.setAttribute("aria-label", "Legal and privacy");
-    const legalTitle = document.createElement("strong");
-    legalTitle.textContent = "Legal";
-    const cookieSettings = document.createElement("button");
-    cookieSettings.type = "button";
-    cookieSettings.className = "footer-link-button";
-    cookieSettings.textContent = "Cookie settings";
-    cookieSettings.addEventListener("click", () => showCookieBanner(true));
-    legal.append(
-      legalTitle,
-      footerLink("Terms of use", "/terms.html"),
-      footerLink("Privacy notice", "/privacy.html"),
-      cookieSettings,
-    );
-
-    inner.append(identity, explore, legal);
-
-    const bottom = document.createElement("div");
-    bottom.className = "shell professional-footer-bottom";
-    const copyright = document.createElement("span");
-    copyright.textContent = `© ${new Date().getFullYear()} Factburst Quiz`;
-    const note = document.createElement("span");
-    note.textContent = "Quiz content is provided for entertainment and general information.";
-    bottom.append(copyright, note);
-
-    footer.append(inner, bottom);
-
-    const existing = document.querySelector(".site-footer");
-    if (existing) existing.replaceWith(footer);
-    else document.body.append(footer);
-  }
-
   function footerLink(label, href) {
     const link = document.createElement("a");
     link.href = href;
     link.textContent = label;
     return link;
+  }
+
+  function bindStaticFooter() {
+    const year = document.querySelector("[data-footer-year]");
+    if (year) year.textContent = String(new Date().getFullYear());
+
+    for (const button of document.querySelectorAll("[data-cookie-settings]")) {
+      if (button.dataset.cookieBound === "1") continue;
+      button.dataset.cookieBound = "1";
+      button.addEventListener("click", () => showCookieBanner(true));
+    }
   }
 
   function buildCookieBanner() {
@@ -250,9 +145,8 @@
   }
 
   function initializeSharedShell() {
-    installSharedStyles();
     prepareNavigation();
-    buildFooter();
+    bindStaticFooter();
     buildCookieBanner();
     showCookieBanner();
 
