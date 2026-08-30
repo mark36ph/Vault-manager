@@ -1,16 +1,15 @@
 {
-  "latest_version": "1.0.66",
-  "build": 91,
+  "latest_version": "1.0.67",
+  "build": 92,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 91 adds a Diagnostics tab to Quiz Archive Audit so archive relinking and database persistence can be checked without changing any files.",
-    "Ambiguous archive folders now show the exact competing Quiz History IDs, scores, current paths, and any competing Z: folders for the suggested History record.",
-    "Diagnostics shows the primary SQLite database path, runtime/data roots, database size and modified time, plus any alternate factvault.db candidates visible to the app.",
-    "Stored Z: paths and currently existing Z: paths are reported separately so a database rollback can be distinguished from a temporarily unavailable archive path or drive.",
-    "From Build 91 onward, successful Relink selected operations are also journaled outside SQLite; future diagnostics explicitly flag a History ID if its stored path later differs from the confirmed relink or if the app is using a different database path.",
-    "The Diagnostics tab includes Refresh diagnostics and Copy diagnostics; diagnostics are read-only and relinking still changes Quiz History database paths only.",
-    "Build 90 made Match archive faster with cached folder fingerprints and stronger same-folder/same-file copy identity matching.",
-    "Build 89 keeps Quiz Archive Audit open and refreshes it in place after each selected relink.",
-    "No archive diagnostic or relink action copies, moves, renames, overwrites, or deletes existing Z: files."
+    "Build 92 adds Archive completed C to Quiz History for safely moving every fully-uploaded C: quiz project into Z:\\FactVaultManager\\Quizzes.",
+    "The bulk preview separates ready projects from quizzes that still have required uploads outstanding; upload-incomplete projects stay on C: and are not changed.",
+    "If an existing Z: project has the complete same relative file list and every file size matches, Factburst reuses that verified copy, updates Quiz History, and only then removes the redundant C: folder.",
+    "If no fully identical Z: copy can be verified, Factburst creates a new copy, verifies it, updates Quiz History, and only then removes the C: source.",
+    "Existing Z: folders are never overwritten or deleted; name collisions automatically use archived-copy NNN destinations.",
+    "Projects referenced by multiple Quiz History rows are safety-skipped, and each project is rechecked for upload completion and path changes immediately before archiving.",
+    "Successful bulk archive path changes are added to the independent archive relink journal so Diagnostics can detect a later database/path rollback.",
+    "Build 91 added archive/database Diagnostics, and Build 90 added faster cached archive matching."
   ]
 }
