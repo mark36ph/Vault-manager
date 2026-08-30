@@ -1,14 +1,16 @@
 {
-  "latest_version": "1.0.65",
-  "build": 90,
+  "latest_version": "1.0.66",
+  "build": 91,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 90 makes Match archive faster by fingerprinting each project folder once per scan and caching verified folder fingerprints for repeated in-window rescans.",
-    "The matcher now walks project files once for file-size and JSON evidence instead of separately re-enumerating the same folder tree.",
-    "Exact stored folder name plus at least five same relative files with identical sizes now acts as a strong copy-identity anchor, outranking looser same-series/title candidates and resolving false ambiguities.",
-    "The stronger copy-identity rule keeps the same safety model: only one-to-one Exact/High matches become confident relink candidates, and genuine competing copies remain ambiguous.",
-    "Build 89 keeps the Quiz Archive Audit open and refreshes it in place after each relink.",
-    "Relinking changes Quiz History database paths only; existing C: folders remain untouched and no archive files are copied, moved, renamed, overwritten, or deleted.",
-    "Build 83 changes Full and Marathon quizzes to a 5-second default and adds safe post-upload archiving."
+    "Build 91 adds a Diagnostics tab to Quiz Archive Audit so archive relinking and database persistence can be checked without changing any files.",
+    "Ambiguous archive folders now show the exact competing Quiz History IDs, scores, current paths, and any competing Z: folders for the suggested History record.",
+    "Diagnostics shows the primary SQLite database path, runtime/data roots, database size and modified time, plus any alternate factvault.db candidates visible to the app.",
+    "Stored Z: paths and currently existing Z: paths are reported separately so a database rollback can be distinguished from a temporarily unavailable archive path or drive.",
+    "From Build 91 onward, successful Relink selected operations are also journaled outside SQLite; future diagnostics explicitly flag a History ID if its stored path later differs from the confirmed relink or if the app is using a different database path.",
+    "The Diagnostics tab includes Refresh diagnostics and Copy diagnostics; diagnostics are read-only and relinking still changes Quiz History database paths only.",
+    "Build 90 made Match archive faster with cached folder fingerprints and stronger same-folder/same-file copy identity matching.",
+    "Build 89 keeps Quiz Archive Audit open and refreshes it in place after each selected relink.",
+    "No archive diagnostic or relink action copies, moves, renames, overwrites, or deletes existing Z: files."
   ]
 }
