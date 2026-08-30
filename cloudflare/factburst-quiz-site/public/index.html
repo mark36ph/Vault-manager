@@ -21,7 +21,7 @@
 <body data-page="home" data-layout="landing">
   <header class="site-header">
     <a class="brand" href="/" aria-label="Factburst Quiz home">
-      <span class="brand-mark"><img src="/favicon.ico" alt=""></span>
+      <span class="brand-mark"><img src="/brand-icon.png" alt=""></span>
       <span>Factburst Quiz</span>
     </a>
     <nav class="top-nav" aria-label="Main navigation">
@@ -58,9 +58,7 @@
           <h2>Play the newest quiz</h2>
         </div>
       </div>
-      <div id="latest-card" class="quiz-feature loading-card" aria-live="polite">
-        <p>Loading the latest quiz…</p>
-      </div>
+      <div id="latest-card" class="latest-card"></div>
     </section>
 
     <section class="shell section" id="more-quizzes">
@@ -70,23 +68,13 @@
           <h2>Recent quizzes</h2>
         </div>
       </div>
-      <div id="home-more-grid" class="quiz-grid" aria-live="polite"></div>
-      <div id="home-more-empty" class="empty-state hidden">
-        <h3>No more quizzes yet</h3>
-        <p>New Factburst quizzes will appear here as they are published.</p>
-      </div>
-      <div class="home-more-actions">
+      <div id="home-more-grid" class="quiz-grid"></div>
+      <div id="home-more-empty" class="empty-state hidden">No more quizzes are live yet.</div>
+      <div class="section-actions page-cta-row">
         <a class="button button-secondary" href="/quizzes.html">View all quizzes →</a>
       </div>
     </section>
   </main>
-
-  <footer class="site-footer">
-    <div class="shell footer-inner">
-      <span>Factburst Quiz</span>
-      <span>Fast questions. Factual answers.</span>
-    </div>
-  </footer>
 
   <script src="/site-status.js"></script>
   <script src="/engagement.js"></script>
