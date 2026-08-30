@@ -34,6 +34,34 @@ public sealed class QuizNasStorageTests
     }
 
     [Fact]
+    public void Archive_WhenBackupAlreadyExists_UsesUniqueFolderWithoutOverwritingBackup()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"quiz-nas-existing-{Guid.NewGuid():N}");
+        var projects = Path.Combine(root, "local-projects");
+        var archive = Path.Combine(root, "nas-archive");
+        var source = Path.Combine(projects, "Quizzes", "General Knowledge - Full - 001");
+        var existing = Path.Combine(archive, "Quizzes", "General Knowledge - Full - 001");
+        try
+        {
+            Directory.CreateDirectory(source);
+            Directory.CreateDirectory(existing);
+            File.WriteAllText(Path.Combine(source, "new.txt"), "new local project");
+            File.WriteAllText(Path.Combine(existing, "backup.txt"), "existing backup");
+
+            var destination = QuizProjectArchive.CopyAndVerify(source, projects, archive);
+
+            Assert.Equal(existing + " - archived-copy 001", destination);
+            Assert.Equal("existing backup", File.ReadAllText(Path.Combine(existing, "backup.txt")));
+            Assert.Equal("new local project", File.ReadAllText(Path.Combine(destination, "new.txt")));
+            Assert.True(Directory.Exists(source));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Publish_CopiesCompletedPackageAndRebasesAllRecordedPaths()
     {
         var root = Path.Combine(Path.GetTempPath(), $"quiz-nas-publish-{Guid.NewGuid():N}");
