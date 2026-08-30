@@ -1,8 +1,10 @@
 {
-  "latest_version": "1.0.54",
-  "build": 79,
+  "latest_version": "1.0.55",
+  "build": 80,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
+    "Build 80 preserves Logo quiz artwork for promotional Shorts instead of allowing the promo renderer to fall back to a text-only quiz when image metadata is missing.",
+    "Existing and newly rendered Logo quiz projects are repaired automatically: Factburst reuses cached Simple Icons artwork or retrieves it again when needed, copies it into the quiz project and records a portable relative image path for each question.",
     "Build 79 turns the schedule Auto-fill option into a clear master AUTOPILOT ON/OFF switch for continuous production while the app is running.",
     "With Autopilot ON, Factburst checks the rolling schedule every five minutes, automatically starts the existing tested quiz generation and scheduling pipeline whenever even one target day is missing, and keeps the configured 7, 14, 21 or 30 day buffer filled.",
     "The same master switch starts and stops Full Autopilot post-release supervision, including release audits, winner follow-ups, comment triage and other API-supported promotion work; enabling it runs an immediate supervision pass.",
