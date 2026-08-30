@@ -1,8 +1,10 @@
 {
-  "latest_version": "1.0.51",
-  "build": 76,
+  "latest_version": "1.0.52",
+  "build": 77,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
+    "Build 77 adds a dedicated Comment moderation page to the desktop app Settings, with Reported, Visible, Hidden and All queues plus search across comments, users and quizzes.",
+    "Website administrators can hide, restore, dismiss reports, safely delete comments and open the affected quiz directly from the app; the secured tracker admin API uses the website's existing comment/report data.",
     "Build 76 keeps the visible Autopilot Needs You cards synchronized with the aligned task list even if an older home refresh temporarily writes stale counts.",
     "If the home panel shows a stale Related Video count such as 14 while Needs You is 9, the sync now detects the rendered title mismatch and repairs it without returning to the one-second button flashing fixed in Build 75.",
     "Build 75 stops the Autopilot Needs You panel from rebuilding its buttons every second when the task counts have not changed.",
