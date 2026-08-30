@@ -224,7 +224,7 @@ public partial class MainShellWindow
             await Task.Delay(250);
             try
             {
-                var histories = await Task.Run(owner._data.GetQuizHistory);
+                var histories = await Task.Run(() => owner._data.GetQuizHistory());
                 var current = histories.FirstOrDefault(item => item.Id == request.HistoryId)?.ProjectFolder ?? "";
                 if (!PathsEqualForDiagnostic(current, request.ArchiveFolder))
                     continue;
@@ -247,13 +247,13 @@ public partial class MainShellWindow
             return false;
         var tabs = root.Children.OfType<TabControl>().FirstOrDefault();
         if (tabs?.Items.Count < 1 || tabs.Items[0] is not TabItem { Content: DataGrid grid } ||
-            grid.SelectedItem is not QuizArchiveFolderAudit selected || !selected.HasSuggestion)
+            grid.SelectedItem is not QuizArchiveFolderAudit selected || !selected.HasSuggestion || !selected.HistoryId.HasValue)
         {
             return false;
         }
 
         request = new QuizArchiveRelinkRequest(
-            selected.HistoryId!.Value,
+            selected.HistoryId.GetValueOrDefault(),
             selected.HistoryLabel,
             selected.CurrentFolder,
             selected.ArchiveFolder,
