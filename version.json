@@ -1,15 +1,15 @@
 {
-  "latest_version": "1.0.60",
-  "build": 85,
+  "latest_version": "1.0.61",
+  "build": 86,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 85 adds Match archive to Quiz History. It scans the configured Z: archive and reconnects missing Quiz History paths to existing quiz folders without moving, renaming, overwriting or deleting files.",
-    "Archive matching reuses Factburst's quiz/video matching rules, requires a unique one-to-one match, and leaves ambiguous or unmatched entries unchanged for review.",
-    "The matcher previews archive-folder, already-linked, existing-local-path, ready, ambiguous and unmatched counts before any database paths are updated.",
-    "Build 84 adds Archive selected to Quiz History so an already-completed quiz can be safely moved from the local Projects folder to the configured archive without forcing a re-upload.",
-    "Build 83 changes the Full and Marathon quiz defaults from 8 seconds to 5 seconds per question; Shorts remains at 3 seconds.",
-    "Completed quiz projects can be archived automatically after all required uploads finish using copy, verification, Quiz History path update and local cleanup.",
-    "NAS archiving is collision-safe: existing backup folders are preserved and a unique archive destination is used instead of overwriting them.",
+    "Build 86 fixes the Quiz History archive-action visibility bug by recognising the page's Border-wrapped Grid layout.",
+    "Match archive and Archive selected now appear reliably in the Quiz History footer before Delete.",
+    "Match archive still updates Quiz History paths only and never moves, renames, overwrites or deletes archive files.",
+    "Archive selected still uses the safe copy, verify, Quiz History update and local cleanup workflow and only allows fully-uploaded quizzes.",
+    "Build 85 adds conservative one-to-one matching for existing quiz folders in the configured archive.",
+    "Build 84 adds manual archiving for already-completed quizzes without requiring a re-upload.",
+    "Build 83 changes Full and Marathon quizzes to a 5-second default and adds automatic post-upload archiving.",
     "Build 82 fixes the Questions importer UI and Build 81 adds Open Trivia DB JSON importing with preview, category mapping and duplicate handling."
   ]
 }
