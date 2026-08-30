@@ -59,7 +59,9 @@
           <h2>Play the newest quiz</h2>
         </div>
       </div>
-      <div id="latest-card" class="latest-card"></div>
+      <div id="latest-card" class="quiz-feature loading-card" aria-live="polite">
+        <p>Loading the latest quiz…</p>
+      </div>
     </section>
 
     <section class="shell section" id="more-quizzes">
@@ -69,13 +71,23 @@
           <h2>Recent quizzes</h2>
         </div>
       </div>
-      <div id="home-more-grid" class="quiz-grid"></div>
-      <div id="home-more-empty" class="empty-state hidden">No more quizzes are live yet.</div>
-      <div class="section-actions page-cta-row">
+      <div id="home-more-grid" class="quiz-grid" aria-live="polite"></div>
+      <div id="home-more-empty" class="empty-state hidden">
+        <h3>No more quizzes yet</h3>
+        <p>New Factburst quizzes will appear here as they are published.</p>
+      </div>
+      <div class="home-more-actions">
         <a class="button button-secondary" href="/quizzes.html">View all quizzes →</a>
       </div>
     </section>
   </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner">
+      <span>Factburst Quiz</span>
+      <span>Fast questions. Factual answers.</span>
+    </div>
+  </footer>
 
   <script src="/site-status.js"></script>
   <script src="/engagement.js"></script>
