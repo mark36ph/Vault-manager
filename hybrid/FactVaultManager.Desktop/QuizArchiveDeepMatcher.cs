@@ -38,6 +38,16 @@ public static class QuizArchiveDeepMatcher
         @"#\s*(?<episode>\d{1,3})(?!\d)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    private sealed record FingerprintCacheEntry(
+        DateTime RootWriteUtc,
+        DateTime CachedUtc,
+        QuizArchiveFolderFingerprint Fingerprint);
+
+    private static readonly object FingerprintCacheLock = new();
+    private static readonly Dictionary<string, FingerprintCacheEntry> FingerprintCache =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    private static readonly TimeSpan FingerprintCacheLifetime = TimeSpan.FromMinutes(10);
     private const int MaxFingerprintFiles = 350;
     private const int MaxJsonFiles = 12;
     private const long MaxJsonBytes = 512 * 1024;
@@ -52,17 +62,43 @@ public static class QuizArchiveDeepMatcher
         if (!Directory.Exists(fullFolder))
             throw new DirectoryNotFoundException($"Project folder was not found: {fullFolder}");
 
+        var rootWriteUtc = Directory.GetLastWriteTimeUtc(fullFolder);
+        lock (FingerprintCacheLock)
+        {
+            if (FingerprintCache.TryGetValue(fullFolder, out var cached) &&
+                cached.RootWriteUtc == rootWriteUtc &&
+                DateTime.UtcNow - cached.CachedUtc <= FingerprintCacheLifetime)
+            {
+                return cached.Fingerprint;
+            }
+        }
+
         var folderName = Path.GetFileName(fullFolder.TrimEnd(
             Path.DirectorySeparatorChar,
             Path.AltDirectorySeparatorChar));
         var normalizedFolderName = Normalize(folderName);
-        var files = BuildFileMap(fullFolder);
+
+        // Walk the folder only once for file-name/size and JSON evidence. The previous matcher
+        // walked the same tree separately for each evidence type, which was especially costly on Z:.
+        var sampledFiles = EnumerateFilesSafely(fullFolder)
+            .Take(MaxFingerprintFiles)
+            .ToList();
+        var files = BuildFileMap(fullFolder, sampledFiles);
         var searchable = new StringBuilder(folderName);
-        foreach (var relative in files.Keys.Take(MaxFingerprintFiles))
+        foreach (var relative in files.Keys)
             searchable.Append(' ').Append(relative);
 
-        foreach (var jsonPath in EnumerateJsonFilesSafely(fullFolder).Take(MaxJsonFiles))
+        foreach (var jsonPath in sampledFiles
+                     .Where(path => string.Equals(Path.GetExtension(path), ".json", StringComparison.OrdinalIgnoreCase))
+                     .OrderBy(path => string.Equals(
+                         Path.GetFileName(path),
+                         NativeProjectTimelineStore.TimelineFilename,
+                         StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+                     .ThenBy(path => path, StringComparer.OrdinalIgnoreCase)
+                     .Take(MaxJsonFiles))
+        {
             AppendJsonSearchText(jsonPath, searchable);
+        }
 
         string renderedVideo = "";
         try
@@ -74,7 +110,7 @@ public static class QuizArchiveDeepMatcher
             renderedVideo = "";
         }
 
-        return new QuizArchiveFolderFingerprint(
+        var fingerprint = new QuizArchiveFolderFingerprint(
             fullFolder,
             folderName,
             normalizedFolderName,
@@ -84,6 +120,24 @@ public static class QuizArchiveDeepMatcher
             Normalize(searchable.ToString()),
             files,
             renderedVideo);
+
+        lock (FingerprintCacheLock)
+        {
+            FingerprintCache[fullFolder] = new FingerprintCacheEntry(rootWriteUtc, DateTime.UtcNow, fingerprint);
+            if (FingerprintCache.Count > 256)
+            {
+                var expiry = DateTime.UtcNow - FingerprintCacheLifetime;
+                foreach (var key in FingerprintCache
+                             .Where(pair => pair.Value.CachedUtc < expiry)
+                             .Select(pair => pair.Key)
+                             .ToList())
+                {
+                    FingerprintCache.Remove(key);
+                }
+            }
+        }
+
+        return fingerprint;
     }
 
     public static QuizArchiveDeepCandidate Evaluate(
@@ -99,6 +153,7 @@ public static class QuizArchiveDeepMatcher
         var evidence = new List<string>();
         var score = 0;
         var exactAnchor = false;
+        var storedFolderExact = false;
         var historyShort = string.Equals(history.VideoType, "Short", StringComparison.Ordinal);
 
         // Exported quiz folders deliberately contain "Short" for vertical videos. A type mismatch
@@ -125,6 +180,7 @@ public static class QuizArchiveDeepMatcher
             {
                 score += 190;
                 exactAnchor = true;
+                storedFolderExact = true;
                 evidence.Add("stored project folder name is an exact match");
             }
             else if (string.Equals(CanonicalProjectIdentity(storedFolderName), archive.CanonicalFolderName, StringComparison.Ordinal))
@@ -217,6 +273,16 @@ public static class QuizArchiveDeepMatcher
                 score += 105;
                 exactAnchor = exactAnchor || folderIdentityMatched;
                 evidence.Add($"{overlap} same relative files have identical sizes in the current and Z: copies");
+
+                // An exact stored folder name plus a real file fingerprint is much stronger than a
+                // second history row that merely shares the same broad series/title. This is the
+                // distinguishing evidence for the remaining C: -> Z: backup ambiguities.
+                if (storedFolderExact)
+                {
+                    score += 260;
+                    exactAnchor = true;
+                    evidence.Add("exact folder name + matching file fingerprint confirms the same project copy");
+                }
             }
             else if (overlap >= 2)
             {
@@ -282,10 +348,10 @@ public static class QuizArchiveDeepMatcher
             .ToList();
     }
 
-    private static IReadOnlyDictionary<string, long> BuildFileMap(string root)
+    private static IReadOnlyDictionary<string, long> BuildFileMap(string root, IReadOnlyList<string> sampledFiles)
     {
         var result = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
-        foreach (var path in EnumerateFilesSafely(root).Take(MaxFingerprintFiles))
+        foreach (var path in sampledFiles)
         {
             try
             {
@@ -336,12 +402,6 @@ public static class QuizArchiveDeepMatcher
                 pending.Push(folder);
         }
     }
-
-    private static IEnumerable<string> EnumerateJsonFilesSafely(string root) =>
-        EnumerateFilesSafely(root)
-            .Where(path => string.Equals(Path.GetExtension(path), ".json", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(path => string.Equals(Path.GetFileName(path), NativeProjectTimelineStore.TimelineFilename, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
-            .ThenBy(path => path, StringComparer.OrdinalIgnoreCase);
 
     private static void AppendJsonSearchText(string path, StringBuilder searchable)
     {
