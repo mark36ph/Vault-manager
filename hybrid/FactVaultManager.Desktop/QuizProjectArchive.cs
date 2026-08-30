@@ -63,6 +63,28 @@ public static class QuizProjectArchive
                leftFiles.All(pair => rightFiles.TryGetValue(pair.Key, out var length) && length == pair.Value);
     }
 
+    public static bool FileMapsHaveStrongCopyIdentity(
+        IReadOnlyDictionary<string, long> leftFiles,
+        IReadOnlyDictionary<string, long> rightFiles)
+    {
+        ArgumentNullException.ThrowIfNull(leftFiles);
+        ArgumentNullException.ThrowIfNull(rightFiles);
+
+        if (leftFiles.Count < 5 || rightFiles.Count != leftFiles.Count)
+            return false;
+
+        // Rebased archive copies must retain the complete relative path set. A small number of
+        // project/metadata files may change byte length after Resolve/native portable-path rebasing,
+        // so require at least 80% of all files (minimum five) to retain identical sizes.
+        if (leftFiles.Keys.Any(path => !rightFiles.ContainsKey(path)))
+            return false;
+
+        var sameSize = leftFiles.Count(pair =>
+            rightFiles.TryGetValue(pair.Key, out var length) && length == pair.Value);
+        var minimumSameSize = Math.Max(5, (int)Math.Ceiling(leftFiles.Count * 0.80));
+        return sameSize >= minimumSameSize;
+    }
+
     public static void DeleteSource(string sourceFolder)
     {
         foreach (var file in Directory.EnumerateFiles(sourceFolder, "*", SearchOption.AllDirectories))
