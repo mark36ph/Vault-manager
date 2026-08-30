@@ -3,13 +3,13 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class QuizBuilderModePresetTests
 {
     [Fact]
-    public void Full_UsesTenQuestionsEightSecondsAndLandscape()
+    public void Full_UsesTenQuestionsFiveSecondsAndLandscape()
     {
         var preset = QuizBuilderModePresets.Full;
 
         Assert.Equal("Full", preset.Name);
         Assert.Equal(10, preset.QuestionCount);
-        Assert.Equal(8, preset.SecondsPerQuestion);
+        Assert.Equal(5, preset.SecondsPerQuestion);
         Assert.False(preset.Vertical);
         Assert.Null(preset.Difficulty);
         Assert.False(preset.IsMarathon);
@@ -24,7 +24,7 @@ public sealed class QuizBuilderModePresetTests
         var preset = QuizBuilderModePresets.All.Single(item => item.Name == name);
 
         Assert.Equal(count, preset.QuestionCount);
-        Assert.Equal(8, preset.SecondsPerQuestion);
+        Assert.Equal(5, preset.SecondsPerQuestion);
         Assert.False(preset.Vertical);
         Assert.Null(preset.Difficulty);
         Assert.True(preset.IsMarathon);
