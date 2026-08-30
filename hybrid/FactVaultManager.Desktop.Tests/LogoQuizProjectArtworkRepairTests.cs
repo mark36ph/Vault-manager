@@ -5,7 +5,7 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class LogoQuizProjectArtworkRepairTests
 {
     [Fact]
-    public void RepairAvailableArtwork_PersistsLogoAndImagePathInsideProject()
+    public void RepairAvailableArtwork_PersistsLogoAndPromoLoaderKeepsLogoMode()
     {
         var root = Path.Combine(Path.GetTempPath(), $"logo-promo-repair-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
@@ -42,6 +42,11 @@ public sealed class LogoQuizProjectArtworkRepairTests
             Assert.False(Path.IsPathRooted(imagePath));
             Assert.StartsWith("Assets/QuestionImages/", imagePath, StringComparison.Ordinal);
             Assert.True(File.Exists(Path.Combine(root, imagePath.Replace('/', Path.DirectorySeparatorChar))));
+
+            var promo = QuizPromoNativeShortRenderer.LoadVisualSource(root, "Fallback", "", questionId: 42);
+            Assert.Equal(QuizTypeCatalog.Logo, promo.Visual.QuizType);
+            Assert.False(string.IsNullOrWhiteSpace(promo.Question.ImagePath));
+            Assert.True(File.Exists(promo.Question.ImagePath));
         }
         finally
         {
