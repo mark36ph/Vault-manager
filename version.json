@@ -1,15 +1,15 @@
 {
-  "latest_version": "1.0.67",
-  "build": 92,
+  "latest_version": "1.0.68",
+  "build": 93,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 92 adds Archive completed C to Quiz History for safely moving every fully-uploaded C: quiz project into Z:\\FactVaultManager\\Quizzes.",
-    "The bulk preview separates ready projects from quizzes that still have required uploads outstanding; upload-incomplete projects stay on C: and are not changed.",
-    "If an existing Z: project has the complete same relative file list and every file size matches, Factburst reuses that verified copy, updates Quiz History, and only then removes the redundant C: folder.",
-    "If no fully identical Z: copy can be verified, Factburst creates a new copy, verifies it, updates Quiz History, and only then removes the C: source.",
-    "Existing Z: folders are never overwritten or deleted; name collisions automatically use archived-copy NNN destinations.",
-    "Projects referenced by multiple Quiz History rows are safety-skipped, and each project is rechecked for upload completion and path changes immediately before archiving.",
-    "Successful bulk archive path changes are added to the independent archive relink journal so Diagnostics can detect a later database/path rollback.",
-    "Build 91 added archive/database Diagnostics, and Build 90 added faster cached archive matching."
+    "Build 93 improves Archive completed C so existing Z: copies that were safely rebased after archiving can be reused instead of creating unnecessary archived-copy duplicates.",
+    "A reusable existing Z: copy must have the exact same project-folder name and the complete same set of relative file paths as the C: project.",
+    "At least 80% of all files, with a minimum of five, must still have identical sizes; this tolerates a small number of Resolve/native metadata files changing size after portable-path rebasing while keeping the identity check strict.",
+    "The strong copy identity is verified again immediately before Quiz History is updated and before the C: folder is removed.",
+    "If that verification fails, Factburst keeps the C: project and uses the collision-safe new-copy path instead of trusting the existing Z: folder.",
+    "Existing Z: folders are still never overwritten or deleted; new archive collisions continue to use archived-copy NNN destinations.",
+    "The full desktop test suite includes regression coverage for rebased metadata size changes and rejects archives whose relative file set differs.",
+    "Build 92 added Archive completed C, Build 91 added archive/database Diagnostics, and Build 90 added faster cached archive matching."
   ]
 }
