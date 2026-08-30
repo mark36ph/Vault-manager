@@ -25,8 +25,10 @@
       <span>Factburst Quiz</span>
     </a>
     <nav class="top-nav" aria-label="Main navigation">
-      <a href="/">All quizzes</a>
-      <a href="/#leaderboard">Overall leaderboard</a>
+      <a href="/">Home</a>
+      <a href="/quizzes.html" aria-current="page">Quizzes</a>
+      <a href="/leaderboard.html">Leaderboard</a>
+      <a href="/profile.html">Profile</a>
     </nav>
   </header>
 
@@ -69,14 +71,14 @@
         <div class="result-actions">
           <a id="watch-video" class="button button-primary hidden" target="_blank" rel="noopener noreferrer">Watch the full quiz</a>
           <button id="share-score" class="button button-secondary" type="button">Share score</button>
-          <a class="button button-secondary" href="/">Play another quiz</a>
+          <a class="button button-secondary" href="/quizzes.html">Play another quiz</a>
         </div>
       </section>
 
       <section id="quiz-error" class="empty-state hidden">
         <h1>Quiz unavailable</h1>
         <p id="quiz-error-copy">This quiz could not be loaded.</p>
-        <a class="button button-primary" href="/">Back to quizzes</a>
+        <a class="button button-primary" href="/quizzes.html">Back to quizzes</a>
       </section>
 
       <section class="quiz-leaderboard-section" id="quiz-high-scores">
