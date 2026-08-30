@@ -1,14 +1,14 @@
 {
-  "latest_version": "1.0.62",
-  "build": 87,
+  "latest_version": "1.0.63",
+  "build": 88,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 87 expands Match archive into a detailed read-only Quiz Archive Audit.",
-    "The audit lists every unlinked Z: quiz folder, missing-path Quiz History records, ambiguous matches, and existing C:/other-path records that also have a unique confident Z: copy.",
-    "Existing C:/other paths are protected: the audit never replaces them automatically and does not move, rename, overwrite or delete files.",
-    "Only missing-path records with a unique one-to-one archive match can be explicitly relinked, with a second confirmation before the database path is changed.",
-    "Build 86 fixes the Quiz History archive-action visibility bug so Match archive and Archive selected appear reliably.",
-    "Build 83 changes Full and Marathon quizzes to a 5-second default and adds safe post-upload archiving.",
-    "Build 82 fixes the Questions importer UI and Build 81 adds Open Trivia DB JSON importing with preview, category mapping and duplicate handling."
+    "Build 88 upgrades Match archive with deep matching across folder names, series/title, explicit episode, Short/full format, rendered-video type, project JSON/timeline text, and matching file names/sizes.",
+    "Every unlinked Z: folder is classified as Exact, High, Possible, or No match with visible evidence in a new archive-folder grid.",
+    "Relink confident Z copies updates only unique one-to-one Exact/High Quiz History paths, including records that still point at an old C:/other backup folder.",
+    "Relink selected allows an individual suggested match to be explicitly approved after reviewing its confidence and evidence.",
+    "Relinking changes database paths only: existing C: folders remain untouched and no Z: files are copied, moved, renamed, overwritten, or deleted.",
+    "Build 87 added the detailed read-only Quiz Archive Audit; Build 86 fixed archive action visibility.",
+    "Build 83 changes Full and Marathon quizzes to a 5-second default and adds safe post-upload archiving."
   ]
 }
