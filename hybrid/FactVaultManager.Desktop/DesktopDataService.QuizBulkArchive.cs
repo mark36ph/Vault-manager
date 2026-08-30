@@ -135,29 +135,26 @@ public sealed partial class DesktopDataService
                 continue;
             }
 
-            var equivalent = archiveSnapshots
-                .Where(snapshot => BulkSnapshotsEquivalent(sourceSnapshot, snapshot))
+            // Native/Resolve portable-path rebasing can legitimately change the byte length of a
+            // small number of metadata/project files after a quiz was copied to Z:. Requiring every
+            // file length to remain identical therefore creates needless archived-copy duplicates.
+            // Reuse is still deliberately strict: exact project-folder name, identical complete
+            // relative path set, at least 80% of files retaining identical sizes, and no other
+            // Quiz History row may already own the Z: folder.
+            var sourceName = Path.GetFileName(source.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            var reusableMatches = archiveSnapshots
+                .Where(snapshot => string.Equals(Path.GetFileName(snapshot.Folder), sourceName, StringComparison.OrdinalIgnoreCase))
+                .Where(snapshot => BulkSnapshotsStrongCopyIdentity(sourceSnapshot, snapshot))
                 .Where(snapshot => !ArchiveFolderOwnedByAnotherHistory(snapshot.Folder, history.Id, archiveOwners))
                 .ToList();
 
-            var sourceName = Path.GetFileName(source.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            var sameName = equivalent
-                .Where(snapshot => string.Equals(Path.GetFileName(snapshot.Folder), sourceName, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
-            BulkArchiveFolderSnapshot? reusable = null;
-            if (sameName.Count == 1)
-                reusable = sameName[0];
-            else if (sameName.Count == 0 && equivalent.Count == 1)
-                reusable = equivalent[0];
-
-            if (reusable is not null)
+            if (reusableMatches.Count == 1)
             {
                 ready.Add(new QuizCompletedCArchiveItem(
                     history.Id,
                     label,
                     source,
-                    reusable.Folder,
+                    reusableMatches[0].Folder,
                     QuizCompletedCArchiveAction.ReuseVerifiedArchiveCopy));
             }
             else
@@ -251,8 +248,17 @@ public sealed partial class DesktopDataService
         if (ArchiveFolderOwnedByAnotherHistory(destination, history.Id, owners))
             throw new InvalidOperationException("Another Quiz History row now owns this Z: project folder.");
 
-        if (!QuizProjectArchive.AreDirectoriesEquivalent(history.ProjectFolder, destination))
-            throw new InvalidOperationException("The C: and Z: project folders are no longer identical, so the C: copy was kept.");
+        // Re-verify the strong copy identity immediately before the database update and C: delete.
+        // Do not rely on the preview result, which may be stale by the time the user confirms.
+        var sourceSnapshot = TryBuildBulkArchiveSnapshot(history.ProjectFolder);
+        var archiveSnapshot = TryBuildBulkArchiveSnapshot(destination);
+        if (sourceSnapshot is null || archiveSnapshot is null ||
+            !string.Equals(Path.GetFileName(sourceSnapshot.Folder), Path.GetFileName(archiveSnapshot.Folder), StringComparison.OrdinalIgnoreCase) ||
+            !BulkSnapshotsStrongCopyIdentity(sourceSnapshot, archiveSnapshot))
+        {
+            throw new InvalidOperationException(
+                "The C: and Z: project folders no longer have a strong verified copy identity, so the C: copy was kept.");
+        }
 
         var previous = history.ProjectFolder;
         if (!UpdateQuizHistoryProjectFolder(history.Id, destination))
@@ -278,7 +284,7 @@ public sealed partial class DesktopDataService
                 true,
                 true,
                 true,
-                "Verified existing Z: copy reused; Quiz History updated; C: copy removed.");
+                "Verified existing Z: project copy reused; Quiz History updated; C: copy removed.");
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
@@ -290,7 +296,7 @@ public sealed partial class DesktopDataService
                 true,
                 false,
                 true,
-                "The Z: copy was verified and Quiz History was updated, but the C: folder could not be removed: " + error.Message);
+                "The Z: project copy was verified and Quiz History was updated, but the C: folder could not be removed: " + error.Message);
         }
     }
 
@@ -406,6 +412,22 @@ public sealed partial class DesktopDataService
         return left.Files.Count == right.Files.Count &&
                left.TotalBytes == right.TotalBytes &&
                left.Files.All(pair => right.Files.TryGetValue(pair.Key, out var length) && length == pair.Value);
+    }
+
+    private static bool BulkSnapshotsStrongCopyIdentity(BulkArchiveFolderSnapshot left, BulkArchiveFolderSnapshot right)
+    {
+        if (left.Files.Count < 5 || right.Files.Count != left.Files.Count)
+            return false;
+
+        // Require the complete relative path set to be identical. Only lengths may differ, because
+        // archive-side Resolve/native rebasing can rewrite a small number of project metadata files.
+        if (left.Files.Keys.Any(path => !right.Files.ContainsKey(path)))
+            return false;
+
+        var sameSize = left.Files.Count(pair =>
+            right.Files.TryGetValue(pair.Key, out var length) && length == pair.Value);
+        var minimumSameSize = Math.Max(5, (int)Math.Ceiling(left.Files.Count * 0.80));
+        return sameSize >= minimumSameSize;
     }
 
     private static bool IsExistingCDriveFolder(string folder)
