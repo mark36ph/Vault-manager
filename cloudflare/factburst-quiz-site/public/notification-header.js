@@ -48,8 +48,7 @@
       const link = document.createElement("a");
       link.href = href;
       link.textContent = label;
-      const normalizedHref = href === "/" ? "/" : href;
-      if (currentPath === normalizedHref) link.setAttribute("aria-current", "page");
+      if (currentPath === href) link.setAttribute("aria-current", "page");
       nav.append(link);
     }
     if (notificationButton) nav.append(notificationButton);
@@ -88,7 +87,6 @@
     if (placeNotificationUi()) return;
 
     const observer = new MutationObserver(() => {
-      normalizeNavigation();
       if (!placeNotificationUi()) return;
       observer.disconnect();
     });
