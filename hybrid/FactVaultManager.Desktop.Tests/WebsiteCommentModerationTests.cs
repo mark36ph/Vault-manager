@@ -3,19 +3,29 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class WebsiteCommentModerationTests
 {
     [Fact]
-    public void Build77_WiresDedicatedCommentModerationSettingsPage()
+    public void Build78_PlacesCommentModerationAfterWebsiteUsersInMainSidebar()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
-        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.WebsiteCommentModeration.cs");
+        var moderation = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.WebsiteCommentModeration.cs");
+        var navigation = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.WebsiteCommentModerationNavigation.cs");
 
-        Assert.Contains("CurrentBuildNumber = 77", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("InitializeWebsiteCommentModerationPage", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("Comment moderation", source, StringComparison.Ordinal);
-        Assert.Contains("Reported", source, StringComparison.Ordinal);
-        Assert.Contains("Visible", source, StringComparison.Ordinal);
-        Assert.Contains("Hidden", source, StringComparison.Ordinal);
-        Assert.Contains("Dismiss reports", source, StringComparison.Ordinal);
-        Assert.Contains("Open quiz", source, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 78", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("window.InitializeWebsiteCommentModerationNavigation();", buildInfo, StringComparison.Ordinal);
+        Assert.DoesNotContain("window.InitializeWebsiteCommentModerationPage();", buildInfo, StringComparison.Ordinal);
+
+        Assert.Contains("_autopilotNavButtons.TryGetValue(\"Users\"", navigation, StringComparison.Ordinal);
+        Assert.Contains("_autopilotNavButtons[\"Comments\"]", navigation, StringComparison.Ordinal);
+        Assert.Contains("Content = \"☵   Comments\"", navigation, StringComparison.Ordinal);
+        Assert.Contains("finalCommentsIndex == finalUsersIndex + 1", navigation, StringComparison.Ordinal);
+        Assert.Contains("MainTabs.SelectedIndex = _websiteCommentModerationTabIndex", navigation, StringComparison.Ordinal);
+        Assert.Contains("SelectAutopilotNav(\"Comments\")", navigation, StringComparison.Ordinal);
+
+        Assert.Contains("Comment moderation", moderation, StringComparison.Ordinal);
+        Assert.Contains("Reported", moderation, StringComparison.Ordinal);
+        Assert.Contains("Visible", moderation, StringComparison.Ordinal);
+        Assert.Contains("Hidden", moderation, StringComparison.Ordinal);
+        Assert.Contains("Dismiss reports", moderation, StringComparison.Ordinal);
+        Assert.Contains("Open quiz", moderation, StringComparison.Ordinal);
     }
 
     [Fact]
