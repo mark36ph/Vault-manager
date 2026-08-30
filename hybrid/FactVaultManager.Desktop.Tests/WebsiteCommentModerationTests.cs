@@ -3,13 +3,12 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class WebsiteCommentModerationTests
 {
     [Fact]
-    public void Build78_PlacesCommentModerationAfterWebsiteUsersInMainSidebar()
+    public void CommentModeration_StaysAfterWebsiteUsersInMainSidebar()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var moderation = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.WebsiteCommentModeration.cs");
         var navigation = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.WebsiteCommentModerationNavigation.cs");
 
-        Assert.Contains("CurrentBuildNumber = 78", buildInfo, StringComparison.Ordinal);
         Assert.Contains("window.InitializeWebsiteCommentModerationNavigation();", buildInfo, StringComparison.Ordinal);
         Assert.DoesNotContain("window.InitializeWebsiteCommentModerationPage();", buildInfo, StringComparison.Ordinal);
 
