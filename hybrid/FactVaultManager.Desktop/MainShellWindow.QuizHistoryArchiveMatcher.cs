@@ -1,6 +1,7 @@
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -50,7 +51,7 @@ public partial class MainShellWindow
             Content = "Match archive",
             MinWidth = 110,
             Margin = new Thickness(8, 0, 0, 0),
-            ToolTip = "Audit and match existing folders in the configured Z: quiz archive back to Quiz History without moving or deleting files",
+            ToolTip = "Deep-audit existing folders in the configured Z: quiz archive and safely relink Quiz History paths",
         };
         StyleQuizHistoryButton(button, Color.FromRgb(255, 202, 45));
         button.Click += async (_, _) => await MatchQuizHistoryArchiveAsync(button);
@@ -67,51 +68,20 @@ public partial class MainShellWindow
     {
         button.IsEnabled = false;
         if (_quizHistoryAnalyticsStatusText is not null)
-            _quizHistoryAnalyticsStatusText.Text = "Auditing Z: archive against Quiz History...";
+            _quizHistoryAnalyticsStatusText.Text = "Deep-auditing Z: archive against Quiz History...";
 
         try
         {
             var preview = await Task.Run(_data.PreviewQuizArchiveMatches);
+            var exact = preview.FolderAudits.Count(item => item.Confidence == QuizArchiveMatchConfidence.Exact);
+            var high = preview.FolderAudits.Count(item => item.Confidence == QuizArchiveMatchConfidence.High);
+            var possible = preview.FolderAudits.Count(item => item.Confidence == QuizArchiveMatchConfidence.Possible);
             if (_quizHistoryAnalyticsStatusText is not null)
                 _quizHistoryAnalyticsStatusText.Text =
-                    $"Archive audit: {preview.UnlinkedArchiveFolders.Count} unlinked folders, " +
-                    $"{preview.ExistingPathArchiveMatches.Count} local records with a Z: copy, " +
-                    $"{preview.ReadyToMatch} ready";
+                    $"Archive audit: {exact} exact, {high} high, {possible} possible, " +
+                    $"{preview.ConfidentRelinks.Count} safe relink{(preview.ConfidentRelinks.Count == 1 ? "" : "s")}";
 
-            var applyReadyMatches = ShowQuizArchiveAudit(preview);
-            if (!applyReadyMatches || preview.ReadyToMatch == 0)
-                return;
-
-            var confirmation = MessageBox.Show(
-                this,
-                $"Update {preview.ReadyToMatch} Quiz History record(s) whose current project folder is missing?\n\n" +
-                "Only the database path will be changed to the existing Z: archive folder.\n" +
-                "Records that still have an existing C:/other folder are audit-only and will NOT be changed.\n\n" +
-                "No files will be copied, moved, renamed, overwritten, or deleted.",
-                "Apply Archive Matches",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question,
-                MessageBoxResult.No);
-            if (confirmation != MessageBoxResult.Yes)
-                return;
-
-            if (_quizHistoryAnalyticsStatusText is not null)
-                _quizHistoryAnalyticsStatusText.Text = "Updating recovered Quiz History archive paths...";
-
-            var result = await Task.Run(() => _data.ApplyQuizArchiveMatches(preview.Matches));
-            RefreshQuizHistory();
-            if (_quizHistoryAnalyticsStatusText is not null)
-                _quizHistoryAnalyticsStatusText.Text =
-                    $"Archive paths: {result.Updated} updated, {result.Skipped} skipped";
-
-            MessageBox.Show(
-                this,
-                $"Matched {result.Updated} Quiz History record(s) to existing archive folders.\n\n" +
-                $"Skipped because the record or folder changed during the scan: {result.Skipped}\n\n" +
-                "No files were moved or deleted.",
-                "Match Quiz Archive",
-                MessageBoxButton.OK,
-                result.Skipped == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            ShowQuizArchiveAudit(preview);
         }
         catch (Exception error)
         {
@@ -130,18 +100,17 @@ public partial class MainShellWindow
         }
     }
 
-    private bool ShowQuizArchiveAudit(QuizArchiveMatchPreview preview)
+    private void ShowQuizArchiveAudit(QuizArchiveMatchPreview preview)
     {
         var report = BuildQuizArchiveAuditReport(preview);
-        var applyReadyMatches = false;
         var dialog = new Window
         {
             Owner = this,
             Title = "Quiz Archive Audit",
-            Width = 940,
-            Height = 720,
-            MinWidth = 720,
-            MinHeight = 520,
+            Width = 1180,
+            Height = 760,
+            MinWidth = 860,
+            MinHeight = 560,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             ShowInTaskbar = false,
         };
@@ -160,13 +129,19 @@ public partial class MainShellWindow
         });
         heading.Children.Add(new TextBlock
         {
-            Text = "Read-only audit. Existing C:/other paths are never replaced automatically and no files are moved or deleted.",
+            Text = "Exact/High one-to-one matches can be relinked safely. Relinking changes only the Quiz History database path; existing C: folders are left in place and no archive files are moved, renamed, overwritten, or deleted.",
             Margin = new Thickness(0, 5, 0, 0),
             TextWrapping = TextWrapping.Wrap,
             Foreground = Brushes.DimGray,
         });
         Grid.SetRow(heading, 0);
         root.Children.Add(heading);
+
+        var tabs = new TabControl();
+        var matchesGrid = BuildQuizArchiveAuditGrid();
+        matchesGrid.ItemsSource = preview.FolderAudits;
+        var matchesTab = new TabItem { Header = $"Archive folders ({preview.FolderAudits.Count})", Content = matchesGrid };
+        tabs.Items.Add(matchesTab);
 
         var reportBox = new TextBox
         {
@@ -181,8 +156,9 @@ public partial class MainShellWindow
             Padding = new Thickness(12),
             Background = Brushes.White,
         };
-        Grid.SetRow(reportBox, 1);
-        root.Children.Add(reportBox);
+        tabs.Items.Add(new TabItem { Header = "Full report", Content = reportBox });
+        Grid.SetRow(tabs, 1);
+        root.Children.Add(tabs);
 
         var buttons = new StackPanel
         {
@@ -211,22 +187,28 @@ public partial class MainShellWindow
         };
         buttons.Children.Add(copyButton);
 
-        if (preview.ReadyToMatch > 0)
+        Button? relinkConfidentButton = null;
+        if (preview.ConfidentRelinks.Count > 0)
         {
-            var applyButton = new Button
+            relinkConfidentButton = new Button
             {
-                Content = $"Apply {preview.ReadyToMatch} ready match{(preview.ReadyToMatch == 1 ? "" : "es")}",
-                MinWidth = 150,
+                Content = $"Relink confident Z copies ({preview.ConfidentRelinks.Count})",
+                MinWidth = 205,
                 Padding = new Thickness(14, 7, 14, 7),
                 Margin = new Thickness(0, 0, 8, 0),
             };
-            applyButton.Click += (_, _) =>
-            {
-                applyReadyMatches = true;
-                dialog.Close();
-            };
-            buttons.Children.Add(applyButton);
+            buttons.Children.Add(relinkConfidentButton);
         }
+
+        var relinkSelectedButton = new Button
+        {
+            Content = "Relink selected",
+            MinWidth = 125,
+            Padding = new Thickness(14, 7, 14, 7),
+            Margin = new Thickness(0, 0, 8, 0),
+            IsEnabled = false,
+        };
+        buttons.Children.Add(relinkSelectedButton);
 
         var closeButton = new Button
         {
@@ -239,50 +221,219 @@ public partial class MainShellWindow
         closeButton.Click += (_, _) => dialog.Close();
         buttons.Children.Add(closeButton);
 
+        matchesGrid.SelectionChanged += (_, _) =>
+        {
+            relinkSelectedButton.IsEnabled = matchesGrid.SelectedItem is QuizArchiveFolderAudit { HasSuggestion: true };
+        };
+
+        if (relinkConfidentButton is not null)
+        {
+            relinkConfidentButton.Click += async (_, _) =>
+            {
+                var currentPathCount = preview.ConfidentRelinks.Count(item =>
+                    !string.IsNullOrWhiteSpace(item.ExpectedCurrentFolder) && Directory.Exists(item.ExpectedCurrentFolder));
+                var missingPathCount = preview.ConfidentRelinks.Count - currentPathCount;
+                var confirmation = MessageBox.Show(
+                    dialog,
+                    $"Relink {preview.ConfidentRelinks.Count} unique Exact/High archive match{(preview.ConfidentRelinks.Count == 1 ? "" : "es")} to Z:?\n\n" +
+                    $"Existing C:/other paths that will be replaced in Quiz History: {currentPathCount}\n" +
+                    $"Missing paths that will be recovered: {missingPathCount}\n\n" +
+                    "Only the database path will change. Any existing C: folder will remain on disk unchanged.\n" +
+                    "No files will be copied, moved, renamed, overwritten, or deleted.",
+                    "Relink Confident Z Copies",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question,
+                    MessageBoxResult.No);
+                if (confirmation != MessageBoxResult.Yes)
+                    return;
+
+                relinkConfidentButton.IsEnabled = false;
+                relinkSelectedButton.IsEnabled = false;
+                try
+                {
+                    var result = await Task.Run(() => _data.ApplyQuizArchiveRelinks(
+                        preview.ConfidentRelinks,
+                        allowExistingPaths: true));
+                    RefreshQuizHistory();
+                    if (_quizHistoryAnalyticsStatusText is not null)
+                        _quizHistoryAnalyticsStatusText.Text = $"Archive relink: {result.Updated} updated, {result.Skipped} skipped";
+                    dialog.Close();
+                    MessageBox.Show(
+                        this,
+                        $"Relinked {result.Updated} Quiz History record(s) to Z:.\n\n" +
+                        $"Skipped because a path, record, or ownership check changed: {result.Skipped}\n\n" +
+                        "Existing C: folders were left untouched. No files were moved or deleted.",
+                        "Relink Confident Z Copies",
+                        MessageBoxButton.OK,
+                        result.Skipped == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+                }
+                catch (Exception error)
+                {
+                    MessageBox.Show(dialog, error.Message, "Relink Confident Z Copies", MessageBoxButton.OK, MessageBoxImage.Error);
+                    relinkConfidentButton.IsEnabled = true;
+                }
+            };
+        }
+
+        relinkSelectedButton.Click += async (_, _) =>
+        {
+            if (matchesGrid.SelectedItem is not QuizArchiveFolderAudit selected || !selected.HasSuggestion)
+                return;
+
+            var confidence = QuizArchiveDeepMatcher.ConfidenceDisplay(selected.Confidence);
+            var warning = selected.IsConfidentRelink
+                ? "This is eligible for automatic relinking."
+                : "This is NOT eligible for automatic relinking. You are manually approving the suggested match.";
+            var confirmation = MessageBox.Show(
+                dialog,
+                $"Relink this Quiz History record to the selected Z: folder?\n\n" +
+                $"Confidence: {confidence}\n" +
+                $"Quiz History: #{selected.HistoryId} {selected.HistoryLabel}\n" +
+                $"Current path: {selected.CurrentFolderDisplay}\n" +
+                $"Z: folder: {selected.ArchiveFolder}\n\n" +
+                $"Evidence: {selected.EvidenceDisplay}\n\n" +
+                warning + "\n\n" +
+                "Only the database path will change. No files will be moved or deleted.",
+                "Relink Selected Archive Folder",
+                MessageBoxButton.YesNo,
+                selected.IsConfidentRelink ? MessageBoxImage.Question : MessageBoxImage.Warning,
+                MessageBoxResult.No);
+            if (confirmation != MessageBoxResult.Yes)
+                return;
+
+            var request = new QuizArchiveRelinkRequest(
+                selected.HistoryId!.Value,
+                selected.HistoryLabel,
+                selected.CurrentFolder,
+                selected.ArchiveFolder,
+                selected.Confidence);
+            relinkSelectedButton.IsEnabled = false;
+            if (relinkConfidentButton is not null)
+                relinkConfidentButton.IsEnabled = false;
+            try
+            {
+                var result = await Task.Run(() => _data.ApplyQuizArchiveRelinks([request], allowExistingPaths: true));
+                RefreshQuizHistory();
+                if (_quizHistoryAnalyticsStatusText is not null)
+                    _quizHistoryAnalyticsStatusText.Text = $"Archive relink: {result.Updated} updated, {result.Skipped} skipped";
+                dialog.Close();
+                MessageBox.Show(
+                    this,
+                    result.Updated == 1
+                        ? "Quiz History now points to the selected Z: archive folder.\n\nThe previous C:/other folder, if it exists, was left untouched."
+                        : "The relink was skipped because the record, path, or archive ownership changed since the audit.",
+                    "Relink Selected Archive Folder",
+                    MessageBoxButton.OK,
+                    result.Updated == 1 ? MessageBoxImage.Information : MessageBoxImage.Warning);
+            }
+            catch (Exception error)
+            {
+                MessageBox.Show(dialog, error.Message, "Relink Selected Archive Folder", MessageBoxButton.OK, MessageBoxImage.Error);
+                relinkSelectedButton.IsEnabled = selected.HasSuggestion;
+                if (relinkConfidentButton is not null)
+                    relinkConfidentButton.IsEnabled = true;
+            }
+        };
+
         Grid.SetRow(buttons, 2);
         root.Children.Add(buttons);
         dialog.Content = root;
         dialog.ShowDialog();
-        return applyReadyMatches;
+    }
+
+    private static DataGrid BuildQuizArchiveAuditGrid()
+    {
+        var grid = new DataGrid
+        {
+            AutoGenerateColumns = false,
+            IsReadOnly = true,
+            CanUserAddRows = false,
+            CanUserDeleteRows = false,
+            SelectionMode = DataGridSelectionMode.Single,
+            SelectionUnit = DataGridSelectionUnit.FullRow,
+            HeadersVisibility = DataGridHeadersVisibility.Column,
+            GridLinesVisibility = DataGridGridLinesVisibility.Horizontal,
+            RowHeaderWidth = 0,
+        };
+        grid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Confidence",
+            Binding = new Binding(nameof(QuizArchiveFolderAudit.ConfidenceDisplay)),
+            Width = 115,
+        });
+        grid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Z: archive folder",
+            Binding = new Binding(nameof(QuizArchiveFolderAudit.ArchiveName)),
+            Width = new DataGridLength(1.35, DataGridLengthUnitType.Star),
+        });
+        grid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Suggested Quiz History",
+            Binding = new Binding(nameof(QuizArchiveFolderAudit.SuggestedQuiz)),
+            Width = new DataGridLength(1.5, DataGridLengthUnitType.Star),
+        });
+        grid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Current path",
+            Binding = new Binding(nameof(QuizArchiveFolderAudit.CurrentFolderDisplay)),
+            Width = new DataGridLength(1.7, DataGridLengthUnitType.Star),
+        });
+        grid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Evidence",
+            Binding = new Binding(nameof(QuizArchiveFolderAudit.EvidenceDisplay)),
+            Width = new DataGridLength(2.2, DataGridLengthUnitType.Star),
+        });
+        return grid;
     }
 
     private static string BuildQuizArchiveAuditReport(QuizArchiveMatchPreview preview)
     {
+        var exact = preview.FolderAudits.Count(item => item.Confidence == QuizArchiveMatchConfidence.Exact);
+        var high = preview.FolderAudits.Count(item => item.Confidence == QuizArchiveMatchConfidence.High);
+        var possible = preview.FolderAudits.Count(item => item.Confidence == QuizArchiveMatchConfidence.Possible);
+        var noMatch = preview.FolderAudits.Count(item => item.Confidence == QuizArchiveMatchConfidence.NoMatch);
         var report = new StringBuilder();
         report.AppendLine("SUMMARY");
-        report.AppendLine(new string('=', 72));
-        report.AppendLine($"Archive folders found:                         {preview.ArchiveFolders}");
-        report.AppendLine($"Quiz History entries:                         {preview.HistoryEntries}");
-        report.AppendLine($"Already linked to Z:                          {preview.AlreadyLinked}");
-        report.AppendLine($"Existing C:/other paths:                      {preview.LocalPathExists}");
-        report.AppendLine($"Unlinked Z: archive folders:                  {preview.UnlinkedArchiveFolders.Count}");
-        report.AppendLine($"Existing-path records with confident Z: copy: {preview.ExistingPathArchiveMatches.Count}");
-        report.AppendLine($"Missing-path records ready to relink:         {preview.ReadyToMatch}");
-        report.AppendLine($"Ambiguous missing-path records:               {preview.Ambiguous}");
-        report.AppendLine($"Unmatched missing-path records:               {preview.Unmatched}");
+        report.AppendLine(new string('=', 88));
+        report.AppendLine($"Archive folders found:                            {preview.ArchiveFolders}");
+        report.AppendLine($"Quiz History entries:                            {preview.HistoryEntries}");
+        report.AppendLine($"Already linked to Z:                             {preview.AlreadyLinked}");
+        report.AppendLine($"Existing C:/other paths:                         {preview.LocalPathExists}");
+        report.AppendLine($"Unlinked Z: archive folders audited:             {preview.FolderAudits.Count}");
+        report.AppendLine($"Exact folder recommendations:                    {exact}");
+        report.AppendLine($"High-confidence folder recommendations:          {high}");
+        report.AppendLine($"Possible folder recommendations:                 {possible}");
+        report.AppendLine($"No-match archive folders:                        {noMatch}");
+        report.AppendLine($"Unique Exact/High relinks available:             {preview.ConfidentRelinks.Count}");
+        report.AppendLine($"Existing-path records with confident Z: copy:    {preview.ExistingPathArchiveMatches.Count}");
+        report.AppendLine($"Missing-path records ready to relink:            {preview.ReadyToMatch}");
+        report.AppendLine($"Ambiguous missing-path records:                  {preview.Ambiguous}");
+        report.AppendLine($"Unmatched missing-path records:                  {preview.Unmatched}");
         report.AppendLine();
 
         AppendAuditSection(
             report,
-            $"UNLINKED Z: ARCHIVE FOLDERS ({preview.UnlinkedArchiveFolders.Count})",
-            preview.UnlinkedArchiveFolders.Select(folder =>
-                $"• {Path.GetFileName(folder)}\n  {folder}"));
+            $"DEEP Z: ARCHIVE FOLDER AUDIT ({preview.FolderAudits.Count})",
+            preview.FolderAudits.Select(item =>
+                $"• [{item.ConfidenceDisplay} | score {item.Score}] {item.ArchiveName}\n" +
+                $"  Suggested: {(item.HistoryId.HasValue ? $"History #{item.HistoryId}: {item.HistoryLabel}" : "no Quiz History match")}\n" +
+                $"  Current:   {item.CurrentFolderDisplay}\n" +
+                $"  Z folder:  {item.ArchiveFolder}\n" +
+                $"  Evidence:  {item.EvidenceDisplay}"));
 
         AppendAuditSection(
             report,
-            $"EXISTING C:/OTHER PATH + CONFIDENT Z: COPY ({preview.ExistingPathArchiveMatches.Count})",
-            preview.ExistingPathArchiveMatches.Select(match =>
-                $"• History #{match.HistoryId}: {match.Label}\n  Current: {match.CurrentFolder}\n  Z copy:  {match.ArchiveFolder}"));
+            $"UNIQUE EXACT/HIGH RELINKS ({preview.ConfidentRelinks.Count})",
+            preview.ConfidentRelinks.Select(match =>
+                $"• [{QuizArchiveDeepMatcher.ConfidenceDisplay(match.Confidence)}] History #{match.HistoryId}: {match.Label}\n" +
+                $"  Current: {AuditCurrentPath(match.ExpectedCurrentFolder)}\n" +
+                $"  Z match: {match.ArchiveFolder}"));
 
         AppendAuditSection(
             report,
-            $"MISSING-PATH RECORDS READY TO RELINK ({preview.Matches.Count})",
-            preview.Matches.Select(match =>
-                $"• History #{match.HistoryId}: {match.Label}\n  Z match: {match.ArchiveFolder}"));
-
-        AppendAuditSection(
-            report,
-            $"AMBIGUOUS MISSING-PATH RECORDS ({preview.AmbiguousEntries.Count})",
+            $"MISSING-PATH RECORDS NOT SAFE FOR AUTOMATIC RELINK ({preview.AmbiguousEntries.Count})",
             preview.AmbiguousEntries.Select(entry =>
                 $"• History #{entry.HistoryId}: {entry.Label}\n" +
                 $"  Stored path: {AuditCurrentPath(entry.CurrentFolder)}\n" +
@@ -297,17 +448,19 @@ public partial class MainShellWindow
                 $"• History #{entry.HistoryId}: {entry.Label}\n  Stored path: {AuditCurrentPath(entry.CurrentFolder)}"));
 
         report.AppendLine("SAFETY");
-        report.AppendLine(new string('=', 72));
-        report.AppendLine("This audit does not copy, move, rename, overwrite, or delete files.");
-        report.AppendLine("Records whose current C:/other folder still exists are report-only.");
-        report.AppendLine("Only missing-path 'ready' records can be explicitly relinked.");
+        report.AppendLine(new string('=', 88));
+        report.AppendLine("The audit itself is read-only.");
+        report.AppendLine("'Relink confident Z copies' changes only unique Exact/High Quiz History database paths.");
+        report.AppendLine("'Relink selected' requires explicit confirmation and can approve a Possible/ambiguous suggestion.");
+        report.AppendLine("Existing C:/other folders remain on disk after a relink.");
+        report.AppendLine("No archive action here copies, moves, renames, overwrites, or deletes files.");
         return report.ToString();
     }
 
     private static void AppendAuditSection(StringBuilder report, string title, IEnumerable<string> items)
     {
         report.AppendLine(title);
-        report.AppendLine(new string('-', 72));
+        report.AppendLine(new string('-', 88));
         var values = items.ToList();
         if (values.Count == 0)
         {
