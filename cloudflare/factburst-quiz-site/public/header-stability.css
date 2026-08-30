@@ -2,7 +2,7 @@
    when account controls are present on one page and absent on another. */
 @media (min-width: 841px) {
   .site-header {
-    display: grid;
+    display: grid !important;
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: center;
   }
@@ -17,6 +17,6 @@
 
   .site-header > .account-header-area {
     justify-self: end;
-    margin-left: 0;
+    margin-left: 0 !important;
   }
 }
