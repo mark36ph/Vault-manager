@@ -7,11 +7,12 @@
   <meta name="description" content="Terms of use for Factburst Quiz.">
   <title>Terms of Use | Factburst Quiz</title>
   <link rel="icon" href="/favicon.ico">
+  <link rel="preload" href="/brand-icon.png?v=2" as="image">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/accounts.css">
   <link rel="stylesheet" href="/account-v2.css">
   <link rel="stylesheet" href="/professional-redesign.css">
-  <link rel="stylesheet" href="/brand-logo.css?v=2">
+  <link rel="stylesheet" href="/site-shell.css?v=1">
 </head>
 <body data-page="legal">
   <header class="site-header">
@@ -24,6 +25,7 @@
       <a href="/quizzes.html">Quizzes</a>
       <a href="/leaderboard.html">Leaderboard</a>
       <a href="/profile.html">Profile</a>
+      <span class="notification-slot" aria-hidden="true"></span>
     </nav>
   </header>
 
@@ -94,6 +96,32 @@
       </section>
     </article>
   </main>
+
+  <footer id="factburst-professional-footer" class="site-footer professional-footer">
+    <div class="shell professional-footer-grid">
+      <div class="professional-footer-brand">
+        <a class="professional-footer-brand-link" href="/">Factburst Quiz</a>
+        <p>Fast questions. Factual answers.</p>
+      </div>
+      <nav class="professional-footer-links" aria-label="Explore Factburst">
+        <strong>Explore</strong>
+        <a href="/">Home</a>
+        <a href="/quizzes.html">Quizzes</a>
+        <a href="/leaderboard.html">Leaderboard</a>
+        <a href="/profile.html">Profile</a>
+      </nav>
+      <nav class="professional-footer-links" aria-label="Legal and privacy">
+        <strong>Legal</strong>
+        <a href="/terms.html">Terms of use</a>
+        <a href="/privacy.html">Privacy notice</a>
+        <button type="button" class="footer-link-button" data-cookie-settings>Cookie settings</button>
+      </nav>
+    </div>
+    <div class="shell professional-footer-bottom">
+      <span>© <span data-footer-year>2026</span> Factburst Quiz</span>
+      <span>Quiz content is provided for entertainment and general information.</span>
+    </div>
+  </footer>
 
   <script src="/notification-header.js"></script>
   <script type="module" src="/account-ui-v2.js"></script>
