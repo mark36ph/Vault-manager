@@ -1,15 +1,14 @@
 {
-  "latest_version": "1.0.61",
-  "build": 86,
+  "latest_version": "1.0.62",
+  "build": 87,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 86 fixes the Quiz History archive-action visibility bug by recognising the page's Border-wrapped Grid layout.",
-    "Match archive and Archive selected now appear reliably in the Quiz History footer before Delete.",
-    "Match archive still updates Quiz History paths only and never moves, renames, overwrites or deletes archive files.",
-    "Archive selected still uses the safe copy, verify, Quiz History update and local cleanup workflow and only allows fully-uploaded quizzes.",
-    "Build 85 adds conservative one-to-one matching for existing quiz folders in the configured archive.",
-    "Build 84 adds manual archiving for already-completed quizzes without requiring a re-upload.",
-    "Build 83 changes Full and Marathon quizzes to a 5-second default and adds automatic post-upload archiving.",
+    "Build 87 expands Match archive into a detailed read-only Quiz Archive Audit.",
+    "The audit lists every unlinked Z: quiz folder, missing-path Quiz History records, ambiguous matches, and existing C:/other-path records that also have a unique confident Z: copy.",
+    "Existing C:/other paths are protected: the audit never replaces them automatically and does not move, rename, overwrite or delete files.",
+    "Only missing-path records with a unique one-to-one archive match can be explicitly relinked, with a second confirmation before the database path is changed.",
+    "Build 86 fixes the Quiz History archive-action visibility bug so Match archive and Archive selected appear reliably.",
+    "Build 83 changes Full and Marathon quizzes to a 5-second default and adds safe post-upload archiving.",
     "Build 82 fixes the Questions importer UI and Build 81 adds Open Trivia DB JSON importing with preview, category mapping and duplicate handling."
   ]
 }
