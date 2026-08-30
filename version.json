@@ -1,15 +1,15 @@
 {
-  "latest_version": "1.0.59",
-  "build": 84,
+  "latest_version": "1.0.60",
+  "build": 85,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 84 adds an Archive selected action to Quiz History so an already-completed quiz can be safely moved from the local Projects folder to the configured NAS/archive drive without forcing a re-upload.",
-    "Manual archiving is allowed only when the selected quiz has no required uploads remaining; Factburst confirms the source and archive root before starting.",
-    "The selected quiz uses the same safe archive path as automatic post-upload archiving: copy all files, verify the copy, update Quiz History, then remove the local project folder. If anything fails before verification, the local project is kept.",
+    "Build 85 adds Match archive to Quiz History. It scans the configured Z: archive and reconnects missing Quiz History paths to existing quiz folders without moving, renaming, overwriting or deleting files.",
+    "Archive matching reuses Factburst's quiz/video matching rules, requires a unique one-to-one match, and leaves ambiguous or unmatched entries unchanged for review.",
+    "The matcher previews archive-folder, already-linked, existing-local-path, ready, ambiguous and unmatched counts before any database paths are updated.",
+    "Build 84 adds Archive selected to Quiz History so an already-completed quiz can be safely moved from the local Projects folder to the configured archive without forcing a re-upload.",
     "Build 83 changes the Full and Marathon quiz defaults from 8 seconds to 5 seconds per question; Shorts remains at 3 seconds.",
-    "Completed quiz projects can be archived automatically to the configured NAS or mapped drive after all required uploads finish, using copy, verification, Quiz History path update and local cleanup.",
-    "NAS archiving is collision-safe: if a folder with the same name already exists in the archive, Factburst preserves the existing backup and creates a unique destination instead of overwriting it.",
-    "Build 82 fixes the Questions importer UI so the Open Trivia DB workflow is configured even when the Import tab was hidden during app startup.",
-    "Build 81 upgrades the Questions importer to accept Open Trivia DB JSON dumps alongside the existing Factburst and ChatGPT JSON format."
+    "Completed quiz projects can be archived automatically after all required uploads finish using copy, verification, Quiz History path update and local cleanup.",
+    "NAS archiving is collision-safe: existing backup folders are preserved and a unique archive destination is used instead of overwriting them.",
+    "Build 82 fixes the Questions importer UI and Build 81 adds Open Trivia DB JSON importing with preview, category mapping and duplicate handling."
   ]
 }
