@@ -1,15 +1,15 @@
 {
-  "latest_version": "1.0.58",
-  "build": 83,
+  "latest_version": "1.0.59",
+  "build": 84,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
+    "Build 84 adds an Archive selected action to Quiz History so an already-completed quiz can be safely moved from the local Projects folder to the configured NAS/archive drive without forcing a re-upload.",
+    "Manual archiving is allowed only when the selected quiz has no required uploads remaining; Factburst confirms the source and archive root before starting.",
+    "The selected quiz uses the same safe archive path as automatic post-upload archiving: copy all files, verify the copy, update Quiz History, then remove the local project folder. If anything fails before verification, the local project is kept.",
     "Build 83 changes the Full and Marathon quiz defaults from 8 seconds to 5 seconds per question; Shorts remains at 3 seconds.",
     "Completed quiz projects can be archived automatically to the configured NAS or mapped drive after all required uploads finish, using copy, verification, Quiz History path update and local cleanup.",
-    "NAS archiving is now collision-safe: if a folder with the same name already exists in the archive, Factburst preserves the existing backup and creates a unique destination instead of overwriting it.",
-    "Build 83 release packaging was corrected so the Windows updater can receive version 1.0.58 normally.",
+    "NAS archiving is collision-safe: if a folder with the same name already exists in the archive, Factburst preserves the existing backup and creates a unique destination instead of overwriting it.",
     "Build 82 fixes the Questions importer UI so the Open Trivia DB workflow is configured even when the Import tab was hidden during app startup.",
-    "The importer now reaches the hidden tab content directly and also rechecks on tab selection, so the visible tab reads Import Questions with Load JSON file and Preview and import JSON instead of falling back to the old ChatGPT-only controls.",
-    "Build 81 upgrades the Questions importer to accept Open Trivia DB JSON dumps alongside the existing Factburst and ChatGPT JSON format, with automatic HTML decoding, category mapping and answer shuffling.",
-    "Bulk imports now preview detected, ready, duplicate, invalid and category-mapping counts before writing; unsupported two-answer boolean questions are skipped safely and indexed duplicate checking keeps large 10,000+ question imports practical."
+    "Build 81 upgrades the Questions importer to accept Open Trivia DB JSON dumps alongside the existing Factburst and ChatGPT JSON format."
   ]
 }
