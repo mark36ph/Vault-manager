@@ -14,16 +14,16 @@ public sealed record QuizBuilderModePreset(
 public static class QuizBuilderModePresets
 {
     public static QuizBuilderModePreset Full { get; } =
-        new("Full", 10, 8, Vertical: false, Difficulty: null);
+        new("Full", 10, 5, Vertical: false, Difficulty: null);
 
     public static QuizBuilderModePreset Marathon30 { get; } =
-        new("Marathon 30", 30, 8, Vertical: false, Difficulty: null, IsMarathon: true);
+        new("Marathon 30", 30, 5, Vertical: false, Difficulty: null, IsMarathon: true);
 
     public static QuizBuilderModePreset Marathon50 { get; } =
-        new("Marathon 50", 50, 8, Vertical: false, Difficulty: null, IsMarathon: true);
+        new("Marathon 50", 50, 5, Vertical: false, Difficulty: null, IsMarathon: true);
 
     public static QuizBuilderModePreset Marathon100 { get; } =
-        new("Marathon 100", 100, 8, Vertical: false, Difficulty: null, IsMarathon: true);
+        new("Marathon 100", 100, 5, Vertical: false, Difficulty: null, IsMarathon: true);
 
     public static QuizBuilderModePreset Shorts { get; } =
         new("Shorts", 1, 3, Vertical: true, Difficulty: "easy");
