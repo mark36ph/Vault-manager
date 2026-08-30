@@ -17,6 +17,38 @@ public sealed record QuizArchiveAuditEntry(
     string CurrentFolder,
     IReadOnlyList<string> CandidateFolders);
 
+public sealed record QuizArchiveFolderAudit(
+    string ArchiveFolder,
+    int? HistoryId,
+    string HistoryLabel,
+    string CurrentFolder,
+    QuizArchiveMatchConfidence Confidence,
+    int Score,
+    bool IsUnique,
+    IReadOnlyList<string> Evidence)
+{
+    public string ArchiveName => Path.GetFileName(ArchiveFolder);
+    public string ConfidenceDisplay => QuizArchiveDeepMatcher.ConfidenceDisplay(Confidence) +
+        (Confidence is QuizArchiveMatchConfidence.Exact or QuizArchiveMatchConfidence.High && !IsUnique
+            ? " (ambiguous)"
+            : "");
+    public string SuggestedQuiz => HistoryId.HasValue
+        ? $"#{HistoryId.Value} {HistoryLabel}"
+        : "—";
+    public string CurrentFolderDisplay => string.IsNullOrWhiteSpace(CurrentFolder) ? "(missing / none)" : CurrentFolder;
+    public string EvidenceDisplay => Evidence.Count == 0 ? "—" : string.Join("; ", Evidence);
+    public bool HasSuggestion => HistoryId.HasValue && Confidence != QuizArchiveMatchConfidence.NoMatch;
+    public bool IsConfidentRelink => HasSuggestion && IsUnique &&
+        Confidence is QuizArchiveMatchConfidence.Exact or QuizArchiveMatchConfidence.High;
+}
+
+public sealed record QuizArchiveRelinkRequest(
+    int HistoryId,
+    string Label,
+    string ExpectedCurrentFolder,
+    string ArchiveFolder,
+    QuizArchiveMatchConfidence Confidence);
+
 public sealed record QuizArchiveMatchPreview(
     int ArchiveFolders,
     int HistoryEntries,
@@ -29,12 +61,16 @@ public sealed record QuizArchiveMatchPreview(
     IReadOnlyList<string> UnlinkedArchiveFolders,
     IReadOnlyList<QuizArchiveExistingPathMatch> ExistingPathArchiveMatches,
     IReadOnlyList<QuizArchiveAuditEntry> AmbiguousEntries,
-    IReadOnlyList<QuizArchiveAuditEntry> UnmatchedEntries);
+    IReadOnlyList<QuizArchiveAuditEntry> UnmatchedEntries,
+    IReadOnlyList<QuizArchiveFolderAudit> FolderAudits,
+    IReadOnlyList<QuizArchiveRelinkRequest> ConfidentRelinks);
 
 public sealed record QuizArchiveMatchApplyResult(int Updated, int Skipped);
 
 public sealed partial class DesktopDataService
 {
+    private const int ArchiveUniquenessMargin = 25;
+
     public QuizArchiveMatchPreview PreviewQuizArchiveMatches()
     {
         var settings = LoadSettings();
@@ -50,7 +86,6 @@ public sealed partial class DesktopDataService
             .Select(Path.GetFullPath)
             .OrderBy(path => Path.GetFileName(path), StringComparer.OrdinalIgnoreCase)
             .ToList();
-        var archiveFolderSet = new HashSet<string>(archiveFolders, StringComparer.OrdinalIgnoreCase);
         var histories = GetQuizHistory();
         var alreadyLinked = new List<QuizHistorySummary>();
         var existingOutsideArchive = new List<QuizHistorySummary>();
@@ -79,83 +114,165 @@ public sealed partial class DesktopDataService
             missingPath.Add(history);
         }
 
-        // Clear ProjectFolder for matching so an existing C:/other path does not prevent the
-        // path finder from auditing whether the same quiz also has a copy in the Z: archive.
-        var auditableHistories = existingOutsideArchive
-            .Concat(missingPath)
-            .Select(history => history with { ProjectFolder = string.Empty })
-            .ToList();
-        var rawMatches = SocialUploadQueuePathFinder.FindMissingVideos(auditableHistories, quizRoot);
-        var foldersByHistory = rawMatches
-            .GroupBy(match => match.HistoryId)
-            .ToDictionary(
-                group => group.Key,
-                group => group
-                    .Select(match => ResolveArchiveProjectFolderFromVideo(quizRoot, match.VideoPath))
-                    .Where(folder => folder is not null)
-                    .Select(folder => folder!)
-                    .Where(folder => archiveFolderSet.Contains(folder) && !linkedArchiveFolders.Contains(folder))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .OrderBy(folder => Path.GetFileName(folder), StringComparer.OrdinalIgnoreCase)
-                    .ToList());
-
-        // A high-confidence automatic match must be one history -> one folder and that folder
-        // must not simultaneously be a candidate for another history record.
-        var historiesByFolder = foldersByHistory
-            .SelectMany(pair => pair.Value.Select(folder => (HistoryId: pair.Key, Folder: folder)))
-            .GroupBy(item => item.Folder, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                group => group.Key,
-                group => group.Select(item => item.HistoryId).Distinct().ToList(),
-                StringComparer.OrdinalIgnoreCase);
-
-        var matches = new List<QuizArchivePathMatch>();
-        var existingPathArchiveMatches = new List<QuizArchiveExistingPathMatch>();
-        var ambiguousEntries = new List<QuizArchiveAuditEntry>();
-        var unmatchedEntries = new List<QuizArchiveAuditEntry>();
-
-        foreach (var history in missingPath)
-        {
-            var folders = CandidateFolders(history.Id, foldersByHistory);
-            if (folders.Count == 0)
-            {
-                unmatchedEntries.Add(new QuizArchiveAuditEntry(
-                    history.Id,
-                    HistoryLabel(history),
-                    (history.ProjectFolder ?? string.Empty).Trim(),
-                    folders));
-                continue;
-            }
-
-            if (!IsUniqueArchiveMatch(history.Id, folders, historiesByFolder))
-            {
-                ambiguousEntries.Add(new QuizArchiveAuditEntry(
-                    history.Id,
-                    HistoryLabel(history),
-                    (history.ProjectFolder ?? string.Empty).Trim(),
-                    folders));
-                continue;
-            }
-
-            matches.Add(new QuizArchivePathMatch(history.Id, HistoryLabel(history), folders[0]));
-        }
-
-        foreach (var history in existingOutsideArchive)
-        {
-            var folders = CandidateFolders(history.Id, foldersByHistory);
-            if (!IsUniqueArchiveMatch(history.Id, folders, historiesByFolder))
-                continue;
-
-            existingPathArchiveMatches.Add(new QuizArchiveExistingPathMatch(
-                history.Id,
-                HistoryLabel(history),
-                history.ProjectFolder.Trim(),
-                folders[0]));
-        }
-
         var unlinkedArchiveFolders = archiveFolders
             .Where(folder => !linkedArchiveFolders.Contains(folder))
             .ToList();
+        var auditableHistories = existingOutsideArchive.Concat(missingPath).ToList();
+
+        var currentFingerprints = new Dictionary<int, QuizArchiveFolderFingerprint>();
+        foreach (var history in existingOutsideArchive)
+        {
+            var fingerprint = TryInspectFolder(history.ProjectFolder);
+            if (fingerprint is not null)
+                currentFingerprints[history.Id] = fingerprint;
+        }
+
+        var candidatesByFolder = new Dictionary<string, List<QuizArchiveDeepCandidate>>(StringComparer.OrdinalIgnoreCase);
+        var candidatesByHistory = new Dictionary<int, List<QuizArchiveDeepCandidate>>();
+
+        foreach (var archiveFolder in unlinkedArchiveFolders)
+        {
+            var archiveFingerprint = TryInspectFolder(archiveFolder);
+            var candidates = new List<QuizArchiveDeepCandidate>();
+            if (archiveFingerprint is not null)
+            {
+                foreach (var history in auditableHistories)
+                {
+                    currentFingerprints.TryGetValue(history.Id, out var currentFingerprint);
+                    var candidate = QuizArchiveDeepMatcher.Evaluate(history, archiveFingerprint, currentFingerprint);
+                    if (candidate.Confidence == QuizArchiveMatchConfidence.NoMatch)
+                        continue;
+
+                    candidates.Add(candidate);
+                    if (!candidatesByHistory.TryGetValue(history.Id, out var historyCandidates))
+                        candidatesByHistory[history.Id] = historyCandidates = new List<QuizArchiveDeepCandidate>();
+                    historyCandidates.Add(candidate);
+                }
+            }
+
+            candidatesByFolder[archiveFolder] = candidates
+                .OrderByDescending(candidate => candidate.Score)
+                .ThenByDescending(candidate => candidate.Confidence)
+                .ThenBy(candidate => candidate.HistoryId)
+                .ToList();
+        }
+
+        foreach (var pair in candidatesByHistory)
+        {
+            pair.Value.Sort((left, right) =>
+            {
+                var byScore = right.Score.CompareTo(left.Score);
+                if (byScore != 0) return byScore;
+                var byConfidence = right.Confidence.CompareTo(left.Confidence);
+                if (byConfidence != 0) return byConfidence;
+                return string.Compare(left.ArchiveFolder, right.ArchiveFolder, StringComparison.OrdinalIgnoreCase);
+            });
+        }
+
+        var folderAudits = new List<QuizArchiveFolderAudit>();
+        foreach (var archiveFolder in unlinkedArchiveFolders)
+        {
+            var candidates = candidatesByFolder[archiveFolder];
+            if (candidates.Count == 0)
+            {
+                folderAudits.Add(new QuizArchiveFolderAudit(
+                    archiveFolder,
+                    null,
+                    "",
+                    "",
+                    QuizArchiveMatchConfidence.NoMatch,
+                    0,
+                    false,
+                    Array.Empty<string>()));
+                continue;
+            }
+
+            var best = candidates[0];
+            var folderUnique = candidates.Count == 1 || best.Score - candidates[1].Score >= ArchiveUniquenessMargin;
+            var historyCandidates = candidatesByHistory[best.HistoryId];
+            var historyUnique = historyCandidates.Count == 1 ||
+                                best.Score - historyCandidates
+                                    .Where(candidate => !string.Equals(candidate.ArchiveFolder, archiveFolder, StringComparison.OrdinalIgnoreCase))
+                                    .Select(candidate => candidate.Score)
+                                    .DefaultIfEmpty(int.MinValue / 2)
+                                    .Max() >= ArchiveUniquenessMargin;
+            var unique = folderUnique && historyUnique;
+            var evidence = best.Evidence.ToList();
+            if (!folderUnique)
+                evidence.Add("another Quiz History record scores similarly for this Z: folder");
+            if (!historyUnique)
+                evidence.Add("another Z: folder scores similarly for this Quiz History record");
+
+            folderAudits.Add(new QuizArchiveFolderAudit(
+                archiveFolder,
+                best.HistoryId,
+                best.Label,
+                best.CurrentFolder,
+                best.Confidence,
+                best.Score,
+                unique,
+                evidence));
+        }
+
+        var confidentAudits = folderAudits
+            .Where(audit => audit.IsConfidentRelink)
+            .OrderBy(audit => audit.HistoryId)
+            .ToList();
+        var confidentRelinks = confidentAudits
+            .Select(audit => new QuizArchiveRelinkRequest(
+                audit.HistoryId!.Value,
+                audit.HistoryLabel,
+                audit.CurrentFolder,
+                audit.ArchiveFolder,
+                audit.Confidence))
+            .ToList();
+
+        var existingPathArchiveMatches = confidentAudits
+            .Where(audit => audit.CurrentFolder.Length > 0 && Directory.Exists(audit.CurrentFolder))
+            .Select(audit => new QuizArchiveExistingPathMatch(
+                audit.HistoryId!.Value,
+                audit.HistoryLabel,
+                audit.CurrentFolder,
+                audit.ArchiveFolder))
+            .OrderBy(match => match.HistoryId)
+            .ToList();
+
+        var missingIds = new HashSet<int>(missingPath.Select(history => history.Id));
+        var matches = confidentAudits
+            .Where(audit => missingIds.Contains(audit.HistoryId!.Value))
+            .Select(audit => new QuizArchivePathMatch(
+                audit.HistoryId!.Value,
+                audit.HistoryLabel,
+                audit.ArchiveFolder))
+            .OrderBy(match => match.HistoryId)
+            .ToList();
+
+        var readyMissingIds = new HashSet<int>(matches.Select(match => match.HistoryId));
+        var ambiguousEntries = new List<QuizArchiveAuditEntry>();
+        var unmatchedEntries = new List<QuizArchiveAuditEntry>();
+        foreach (var history in missingPath)
+        {
+            if (readyMissingIds.Contains(history.Id))
+                continue;
+
+            var candidateFolders = candidatesByHistory.TryGetValue(history.Id, out var historyCandidates)
+                ? historyCandidates
+                    .OrderByDescending(candidate => candidate.Score)
+                    .Select(candidate => candidate.ArchiveFolder)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList()
+                : new List<string>();
+
+            var entry = new QuizArchiveAuditEntry(
+                history.Id,
+                HistoryLabel(history),
+                (history.ProjectFolder ?? string.Empty).Trim(),
+                candidateFolders);
+            if (candidateFolders.Count > 0)
+                ambiguousEntries.Add(entry);
+            else
+                unmatchedEntries.Add(entry);
+        }
 
         return new QuizArchiveMatchPreview(
             archiveFolders.Count,
@@ -165,76 +282,134 @@ public sealed partial class DesktopDataService
             matches.Count,
             ambiguousEntries.Count,
             unmatchedEntries.Count,
-            matches.OrderBy(match => match.HistoryId).ToList(),
+            matches,
             unlinkedArchiveFolders,
-            existingPathArchiveMatches.OrderBy(match => match.HistoryId).ToList(),
+            existingPathArchiveMatches,
             ambiguousEntries.OrderBy(entry => entry.HistoryId).ToList(),
-            unmatchedEntries.OrderBy(entry => entry.HistoryId).ToList());
+            unmatchedEntries.OrderBy(entry => entry.HistoryId).ToList(),
+            folderAudits.OrderBy(audit => audit.ArchiveName, StringComparer.OrdinalIgnoreCase).ToList(),
+            confidentRelinks);
     }
 
     public QuizArchiveMatchApplyResult ApplyQuizArchiveMatches(IReadOnlyList<QuizArchivePathMatch> matches)
     {
         ArgumentNullException.ThrowIfNull(matches);
+        var requests = matches
+            .Select(match => new QuizArchiveRelinkRequest(
+                match.HistoryId,
+                match.Label,
+                GetQuizHistory().FirstOrDefault(history => history.Id == match.HistoryId)?.ProjectFolder ?? "",
+                match.ArchiveFolder,
+                QuizArchiveMatchConfidence.High))
+            .ToList();
+        return ApplyQuizArchiveRelinks(requests, allowExistingPaths: false);
+    }
+
+    public QuizArchiveMatchApplyResult ApplyQuizArchiveRelinks(
+        IReadOnlyList<QuizArchiveRelinkRequest> requests,
+        bool allowExistingPaths)
+    {
+        ArgumentNullException.ThrowIfNull(requests);
         var settings = LoadSettings();
         if (string.IsNullOrWhiteSpace(settings.NasArchiveFolder))
             throw new InvalidOperationException("Choose a NAS archive folder in Settings → General first.");
 
         var quizRoot = Path.Combine(Path.GetFullPath(settings.NasArchiveFolder.Trim()), "Quizzes");
+        if (!Directory.Exists(quizRoot))
+            throw new DirectoryNotFoundException($"The quiz archive folder was not found: {quizRoot}");
+
         var histories = GetQuizHistory().ToDictionary(history => history.Id);
+        var linkedArchiveOwners = histories.Values
+            .Select(history =>
+            {
+                var current = (history.ProjectFolder ?? "").Trim();
+                var top = current.Length > 0 && Directory.Exists(current) && IsPathWithin(quizRoot, current)
+                    ? ResolveTopLevelArchiveFolder(quizRoot, current)
+                    : null;
+                return (history.Id, Folder: top);
+            })
+            .Where(item => item.Folder is not null)
+            .ToDictionary(item => item.Folder!, item => item.Id, StringComparer.OrdinalIgnoreCase);
+
         var updated = 0;
         var skipped = 0;
+        var usedHistories = new HashSet<int>();
+        var usedFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var match in matches)
+        foreach (var request in requests)
         {
-            if (!histories.TryGetValue(match.HistoryId, out var history) ||
-                !Directory.Exists(match.ArchiveFolder) ||
-                !IsPathWithin(quizRoot, match.ArchiveFolder))
+            if (!usedHistories.Add(request.HistoryId))
             {
                 skipped++;
                 continue;
             }
 
-            // Applying a recovered match is intentionally restricted to records whose current
-            // folder is missing. Existing C:/other paths are audit-only and can never be replaced here.
+            string archiveFolder;
+            try
+            {
+                archiveFolder = Path.GetFullPath(request.ArchiveFolder);
+            }
+            catch (Exception error) when (error is ArgumentException or NotSupportedException)
+            {
+                skipped++;
+                continue;
+            }
+
+            if (!usedFolders.Add(archiveFolder) ||
+                !histories.TryGetValue(request.HistoryId, out var history) ||
+                !Directory.Exists(archiveFolder) ||
+                !IsPathWithin(quizRoot, archiveFolder) ||
+                !string.Equals(ResolveTopLevelArchiveFolder(quizRoot, archiveFolder), archiveFolder, StringComparison.OrdinalIgnoreCase))
+            {
+                skipped++;
+                continue;
+            }
+
+            if (linkedArchiveOwners.TryGetValue(archiveFolder, out var ownerId) && ownerId != history.Id)
+            {
+                skipped++;
+                continue;
+            }
+
             var current = (history.ProjectFolder ?? "").Trim();
-            if (current.Length > 0 && Directory.Exists(current))
+            if (!SameStoredPath(current, request.ExpectedCurrentFolder))
             {
                 skipped++;
                 continue;
             }
 
-            if (UpdateQuizHistoryProjectFolder(history.Id, match.ArchiveFolder))
-                updated++;
-            else
+            if (!allowExistingPaths && current.Length > 0 && Directory.Exists(current))
+            {
                 skipped++;
+                continue;
+            }
+
+            if (UpdateQuizHistoryProjectFolder(history.Id, archiveFolder))
+            {
+                updated++;
+                linkedArchiveOwners[archiveFolder] = history.Id;
+            }
+            else
+            {
+                skipped++;
+            }
         }
 
         return new QuizArchiveMatchApplyResult(updated, skipped);
     }
 
-    private static IReadOnlyList<string> CandidateFolders(
-        int historyId,
-        IReadOnlyDictionary<int, List<string>> foldersByHistory) =>
-        foldersByHistory.TryGetValue(historyId, out var folders)
-            ? folders
-            : Array.Empty<string>();
-
-    private static bool IsUniqueArchiveMatch(
-        int historyId,
-        IReadOnlyList<string> folders,
-        IReadOnlyDictionary<string, List<int>> historiesByFolder)
+    private static QuizArchiveFolderFingerprint? TryInspectFolder(string folder)
     {
-        if (folders.Count != 1 ||
-            !historiesByFolder.TryGetValue(folders[0], out var folderHistories))
-            return false;
-
-        return folderHistories.Count == 1 && folderHistories[0] == historyId;
-    }
-
-    private static string? ResolveArchiveProjectFolderFromVideo(string quizRoot, string videoPath)
-    {
-        var videoFolder = Path.GetDirectoryName(videoPath);
-        return videoFolder is null ? null : ResolveTopLevelArchiveFolder(quizRoot, videoFolder);
+        try
+        {
+            return string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder)
+                ? null
+                : QuizArchiveDeepMatcher.InspectProjectFolder(folder);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return null;
+        }
     }
 
     private static string? ResolveTopLevelArchiveFolder(string quizRoot, string candidate)
@@ -272,6 +447,23 @@ public sealed partial class DesktopDataService
 
         var episode = history.EpisodeNumber > 0 ? $" #{history.EpisodeNumber:000}" : "";
         return $"{series}{episode} ({history.VideoType})";
+    }
+
+    private static bool SameStoredPath(string left, string right)
+    {
+        left = (left ?? "").Trim();
+        right = (right ?? "").Trim();
+        if (left.Length == 0 || right.Length == 0)
+            return left.Length == right.Length;
+
+        try
+        {
+            return string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException)
+        {
+            return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     private static bool IsPathWithin(string root, string candidate)
