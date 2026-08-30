@@ -20,29 +20,47 @@ public static class QuizProjectArchive
         Directory.CreateDirectory(archive);
         var relative = Path.GetRelativePath(projects, source);
         var requestedDestination = ProjectPathSecurity.EnsureContained(archive, Path.Combine(archive, relative));
-        var destination = AllocateDestination(requestedDestination);
+        return CopyAndVerifyToRequestedDestination(source, archive, requestedDestination);
+    }
 
-        var parent = Path.GetDirectoryName(destination)!;
-        Directory.CreateDirectory(parent);
-        var temporary = ProjectPathSecurity.EnsureContained(
-            archive,
-            destination + ".archiving-" + Guid.NewGuid().ToString("N")[..8]);
-        var destinationCreated = false;
-        try
-        {
-            CopyDirectory(source, temporary);
-            VerifyCopy(source, temporary);
-            Directory.Move(temporary, destination);
-            destinationCreated = true;
-            NativeResolvePortablePathRebaser.RebaseTree(destination, source, destination);
-            return destination;
-        }
-        catch
-        {
-            TryDelete(temporary);
-            if (destinationCreated) TryDelete(destination);
-            throw;
-        }
+    public static string CopyAndVerifyToQuizArchive(string sourceFolder, string quizArchiveRoot)
+    {
+        if (string.IsNullOrWhiteSpace(sourceFolder))
+            throw new ArgumentException("The quiz project folder is blank.", nameof(sourceFolder));
+        if (string.IsNullOrWhiteSpace(quizArchiveRoot))
+            throw new ArgumentException("The quiz archive folder is blank.", nameof(quizArchiveRoot));
+
+        var source = Path.GetFullPath(sourceFolder.Trim());
+        if (!Directory.Exists(source))
+            throw new DirectoryNotFoundException($"The quiz project folder was not found: {source}");
+
+        var archive = Path.GetFullPath(quizArchiveRoot.Trim());
+        if (IsWithin(source, archive) || IsWithin(archive, source))
+            throw new InvalidOperationException("The quiz archive folder must be separate from the source project folder.");
+
+        var sourceName = Path.GetFileName(source.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        if (string.IsNullOrWhiteSpace(sourceName) || sourceName is "." or "..")
+            throw new InvalidOperationException("The quiz project folder name could not be determined safely.");
+
+        Directory.CreateDirectory(archive);
+        var requestedDestination = ProjectPathSecurity.EnsureContained(archive, Path.Combine(archive, sourceName));
+        return CopyAndVerifyToRequestedDestination(source, archive, requestedDestination);
+    }
+
+    public static bool AreDirectoriesEquivalent(string leftFolder, string rightFolder)
+    {
+        if (string.IsNullOrWhiteSpace(leftFolder) || string.IsNullOrWhiteSpace(rightFolder))
+            return false;
+
+        var left = Path.GetFullPath(leftFolder.Trim());
+        var right = Path.GetFullPath(rightFolder.Trim());
+        if (!Directory.Exists(left) || !Directory.Exists(right))
+            return false;
+
+        var leftFiles = BuildFileMap(left);
+        var rightFiles = BuildFileMap(right);
+        return leftFiles.Count == rightFiles.Count &&
+               leftFiles.All(pair => rightFiles.TryGetValue(pair.Key, out var length) && length == pair.Value);
     }
 
     public static void DeleteSource(string sourceFolder)
@@ -60,6 +78,32 @@ public static class QuizProjectArchive
         }
         catch
         {
+        }
+    }
+
+    private static string CopyAndVerifyToRequestedDestination(string source, string archiveRoot, string requestedDestination)
+    {
+        var destination = AllocateDestination(requestedDestination);
+        var parent = Path.GetDirectoryName(destination)!;
+        Directory.CreateDirectory(parent);
+        var temporary = ProjectPathSecurity.EnsureContained(
+            archiveRoot,
+            destination + ".archiving-" + Guid.NewGuid().ToString("N")[..8]);
+        var destinationCreated = false;
+        try
+        {
+            CopyDirectory(source, temporary);
+            VerifyCopy(source, temporary);
+            Directory.Move(temporary, destination);
+            destinationCreated = true;
+            NativeResolvePortablePathRebaser.RebaseTree(destination, source, destination);
+            return destination;
+        }
+        catch
+        {
+            TryDelete(temporary);
+            if (destinationCreated) TryDelete(destination);
+            throw;
         }
     }
 
@@ -93,15 +137,20 @@ public static class QuizProjectArchive
 
     private static void VerifyCopy(string source, string destination)
     {
-        var sourceFiles = Directory.EnumerateFiles(source, "*", SearchOption.AllDirectories)
-            .ToDictionary(path => Path.GetRelativePath(source, path), path => new FileInfo(path).Length,
-                StringComparer.OrdinalIgnoreCase);
-        var destinationFiles = Directory.EnumerateFiles(destination, "*", SearchOption.AllDirectories)
-            .ToDictionary(path => Path.GetRelativePath(destination, path), path => new FileInfo(path).Length,
-                StringComparer.OrdinalIgnoreCase);
+        var sourceFiles = BuildFileMap(source);
+        var destinationFiles = BuildFileMap(destination);
         if (sourceFiles.Count != destinationFiles.Count ||
             sourceFiles.Any(pair => !destinationFiles.TryGetValue(pair.Key, out var length) || length != pair.Value))
             throw new IOException("The NAS copy could not be verified, so the local project was not removed.");
+    }
+
+    private static Dictionary<string, long> BuildFileMap(string root)
+    {
+        return Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+            .ToDictionary(
+                path => Path.GetRelativePath(root, path),
+                path => new FileInfo(path).Length,
+                StringComparer.OrdinalIgnoreCase);
     }
 
     private static bool IsWithin(string root, string candidate)
