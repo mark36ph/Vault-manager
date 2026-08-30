@@ -1,4 +1,28 @@
+let factburstAdsStarted = false;
+
 if (document.body.dataset.page === "quiz") {
+  if (hasAdvertisingConsent()) {
+    startAds();
+  }
+  window.addEventListener("factburst:cookie-consent", event => {
+    if (event.detail?.choice === "accepted") startAds();
+  });
+}
+
+function hasAdvertisingConsent() {
+  try {
+    if (window.factburstCookieConsent?.acceptsOptional) {
+      return window.factburstCookieConsent.acceptsOptional();
+    }
+    return localStorage.getItem("factburst-cookie-consent-v1") === "accepted";
+  } catch {
+    return false;
+  }
+}
+
+function startAds() {
+  if (factburstAdsStarted) return;
+  factburstAdsStarted = true;
   initializeSideAds().catch(error => console.error("Factburst side ads unavailable", error));
 }
 
