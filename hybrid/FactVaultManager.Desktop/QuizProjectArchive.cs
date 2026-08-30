@@ -19,9 +19,8 @@ public static class QuizProjectArchive
 
         Directory.CreateDirectory(archive);
         var relative = Path.GetRelativePath(projects, source);
-        var destination = ProjectPathSecurity.EnsureContained(archive, Path.Combine(archive, relative));
-        if (Directory.Exists(destination) || File.Exists(destination))
-            throw new IOException($"The NAS archive destination already exists: {destination}");
+        var requestedDestination = ProjectPathSecurity.EnsureContained(archive, Path.Combine(archive, relative));
+        var destination = AllocateDestination(requestedDestination);
 
         var parent = Path.GetDirectoryName(destination)!;
         Directory.CreateDirectory(parent);
@@ -62,6 +61,21 @@ public static class QuizProjectArchive
         catch
         {
         }
+    }
+
+    private static string AllocateDestination(string requestedDestination)
+    {
+        if (!Directory.Exists(requestedDestination) && !File.Exists(requestedDestination))
+            return requestedDestination;
+
+        for (var index = 1; index <= 9_999; index++)
+        {
+            var candidate = requestedDestination + $" - archived-copy {index:000}";
+            if (!Directory.Exists(candidate) && !File.Exists(candidate))
+                return candidate;
+        }
+
+        throw new IOException($"Could not allocate an archive folder for '{requestedDestination}'.");
     }
 
     private static void CopyDirectory(string source, string destination)
