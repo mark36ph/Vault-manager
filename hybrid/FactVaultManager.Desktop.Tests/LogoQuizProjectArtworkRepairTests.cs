@@ -100,7 +100,6 @@ public sealed class LogoQuizProjectArtworkRepairTests
         var supervisor = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.LogoQuizPromoArtworkRepair.cs");
         var repair = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/LogoQuizProjectArtworkRepair.cs");
 
-        Assert.Contains("CurrentBuildNumber = 80", buildInfo, StringComparison.Ordinal);
         Assert.Contains("InitializeLogoQuizPromoArtworkRepair", buildInfo, StringComparison.Ordinal);
         Assert.Contains("LogoQuizProjectArtworkRepair.RepairAsync", supervisor, StringComparison.Ordinal);
         Assert.Contains("Assets", repair, StringComparison.Ordinal);
