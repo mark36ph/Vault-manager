@@ -1,0 +1,22 @@
+/* Keep the desktop header in a stable three-zone layout so navigation never shifts
+   when account controls are present on one page and absent on another. */
+@media (min-width: 841px) {
+  .site-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .site-header > .brand {
+    justify-self: start;
+  }
+
+  .site-header > .top-nav {
+    justify-self: center;
+  }
+
+  .site-header > .account-header-area {
+    justify-self: end;
+    margin-left: 0;
+  }
+}
