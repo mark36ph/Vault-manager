@@ -8,14 +8,14 @@
   <meta name="description" content="View your Factburst Quiz scores, rankings, friends and quiz history.">
   <title>Your Profile | Factburst Quiz</title>
   <link rel="icon" href="/favicon.ico">
+  <link rel="preload" href="/brand-icon.png?v=2" as="image">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/website-media.css">
   <link rel="stylesheet" href="/profile.css">
   <link rel="stylesheet" href="/engagement.css">
   <link rel="stylesheet" href="/profile-tidy.css">
   <link rel="stylesheet" href="/professional-redesign.css">
-  <link rel="stylesheet" href="/brand-logo.css?v=2">
-  <link rel="stylesheet" href="/header-stability.css">
+  <link rel="stylesheet" href="/site-shell.css?v=1">
 </head>
 <body data-page="profile">
   <header class="site-header">
@@ -28,12 +28,32 @@
       <a href="/quizzes.html">Quizzes</a>
       <a href="/leaderboard.html">Leaderboard</a>
       <a href="/profile.html" aria-current="page">Profile</a>
+      <span class="notification-slot" aria-hidden="true"></span>
     </nav>
   </header>
 
   <main class="shell profile-shell">
     <section id="profile-loading" class="profile-panel loading-card">
-      <p>Loading your Factburst profile…</p>
+      <span class="sr-only">Loading your Factburst profile…</span>
+      <div class="skeleton-profile" aria-hidden="true">
+        <div class="skeleton-stack">
+          <span class="skeleton-pill"></span>
+          <span class="skeleton-line skeleton-line-lg skeleton-w-45"></span>
+          <span class="skeleton-line skeleton-w-60"></span>
+        </div>
+        <div class="skeleton-stat-row">
+          <span class="skeleton-block skeleton-stat"></span>
+          <span class="skeleton-block skeleton-stat"></span>
+          <span class="skeleton-block skeleton-stat"></span>
+          <span class="skeleton-block skeleton-stat"></span>
+          <span class="skeleton-block skeleton-stat"></span>
+        </div>
+        <div class="skeleton-stack">
+          <span class="skeleton-line skeleton-line-lg skeleton-w-30"></span>
+          <span class="skeleton-line skeleton-w-90"></span>
+          <span class="skeleton-line skeleton-w-75"></span>
+        </div>
+      </div>
     </section>
 
     <section id="profile-content" class="hidden" aria-live="polite">
@@ -109,6 +129,32 @@
       <a class="button button-primary" href="/">Back to Factburst Quiz</a>
     </section>
   </main>
+
+  <footer id="factburst-professional-footer" class="site-footer professional-footer">
+    <div class="shell professional-footer-grid">
+      <div class="professional-footer-brand">
+        <a class="professional-footer-brand-link" href="/">Factburst Quiz</a>
+        <p>Fast questions. Factual answers.</p>
+      </div>
+      <nav class="professional-footer-links" aria-label="Explore Factburst">
+        <strong>Explore</strong>
+        <a href="/">Home</a>
+        <a href="/quizzes.html">Quizzes</a>
+        <a href="/leaderboard.html">Leaderboard</a>
+        <a href="/profile.html">Profile</a>
+      </nav>
+      <nav class="professional-footer-links" aria-label="Legal and privacy">
+        <strong>Legal</strong>
+        <a href="/terms.html">Terms of use</a>
+        <a href="/privacy.html">Privacy notice</a>
+        <button type="button" class="footer-link-button" data-cookie-settings>Cookie settings</button>
+      </nav>
+    </div>
+    <div class="shell professional-footer-bottom">
+      <span>© <span data-footer-year>2026</span> Factburst Quiz</span>
+      <span>Quiz content is provided for entertainment and general information.</span>
+    </div>
+  </footer>
 
   <script src="/site-status.js"></script>
   <script src="/engagement.js"></script>
