@@ -1,5 +1,5 @@
 /* Keep the desktop header in a stable three-zone layout so navigation never shifts
-   when account controls are present on one page and absent on another. */
+   when account controls or notification data arrive after the first paint. */
 @media (min-width: 841px) {
   .site-header {
     display: grid !important;
@@ -18,5 +18,30 @@
   .site-header > .account-header-area {
     justify-self: end;
     margin-left: 0 !important;
+  }
+
+  /* Reserve the final notification control width before engagement data loads.
+     On pages without notifications this invisible slot remains, keeping the
+     navigation links in the same horizontal position as every other page. */
+  .top-nav::after {
+    content: "";
+    display: block;
+    width: 148px;
+    height: 38px;
+    flex: 0 0 148px;
+  }
+
+  .top-nav:has(#notification-button)::after {
+    display: none;
+  }
+
+  .top-nav .notification-button-placeholder {
+    display: none !important;
+  }
+
+  .top-nav #notification-button.notification-button-header {
+    width: 148px;
+    flex: 0 0 148px;
+    justify-content: center;
   }
 }
