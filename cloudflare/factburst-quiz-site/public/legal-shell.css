@@ -202,11 +202,15 @@
   color: var(--cyan-soft, #73dbff);
 }
 
-.legal-callout {
-  padding: 18px 20px;
+.legal-content section.legal-callout {
+  padding: 26px 28px;
   border: 1px solid rgba(53, 199, 255, 0.18);
   border-radius: 14px;
   background: rgba(53, 199, 255, 0.05);
+}
+
+.legal-content section.legal-callout > :last-child {
+  margin-bottom: 0;
 }
 
 @media (max-width: 760px) {
@@ -245,6 +249,10 @@
   .legal-shell {
     width: min(100% - 28px, 860px);
     padding-top: 42px;
+  }
+
+  .legal-content section.legal-callout {
+    padding: 22px;
   }
 }
 
