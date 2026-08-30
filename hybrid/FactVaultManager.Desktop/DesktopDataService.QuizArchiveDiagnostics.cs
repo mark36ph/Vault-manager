@@ -310,7 +310,7 @@ public sealed partial class DesktopDataService
 
             return JsonSerializer.Deserialize<List<QuizArchiveRelinkJournalEntry>>(
                        File.ReadAllText(QuizArchiveRelinkJournalPath)) ??
-                   Array.Empty<QuizArchiveRelinkJournalEntry>();
+                   new List<QuizArchiveRelinkJournalEntry>();
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
         {
