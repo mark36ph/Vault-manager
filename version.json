@@ -1,8 +1,14 @@
 {
-  "latest_version": "1.0.53",
-  "build": 78,
+  "latest_version": "1.0.54",
+  "build": 79,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
+    "Build 79 turns the schedule Auto-fill option into a clear master AUTOPILOT ON/OFF switch for continuous production while the app is running.",
+    "With Autopilot ON, Factburst checks the rolling schedule every five minutes, automatically starts the existing tested quiz generation and scheduling pipeline whenever even one target day is missing, and keeps the configured 7, 14, 21 or 30 day buffer filled.",
+    "The same master switch starts and stops Full Autopilot post-release supervision, including release audits, winner follow-ups, comment triage and other API-supported promotion work; enabling it runs an immediate supervision pass.",
+    "Automatic production still uses the existing performance-weighted category rotation, winner follow-ups, approved YouTube destination guard, trusted publishing preflight, website/tracker preparation and recovery checks.",
+    "Autopilot now retries promptly when production is temporarily unavailable and only starts the 20-minute duplicate-production cooldown after the existing production action has actually launched.",
+    "The Generate + Fill Schedule action remains available as a Fill schedule now manual override, but normal operation no longer requires pressing it.",
     "Build 78 moves Comment moderation out of Settings and into the main app sidebar directly after Website and Users.",
     "The existing Reported, Visible, Hidden and All queues, search, Hide, Restore, Dismiss reports, Delete and Open quiz actions are unchanged.",
     "Build 77 adds a dedicated Comment moderation page to the desktop app Settings, with Reported, Visible, Hidden and All queues plus search across comments, users and quizzes.",

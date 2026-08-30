@@ -59,7 +59,9 @@ public static class AutopilotScheduleTargetPlanner
         DateTime utcNow)
     {
         ArgumentNullException.ThrowIfNull(preferences);
-        if (!preferences.AutoFillEnabled || productionBusy || missingDays < 2)
+        // Master Autopilot keeps the rolling schedule completely full. Even one
+        // missing target day is enough to start the existing safe batch pipeline.
+        if (!preferences.AutoFillEnabled || productionBusy || missingDays <= 0)
             return false;
         if (preferences.LastAutomaticFillUtc is { } last && utcNow - last < TimeSpan.FromMinutes(20))
             return false;

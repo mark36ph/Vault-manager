@@ -42,14 +42,15 @@ public sealed class AutopilotScheduleTargetTests
     }
 
     [Fact]
-    public void ShouldAutoFill_IsOptInAndRequiresAtLeastTwoMissingDays()
+    public void ShouldAutoFill_IsOptInAndFillsEvenOneMissingDay()
     {
         var preferences = new AutopilotSchedulePreferences { TargetDays = 14, AutoFillEnabled = false };
         var now = new DateTime(2026, 8, 29, 6, 0, 0, DateTimeKind.Utc);
 
         Assert.False(AutopilotScheduleTargetPlanner.ShouldAutoFill(preferences, 5, false, now));
         preferences.AutoFillEnabled = true;
-        Assert.False(AutopilotScheduleTargetPlanner.ShouldAutoFill(preferences, 1, false, now));
+        Assert.False(AutopilotScheduleTargetPlanner.ShouldAutoFill(preferences, 0, false, now));
+        Assert.True(AutopilotScheduleTargetPlanner.ShouldAutoFill(preferences, 1, false, now));
         Assert.False(AutopilotScheduleTargetPlanner.ShouldAutoFill(preferences, 5, true, now));
         Assert.True(AutopilotScheduleTargetPlanner.ShouldAutoFill(preferences, 5, false, now));
     }
@@ -69,7 +70,7 @@ public sealed class AutopilotScheduleTargetTests
     }
 
     [Fact]
-    public void DefaultPreferences_DoNotUnexpectedlyStartProductionAfterUpgrade()
+    public void DefaultPreferences_RequireTheMasterSwitchToBeTurnedOnOnce()
     {
         var preferences = new AutopilotSchedulePreferences();
         Assert.Equal(14, preferences.TargetDays);
@@ -77,15 +78,31 @@ public sealed class AutopilotScheduleTargetTests
     }
 
     [Fact]
-    public void Build47Source_AutoClosesCountDialogAndChecksScheduleEveryThirtyMinutes()
+    public void Build79Source_UsesVisibleMasterSwitchAndFiveMinuteContinuousChecks()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotScheduleTarget.cs");
-        Assert.Contains("Generate + Fill Schedule", source, StringComparison.Ordinal);
+        Assert.Contains("AUTOPILOT ON", source, StringComparison.Ordinal);
+        Assert.Contains("AUTOPILOT OFF", source, StringComparison.Ordinal);
+        Assert.Contains("Fill schedule now", source, StringComparison.Ordinal);
         Assert.Contains("Generate + Schedule Quiz Batch", source, StringComparison.Ordinal);
         Assert.Contains("AutopilotBatchCountRequest.TryConsume", source, StringComparison.Ordinal);
-        Assert.Contains("Interval = TimeSpan.FromMinutes(30)", source, StringComparison.Ordinal);
+        Assert.Contains("Interval = TimeSpan.FromMinutes(5)", source, StringComparison.Ordinal);
+        Assert.Contains("Task.Delay(TimeSpan.FromSeconds(15))", source, StringComparison.Ordinal);
         Assert.Contains("ApprovedYouTubeChannelId", source, StringComparison.Ordinal);
         Assert.Contains("AutopilotTrustedPublishingPreflight.Arm", source, StringComparison.Ordinal);
+        Assert.Contains("_fullAutopilotTimer?.Stop()", source, StringComparison.Ordinal);
+        Assert.Contains("_fullAutopilotTimer?.Start()", source, StringComparison.Ordinal);
+        Assert.Contains("await RunFullAutopilotAsync()", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build79Source_DoesNotBurnRetryCooldownUntilProductionActuallyStarts()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotScheduleTarget.cs");
+        var raise = source.IndexOf("_quizAutopilotPrimaryButton.RaiseEvent", StringComparison.Ordinal);
+        var stamp = source.IndexOf("preferences.LastAutomaticFillUtc = DateTime.UtcNow", StringComparison.Ordinal);
+        Assert.True(raise >= 0, "The existing tested production button should still be used.");
+        Assert.True(stamp > raise, "The retry cooldown must only be stamped after production is actually launched.");
     }
 
     [Fact]
