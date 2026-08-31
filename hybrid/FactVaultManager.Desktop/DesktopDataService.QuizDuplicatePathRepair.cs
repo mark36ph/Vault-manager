@@ -67,8 +67,6 @@ public sealed partial class DesktopDataService
             .Where(path => path.Length > 0 && Directory.Exists(path))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        var conflicts = new List<QuizDuplicatePathRepairConflict>();
-
         // Do not try to guess which History row "owns" the shared C: folder. That shared path is
         // the corrupt signal we are repairing and may not contain enough metadata to identify one
         // owner safely. Instead, independently rescue any row that has a unique High-confidence
@@ -111,24 +109,44 @@ public sealed partial class DesktopDataService
             }
         }
 
-        var fingerprints = new Dictionary<string, QuizArchiveFolderFingerprint>(StringComparer.OrdinalIgnoreCase);
-        foreach (var folder in candidateFolders)
+        var fingerprints = new List<QuizArchiveFolderFingerprint>();
+        foreach (var folder in candidateFolders.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
         {
             var fingerprint = TryInspectDuplicateRepairFolder(folder);
             if (fingerprint is not null)
-                fingerprints[folder] = fingerprint;
+                fingerprints.Add(fingerprint);
         }
+
+        var plan = PlanDuplicatePathRepairTargets(repairTargets, fingerprints);
+        return new QuizDuplicatePathRepairPreview(
+            duplicateGroups.Count,
+            duplicateGroups.Sum(group => group.Histories.Count),
+            plan.Suggestions.Count,
+            plan.Suggestions,
+            plan.Conflicts);
+    }
+
+    internal static (
+        IReadOnlyList<QuizDuplicatePathRepairSuggestion> Suggestions,
+        IReadOnlyList<QuizDuplicatePathRepairConflict> Conflicts)
+        PlanDuplicatePathRepairTargets(
+            IReadOnlyList<QuizHistorySummary> repairTargets,
+            IReadOnlyList<QuizArchiveFolderFingerprint> fingerprints)
+    {
+        ArgumentNullException.ThrowIfNull(repairTargets);
+        ArgumentNullException.ThrowIfNull(fingerprints);
 
         var candidatesByHistory = new Dictionary<int, List<QuizArchiveDeepCandidate>>();
         var candidatesByFolder = new Dictionary<string, List<QuizArchiveDeepCandidate>>(StringComparer.OrdinalIgnoreCase);
-        foreach (var history in repairTargets)
+        foreach (var history in repairTargets.OrderBy(history => history.Id))
         {
             var candidates = new List<QuizArchiveDeepCandidate>();
-            foreach (var fingerprint in fingerprints.Values)
+            foreach (var fingerprint in fingerprints)
             {
                 var candidate = EvaluateDuplicateRepairCandidate(history, fingerprint);
                 if (candidate.Confidence < QuizArchiveMatchConfidence.High)
                     continue;
+
                 candidates.Add(candidate);
                 if (!candidatesByFolder.TryGetValue(fingerprint.Folder, out var folderCandidates))
                     candidatesByFolder[fingerprint.Folder] = folderCandidates = [];
@@ -151,8 +169,9 @@ public sealed partial class DesktopDataService
         }
 
         var suggestions = new List<QuizDuplicatePathRepairSuggestion>();
+        var conflicts = new List<QuizDuplicatePathRepairConflict>();
         var usedFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var history in repairTargets)
+        foreach (var history in repairTargets.OrderBy(history => history.Id))
         {
             if (!candidatesByHistory.TryGetValue(history.Id, out var historyCandidates) ||
                 !HasUniqueBest(historyCandidates, out var best))
@@ -188,12 +207,7 @@ public sealed partial class DesktopDataService
                 string.Join("; ", best.Evidence)));
         }
 
-        return new QuizDuplicatePathRepairPreview(
-            duplicateGroups.Count,
-            duplicateGroups.Sum(group => group.Histories.Count),
-            suggestions.Count,
-            suggestions,
-            conflicts);
+        return (suggestions, conflicts);
     }
 
     public QuizDuplicatePathRepairApplyResult ApplyDuplicateQuizHistoryProjectFolderRepairs(
