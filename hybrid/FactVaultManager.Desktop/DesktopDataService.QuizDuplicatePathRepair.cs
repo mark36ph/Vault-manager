@@ -68,54 +68,17 @@ public sealed partial class DesktopDataService
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var conflicts = new List<QuizDuplicatePathRepairConflict>();
-        var repairTargets = new List<QuizHistorySummary>();
 
-        foreach (var group in duplicateGroups)
-        {
-            var sourceFingerprint = TryInspectDuplicateRepairFolder(group.Source);
-            if (sourceFingerprint is null)
-            {
-                conflicts.Add(new QuizDuplicatePathRepairConflict(
-                    group.Source,
-                    group.Histories.Select(history => history.Id).ToList(),
-                    "The shared C: project folder could not be inspected safely."));
-                continue;
-            }
-
-            // Determine which one History row actually belongs to the shared C: project. Stored
-            // project_folder is deliberately blanked during scoring so the corrupt shared path
-            // cannot make every row look like an Exact match.
-            var ownerCandidates = group.Histories
-                .Select(history => EvaluateDuplicateRepairCandidate(history, sourceFingerprint))
-                .Where(candidate => candidate.Confidence >= QuizArchiveMatchConfidence.High)
-                .OrderByDescending(candidate => candidate.Score)
-                .ThenBy(candidate => candidate.HistoryId)
-                .ToList();
-
-            if (!HasUniqueBest(ownerCandidates, out var owner))
-            {
-                var ids = group.Histories.Select(history => history.Id).ToList();
-                var detail = ownerCandidates.Count == 0
-                    ? "No History row has a High-confidence identity match to this physical C: project."
-                    : $"The likely owner is ambiguous between {string.Join(", ", ownerCandidates.Take(3).Select(candidate => $"#{candidate.HistoryId} ({candidate.Score})"))}.";
-                conflicts.Add(new QuizDuplicatePathRepairConflict(group.Source, ids, detail));
-                continue;
-            }
-
-            // Keep the uniquely identified owner on the physical C: folder for now. Every other
-            // row in the group must be recovered to its own distinct folder before C: can be archived.
-            repairTargets.AddRange(group.Histories.Where(history => history.Id != owner.HistoryId));
-        }
-
-        if (repairTargets.Count == 0)
-        {
-            return new QuizDuplicatePathRepairPreview(
-                duplicateGroups.Count,
-                duplicateGroups.Sum(group => group.Histories.Count),
-                0,
-                [],
-                conflicts);
-        }
+        // Do not try to guess which History row "owns" the shared C: folder. That shared path is
+        // the corrupt signal we are repairing and may not contain enough metadata to identify one
+        // owner safely. Instead, independently rescue any row that has a unique High-confidence
+        // alternate project folder elsewhere. Unresolved rows remain on the shared C: folder and
+        // are reconsidered on the next scan. This allows partial progress without weakening the
+        // episode/type guards used for destination matching.
+        var repairTargets = duplicateGroups
+            .SelectMany(group => group.Histories)
+            .OrderBy(history => history.Id)
+            .ToList();
 
         var candidateFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var folder in EnumerateDuplicateRepairProjectFolders(GetProjectsRoot()))
@@ -189,7 +152,7 @@ public sealed partial class DesktopDataService
 
         var suggestions = new List<QuizDuplicatePathRepairSuggestion>();
         var usedFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var history in repairTargets.OrderBy(history => history.Id))
+        foreach (var history in repairTargets)
         {
             if (!candidatesByHistory.TryGetValue(history.Id, out var historyCandidates) ||
                 !HasUniqueBest(historyCandidates, out var best))
@@ -198,8 +161,8 @@ public sealed partial class DesktopDataService
                     history.ProjectFolder,
                     [history.Id],
                     historyCandidates is { Count: > 0 }
-                        ? $"No unique High-confidence destination. Best candidates: {string.Join(", ", historyCandidates.Take(3).Select(candidate => $"{Path.GetFileName(candidate.ArchiveFolder)} ({candidate.Score})"))}."
-                        : "No High-confidence C: or Z: project folder was found for this History row."));
+                        ? $"No unique High-confidence alternate project folder. Best candidates: {string.Join(", ", historyCandidates.Take(3).Select(candidate => $"{Path.GetFileName(candidate.ArchiveFolder)} ({candidate.Score})"))}."
+                        : "No High-confidence alternate C: or Z: project folder was found for this History row."));
                 continue;
             }
 
@@ -211,7 +174,7 @@ public sealed partial class DesktopDataService
                 conflicts.Add(new QuizDuplicatePathRepairConflict(
                     history.ProjectFolder,
                     [history.Id],
-                    $"The best destination '{Path.GetFileName(best.ArchiveFolder)}' is also a strong match for another History row, so it was not assigned automatically."));
+                    $"The best alternate folder '{Path.GetFileName(best.ArchiveFolder)}' is also a strong match for another History row, so it was not assigned automatically."));
                 continue;
             }
 
