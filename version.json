@@ -1,16 +1,17 @@
 {
-  "latest_version": "1.0.84",
-  "build": 109,
+  "latest_version": "1.0.85",
+  "build": 110,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 109 tidies the normal day-to-day Factburst interface after the archive migration and guided Autopilot work.",
-    "Quiz History no longer duplicates Open Publish and Reopen in Quiz Builder in the global header; both actions now live under the local More menu with archive and delete.",
-    "The global header is reduced to a simple Refresh action plus a quiet Updates action; when an installed build detects a newer release, the Updates button changes to Update available.",
-    "Quiz History renames the YouTube column to Status, uses shorter scheduled-release text, tightens small metric columns and gives more room to YouTube titles and categories.",
-    "Long Quiz History titles and category lists now show their full value as a tooltip while remaining neatly ellipsized in the table.",
-    "Autopilot Needs You now stays simplified after every status refresh: old per-task manager buttons are removed and Start next task remains the single normal action.",
-    "The Autopilot home card now says Keep the schedule filled with a shorter Fill schedule action, separating schedule generation from the guided human-task flow.",
-    "When no human action is pending, the Start next task button is hidden and Autopilot clearly says it will continue working in the background.",
-    "Build 108 guided Needs You, Build 107 SEO fixes and the completed C to Z archive workflow remain included unchanged."
+    "Build 110 simplifies Create and reorganizes Advanced so routine production stays Autopilot-first.",
+    "Create now presents a plain five-step workflow: Setup, Questions, Preview, Details and Finish, replacing the more technical Builder, Draft, Publish and Export wording in the normal sidebar.",
+    "Create page guidance now makes it clear which review steps are optional when Autopilot is filling the release schedule.",
+    "The manual render and DaVinci Resolve shortcut is removed from the global header; those controls remain available under Create > Finish > Manual settings & render.",
+    "The manual export section is renamed Manual settings & render and remains collapsed unless voice, branding, effects, music, format or manual rendering needs an override.",
+    "Advanced is reorganized into Publishing & channel, Content & assets, and Troubleshooting & legacy groups.",
+    "Projects, Production and Asset Review are moved into a collapsed Troubleshooting & legacy section so older and diagnostic workflows no longer compete with normal tools.",
+    "Upload Manager, Release Readiness and platform managers remain immediately accessible for genuine publishing or account-specific work.",
+    "All existing routes and production capabilities are preserved; this release changes interface hierarchy only and does not alter upload, scheduling, archive, rendering or Autopilot safety behavior.",
+    "Build 109 day-to-day UI cleanup and the guided Needs You workflow remain included unchanged."
   ]
 }
