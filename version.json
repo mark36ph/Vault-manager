@@ -1,17 +1,16 @@
 {
-  "latest_version": "1.0.85",
-  "build": 110,
+  "latest_version": "1.0.86",
+  "build": 111,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 110 simplifies Create and reorganizes Advanced so routine production stays Autopilot-first.",
-    "Create now presents a plain five-step workflow: Setup, Questions, Preview, Details and Finish, replacing the more technical Builder, Draft, Publish and Export wording in the normal sidebar.",
-    "Create page guidance now makes it clear which review steps are optional when Autopilot is filling the release schedule.",
-    "The manual render and DaVinci Resolve shortcut is removed from the global header; those controls remain available under Create > Finish > Manual settings & render.",
-    "The manual export section is renamed Manual settings & render and remains collapsed unless voice, branding, effects, music, format or manual rendering needs an override.",
-    "Advanced is reorganized into Publishing & channel, Content & assets, and Troubleshooting & legacy groups.",
-    "Projects, Production and Asset Review are moved into a collapsed Troubleshooting & legacy section so older and diagnostic workflows no longer compete with normal tools.",
-    "Upload Manager, Release Readiness and platform managers remain immediately accessible for genuine publishing or account-specific work.",
-    "All existing routes and production capabilities are preserved; this release changes interface hierarchy only and does not alter upload, scheduling, archive, rendering or Autopilot safety behavior.",
-    "Build 109 day-to-day UI cleanup and the guided Needs You workflow remain included unchanged."
+    "Build 111 adds a full Website inventory audit so current long-form Quiz History entries are compared directly with the Cloudflare catalogue.",
+    "Website now shows Local quizzes, On website and Missing counts alongside the existing schedule and question totals.",
+    "Missing local quizzes are shown first in the Website table and can be uploaded together with the new Sync missing action.",
+    "Sync missing only uploads quizzes absent from Cloudflare; website copies that already exist are left unchanged.",
+    "Saved YouTube schedule, upload and quiz creation dates are used to preserve sensible website release timing when a missing quiz is restored.",
+    "Quizzes that cannot be uploaded because a YouTube link, project folder, quiz.json or required question image is unavailable remain marked Missing and are reported for attention.",
+    "A missing row can also be synced individually with Sync selected, while existing website rows keep the Resync selected workflow.",
+    "Short-form Quiz History entries are excluded from the audit because the Factburst website catalogue is based on long-form YouTube quizzes.",
+    "Build 110 Create and Advanced cleanup, Build 109 day-to-day UI cleanup and the guided Needs You workflow remain included unchanged."
   ]
 }
