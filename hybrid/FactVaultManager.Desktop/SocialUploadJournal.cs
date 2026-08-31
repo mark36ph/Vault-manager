@@ -150,6 +150,8 @@ public sealed class SocialUploadJournalStore
         command.Parameters.AddWithValue("$comment", Requested(commentRequested));
         command.Parameters.AddWithValue("$updatedAt", Timestamp());
         command.ExecuteNonQuery();
+
+        PublicationState.BeginAttempt(historyId, platform);
     }
 
     public void RecordUploadCompleted(int historyId, string platform, string remoteId, string remoteUrl)
@@ -163,6 +165,8 @@ public sealed class SocialUploadJournalStore
                 command.Parameters.AddWithValue("$remoteId", remoteId.Trim());
                 command.Parameters.AddWithValue("$remoteUrl", (remoteUrl ?? "").Trim());
             });
+
+        PublicationState.RecordUploaded(historyId, platform, remoteId, remoteUrl);
     }
 
     public void RecordStepCompleted(int historyId, string platform, string step)
@@ -176,6 +180,8 @@ public sealed class SocialUploadJournalStore
                 command.Parameters.AddWithValue("$status", SocialUploadJournalStatus.Complete);
                 command.Parameters.AddWithValue("$step", step);
             });
+
+        PublicationState.ClearIssue(historyId, platform);
     }
 
     public void RecordStepStarted(int historyId, string platform, string step)
@@ -188,14 +194,17 @@ public sealed class SocialUploadJournalStore
     public void RecordFailure(int historyId, string platform, string step, string? error)
     {
         var column = StepColumn(step);
+        var message = (error ?? "Unknown upload error").Trim();
         Update(historyId, platform,
             $"{column} = $status, failed_step = $step, last_error = $error",
             command =>
             {
                 command.Parameters.AddWithValue("$status", SocialUploadJournalStatus.Failed);
                 command.Parameters.AddWithValue("$step", step);
-                command.Parameters.AddWithValue("$error", (error ?? "Unknown upload error").Trim());
+                command.Parameters.AddWithValue("$error", message);
             });
+
+        PublicationState.RecordFailure(historyId, platform, step, message);
     }
 
     public IReadOnlyList<SocialUploadJournalEntry> List(int? historyId = null)
@@ -233,6 +242,8 @@ public sealed class SocialUploadJournalStore
         command.Parameters.AddWithValue("$historyId", historyId);
         command.Parameters.AddWithValue("$platform", platform.Trim());
         command.ExecuteNonQuery();
+
+        PublicationState.Reset(historyId, platform);
     }
 
     private void Update(int historyId, string platform, string assignments, Action<SqliteCommand> addParameters)
@@ -274,6 +285,8 @@ public sealed class SocialUploadJournalStore
             """;
         command.ExecuteNonQuery();
     }
+
+    private PublicationStateStore PublicationState => new(_databasePath);
 
     private SqliteConnection OpenConnection()
     {
