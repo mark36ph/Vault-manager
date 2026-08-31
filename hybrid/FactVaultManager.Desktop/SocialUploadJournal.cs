@@ -151,7 +151,7 @@ public sealed class SocialUploadJournalStore
         command.Parameters.AddWithValue("$updatedAt", Timestamp());
         command.ExecuteNonQuery();
 
-        PublicationState.BeginAttempt(historyId, platform);
+        PublicationState.BeginAttempt(historyId, platform, PublicationContentKind.Quiz);
     }
 
     public void RecordUploadCompleted(int historyId, string platform, string remoteId, string remoteUrl)
@@ -166,7 +166,8 @@ public sealed class SocialUploadJournalStore
                 command.Parameters.AddWithValue("$remoteUrl", (remoteUrl ?? "").Trim());
             });
 
-        PublicationState.RecordUploaded(historyId, platform, remoteId, remoteUrl);
+        PublicationState.RecordUploaded(
+            historyId, platform, PublicationContentKind.Quiz, remoteId, remoteUrl);
     }
 
     public void RecordStepCompleted(int historyId, string platform, string step)
@@ -181,7 +182,7 @@ public sealed class SocialUploadJournalStore
                 command.Parameters.AddWithValue("$step", step);
             });
 
-        PublicationState.ClearIssue(historyId, platform);
+        PublicationState.ClearIssue(historyId, platform, PublicationContentKind.Quiz);
     }
 
     public void RecordStepStarted(int historyId, string platform, string step)
@@ -204,7 +205,8 @@ public sealed class SocialUploadJournalStore
                 command.Parameters.AddWithValue("$error", message);
             });
 
-        PublicationState.RecordFailure(historyId, platform, step, message);
+        PublicationState.RecordFailure(
+            historyId, platform, PublicationContentKind.Quiz, step, message);
     }
 
     public IReadOnlyList<SocialUploadJournalEntry> List(int? historyId = null)
@@ -243,7 +245,7 @@ public sealed class SocialUploadJournalStore
         command.Parameters.AddWithValue("$platform", platform.Trim());
         command.ExecuteNonQuery();
 
-        PublicationState.Reset(historyId, platform);
+        PublicationState.Reset(historyId, platform, PublicationContentKind.Quiz);
     }
 
     private void Update(int historyId, string platform, string assignments, Action<SqliteCommand> addParameters)
