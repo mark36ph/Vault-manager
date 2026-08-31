@@ -152,7 +152,19 @@ jobs:
               },
               assets: {
                 directory: "./public",
-                binding: "ASSETS"
+                binding: "ASSETS",
+                html_handling: "none",
+                run_worker_first: [
+                  "/quiz",
+                  "/quiz/*",
+                  "/quiz.html",
+                  "/quizzes",
+                  "/quizzes/*",
+                  "/quizzes.html",
+                  "/robots.txt",
+                  "/sitemap.xml",
+                  "/social/*"
+                ]
               },
               d1_databases: [
                 {
@@ -243,6 +255,45 @@ jobs:
           done
           echo "::error::Live Factburst account API smoke test failed at the direct Worker deployment URL."
           exit 1
+
+      - name: Smoke test clean quiz route
+        shell: bash
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          set -euo pipefail
+          base="${DEPLOYMENT_URL:-https://factburst-quiz-site.factburstquiz.workers.dev}"
+          base="${base%/}"
+
+          listing="$(curl --fail-with-body --silent --show-error --max-time 15 "${base}/api/quizzes?limit=20")"
+          slug="$(jq -r '.quizzes[]? | select((.slug // "") != "") | .slug' <<<"${listing}" | head -n 1)"
+          if [[ -z "${slug}" ]]; then
+            echo "::error::Could not find a published quiz slug for the clean-route smoke test."
+            exit 1
+          fi
+
+          headers="$(mktemp)"
+          body="$(mktemp)"
+          status="$(curl --silent --show-error --max-time 15 --output "${body}" --dump-header "${headers}" --write-out '%{http_code}' "${base}/quiz/${slug}")"
+          if [[ "${status}" != "200" ]]; then
+            echo "::error::Clean quiz route returned HTTP ${status} for /quiz/${slug}."
+            cat "${headers}" >&2
+            exit 1
+          fi
+          if grep -qi '^location:' "${headers}"; then
+            echo "::error::Clean quiz route unexpectedly redirected for /quiz/${slug}."
+            cat "${headers}" >&2
+            exit 1
+          fi
+          if ! grep -q 'data-page="quiz"' "${body}"; then
+            echo "::error::Clean quiz route did not return the quiz player HTML for /quiz/${slug}."
+            exit 1
+          fi
+          if ! grep -q "https://factburstquiz.com/quiz/${slug}" "${body}"; then
+            echo "::error::Clean quiz route did not render the expected canonical quiz URL for /quiz/${slug}."
+            exit 1
+          fi
+          echo "Clean quiz route /quiz/${slug} returned HTTP 200 without redirecting."
 
       - name: Deployment summary
         if: success()
