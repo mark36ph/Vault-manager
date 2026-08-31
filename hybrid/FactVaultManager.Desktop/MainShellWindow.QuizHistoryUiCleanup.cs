@@ -42,7 +42,9 @@ public partial class MainShellWindow
 
         var analyticsRefresh = header?.Children
             .OfType<Button>()
-            .FirstOrDefault(button => string.Equals(button.Content?.ToString(), "Refresh", StringComparison.Ordinal));
+            .FirstOrDefault(button =>
+                string.Equals(button.Content?.ToString(), "Refresh", StringComparison.Ordinal) ||
+                string.Equals(button.Content?.ToString(), "Refresh analytics", StringComparison.Ordinal));
         if (analyticsRefresh is not null)
         {
             analyticsRefresh.Content = "Refresh analytics";
@@ -96,6 +98,24 @@ public partial class MainShellWindow
             BorderThickness = new Thickness(1),
         };
 
+        var publishItem = new MenuItem
+        {
+            Header = "Open Publish",
+            ToolTip = "Reopen the selected quiz directly at its Publish step",
+        };
+        publishItem.Click += (_, _) => ReopenSelectedQuizHistoryInBuilder("publish");
+        menu.Items.Add(publishItem);
+
+        var reopenItem = new MenuItem
+        {
+            Header = "Reopen in Quiz Builder",
+            ToolTip = "Load the selected Quiz History entry back into the quiz workflow",
+        };
+        reopenItem.Click += (_, _) => ReopenSelectedQuizHistoryInBuilder();
+        menu.Items.Add(reopenItem);
+
+        menu.Items.Add(new Separator());
+
         var archiveItem = new MenuItem
         {
             Header = "Archive completed C → Z",
@@ -108,6 +128,8 @@ public partial class MainShellWindow
                 await ArchiveGroupedCompletedCQuizProjectsAsync(archive);
         };
         menu.Items.Add(archiveItem);
+
+        menu.Items.Add(new Separator());
 
         var deleteItem = new MenuItem
         {
@@ -123,7 +145,7 @@ public partial class MainShellWindow
             Content = "More ▾",
             MinWidth = 82,
             Margin = new Thickness(8, 0, 0, 0),
-            ToolTip = "Less-used Quiz History actions",
+            ToolTip = "Reopen, publish, archive and delete actions",
             ContextMenu = menu,
         };
         StyleQuizHistoryButton(more, Color.FromRgb(160, 175, 215));
