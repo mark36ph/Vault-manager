@@ -61,6 +61,7 @@ public partial class MainShellWindow
             window.InitializeQuizHistoryBulkArchiveUi();
             window.InitializeQuizHistoryGroupedBulkArchiveUi();
             window.InitializeQuizHistoryUiCleanup();
+            window.InitializeDailyUiCleanup();
         }
     }
 }
