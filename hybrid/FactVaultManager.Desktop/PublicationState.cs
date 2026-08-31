@@ -46,8 +46,6 @@ public sealed record PublicationStateEntry(
     string UpdatedAt)
 {
     public bool HasIssue => FailedStep.Length > 0 || LastError.Length > 0 || State == PublicationStateStatus.Failed;
-    public bool IsScheduled => State == PublicationStateStatus.Scheduled;
-    public bool IsPublished => State == PublicationStateStatus.Published;
     public bool HasRemotePublication => RemoteId.Length > 0 || RemoteUrl.Length > 0 ||
                                         State is PublicationStateStatus.Uploaded or PublicationStateStatus.Scheduled or PublicationStateStatus.Published;
 
@@ -58,8 +56,14 @@ public sealed record PublicationStateEntry(
             var label = State switch
             {
                 PublicationStateStatus.InProgress => "Uploading",
-                PublicationStateStatus.Uploaded => Visibility.Length > 0 ? FriendlyVisibility(Visibility) : "Uploaded",
-                PublicationStateStatus.Scheduled => FormatSchedule(ScheduledFor),
+                PublicationStateStatus.Uploaded => Visibility.Trim().ToLowerInvariant() switch
+                {
+                    "private" => "Private",
+                    "unlisted" => "Unlisted",
+                    "public" => "Published",
+                    _ => "Uploaded",
+                },
+                PublicationStateStatus.Scheduled => ScheduleDisplay(ScheduledFor),
                 PublicationStateStatus.Published => "Published",
                 PublicationStateStatus.Failed => "Failed",
                 _ => "Pending",
@@ -70,44 +74,23 @@ public sealed record PublicationStateEntry(
         }
     }
 
-    private static string FriendlyVisibility(string value) => value.Trim().ToLowerInvariant() switch
-    {
-        "private" => "Private",
-        "unlisted" => "Unlisted",
-        "public" => "Published",
-        _ => "Uploaded",
-    };
-
-    private static string FormatSchedule(string value)
-    {
-        if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var scheduled))
-            return $"Scheduled {scheduled.ToLocalTime():dd-MM-yyyy HH:mm}";
-        return "Scheduled";
-    }
+    private static string ScheduleDisplay(string value) =>
+        DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var scheduled)
+            ? $"Scheduled {scheduled.ToLocalTime():dd-MM-yyyy HH:mm}"
+            : "Scheduled";
 }
 
 public static class PublicationStateSummary
 {
-    public static string Display(IEnumerable<PublicationStateEntry> entries, string contentKind = PublicationContentKind.Quiz)
+    public static string Display(IEnumerable<PublicationStateEntry> entries, string contentKind)
     {
         var items = entries
             .Where(item => string.Equals(item.ContentKind, contentKind, StringComparison.Ordinal))
             .OrderBy(item => PlatformOrder(item.Platform))
             .ToList();
-        if (items.Count == 0) return "No publication activity";
-        return string.Join(" • ", items.Select(item => $"{item.Platform}: {item.Display}"));
-    }
-
-    public static string PlatformDisplay(
-        IEnumerable<PublicationStateEntry> entries,
-        string platform,
-        string contentKind,
-        string emptyDisplay)
-    {
-        var item = entries.FirstOrDefault(entry =>
-            string.Equals(entry.Platform, platform, StringComparison.Ordinal) &&
-            string.Equals(entry.ContentKind, contentKind, StringComparison.Ordinal));
-        return item?.Display ?? emptyDisplay;
+        return items.Count == 0
+            ? "No publication activity"
+            : string.Join(" • ", items.Select(item => $"{item.Platform}: {item.Display}"));
     }
 
     private static int PlatformOrder(string platform) => platform switch
@@ -122,8 +105,6 @@ public static class PublicationStateSummary
 
 public sealed class PublicationStateStore
 {
-    private const string QuizHistoryMigration = "quiz-history-v1";
-    private const string SocialJournalMigration = "social-upload-journal-v1";
     private readonly string _databasePath;
 
     public PublicationStateStore(string databasePath)
@@ -170,22 +151,27 @@ public sealed class PublicationStateStore
         return Get(connection, historyId, platform, contentKind);
     }
 
-    public void BeginAttempt(int historyId, string platform, string contentKind)
+    public void Reconcile(int historyId, string? projectFolder = null)
     {
-        Validate(historyId, platform, contentKind);
+        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
         EnsureSchema();
         using var connection = OpenConnection();
-        var existing = Get(connection, historyId, platform, contentKind);
-        var now = Timestamp();
-        Upsert(connection, NewEntry(
-            historyId, platform, contentKind,
-            PublicationStateStatus.InProgress,
-            existing?.RemoteId ?? "",
-            existing?.RemoteUrl ?? "",
-            existing?.Visibility ?? "",
-            existing?.ScheduledFor ?? "",
-            existing?.PublishedAt ?? "",
-            "", "", now, "publication-state", now));
+        SyncQuizHistory(connection, historyId);
+        SyncSocialJournal(connection, historyId);
+        SyncPromoMetadata(connection, historyId, projectFolder);
+    }
+
+    public void BeginAttempt(int historyId, string platform, string contentKind)
+    {
+        Mutate(historyId, platform, contentKind, existing =>
+        {
+            var now = Timestamp();
+            return Create(
+                historyId, platform, contentKind, PublicationStateStatus.InProgress,
+                existing?.RemoteId ?? "", existing?.RemoteUrl ?? "", existing?.Visibility ?? "",
+                existing?.ScheduledFor ?? "", existing?.PublishedAt ?? "", "", "",
+                now, "publication-state", now);
+        });
     }
 
     public void RecordUploaded(
@@ -198,20 +184,18 @@ public sealed class PublicationStateStore
         DateTimeOffset? uploadedAt = null,
         string source = "publication-state")
     {
-        Validate(historyId, platform, contentKind);
-        EnsureSchema();
-        using var connection = OpenConnection();
-        var existing = Get(connection, historyId, platform, contentKind);
-        var state = existing?.State is PublicationStateStatus.Scheduled or PublicationStateStatus.Published
-            ? existing.State
-            : PublicationStateStatus.Uploaded;
-        var now = Timestamp();
-        Upsert(connection, NewEntry(
-            historyId, platform, contentKind, state,
-            Prefer(remoteId, existing?.RemoteId), Prefer(remoteUrl, existing?.RemoteUrl),
-            Prefer(visibility, existing?.Visibility), existing?.ScheduledFor ?? "",
-            existing?.PublishedAt ?? NormalizeTimestamp(uploadedAt),
-            "", "", now, source, now));
+        Mutate(historyId, platform, contentKind, existing =>
+        {
+            var state = existing?.State is PublicationStateStatus.Scheduled or PublicationStateStatus.Published
+                ? existing.State
+                : PublicationStateStatus.Uploaded;
+            var now = Timestamp();
+            return Create(
+                historyId, platform, contentKind, state,
+                Prefer(remoteId, existing?.RemoteId), Prefer(remoteUrl, existing?.RemoteUrl),
+                Prefer(visibility, existing?.Visibility), existing?.ScheduledFor ?? "",
+                existing?.PublishedAt ?? NormalizeTimestamp(uploadedAt), "", "", now, source, now);
+        });
     }
 
     public void RecordScheduled(
@@ -224,16 +208,15 @@ public sealed class PublicationStateStore
         string? visibility = null,
         string source = "publication-state")
     {
-        Validate(historyId, platform, contentKind);
-        EnsureSchema();
-        using var connection = OpenConnection();
-        var existing = Get(connection, historyId, platform, contentKind);
-        var now = Timestamp();
-        Upsert(connection, NewEntry(
-            historyId, platform, contentKind, PublicationStateStatus.Scheduled,
-            Prefer(remoteId, existing?.RemoteId), Prefer(remoteUrl, existing?.RemoteUrl),
-            Prefer(visibility, existing?.Visibility), NormalizeTimestamp(scheduledFor),
-            existing?.PublishedAt ?? "", "", "", now, source, now));
+        Mutate(historyId, platform, contentKind, existing =>
+        {
+            var now = Timestamp();
+            return Create(
+                historyId, platform, contentKind, PublicationStateStatus.Scheduled,
+                Prefer(remoteId, existing?.RemoteId), Prefer(remoteUrl, existing?.RemoteUrl),
+                Prefer(visibility, existing?.Visibility), NormalizeTimestamp(scheduledFor),
+                existing?.PublishedAt ?? "", "", "", now, source, now);
+        });
     }
 
     public void RecordPublished(
@@ -246,17 +229,15 @@ public sealed class PublicationStateStore
         string? visibility = null,
         string source = "publication-state")
     {
-        Validate(historyId, platform, contentKind);
-        EnsureSchema();
-        using var connection = OpenConnection();
-        var existing = Get(connection, historyId, platform, contentKind);
-        var now = Timestamp();
-        Upsert(connection, NewEntry(
-            historyId, platform, contentKind, PublicationStateStatus.Published,
-            Prefer(remoteId, existing?.RemoteId), Prefer(remoteUrl, existing?.RemoteUrl),
-            Prefer(visibility, existing?.Visibility), "",
-            NormalizeTimestamp(publishedAt ?? DateTimeOffset.UtcNow),
-            "", "", now, source, now));
+        Mutate(historyId, platform, contentKind, existing =>
+        {
+            var now = Timestamp();
+            return Create(
+                historyId, platform, contentKind, PublicationStateStatus.Published,
+                Prefer(remoteId, existing?.RemoteId), Prefer(remoteUrl, existing?.RemoteUrl),
+                Prefer(visibility, existing?.Visibility), "",
+                NormalizeTimestamp(publishedAt ?? DateTimeOffset.UtcNow), "", "", now, source, now);
+        });
     }
 
     public void RecordFailure(
@@ -269,41 +250,34 @@ public sealed class PublicationStateStore
         string? remoteUrl = null,
         string source = "publication-state")
     {
-        Validate(historyId, platform, contentKind);
-        failedStep = (failedStep ?? "").Trim();
-        if (failedStep.Length == 0) failedStep = "upload";
-        EnsureSchema();
-        using var connection = OpenConnection();
-        var existing = Get(connection, historyId, platform, contentKind);
-        var hasRemote = Prefer(remoteId, existing?.RemoteId).Length > 0 || Prefer(remoteUrl, existing?.RemoteUrl).Length > 0;
-        var state = hasRemote && existing?.State is PublicationStateStatus.Uploaded or PublicationStateStatus.Scheduled or PublicationStateStatus.Published
-            ? existing.State
-            : PublicationStateStatus.Failed;
-        var now = Timestamp();
-        Upsert(connection, NewEntry(
-            historyId, platform, contentKind, state,
-            Prefer(remoteId, existing?.RemoteId), Prefer(remoteUrl, existing?.RemoteUrl),
-            existing?.Visibility ?? "", existing?.ScheduledFor ?? "", existing?.PublishedAt ?? "",
-            failedStep, string.IsNullOrWhiteSpace(error) ? "Unknown publication error" : error.Trim(),
-            now, source, now));
+        failedStep = string.IsNullOrWhiteSpace(failedStep) ? "upload" : failedStep.Trim();
+        Mutate(historyId, platform, contentKind, existing =>
+        {
+            var savedRemoteId = Prefer(remoteId, existing?.RemoteId);
+            var savedRemoteUrl = Prefer(remoteUrl, existing?.RemoteUrl);
+            var hasRemote = savedRemoteId.Length > 0 || savedRemoteUrl.Length > 0;
+            var state = hasRemote && existing?.State is PublicationStateStatus.Uploaded or PublicationStateStatus.Scheduled or PublicationStateStatus.Published
+                ? existing.State
+                : PublicationStateStatus.Failed;
+            var now = Timestamp();
+            return Create(
+                historyId, platform, contentKind, state,
+                savedRemoteId, savedRemoteUrl, existing?.Visibility ?? "", existing?.ScheduledFor ?? "",
+                existing?.PublishedAt ?? "", failedStep,
+                string.IsNullOrWhiteSpace(error) ? "Unknown publication error" : error.Trim(),
+                now, source, now);
+        });
     }
 
     public void ClearIssue(int historyId, string platform, string contentKind)
     {
-        Validate(historyId, platform, contentKind);
-        EnsureSchema();
-        using var connection = OpenConnection();
-        var existing = Get(connection, historyId, platform, contentKind);
-        if (existing is null) return;
-        var state = existing.State == PublicationStateStatus.Failed && existing.HasRemotePublication
-            ? PublicationStateStatus.Uploaded
-            : existing.State;
-        Upsert(connection, existing with
+        Mutate(historyId, platform, contentKind, existing =>
         {
-            State = state,
-            FailedStep = "",
-            LastError = "",
-            UpdatedAt = Timestamp(),
+            if (existing is null) return null;
+            var state = existing.State == PublicationStateStatus.Failed && existing.HasRemotePublication
+                ? PublicationStateStatus.Uploaded
+                : existing.State;
+            return existing with { State = state, FailedStep = "", LastError = "", UpdatedAt = Timestamp() };
         });
     }
 
@@ -312,34 +286,159 @@ public sealed class PublicationStateStore
         Validate(historyId, platform, contentKind);
         EnsureSchema();
         using var connection = OpenConnection();
+        Delete(connection, historyId, platform, contentKind);
+    }
+
+    private void Mutate(
+        int historyId,
+        string platform,
+        string contentKind,
+        Func<PublicationStateEntry?, PublicationStateEntry?> mutation)
+    {
+        Validate(historyId, platform, contentKind);
+        EnsureSchema();
+        using var connection = OpenConnection();
+        var updated = mutation(Get(connection, historyId, platform, contentKind));
+        if (updated is not null) Upsert(connection, updated);
+    }
+
+    private void EnsureSchema()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_databasePath)!);
+        using var connection = OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            DELETE FROM publication_state
-            WHERE history_id = $historyId AND platform = $platform AND content_kind = $contentKind
+            CREATE TABLE IF NOT EXISTS publication_state (
+                history_id INTEGER NOT NULL,
+                platform TEXT NOT NULL,
+                content_kind TEXT NOT NULL,
+                state TEXT NOT NULL DEFAULT 'pending',
+                remote_id TEXT NOT NULL DEFAULT '',
+                remote_url TEXT NOT NULL DEFAULT '',
+                visibility TEXT NOT NULL DEFAULT '',
+                scheduled_for TEXT NOT NULL DEFAULT '',
+                published_at TEXT NOT NULL DEFAULT '',
+                failed_step TEXT NOT NULL DEFAULT '',
+                last_error TEXT NOT NULL DEFAULT '',
+                last_attempt_at TEXT NOT NULL DEFAULT '',
+                source TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL DEFAULT '',
+                PRIMARY KEY(history_id, platform, content_kind)
+            );
+            CREATE INDEX IF NOT EXISTS ix_publication_state_status
+                ON publication_state(content_kind, state, platform);
             """;
-        command.Parameters.AddWithValue("$historyId", historyId);
-        command.Parameters.AddWithValue("$platform", platform.Trim());
-        command.Parameters.AddWithValue("$contentKind", NormalizeContentKind(contentKind));
         command.ExecuteNonQuery();
     }
 
-    public void SyncQuizHistory(int historyId)
+    private static void SyncQuizHistory(SqliteConnection connection, int historyId)
     {
-        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
-        EnsureSchema();
-        using var connection = OpenConnection();
         if (!TableExists(connection, "quiz_history")) return;
-        var row = ReadLegacyQuizHistory(connection, historyId);
-        if (row is null) return;
-        SyncLegacyQuizHistoryRow(connection, row);
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT COALESCE(published_on_youtube, 0), COALESCE(youtube_url, ''), COALESCE(youtube_upload_date, ''),
+                   COALESCE(youtube_privacy, ''), COALESCE(youtube_scheduled_for, ''),
+                   COALESCE(published_on_facebook, 0), COALESCE(facebook_url, ''), COALESCE(facebook_upload_date, ''),
+                   COALESCE(facebook_scheduled_for, ''),
+                   COALESCE(published_on_instagram, 0), COALESCE(instagram_url, ''), COALESCE(instagram_upload_date, '')
+            FROM quiz_history WHERE id = $historyId
+            """;
+        command.Parameters.AddWithValue("$historyId", historyId);
+        using var reader = command.ExecuteReader();
+        if (!reader.Read()) return;
+        var row = new LegacyQuizHistoryRow(
+            reader.GetInt32(0) != 0, reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetString(4),
+            reader.GetInt32(5) != 0, reader.GetString(6), reader.GetString(7), reader.GetString(8),
+            reader.GetInt32(9) != 0, reader.GetString(10), reader.GetString(11));
+        reader.Close();
+
+        SyncLegacyPlatform(connection, historyId, PublicationPlatform.YouTube, row.PublishedOnYouTube,
+            row.YouTubeUrl, row.YouTubeUploadDate, row.YouTubePrivacy, row.YouTubeScheduledFor);
+        SyncLegacyPlatform(connection, historyId, PublicationPlatform.Facebook, row.PublishedOnFacebook,
+            row.FacebookUrl, row.FacebookUploadDate, "", row.FacebookScheduledFor);
+        SyncLegacyPlatform(connection, historyId, PublicationPlatform.Instagram, row.PublishedOnInstagram,
+            row.InstagramUrl, row.InstagramUploadDate, "", "");
     }
 
-    public void SyncPromoMetadata(int historyId, string? projectFolder)
+    private static void SyncLegacyPlatform(
+        SqliteConnection connection,
+        int historyId,
+        string platform,
+        bool published,
+        string remoteUrl,
+        string uploadDate,
+        string visibility,
+        string scheduledFor)
     {
-        if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
+        var existing = Get(connection, historyId, platform, PublicationContentKind.Quiz);
+        var schedule = ParseTimestamp(scheduledFor);
+        if (!published && remoteUrl.Trim().Length == 0 && schedule is null)
+        {
+            Delete(connection, historyId, platform, PublicationContentKind.Quiz);
+            return;
+        }
+
+        var state = schedule is not null && schedule > DateTimeOffset.Now
+            ? PublicationStateStatus.Scheduled
+            : platform == PublicationPlatform.YouTube && published &&
+              string.Equals(visibility.Trim(), "public", StringComparison.OrdinalIgnoreCase)
+                ? PublicationStateStatus.Published
+                : published && scheduledFor.Trim().Length > 0
+                    ? PublicationStateStatus.Published
+                    : PublicationStateStatus.Uploaded;
+        Upsert(connection, Create(
+            historyId, platform, PublicationContentKind.Quiz, state,
+            existing?.RemoteId ?? "", remoteUrl.Trim(), visibility.Trim(),
+            state == PublicationStateStatus.Scheduled && schedule is not null ? NormalizeTimestamp(schedule.Value) : "",
+            uploadDate.Trim(), existing?.FailedStep ?? "", existing?.LastError ?? "",
+            existing?.LastAttemptAt ?? "", "quiz-history", Timestamp()));
+    }
+
+    private static void SyncSocialJournal(SqliteConnection connection, int historyId)
+    {
+        if (!TableExists(connection, "social_upload_journal")) return;
+        var rows = new List<LegacyJournalRow>();
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                SELECT platform, remote_id, remote_url, upload_status, failed_step, last_error, updated_at
+                FROM social_upload_journal WHERE history_id = $historyId
+                """;
+            command.Parameters.AddWithValue("$historyId", historyId);
+            using var reader = command.ExecuteReader();
+            while (reader.Read())
+            {
+                rows.Add(new LegacyJournalRow(
+                    reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
+                    reader.GetString(4), reader.GetString(5), reader.GetString(6)));
+            }
+        }
+
+        foreach (var row in rows)
+        {
+            var existing = Get(connection, historyId, row.Platform, PublicationContentKind.Quiz);
+            var state = row.UploadStatus switch
+            {
+                SocialUploadJournalStatus.InProgress => PublicationStateStatus.InProgress,
+                SocialUploadJournalStatus.Complete when existing?.State is PublicationStateStatus.Scheduled or PublicationStateStatus.Published => existing.State,
+                SocialUploadJournalStatus.Complete => PublicationStateStatus.Uploaded,
+                SocialUploadJournalStatus.Failed when row.RemoteId.Length == 0 && row.RemoteUrl.Length == 0 => PublicationStateStatus.Failed,
+                SocialUploadJournalStatus.Failed when existing?.State is PublicationStateStatus.Scheduled or PublicationStateStatus.Published => existing.State,
+                SocialUploadJournalStatus.Failed => PublicationStateStatus.Uploaded,
+                _ => existing?.State ?? PublicationStateStatus.Pending,
+            };
+            Upsert(connection, Create(
+                historyId, row.Platform, PublicationContentKind.Quiz, state,
+                Prefer(row.RemoteId, existing?.RemoteId), Prefer(row.RemoteUrl, existing?.RemoteUrl),
+                existing?.Visibility ?? "", existing?.ScheduledFor ?? "", existing?.PublishedAt ?? "",
+                row.FailedStep, row.LastError, row.UpdatedAt, "social-upload-journal", row.UpdatedAt));
+        }
+    }
+
+    private static void SyncPromoMetadata(SqliteConnection connection, int historyId, string? projectFolder)
+    {
         var folder = (projectFolder ?? "").Trim();
         if (folder.Length == 0) return;
-
         string metadataPath;
         try
         {
@@ -358,233 +457,36 @@ public sealed class PublicationStateStore
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
         {
-            System.Diagnostics.Debug.WriteLine($"Could not backfill promo publication state: {error.Message}");
+            System.Diagnostics.Debug.WriteLine($"Could not reconcile promo publication state: {error.Message}");
             return;
         }
         if (root is null) return;
 
-        SyncPromoNode(historyId, PublicationPlatform.YouTube, root["youtube_upload"] as JsonObject, "video_id");
-        SyncPromoNode(historyId, PublicationPlatform.Facebook, root["facebook_upload"] as JsonObject, "video_id");
-        SyncPromoNode(historyId, PublicationPlatform.Instagram, root["instagram_upload"] as JsonObject, "media_id");
+        SyncPromoNode(connection, historyId, PublicationPlatform.YouTube, root["youtube_upload"] as JsonObject, "video_id");
+        SyncPromoNode(connection, historyId, PublicationPlatform.Facebook, root["facebook_upload"] as JsonObject, "video_id");
+        SyncPromoNode(connection, historyId, PublicationPlatform.Instagram, root["instagram_upload"] as JsonObject, "media_id");
     }
 
-    private void SyncPromoNode(int historyId, string platform, JsonObject? node, string idKey)
+    private static void SyncPromoNode(
+        SqliteConnection connection,
+        int historyId,
+        string platform,
+        JsonObject? node,
+        string idKey)
     {
         if (node is null) return;
         var remoteId = NodeText(node, idKey);
         if (remoteId.Length == 0) return;
-        var uploadedAt = ParseTimestamp(NodeText(node, "uploaded_at"));
-        RecordUploaded(
-            historyId,
-            platform,
-            PublicationContentKind.Promo,
-            remoteId,
-            NodeText(node, "url"),
-            platform == PublicationPlatform.YouTube ? NodeText(node, "privacy") : "",
-            uploadedAt,
-            "promo-metadata-backfill");
+        var existing = Get(connection, historyId, platform, PublicationContentKind.Promo);
+        Upsert(connection, Create(
+            historyId, platform, PublicationContentKind.Promo,
+            existing?.State == PublicationStateStatus.Published ? PublicationStateStatus.Published : PublicationStateStatus.Uploaded,
+            remoteId, Prefer(NodeText(node, "url"), existing?.RemoteUrl),
+            platform == PublicationPlatform.YouTube ? Prefer(NodeText(node, "privacy"), existing?.Visibility) : existing?.Visibility ?? "",
+            existing?.ScheduledFor ?? "", Prefer(NodeText(node, "uploaded_at"), existing?.PublishedAt),
+            existing?.FailedStep ?? "", existing?.LastError ?? "", existing?.LastAttemptAt ?? "",
+            "promo-metadata", Timestamp()));
     }
-
-    private void EnsureSchema()
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(_databasePath)!);
-        using var connection = OpenConnection();
-        using (var command = connection.CreateCommand())
-        {
-            command.CommandText = """
-                CREATE TABLE IF NOT EXISTS publication_state (
-                    history_id INTEGER NOT NULL,
-                    platform TEXT NOT NULL,
-                    content_kind TEXT NOT NULL,
-                    state TEXT NOT NULL DEFAULT 'pending',
-                    remote_id TEXT NOT NULL DEFAULT '',
-                    remote_url TEXT NOT NULL DEFAULT '',
-                    visibility TEXT NOT NULL DEFAULT '',
-                    scheduled_for TEXT NOT NULL DEFAULT '',
-                    published_at TEXT NOT NULL DEFAULT '',
-                    failed_step TEXT NOT NULL DEFAULT '',
-                    last_error TEXT NOT NULL DEFAULT '',
-                    last_attempt_at TEXT NOT NULL DEFAULT '',
-                    source TEXT NOT NULL DEFAULT '',
-                    updated_at TEXT NOT NULL DEFAULT '',
-                    PRIMARY KEY(history_id, platform, content_kind)
-                );
-                CREATE INDEX IF NOT EXISTS ix_publication_state_status
-                    ON publication_state(content_kind, state, platform);
-                CREATE TABLE IF NOT EXISTS publication_state_migrations (
-                    name TEXT PRIMARY KEY,
-                    applied_at TEXT NOT NULL
-                );
-                """;
-            command.ExecuteNonQuery();
-        }
-
-        ApplyMigration(connection, QuizHistoryMigration, BackfillQuizHistory);
-        ApplyMigration(connection, SocialJournalMigration, BackfillSocialJournal);
-    }
-
-    private void ApplyMigration(SqliteConnection connection, string name, Action<SqliteConnection> migrate)
-    {
-        using (var check = connection.CreateCommand())
-        {
-            check.CommandText = "SELECT 1 FROM publication_state_migrations WHERE name = $name LIMIT 1";
-            check.Parameters.AddWithValue("$name", name);
-            if (check.ExecuteScalar() is not null) return;
-        }
-
-        using var transaction = connection.BeginTransaction();
-        try
-        {
-            migrate(connection);
-            using var mark = connection.CreateCommand();
-            mark.Transaction = transaction;
-            mark.CommandText = "INSERT INTO publication_state_migrations(name, applied_at) VALUES($name, $appliedAt)";
-            mark.Parameters.AddWithValue("$name", name);
-            mark.Parameters.AddWithValue("$appliedAt", Timestamp());
-            mark.ExecuteNonQuery();
-            transaction.Commit();
-        }
-        catch
-        {
-            transaction.Rollback();
-            throw;
-        }
-    }
-
-    private void BackfillQuizHistory(SqliteConnection connection)
-    {
-        if (!TableExists(connection, "quiz_history")) return;
-        var rows = ReadAllLegacyQuizHistory(connection);
-        foreach (var row in rows) SyncLegacyQuizHistoryRow(connection, row);
-    }
-
-    private void BackfillSocialJournal(SqliteConnection connection)
-    {
-        if (!TableExists(connection, "social_upload_journal")) return;
-        var rows = new List<LegacyJournalRow>();
-        using (var command = connection.CreateCommand())
-        {
-            command.CommandText = """
-                SELECT history_id, platform, remote_id, remote_url, upload_status,
-                       failed_step, last_error, updated_at
-                FROM social_upload_journal
-                """;
-            using var reader = command.ExecuteReader();
-            while (reader.Read())
-            {
-                rows.Add(new LegacyJournalRow(
-                    reader.GetInt32(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
-                    reader.GetString(4), reader.GetString(5), reader.GetString(6), reader.GetString(7)));
-            }
-        }
-
-        foreach (var row in rows)
-        {
-            var existing = Get(connection, row.HistoryId, row.Platform, PublicationContentKind.Quiz);
-            var state = row.UploadStatus switch
-            {
-                SocialUploadJournalStatus.InProgress => PublicationStateStatus.InProgress,
-                SocialUploadJournalStatus.Complete when existing?.State is PublicationStateStatus.Scheduled or PublicationStateStatus.Published => existing.State,
-                SocialUploadJournalStatus.Complete => PublicationStateStatus.Uploaded,
-                SocialUploadJournalStatus.Failed when row.RemoteId.Length == 0 && row.RemoteUrl.Length == 0 => PublicationStateStatus.Failed,
-                SocialUploadJournalStatus.Failed => existing?.State is PublicationStateStatus.Scheduled or PublicationStateStatus.Published
-                    ? existing.State
-                    : PublicationStateStatus.Uploaded,
-                _ => existing?.State ?? PublicationStateStatus.Pending,
-            };
-            Upsert(connection, NewEntry(
-                row.HistoryId, row.Platform, PublicationContentKind.Quiz, state,
-                Prefer(row.RemoteId, existing?.RemoteId), Prefer(row.RemoteUrl, existing?.RemoteUrl),
-                existing?.Visibility ?? "", existing?.ScheduledFor ?? "", existing?.PublishedAt ?? "",
-                row.FailedStep, row.LastError, row.UpdatedAt, "social-upload-journal-backfill", row.UpdatedAt));
-        }
-    }
-
-    private void SyncLegacyQuizHistoryRow(SqliteConnection connection, LegacyQuizHistoryRow row)
-    {
-        SyncLegacyPlatform(
-            connection, row.Id, PublicationPlatform.YouTube, row.PublishedOnYouTube, row.YouTubeUrl,
-            row.YouTubeUploadDate, row.YouTubePrivacy, row.YouTubeScheduledFor);
-        SyncLegacyPlatform(
-            connection, row.Id, PublicationPlatform.Facebook, row.PublishedOnFacebook, row.FacebookUrl,
-            row.FacebookUploadDate, "", row.FacebookScheduledFor);
-        SyncLegacyPlatform(
-            connection, row.Id, PublicationPlatform.Instagram, row.PublishedOnInstagram, row.InstagramUrl,
-            row.InstagramUploadDate, "", "");
-    }
-
-    private void SyncLegacyPlatform(
-        SqliteConnection connection,
-        int historyId,
-        string platform,
-        bool published,
-        string remoteUrl,
-        string uploadDate,
-        string visibility,
-        string scheduledFor)
-    {
-        var existing = Get(connection, historyId, platform, PublicationContentKind.Quiz);
-        var schedule = ParseTimestamp(scheduledFor);
-        if (!published && remoteUrl.Trim().Length == 0 && schedule is null)
-        {
-            if (existing is not null && existing.Source.Contains("backfill", StringComparison.OrdinalIgnoreCase))
-                Delete(connection, historyId, platform, PublicationContentKind.Quiz);
-            return;
-        }
-
-        string state;
-        if (schedule is not null && schedule > DateTimeOffset.Now)
-            state = PublicationStateStatus.Scheduled;
-        else if (platform == PublicationPlatform.YouTube && published &&
-                 string.Equals(visibility.Trim(), "public", StringComparison.OrdinalIgnoreCase))
-            state = PublicationStateStatus.Published;
-        else if (published && scheduledFor.Trim().Length > 0)
-            state = PublicationStateStatus.Published;
-        else
-            state = PublicationStateStatus.Uploaded;
-
-        Upsert(connection, NewEntry(
-            historyId, platform, PublicationContentKind.Quiz, state,
-            existing?.RemoteId ?? "", remoteUrl.Trim(), visibility.Trim(),
-            schedule is not null && schedule > DateTimeOffset.Now ? NormalizeTimestamp(schedule.Value) : "",
-            uploadDate.Trim(), existing?.FailedStep ?? "", existing?.LastError ?? "",
-            existing?.LastAttemptAt ?? "", "quiz-history-backfill", Timestamp()));
-    }
-
-    private static LegacyQuizHistoryRow? ReadLegacyQuizHistory(SqliteConnection connection, int historyId)
-    {
-        using var command = connection.CreateCommand();
-        command.CommandText = LegacyQuizHistorySelect + " WHERE id = $historyId";
-        command.Parameters.AddWithValue("$historyId", historyId);
-        using var reader = command.ExecuteReader();
-        return reader.Read() ? ReadLegacyQuizHistoryRow(reader) : null;
-    }
-
-    private static IReadOnlyList<LegacyQuizHistoryRow> ReadAllLegacyQuizHistory(SqliteConnection connection)
-    {
-        using var command = connection.CreateCommand();
-        command.CommandText = LegacyQuizHistorySelect;
-        using var reader = command.ExecuteReader();
-        var rows = new List<LegacyQuizHistoryRow>();
-        while (reader.Read()) rows.Add(ReadLegacyQuizHistoryRow(reader));
-        return rows;
-    }
-
-    private const string LegacyQuizHistorySelect = """
-        SELECT id,
-               COALESCE(published_on_youtube, 0), COALESCE(youtube_url, ''), COALESCE(youtube_upload_date, ''),
-               COALESCE(youtube_privacy, ''), COALESCE(youtube_scheduled_for, ''),
-               COALESCE(published_on_facebook, 0), COALESCE(facebook_url, ''), COALESCE(facebook_upload_date, ''),
-               COALESCE(facebook_scheduled_for, ''),
-               COALESCE(published_on_instagram, 0), COALESCE(instagram_url, ''), COALESCE(instagram_upload_date, '')
-        FROM quiz_history
-        """;
-
-    private static LegacyQuizHistoryRow ReadLegacyQuizHistoryRow(SqliteDataReader reader) => new(
-        reader.GetInt32(0),
-        reader.GetInt32(1) != 0, reader.GetString(2), reader.GetString(3), reader.GetString(4), reader.GetString(5),
-        reader.GetInt32(6) != 0, reader.GetString(7), reader.GetString(8), reader.GetString(9),
-        reader.GetInt32(10) != 0, reader.GetString(11), reader.GetString(12));
 
     private static PublicationStateEntry? Get(
         SqliteConnection connection,
@@ -613,21 +515,10 @@ public sealed class PublicationStateStore
         reader.GetString(8), reader.GetString(9), reader.GetString(10), reader.GetString(11),
         reader.GetString(12), reader.GetString(13));
 
-    private static PublicationStateEntry NewEntry(
-        int historyId,
-        string platform,
-        string contentKind,
-        string state,
-        string remoteId,
-        string remoteUrl,
-        string visibility,
-        string scheduledFor,
-        string publishedAt,
-        string failedStep,
-        string lastError,
-        string lastAttemptAt,
-        string source,
-        string updatedAt) => new(
+    private static PublicationStateEntry Create(
+        int historyId, string platform, string contentKind, string state,
+        string remoteId, string remoteUrl, string visibility, string scheduledFor, string publishedAt,
+        string failedStep, string lastError, string lastAttemptAt, string source, string updatedAt) => new(
             historyId, platform.Trim(), NormalizeContentKind(contentKind), state,
             remoteId.Trim(), remoteUrl.Trim(), visibility.Trim(), scheduledFor.Trim(), publishedAt.Trim(),
             failedStep.Trim(), lastError.Trim(), lastAttemptAt.Trim(), source.Trim(), updatedAt.Trim());
@@ -679,7 +570,7 @@ public sealed class PublicationStateStore
         using var command = connection.CreateCommand();
         command.CommandText = "DELETE FROM publication_state WHERE history_id=$historyId AND platform=$platform AND content_kind=$contentKind";
         command.Parameters.AddWithValue("$historyId", historyId);
-        command.Parameters.AddWithValue("$platform", platform);
+        command.Parameters.AddWithValue("$platform", platform.Trim());
         command.Parameters.AddWithValue("$contentKind", NormalizeContentKind(contentKind));
         command.ExecuteNonQuery();
     }
@@ -713,7 +604,8 @@ public sealed class PublicationStateStore
     private static void Validate(int historyId, string? platform, string? contentKind)
     {
         if (historyId <= 0) throw new ArgumentOutOfRangeException(nameof(historyId));
-        if (string.IsNullOrWhiteSpace(platform)) throw new ArgumentException("The publication platform is missing.", nameof(platform));
+        if (string.IsNullOrWhiteSpace(platform))
+            throw new ArgumentException("The publication platform is missing.", nameof(platform));
         _ = NormalizeContentKind(contentKind);
     }
 
@@ -731,22 +623,14 @@ public sealed class PublicationStateStore
     private static string NormalizeTimestamp(DateTimeOffset? value) =>
         value is null ? "" : NormalizeTimestamp(value.Value);
 
-    private static DateTimeOffset? ParseTimestamp(string? value)
-    {
-        return DateTimeOffset.TryParse(
-            (value ?? "").Trim(),
-            CultureInfo.InvariantCulture,
-            DateTimeStyles.RoundtripKind,
-            out var parsed)
+    private static DateTimeOffset? ParseTimestamp(string? value) =>
+        DateTimeOffset.TryParse((value ?? "").Trim(), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)
             ? parsed
             : null;
-    }
 
-    private static string NodeText(JsonObject node, string key) =>
-        node[key]?.GetValue<string>()?.Trim() ?? "";
+    private static string NodeText(JsonObject node, string key) => node[key]?.GetValue<string>()?.Trim() ?? "";
 
     private sealed record LegacyQuizHistoryRow(
-        int Id,
         bool PublishedOnYouTube,
         string YouTubeUrl,
         string YouTubeUploadDate,
@@ -761,7 +645,6 @@ public sealed class PublicationStateStore
         string InstagramUploadDate);
 
     private sealed record LegacyJournalRow(
-        int HistoryId,
         string Platform,
         string RemoteId,
         string RemoteUrl,
