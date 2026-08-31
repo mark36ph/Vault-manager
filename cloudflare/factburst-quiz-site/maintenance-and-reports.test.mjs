@@ -26,3 +26,22 @@ test("tracker admin worker exposes question reports management", async () => {
   assert.match(reports, /resolved/);
   assert.match(reports, /dismissed/);
 });
+
+test("SEO exposes indexable category views and prerenders quiz headings", async () => {
+  const source = await text("site-seo.js");
+  assert.match(source, /directoryPageMeta/);
+  assert.match(source, /categoryUrl\(category\)/);
+  assert.match(source, /BreadcrumbList/);
+  assert.match(source, /ItemList/);
+  assert.match(source, /max-image-preview:large/);
+  assert.match(source, /preRenderPageContent/);
+  assert.match(source, /id=\"quiz-category\">\$\{escapeHtml\(meta\.quiz\.category\)\}/);
+  assert.match(source, /id=\"quiz-title\" class=\"quiz-title\">\$\{escapeHtml\(meta\.quiz\.title\)\}/);
+});
+
+test("SEO sitemap includes category URLs and last-modified support", async () => {
+  const source = await text("site-seo.js");
+  assert.match(source, /categoryEntries/);
+  assert.match(source, /sitemapLastmod/);
+  assert.match(source, /<lastmod>/);
+});
