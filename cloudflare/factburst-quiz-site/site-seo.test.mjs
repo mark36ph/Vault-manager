@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildSitemapXml, enhanceHtml, handleSeoRequest } from "./site-seo.js";
+import { applySeoHtml, effectiveSeoMetadata } from "./site-seo-overrides.js";
 import { buildQuizSocialCardPng } from "./social-card.js";
 
 const quizHtml = `<!doctype html><html><head><meta name="description" content="old"><title>Old</title><link rel="preload" href="/brand-icon.png?v=2" as="image"></head><body data-page="quiz"><main class="quiz-shell"><section id="quiz-player"><span class="category-pill" id="quiz-category"></span><span id="quiz-progress-text">Question 1 of 10</span><h1 id="quiz-title" class="quiz-title"></h1></section><section class="quiz-leaderboard-section" id="quiz-high-scores"></section></main></body></html>`;
@@ -89,6 +90,41 @@ test("enhanceHtml injects clean canonical social metadata and growth runtime", (
   assert.match(output, /href="\/quiz\/space-missions"/);
   assert.match(output, /src="\/growth\.js" defer/);
   assert.doesNotMatch(output, /rel="preload" href="\/brand-icon\.png\?v=2"/);
+});
+
+test("saved SEO metadata overrides search and social copy independently", () => {
+  const base = `<!doctype html><html><head><title>Old</title><meta name="description" content="old"><meta property="og:title" content="old"><meta property="og:description" content="old"><meta name="twitter:title" content="old"><meta name="twitter:description" content="old"></head><body></body></html>`;
+  const seo = effectiveSeoMetadata({
+    title: "Space Quiz",
+    category: "Space",
+    description: "Visible quiz description",
+    question_count: 10,
+    seo_title: "Best Space Quiz | Factburst Quiz",
+    seo_description: "Search description for the Space quiz.",
+    social_title: "Can You Ace This Space Quiz?",
+    social_description: "Ten space questions. Can you score 10/10?",
+  });
+  const output = applySeoHtml(base, seo);
+
+  assert.match(output, /<title>Best Space Quiz \| Factburst Quiz<\/title>/);
+  assert.match(output, /name="description" content="Search description for the Space quiz\."/);
+  assert.match(output, /property="og:title" content="Can You Ace This Space Quiz\?"/);
+  assert.match(output, /property="og:description" content="Ten space questions\. Can you score 10\/10\?"/);
+  assert.match(output, /name="twitter:title" content="Can You Ace This Space Quiz\?"/);
+});
+
+test("SEO metadata falls back automatically when no custom fields are stored", () => {
+  const seo = effectiveSeoMetadata({
+    title: "History Quiz",
+    category: "History",
+    description: "",
+    question_count: 10,
+  });
+
+  assert.equal(seo.seoTitle, "History Quiz | Factburst Quiz");
+  assert.match(seo.seoDescription, /10-question History quiz/);
+  assert.equal(seo.socialTitle, "History Quiz");
+  assert.match(seo.socialDescription, /10\/10/);
 });
 
 test("legacy quiz URLs permanently redirect and preserve challenge parameters", async () => {
