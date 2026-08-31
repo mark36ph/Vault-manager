@@ -16,6 +16,7 @@ public sealed class FactburstWebsiteSeoAuditTests
         Assert.Equal("Ready", row.Status);
         Assert.Equal("Automatic", row.Mode);
         Assert.Equal("SEO looks ready", row.Issues);
+        Assert.Contains("No change recommended", row.Recommendations);
     }
 
     [Fact]
@@ -47,6 +48,7 @@ public sealed class FactburstWebsiteSeoAuditTests
         Assert.Equal(2, rows.Count);
         Assert.All(rows, row => Assert.Equal(WebsiteSeoAuditSeverity.Warning, row.Severity));
         Assert.All(rows, row => Assert.Contains("Duplicate SEO title", row.Issues));
+        Assert.All(rows, row => Assert.Contains("unique SEO title", row.Recommendations));
     }
 
     [Fact]
@@ -58,6 +60,7 @@ public sealed class FactburstWebsiteSeoAuditTests
         ]);
 
         Assert.All(rows, row => Assert.Contains("Duplicate visible quiz title", row.Issues));
+        Assert.All(rows, row => Assert.Contains("visible quiz title distinct", row.Recommendations));
     }
 
     [Fact]
@@ -70,6 +73,7 @@ public sealed class FactburstWebsiteSeoAuditTests
 
         Assert.All(rows, row => Assert.Equal(WebsiteSeoAuditSeverity.NeedsAttention, row.Severity));
         Assert.All(rows, row => Assert.Contains("Duplicate published slug", row.Issues));
+        Assert.All(rows, row => Assert.Contains("unique published slug", row.Recommendations));
     }
 
     [Fact]
@@ -91,6 +95,27 @@ public sealed class FactburstWebsiteSeoAuditTests
         Assert.Contains("SEO description is short", row.Issues);
         Assert.Contains("Social title is 101", row.Issues);
         Assert.Contains("Social description is 201", row.Issues);
+        Assert.Contains("Shorten the SEO title", row.Recommendations);
+        Assert.Contains("Expand the meta description", row.Recommendations);
+        Assert.Contains("Shorten the social title", row.Recommendations);
+        Assert.Contains("Trim the social description", row.Recommendations);
+    }
+
+    [Fact]
+    public void Build_every_non_ready_row_has_reason_and_recommendation()
+    {
+        var rows = FactburstWebsiteSeoAudit.Build([
+            Quiz("warning-one", "Warning One", "History", "", seoTitle: new string('T', 66)),
+            Quiz("BAD SLUG", "Broken One", "Science", ""),
+        ]);
+
+        Assert.All(rows, row =>
+        {
+            Assert.NotEqual(WebsiteSeoAuditSeverity.Ready, row.Severity);
+            Assert.False(string.IsNullOrWhiteSpace(row.Issues));
+            Assert.False(string.IsNullOrWhiteSpace(row.Recommendations));
+            Assert.DoesNotContain("No change recommended", row.Recommendations);
+        });
     }
 
     [Fact]
