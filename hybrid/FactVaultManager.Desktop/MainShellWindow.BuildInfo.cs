@@ -38,6 +38,7 @@ public partial class MainShellWindow
             window.InitializeAutopilotFirstUi();
             window.InitializeAutopilotNeedsYouTaskQueue();
             window.InitializeAutopilotNeedsYouAlignedQueue();
+            window.InitializeAutopilotGuidedNeedsYou();
             window.InitializeWebsiteManagerPage();
             window.InitializeWebsiteVisibilityControls();
             window.InitializeWebsiteUsersPage();
