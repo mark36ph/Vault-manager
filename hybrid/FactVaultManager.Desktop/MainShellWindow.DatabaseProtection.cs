@@ -17,11 +17,21 @@ public partial class MainShellWindow
     private Button? _databaseRestoreMissingButton;
     private int _databaseBackupBusy;
     private int _quizDatabaseProtectionBusy;
+    private int _quizDatabaseProtectionBaselineId;
     private bool _databaseProtectionUiInstalled;
 
     public void InitializeDatabaseBackupAndRecovery()
     {
         if (_databaseBackupTimer is not null) return;
+
+        try
+        {
+            _quizDatabaseProtectionBaselineId = _data.GetQuizHistory(1).FirstOrDefault()?.Id ?? 0;
+        }
+        catch
+        {
+            _quizDatabaseProtectionBaselineId = 0;
+        }
 
         _databaseProtectionUiTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
@@ -41,7 +51,7 @@ public partial class MainShellWindow
         {
             Interval = TimeSpan.FromMinutes(1),
         };
-        _quizDatabaseProtectionTimer.Tick += async (_, _) => await ProtectNewQuizProjectsAsync(showStatus: false);
+        _quizDatabaseProtectionTimer.Tick += async (_, _) => await ProtectNewQuizProjectsAsync();
         _quizDatabaseProtectionTimer.Start();
 
         Closed += (_, _) =>
@@ -55,7 +65,6 @@ public partial class MainShellWindow
         {
             EnsureDatabaseProtectionUi();
             _ = RunAutomaticDatabaseBackupAsync();
-            _ = ProtectNewQuizProjectsAsync(showStatus: false);
         }));
     }
 
@@ -88,7 +97,7 @@ public partial class MainShellWindow
         });
         content.Children.Add(new TextBlock
         {
-            Text = "A verified SQLite backup is made automatically once per day while the app is running and Z: is available. You can also create one immediately.",
+            Text = "A verified SQLite backup is made automatically once per day while the app is running and Z: is available. You can also create one immediately. Quizzes created during this app session are protected automatically; use Protect existing quizzes once to backfill older projects that still have their files.",
             Foreground = SettingsMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 0, 0, 10),
@@ -113,7 +122,7 @@ public partial class MainShellWindow
             Margin = new Thickness(0, 0, 8, 8),
             ToolTip = "Store recovery snapshots for older Quiz History projects that still have their source files.",
         };
-        _databaseProtectExistingButton.Click += async (_, _) => await ProtectNewQuizProjectsAsync(showStatus: true);
+        _databaseProtectExistingButton.Click += async (_, _) => await ProtectExistingQuizProjectsAsync();
         buttons.Children.Add(_databaseProtectExistingButton);
 
         _databaseRestoreMissingButton = new Button
@@ -205,27 +214,47 @@ public partial class MainShellWindow
         }
     }
 
-    private async Task ProtectNewQuizProjectsAsync(bool showStatus)
+    private async Task ProtectNewQuizProjectsAsync()
+    {
+        if (Interlocked.CompareExchange(ref _quizDatabaseProtectionBusy, 1, 0) != 0)
+            return;
+        try
+        {
+            var result = await Task.Run(() =>
+                _data.ProtectQuizProjectsAfterHistoryId(_quizDatabaseProtectionBaselineId, 500));
+            if (result.Protected > 0)
+            {
+                SetDatabaseProtectionStatus(
+                    $"Quiz database protection: {result.Protected:N0} new quiz project(s) protected in SQLite.");
+            }
+        }
+        catch (Exception error)
+        {
+            SetDatabaseProtectionStatus("Automatic quiz database protection failed: " + error.Message);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _quizDatabaseProtectionBusy, 0);
+        }
+    }
+
+    private async Task ProtectExistingQuizProjectsAsync()
     {
         if (Interlocked.CompareExchange(ref _quizDatabaseProtectionBusy, 1, 0) != 0)
             return;
         try
         {
             if (_databaseProtectExistingButton is not null) _databaseProtectExistingButton.IsEnabled = false;
-            if (showStatus) SetDatabaseProtectionStatus("Protecting quiz project source files in SQLite…");
+            SetDatabaseProtectionStatus("Protecting existing quiz project source files in SQLite…");
             var result = await Task.Run(() => _data.ProtectExistingQuizProjects(2_000));
-            if (showStatus || result.Protected > 0)
-            {
-                SetDatabaseProtectionStatus(
-                    $"Quiz database protection: {result.Protected:N0} newly protected • " +
-                    $"{result.AlreadyProtected:N0} already protected • {result.Unavailable:N0} unavailable.");
-            }
+            SetDatabaseProtectionStatus(
+                $"Quiz database protection: {result.Protected:N0} newly protected • " +
+                $"{result.AlreadyProtected:N0} already protected • {result.Unavailable:N0} unavailable.");
         }
         catch (Exception error)
         {
             SetDatabaseProtectionStatus("Quiz database protection failed: " + error.Message);
-            if (showStatus)
-                MessageBox.Show(this, error.Message, "Quiz Database Protection", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, error.Message, "Quiz Database Protection", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         finally
         {
