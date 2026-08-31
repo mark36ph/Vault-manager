@@ -106,8 +106,7 @@ public partial class MainShellWindow
             {
                 var text = (button.Content?.ToString() ?? "").Trim();
                 return string.Equals(text, "Updates", StringComparison.OrdinalIgnoreCase) ||
-                       string.Equals(text, "Update available", StringComparison.OrdinalIgnoreCase) ||
-                       string.Equals(text, "Install app", StringComparison.OrdinalIgnoreCase);
+                       string.Equals(text, "Update available", StringComparison.OrdinalIgnoreCase);
             });
         if (updates is null || Window.GetWindow(updates) != this)
             return;
@@ -117,7 +116,8 @@ public partial class MainShellWindow
         updates.Padding = new Thickness(12, 0, 12, 0);
         if (!_updates.IsInstalled)
         {
-            updates.Content = "Install app";
+            // Keep this exact content so the existing one-time installer bootstrap handler remains active.
+            updates.Content = "Updates";
             updates.Opacity = 0.82;
             updates.ToolTip = "Install the current Factburst Quiz Manager release";
             return;
