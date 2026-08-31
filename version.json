@@ -1,16 +1,16 @@
 {
-  "latest_version": "1.0.73",
-  "build": 98,
+  "latest_version": "1.0.74",
+  "build": 99,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 98 fixes duplicate Quiz History path repair so one unresolved row no longer blocks every safe repair in the same shared C: project folder.",
-    "The repair no longer guesses which History row owns a duplicated C: folder. Each affected row is independently matched only to a unique High-confidence alternate C: or Z: project folder.",
-    "Safe rows can now be repaired while ambiguous or unmatched siblings remain unchanged for a later scan.",
-    "Alternate destination folders remain strictly one-to-one: the same physical project folder cannot be assigned automatically to two Quiz History rows.",
-    "Build 97's episode safety remains enforced: contradictory explicit or trusted trailing episode numbers are rejected as No match, including Logos - 001 versus episode #003.",
-    "Shared duplicate C: folders themselves are excluded as repair destinations, and paths already owned by non-duplicate History rows remain reserved.",
-    "The final apply step rechecks the destination, current stored path, confidence and ownership before updating Quiz History.",
-    "Duplicate-path repair is still database-only. It does not move, copy, rename, overwrite or delete any C: or Z: files.",
-    "Regression tests cover partial sibling repair, one-destination-per-row enforcement, multiple distinct repairs from one shared path, and the episode conflict guards."
+    "Build 99 prevents duplicate Quiz History path repair from crossing between clearly different quiz families.",
+    "A Space History row can no longer be automatically linked to a General Knowledge project just because both use the same episode number or copied project metadata contains Space text.",
+    "Folder-family identity is checked before legacy trailing episode scoring can strengthen a candidate.",
+    "The guard covers the stable quiz families including Science, History, Geography, Space, Nature & Animals, Technology, Arts & Literature, Music, Film, Sports, Entertainment, Mathematics and General Knowledge.",
+    "Logos and Icons are intentionally treated as the same quiz family so legacy Icons project folders can still match Logos Quiz History safely.",
+    "The final apply step repeats the same family and episode safety checks immediately before any database path is changed.",
+    "Duplicate-path repair remains database-only and does not move, copy, rename, overwrite or delete C: or Z: files.",
+    "Build 98 partial one-to-one repair, faster archive reporting, live C: to Z: progress, verified archive reuse and no-overwrite protections remain in place.",
+    "Regression tests cover the exact Space #003 versus General Knowledge #003 failure, a valid Space #003 match, and the Logos/Icons family alias."
   ]
 }
