@@ -68,6 +68,13 @@ public partial class MainShellWindow
         if (requested is null)
             return;
 
+        // The same performance plan shown on YouTube Performance now drives the actual
+        // generated categories. The Builder selection is only a fallback if no plan can
+        // be produced (for example, when the question bank has no enabled categories).
+        var performancePlan = BuildYouTubeGrowthCategoryPlan(requested.Value);
+        var originalCategory = _quizCategoryComboBox?.SelectedItem;
+        var originalTitle = _quizTitleTextBox?.Text ?? "";
+
         var button = sender as Button;
         var progressWindow = CreateQuizBatchAutomationProgressWindow(
             requested.Value,
@@ -93,9 +100,31 @@ public partial class MainShellWindow
             for (var index = 0; index < requested.Value; index++)
             {
                 var number = index + 1;
-                progressText.Text = $"Rendering quiz {number:N0} of {requested.Value:N0}";
+                var fallbackCategory = SelectedQuizCategory();
+                var recommendedCategory = QuizAutopilotPerformancePlan.CategoryForSlot(
+                    performancePlan,
+                    index,
+                    fallbackCategory);
+
+                if (!string.IsNullOrWhiteSpace(recommendedCategory))
+                {
+                    ApplyYouTubeGrowthCategory(recommendedCategory);
+                    progressText.Text = $"Rendering quiz {number:N0} of {requested.Value:N0} • {recommendedCategory}";
+                    detailText.Text = $"Performance recommends {recommendedCategory} • selecting fresh questions with rotation rules...";
+                    if (_quizPageStatusText is not null)
+                        _quizPageStatusText.Text = $"Growth Autopilot: quiz {number}/{requested.Value} • {recommendedCategory}";
+                }
+                else
+                {
+                    progressText.Text = $"Rendering quiz {number:N0} of {requested.Value:N0}";
+                    detailText.Text = "Selecting fresh questions with rotation rules...";
+                }
+
                 progressBar.Value = index * 55.0 / requested.Value;
-                detailText.Text = "Selecting fresh questions with rotation rules...";
+
+                // Keep this yield: routed Full Autopilot can still reserve the first slot
+                // for a queued Winner follow-up. Subsequent slots are explicitly reset to
+                // their performance-plan category before their questions are selected.
                 await Dispatcher.Yield(DispatcherPriority.Background);
 
                 try
@@ -326,6 +355,11 @@ public partial class MainShellWindow
                 button.IsEnabled = true;
             progressWindow.Close();
 
+            if (_quizCategoryComboBox is not null && originalCategory is not null)
+                _quizCategoryComboBox.SelectedItem = originalCategory;
+            if (_quizTitleTextBox is not null)
+                _quizTitleTextBox.Text = originalTitle;
+
             RefreshQuizBank();
             RefreshQuizDraftUsageCounts();
             RefreshQuizHistory();
@@ -373,7 +407,7 @@ public partial class MainShellWindow
         panel.Children.Add(countBox);
         panel.Children.Add(new TextBlock
         {
-            Text = "After rendering, each quiz gets its YouTube A/B package, is uploaded immediately and scheduled for 09:00 on the next free day. Then its promo Short is created locally, ready for publication the following day. You will confirm the connected YouTube channel once for the whole batch.",
+            Text = "Autopilot uses the current Performance recommendation to choose the category for each quiz. It then renders, creates the YouTube A/B package, uploads and schedules the full video for 09:00 on the next free day, and prepares its promo Short for the following day.",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 12, 0, 0),
         });
