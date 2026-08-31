@@ -331,7 +331,8 @@ jobs:
               cat "${legacy_headers}" >&2
               exit 1
             fi
-            if ! grep -Eqi "^location: https://factburstquiz\.com/${path}\r?$" "${legacy_headers}"; then
+            legacy_location="$(sed -n 's/^[Ll]ocation:[[:space:]]*//p' "${legacy_headers}" | head -n 1 | tr -d '\r')"
+            if [[ "${legacy_location}" != "https://factburstquiz.com/${path}" ]]; then
               echo "::error::Legacy route /${path}.html did not redirect to the clean production URL."
               cat "${legacy_headers}" >&2
               exit 1
@@ -340,7 +341,8 @@ jobs:
 
           index_headers="$(mktemp)"
           index_status="$(curl --silent --show-error --max-time 15 --output /dev/null --dump-header "${index_headers}" --write-out '%{http_code}' "${base}/index.html")"
-          if [[ "${index_status}" != "301" ]] || ! grep -Eqi '^location: https://factburstquiz\.com/\r?$' "${index_headers}"; then
+          index_location="$(sed -n 's/^[Ll]ocation:[[:space:]]*//p' "${index_headers}" | head -n 1 | tr -d '\r')"
+          if [[ "${index_status}" != "301" || "${index_location}" != "https://factburstquiz.com/" ]]; then
             echo "::error::Legacy /index.html did not redirect cleanly to the homepage."
             cat "${index_headers}" >&2
             exit 1
