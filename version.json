@@ -1,15 +1,16 @@
 {
-  "latest_version": "1.0.72",
-  "build": 97,
+  "latest_version": "1.0.73",
+  "build": 98,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 97 hardens duplicate Quiz History path repair so contradictory episode evidence can never be approved automatically.",
-    "When a legacy project folder uses a trusted trailing sequence such as 'Logos - 001', a History row for episode #003 is now rejected as No match immediately instead of merely receiving a score penalty.",
-    "A matching trailing sequence still strengthens valid repairs, such as 'History Quiz - 001' for episode #001.",
-    "Folders with an explicit #episode marker keep that marker authoritative: for example 'Film Quiz #002 - Short - 001' is treated as episode #002 and the trailing export sequence is not misread as the episode.",
-    "The final apply step repeats the same episode-safety evaluation before any database path is changed, so a stale preview cannot bypass the rule.",
-    "Duplicate-path repair remains database-only and does not move, copy, rename, overwrite or delete C: or Z: files.",
-    "The faster Archive completed C report, live C: to Z: progress display, archive verification and no-overwrite protections remain in place.",
-    "Regression tests cover the Logos #003 rejection, a valid matching trailing sequence, and explicit #episode precedence."
+    "Build 98 fixes duplicate Quiz History path repair so one unresolved row no longer blocks every safe repair in the same shared C: project folder.",
+    "The repair no longer guesses which History row owns a duplicated C: folder. Each affected row is independently matched only to a unique High-confidence alternate C: or Z: project folder.",
+    "Safe rows can now be repaired while ambiguous or unmatched siblings remain unchanged for a later scan.",
+    "Alternate destination folders remain strictly one-to-one: the same physical project folder cannot be assigned automatically to two Quiz History rows.",
+    "Build 97's episode safety remains enforced: contradictory explicit or trusted trailing episode numbers are rejected as No match, including Logos - 001 versus episode #003.",
+    "Shared duplicate C: folders themselves are excluded as repair destinations, and paths already owned by non-duplicate History rows remain reserved.",
+    "The final apply step rechecks the destination, current stored path, confidence and ownership before updating Quiz History.",
+    "Duplicate-path repair is still database-only. It does not move, copy, rename, overwrite or delete any C: or Z: files.",
+    "Regression tests cover partial sibling repair, one-destination-per-row enforcement, multiple distinct repairs from one shared path, and the episode conflict guards."
   ]
 }
