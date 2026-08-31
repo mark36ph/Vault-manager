@@ -265,10 +265,10 @@ jobs:
           base="${DEPLOYMENT_URL:-https://factburst-quiz-site.factburstquiz.workers.dev}"
           base="${base%/}"
 
-          listing="$(curl --fail-with-body --silent --show-error --max-time 15 "${base}/api/quizzes?limit=20")"
-          slug="$(jq -r '.quizzes[]? | select((.slug // "") != "") | .slug' <<<"${listing}" | head -n 1)"
+          latest="$(curl --fail-with-body --silent --show-error --max-time 15 "${base}/api/quizzes/latest")"
+          slug="$(jq -r '.quiz.slug // empty' <<<"${latest}")"
           if [[ -z "${slug}" ]]; then
-            echo "::error::Could not find a published quiz slug for the clean-route smoke test."
+            echo "::error::Could not find a published latest quiz slug for the clean-route smoke test."
             exit 1
           fi
 
