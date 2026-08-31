@@ -65,60 +65,37 @@ public sealed class AutopilotNeedsYouCountSyncTests
     }
 
     [Fact]
-    public void NeedsCardRefresh_DoesNotRebuildUnchangedCards()
+    public void FromAlignedTasks_OnlyCountsTasksThatCanBeActedOnNow()
     {
-        var summary = new AutopilotNeedsYouGroupedSummary(9, 9, 0, 0, 0, 0);
+        var tasks = new[]
+        {
+            Task(AutopilotAlignedTaskKind.RelatedVideo, "due-now", actionReady: true),
+            Task(AutopilotAlignedTaskKind.RelatedVideo, "due-later", actionReady: false),
+            Task(AutopilotAlignedTaskKind.InstagramPromo, "instagram-later", actionReady: false),
+        };
 
-        Assert.True(AutopilotNeedsYouCountSummary.NeedsCardRefresh(null, summary));
-        Assert.False(AutopilotNeedsYouCountSummary.NeedsCardRefresh(summary, summary));
-        Assert.True(AutopilotNeedsYouCountSummary.NeedsCardRefresh(
-            summary,
-            summary with { Total = 8, RelatedVideos = 8 }));
+        var grouped = AutopilotNeedsYouCountSummary.FromAlignedTasks(tasks);
+
+        Assert.Equal(1, grouped.Total);
+        Assert.Equal(1, grouped.RelatedVideos);
+        Assert.Equal(0, grouped.InstagramPromos);
     }
 
     [Fact]
-    public void Build113Source_AvoidsRepaintingUnchangedNeedsYouText()
+    public void StableNeedsYouSource_DoesNotRebuildLegacyTaskRowsEverySecond()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
 
+        Assert.Contains("Where(task => task.ActionReady)", source, StringComparison.Ordinal);
+        Assert.Contains("ApplyAutopilotHomeCleanup();", source, StringComparison.Ordinal);
         Assert.Contains("SetAutopilotTextIfChanged(_autopilotNeedsText", source, StringComparison.Ordinal);
         Assert.Contains("SetAutopilotTextIfChanged(_autopilotHealthText, health)", source, StringComparison.Ordinal);
-        Assert.Contains("EnsureGuidedNeedsYouButton();", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("RenderManualAutopilotTasks(cards)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildAutopilotHomeTaskCards(grouped)", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Build76Source_RepairsCardsOverwrittenByLegacyHomeRefresh()
-    {
-        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
-
-        Assert.Contains("RenderedAutopilotHomeTaskCardsMatch(cards)", source, StringComparison.Ordinal);
-        Assert.Contains("summaryChanged || !visibleCardsMatch", source, StringComparison.Ordinal);
-        Assert.Contains("Set Related Video on {grouped.RelatedVideos:N0}", source, StringComparison.Ordinal);
-        Assert.Contains("SequenceEqual(expectedTitles, StringComparer.Ordinal)", source, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Build75Source_GuardsHomeCardRenderingAgainstOneSecondRebuilds()
-    {
-        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
-
-        Assert.Contains("_autopilotNeedsYouRenderedSummary", source, StringComparison.Ordinal);
-        Assert.Contains("NeedsCardRefresh(_autopilotNeedsYouRenderedSummary, grouped)", source, StringComparison.Ordinal);
-        Assert.Contains("_autopilotNeedsYouRenderedSummary = grouped", source, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Build74Source_RendersHomeTaskCardsFromSameAlignedSummaryAsCounter()
-    {
-        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
-
-        Assert.Contains("FromAlignedTasks(tasks)", source, StringComparison.Ordinal);
-        Assert.Contains("BuildAutopilotHomeTaskCards(grouped)", source, StringComparison.Ordinal);
-        Assert.Contains("Set Related Video on {grouped.RelatedVideos:N0}", source, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Build59Source_WiresCountSyncAfterTaskQueueInitialization()
+    public void CountSync_IsInitializedAfterTheTaskQueue()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var queueIndex = buildInfo.IndexOf("InitializeAutopilotNeedsYouTaskQueue", StringComparison.Ordinal);
@@ -128,11 +105,14 @@ public sealed class AutopilotNeedsYouCountSyncTests
         Assert.True(countIndex > queueIndex);
 
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
-        Assert.Contains("Actual pending tasks requiring your input", source, StringComparison.Ordinal);
+        Assert.Contains("Ready now — Factburst will guide you one task at a time", source, StringComparison.Ordinal);
         Assert.Contains("{total:N0} need you", source, StringComparison.Ordinal);
     }
 
-    private static AutopilotAlignedTaskItem Task(AutopilotAlignedTaskKind kind, string key) =>
+    private static AutopilotAlignedTaskItem Task(
+        AutopilotAlignedTaskKind kind,
+        string key,
+        bool actionReady = true) =>
         new(
             kind,
             key,
@@ -145,7 +125,7 @@ public sealed class AutopilotNeedsYouCountSyncTests
             "",
             "",
             "",
-            true);
+            actionReady);
 
     private static string ReadRepositoryFile(string relativePath)
     {
