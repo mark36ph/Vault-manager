@@ -155,12 +155,22 @@ jobs:
                 binding: "ASSETS",
                 html_handling: "none",
                 run_worker_first: [
+                  "/",
+                  "/index.html",
                   "/quiz",
                   "/quiz/*",
                   "/quiz.html",
                   "/quizzes",
                   "/quizzes/*",
                   "/quizzes.html",
+                  "/profile",
+                  "/profile.html",
+                  "/leaderboard",
+                  "/leaderboard.html",
+                  "/terms",
+                  "/terms.html",
+                  "/privacy",
+                  "/privacy.html",
                   "/robots.txt",
                   "/sitemap.xml",
                   "/social/*"
@@ -281,6 +291,73 @@ jobs:
             exit 1
           fi
           echo "Homepage returned HTTP 200 with the Factburst home HTML."
+
+      - name: Smoke test clean public routes
+        shell: bash
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          set -euo pipefail
+          base="${DEPLOYMENT_URL:-https://factburst-quiz-site.factburstquiz.workers.dev}"
+          base="${base%/}"
+
+          for path in profile leaderboard terms privacy; do
+            headers="$(mktemp)"
+            body="$(mktemp)"
+            status="$(curl --silent --show-error --max-time 15 --output "${body}" --dump-header "${headers}" --write-out '%{http_code}' "${base}/${path}")"
+            if [[ "${status}" != "200" ]]; then
+              echo "::error::Clean public route /${path} returned HTTP ${status}."
+              cat "${headers}" >&2
+              exit 1
+            fi
+            if grep -qi '^location:' "${headers}"; then
+              echo "::error::Clean public route /${path} unexpectedly redirected."
+              cat "${headers}" >&2
+              exit 1
+            fi
+            if ! grep -q "https://factburstquiz.com/${path}" "${body}"; then
+              echo "::error::Clean public route /${path} did not render its clean canonical URL."
+              exit 1
+            fi
+            if grep -Eq 'https://factburstquiz\.com/(profile|leaderboard|terms|privacy)\.html' "${body}"; then
+              echo "::error::Clean public route /${path} still exposed a legacy .html canonical or internal link."
+              exit 1
+            fi
+
+            legacy_headers="$(mktemp)"
+            legacy_status="$(curl --silent --show-error --max-time 15 --output /dev/null --dump-header "${legacy_headers}" --write-out '%{http_code}' "${base}/${path}.html")"
+            if [[ "${legacy_status}" != "301" ]]; then
+              echo "::error::Legacy route /${path}.html returned HTTP ${legacy_status} instead of 301."
+              cat "${legacy_headers}" >&2
+              exit 1
+            fi
+            if ! grep -Eqi "^location: https://factburstquiz\.com/${path}\r?$" "${legacy_headers}"; then
+              echo "::error::Legacy route /${path}.html did not redirect to the clean production URL."
+              cat "${legacy_headers}" >&2
+              exit 1
+            fi
+          done
+
+          index_headers="$(mktemp)"
+          index_status="$(curl --silent --show-error --max-time 15 --output /dev/null --dump-header "${index_headers}" --write-out '%{http_code}' "${base}/index.html")"
+          if [[ "${index_status}" != "301" ]] || ! grep -Eqi '^location: https://factburstquiz\.com/\r?$' "${index_headers}"; then
+            echo "::error::Legacy /index.html did not redirect cleanly to the homepage."
+            cat "${index_headers}" >&2
+            exit 1
+          fi
+
+          sitemap="$(curl --fail-with-body --silent --show-error --max-time 15 "${base}/sitemap.xml")"
+          for path in leaderboard terms privacy; do
+            if ! grep -q "<loc>https://factburstquiz.com/${path}</loc>" <<<"${sitemap}"; then
+              echo "::error::Sitemap is missing clean /${path}."
+              exit 1
+            fi
+          done
+          if grep -Eq 'https://factburstquiz\.com/(leaderboard|terms|privacy)\.html' <<<"${sitemap}"; then
+            echo "::error::Sitemap still contains legacy .html public URLs."
+            exit 1
+          fi
+          echo "Clean public routes, legacy redirects and sitemap URLs are correct."
 
       - name: Smoke test clean quiz route
         shell: bash
