@@ -256,6 +256,32 @@ jobs:
           echo "::error::Live Factburst account API smoke test failed at the direct Worker deployment URL."
           exit 1
 
+      - name: Smoke test homepage
+        shell: bash
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          set -euo pipefail
+          base="${DEPLOYMENT_URL:-https://factburst-quiz-site.factburstquiz.workers.dev}"
+          base="${base%/}"
+          headers="$(mktemp)"
+          body="$(mktemp)"
+          status="$(curl --silent --show-error --max-time 15 --output "${body}" --dump-header "${headers}" --write-out '%{http_code}' "${base}/")"
+          if [[ "${status}" != "200" ]]; then
+            echo "::error::Homepage returned HTTP ${status}."
+            cat "${headers}" >&2
+            exit 1
+          fi
+          if ! grep -q 'data-page="home"' "${body}"; then
+            echo "::error::Homepage did not return the Factburst home HTML."
+            exit 1
+          fi
+          if ! grep -q 'https://factburstquiz.com/' "${body}"; then
+            echo "::error::Homepage did not render the expected canonical site URL."
+            exit 1
+          fi
+          echo "Homepage returned HTTP 200 with the Factburst home HTML."
+
       - name: Smoke test clean quiz route
         shell: bash
         env:
