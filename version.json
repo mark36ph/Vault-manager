@@ -1,16 +1,15 @@
 {
-  "latest_version": "1.0.86",
-  "build": 111,
+  "latest_version": "1.0.87",
+  "build": 112,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 111 adds a full Website inventory audit so current long-form Quiz History entries are compared directly with the Cloudflare catalogue.",
-    "Website now shows Local quizzes, On website and Missing counts alongside the existing schedule and question totals.",
-    "Missing local quizzes are shown first in the Website table and can be uploaded together with the new Sync missing action.",
-    "Sync missing only uploads quizzes absent from Cloudflare; website copies that already exist are left unchanged.",
-    "Saved YouTube schedule, upload and quiz creation dates are used to preserve sensible website release timing when a missing quiz is restored.",
-    "Quizzes that cannot be uploaded because a YouTube link, project folder, quiz.json or required question image is unavailable remain marked Missing and are reported for attention.",
-    "A missing row can also be synced individually with Sync selected, while existing website rows keep the Resync selected workflow.",
-    "Short-form Quiz History entries are excluded from the audit because the Factburst website catalogue is based on long-form YouTube quizzes.",
-    "Build 110 Create and Advanced cleanup, Build 109 day-to-day UI cleanup and the guided Needs You workflow remain included unchanged."
+    "Build 112 makes Autopilot choose each generated quiz category from the same YouTube Performance recommendation plan shown in the app instead of carrying forward the Builder's General Knowledge selection.",
+    "Each batch slot now applies its recommended category before questions are selected, so category changes are deterministic rather than depending on a background polling race.",
+    "The growth plan continues to balance proven performers with rotation and experiment slots while the channel is still learning what audiences prefer.",
+    "A queued Winner follow-up can still reserve the first full-video slot; later slots return to the performance-driven plan automatically.",
+    "If no performance slot is available, Autopilot preserves the current Builder category as a fallback rather than forcing General Knowledge.",
+    "The old competing growth-category polling handler has been removed so Performance is the single source of truth for normal Autopilot generation.",
+    "Regression tests verify that a performance recommendation overrides a General Knowledge Builder default and that multi-category plans advance correctly.",
+    "Build 111 website inventory sync and Build 110 Create and Advanced cleanup remain included unchanged."
   ]
 }
