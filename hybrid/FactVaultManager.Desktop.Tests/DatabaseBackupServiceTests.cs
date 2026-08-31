@@ -14,7 +14,7 @@ public sealed class DatabaseBackupServiceTests
         try
         {
             Directory.CreateDirectory(root);
-            using (var connection = new SqliteConnection($"Data Source={source}"))
+            using (var connection = new SqliteConnection($"Data Source={source};Pooling=False"))
             {
                 connection.Open();
                 using var command = connection.CreateCommand();
@@ -30,14 +30,16 @@ public sealed class DatabaseBackupServiceTests
             Assert.Equal("factvault-2026-08-31-193015.db", Path.GetFileName(result.BackupPath));
             Assert.True(service.HasBackupForDate(backups, new DateOnly(2026, 8, 31)));
 
-            using var backup = new SqliteConnection($"Data Source={result.BackupPath};Mode=ReadOnly");
-            backup.Open();
-            using var value = backup.CreateCommand();
-            value.CommandText = "SELECT value FROM facts LIMIT 1";
-            Assert.Equal("protected", Convert.ToString(value.ExecuteScalar()));
-            using var integrity = backup.CreateCommand();
-            integrity.CommandText = "PRAGMA integrity_check;";
-            Assert.Equal("ok", Convert.ToString(integrity.ExecuteScalar()));
+            using (var backup = new SqliteConnection($"Data Source={result.BackupPath};Mode=ReadOnly;Pooling=False"))
+            {
+                backup.Open();
+                using var value = backup.CreateCommand();
+                value.CommandText = "SELECT value FROM facts LIMIT 1";
+                Assert.Equal("protected", Convert.ToString(value.ExecuteScalar()));
+                using var integrity = backup.CreateCommand();
+                integrity.CommandText = "PRAGMA integrity_check;";
+                Assert.Equal("ok", Convert.ToString(integrity.ExecuteScalar()));
+            }
         }
         finally
         {
