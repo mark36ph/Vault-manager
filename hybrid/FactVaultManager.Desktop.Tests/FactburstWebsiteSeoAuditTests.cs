@@ -60,7 +60,7 @@ public sealed class FactburstWebsiteSeoAuditTests
         ]);
 
         Assert.All(rows, row => Assert.Contains("Duplicate visible quiz title", row.Issues));
-        Assert.All(rows, row => Assert.Contains("visible quiz title distinct", row.Recommendations));
+        Assert.All(rows, row => Assert.Contains("distinct search title", row.Recommendations));
     }
 
     [Fact]

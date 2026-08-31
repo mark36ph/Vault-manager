@@ -1,14 +1,16 @@
 {
-  "latest_version": "1.0.81",
-  "build": 106,
+  "latest_version": "1.0.82",
+  "build": 107,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 106 simplifies the Quiz History action bar now that the C: to Z: migration is complete.",
-    "The normal Quiz History screen no longer shows the old Match archive, Archive selected, or Update paths recovery controls.",
-    "Archive completed C remains available as the supported ongoing archive/catch-up action and is now labelled Archive C → Z.",
-    "Questions, Metadata, YouTube, Folder, Delete and Refresh remain unchanged for day-to-day use.",
-    "Legacy archive matching, manual archive and path-recovery implementation remains in the codebase for emergency maintenance, but its UI is no longer registered during normal startup.",
-    "The old archive diagnostic/persistence UI hooks are also no longer registered on normal startup because they were tied to the retired Match archive workflow.",
-    "Build 105 SEO audit improvements and Build 103-104 archive/SEO changes remain included unchanged."
+    "Build 107 adds a Fix SEO action to the dedicated Website SEO audit for warning rows that can be corrected safely.",
+    "Fix SEO generates a proposed search/social metadata correction, simulates it against the full website quiz inventory, and only enables when the result passes the SEO audit.",
+    "Before anything is saved, a review window shows the exact current and proposed values for every field that would change.",
+    "Applying a fix uses the existing authenticated website SEO API, reruns the full catalogue audit, and automatically selects the next remaining finding.",
+    "Duplicate search titles are made unique without changing the published quiz slug, URL, questions or category.",
+    "Duplicate visible quiz titles are treated as an SEO warning while they also create duplicate search titles; a unique SEO title can therefore clear the search ambiguity without renaming the quiz.",
+    "Short or overlong meta descriptions and overlong search/social titles or descriptions can be repaired from the existing Factburst SEO defaults.",
+    "Structural findings such as invalid or duplicate slugs remain manual and cannot be auto-applied.",
+    "Build 106 Quiz History cleanup and Build 105 SEO warning explanations remain included unchanged."
   ]
 }

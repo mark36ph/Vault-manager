@@ -109,12 +109,13 @@ public static class FactburstWebsiteSeoAudit
             severe = true;
         }
 
-        if (visibleTitle.Length > 0 && duplicateTitles.Contains(Normalize(visibleTitle)))
+        var hasDuplicateSeoTitle = effective.SeoTitle.Length > 0 && duplicateSeoTitles.Contains(Normalize(effective.SeoTitle));
+        if (visibleTitle.Length > 0 && duplicateTitles.Contains(Normalize(visibleTitle)) && hasDuplicateSeoTitle)
         {
-            issues.Add("Duplicate visible quiz title");
-            recommendations.Add("Make the visible quiz title distinct from the other matching quiz by adding the specific subject, theme or challenge angle.");
+            issues.Add("Duplicate visible quiz title is also producing an indistinguishable search title");
+            recommendations.Add("Use Fix SEO to give this quiz a distinct search title while keeping the published quiz title and URL unchanged, or rename the visible quiz manually if you also want the catalogue title to differ.");
         }
-        if (effective.SeoTitle.Length > 0 && duplicateSeoTitles.Contains(Normalize(effective.SeoTitle)))
+        if (hasDuplicateSeoTitle)
         {
             issues.Add("Duplicate SEO title");
             recommendations.Add($"Give this quiz a unique SEO title. Add the specific topic or challenge angle while keeping the title at {FactburstWebsiteSeoDefaults.RecommendedTitleLength} characters or fewer where practical.");
