@@ -29,6 +29,16 @@ public sealed class AutopilotNeedsYouCountSyncTests
         Assert.Equal(4, AutopilotNeedsYouCountSummary.Total(-2, 1, -1, 3, 0));
     }
 
+    [Theory]
+    [InlineData(false, 0, "Healthy")]
+    [InlineData(true, 0, "Working")]
+    [InlineData(false, 3, "Needs you")]
+    [InlineData(true, 3, "Needs you")]
+    public void Health_KeepsNeedsYouStableWhileBackgroundWorkRuns(bool running, int total, string expected)
+    {
+        Assert.Equal(expected, AutopilotNeedsYouCountSummary.Health(running, total));
+    }
+
     [Fact]
     public void FromAlignedTasks_MakesHomeGroupsAddUpToNeedsYouTotal()
     {
@@ -64,6 +74,16 @@ public sealed class AutopilotNeedsYouCountSyncTests
         Assert.True(AutopilotNeedsYouCountSummary.NeedsCardRefresh(
             summary,
             summary with { Total = 8, RelatedVideos = 8 }));
+    }
+
+    [Fact]
+    public void Build113Source_AvoidsRepaintingUnchangedNeedsYouText()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
+
+        Assert.Contains("SetAutopilotTextIfChanged(_autopilotNeedsText", source, StringComparison.Ordinal);
+        Assert.Contains("SetAutopilotTextIfChanged(_autopilotHealthText, health)", source, StringComparison.Ordinal);
+        Assert.Contains("EnsureGuidedNeedsYouButton();", source, StringComparison.Ordinal);
     }
 
     [Fact]
