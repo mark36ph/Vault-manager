@@ -62,6 +62,8 @@ public partial class MainShellWindow
         _quizHeaderResolveButton.Click += OpenLatestQuizInResolve_Click;
         headerActions.Children.Add(_quizHeaderResolveButton);
 
+        // Kept for backwards compatibility with existing handlers, but Quiz History now exposes
+        // these actions in its local More menu instead of duplicating them in the global header.
         _quizHeaderPublishButton = new Button
         {
             Content = "Open Publish",
@@ -112,12 +114,11 @@ public partial class MainShellWindow
         _quizHeaderResolveButton.Visibility = selected == _quizTabIndex
             ? Visibility.Visible
             : Visibility.Collapsed;
-        _quizHeaderPublishButton.Visibility = selected == _quizHistoryTabIndex
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-        _quizHeaderReopenButton.Visibility = selected == _quizHistoryTabIndex
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+
+        // Quiz History actions belong to Quiz History's More menu. Keeping the global header
+        // contextual avoids four competing actions at the top of every Library visit.
+        _quizHeaderPublishButton.Visibility = Visibility.Collapsed;
+        _quizHeaderReopenButton.Visibility = Visibility.Collapsed;
 
         var hasExport = !string.IsNullOrWhiteSpace(_lastQuizResolveExportPath) &&
                         File.Exists(_lastQuizResolveExportPath);
