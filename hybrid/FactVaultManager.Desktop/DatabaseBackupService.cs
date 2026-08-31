@@ -38,12 +38,14 @@ public sealed class DatabaseBackupService
                 DataSource = sourcePath,
                 Mode = SqliteOpenMode.ReadOnly,
                 Cache = SqliteCacheMode.Private,
+                Pooling = false,
             };
             var destinationBuilder = new SqliteConnectionStringBuilder
             {
                 DataSource = temporaryPath,
                 Mode = SqliteOpenMode.ReadWriteCreate,
                 Cache = SqliteCacheMode.Private,
+                Pooling = false,
             };
 
             using (var source = new SqliteConnection(sourceBuilder.ToString()))
