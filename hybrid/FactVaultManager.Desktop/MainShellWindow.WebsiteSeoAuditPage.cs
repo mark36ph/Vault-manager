@@ -21,6 +21,9 @@ public partial class MainShellWindow
     private TextBlock? _websiteSeoAuditNeedsAttentionText;
     private TextBlock? _websiteSeoAuditNeedsAttentionNoteText;
     private TextBlock? _websiteSeoAuditStatusText;
+    private TextBlock? _websiteSeoAuditDetailTitleText;
+    private TextBlock? _websiteSeoAuditDetailReasonText;
+    private TextBlock? _websiteSeoAuditDetailRecommendationText;
     private Button? _websiteSeoAuditEditButton;
     private IReadOnlyList<FactburstWebsiteSeoQuiz> _websiteSeoAuditQuizzes = Array.Empty<FactburstWebsiteSeoQuiz>();
 
@@ -127,6 +130,7 @@ public partial class MainShellWindow
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         var header = new Grid { Margin = new Thickness(0, 0, 0, 18) };
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -142,7 +146,7 @@ public partial class MainShellWindow
         });
         heading.Children.Add(new TextBlock
         {
-            Text = "Audit search and social metadata across every Factburst website quiz at once. Fix only the rows that need attention.",
+            Text = "Audit search and social metadata across every Factburst website quiz at once. Warning rows now explain exactly why they were flagged and what to change.",
             Foreground = new SolidColorBrush(Color.FromRgb(102, 112, 133)),
             Margin = new Thickness(0, 4, 20, 0),
             TextWrapping = TextWrapping.Wrap,
@@ -188,6 +192,7 @@ public partial class MainShellWindow
             AutoGenerateColumns = false,
             CanUserAddRows = false,
             CanUserDeleteRows = false,
+            CanUserResizeRows = false,
             IsReadOnly = true,
             SelectionMode = DataGridSelectionMode.Single,
             SelectionUnit = DataGridSelectionUnit.FullRow,
@@ -197,29 +202,26 @@ public partial class MainShellWindow
             BorderThickness = new Thickness(0),
             Background = Brushes.White,
             RowHeaderWidth = 0,
+            RowHeight = 58,
         };
         _websiteSeoAuditGrid.Columns.Add(SeoAuditTextColumn("Status", nameof(WebsiteSeoAuditRow.Status), 116));
         _websiteSeoAuditGrid.Columns.Add(new DataGridTextColumn
         {
             Header = "Quiz",
             Binding = new Binding(nameof(WebsiteSeoAuditRow.Quiz)),
-            Width = new DataGridLength(1.15, DataGridLengthUnitType.Star),
+            Width = new DataGridLength(1.05, DataGridLengthUnitType.Star),
         });
-        _websiteSeoAuditGrid.Columns.Add(SeoAuditTextColumn("Category", nameof(WebsiteSeoAuditRow.Category), 130));
-        _websiteSeoAuditGrid.Columns.Add(SeoAuditTextColumn("SEO mode", nameof(WebsiteSeoAuditRow.Mode), 92));
-        _websiteSeoAuditGrid.Columns.Add(new DataGridTextColumn
-        {
-            Header = "SEO title",
-            Binding = new Binding(nameof(WebsiteSeoAuditRow.SeoTitle)),
-            Width = new DataGridLength(1.2, DataGridLengthUnitType.Star),
-        });
-        _websiteSeoAuditGrid.Columns.Add(new DataGridTextColumn
-        {
-            Header = "Audit result",
-            Binding = new Binding(nameof(WebsiteSeoAuditRow.Issues)),
-            Width = new DataGridLength(1.7, DataGridLengthUnitType.Star),
-        });
-        _websiteSeoAuditGrid.Columns.Add(SeoAuditTextColumn("Slug", nameof(WebsiteSeoAuditRow.Slug), 170));
+        _websiteSeoAuditGrid.Columns.Add(SeoAuditTextColumn("Category", nameof(WebsiteSeoAuditRow.Category), 118));
+        _websiteSeoAuditGrid.Columns.Add(SeoAuditTextColumn("SEO mode", nameof(WebsiteSeoAuditRow.Mode), 90));
+        _websiteSeoAuditGrid.Columns.Add(SeoAuditWrappedColumn(
+            "Why flagged",
+            nameof(WebsiteSeoAuditRow.Issues),
+            new DataGridLength(1.45, DataGridLengthUnitType.Star)));
+        _websiteSeoAuditGrid.Columns.Add(SeoAuditWrappedColumn(
+            "Recommended fix",
+            nameof(WebsiteSeoAuditRow.Recommendations),
+            new DataGridLength(1.65, DataGridLengthUnitType.Star)));
+        _websiteSeoAuditGrid.Columns.Add(SeoAuditTextColumn("Slug", nameof(WebsiteSeoAuditRow.Slug), 155));
         _websiteSeoAuditGrid.SelectionChanged += (_, _) => UpdateWebsiteSeoAuditSelection();
         _websiteSeoAuditGrid.MouseDoubleClick += async (_, _) =>
         {
@@ -239,14 +241,77 @@ public partial class MainShellWindow
         Grid.SetRow(gridCard, 2);
         root.Children.Add(gridCard);
 
-        _websiteSeoAuditStatusText = new TextBlock
+        var detailCard = new Border
         {
-            Text = "Open SEO to audit every website quiz. Automatic defaults are valid; warnings only identify metadata worth reviewing.",
-            Foreground = new SolidColorBrush(Color.FromRgb(102, 112, 133)),
-            TextWrapping = TextWrapping.Wrap,
+            Background = new SolidColorBrush(Color.FromRgb(248, 250, 252)),
+            BorderBrush = new SolidColorBrush(Color.FromRgb(228, 231, 236)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(16, 13, 16, 14),
             Margin = new Thickness(0, 12, 0, 0),
         };
-        Grid.SetRow(_websiteSeoAuditStatusText, 3);
+        var detailStack = new StackPanel();
+        detailStack.Children.Add(new TextBlock
+        {
+            Text = "SELECTED AUDIT FINDING",
+            FontSize = 10,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(102, 112, 133)),
+        });
+        _websiteSeoAuditDetailTitleText = new TextBlock
+        {
+            Text = "Select a quiz to see its SEO finding",
+            FontSize = 16,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(Color.FromRgb(16, 24, 40)),
+            Margin = new Thickness(0, 5, 0, 10),
+            TextWrapping = TextWrapping.Wrap,
+        };
+        detailStack.Children.Add(_websiteSeoAuditDetailTitleText);
+
+        var detailColumns = new Grid();
+        detailColumns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        detailColumns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
+        detailColumns.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var reasonStack = new StackPanel();
+        reasonStack.Children.Add(SeoAuditDetailLabel("WHY IT WAS FLAGGED"));
+        _websiteSeoAuditDetailReasonText = new TextBlock
+        {
+            Text = "Select a warning or needs-attention row to see the exact reason.",
+            Foreground = new SolidColorBrush(Color.FromRgb(71, 84, 103)),
+            TextWrapping = TextWrapping.Wrap,
+            LineHeight = 20,
+        };
+        reasonStack.Children.Add(_websiteSeoAuditDetailReasonText);
+        detailColumns.Children.Add(reasonStack);
+
+        var recommendationStack = new StackPanel();
+        recommendationStack.Children.Add(SeoAuditDetailLabel("RECOMMENDED FIX"));
+        _websiteSeoAuditDetailRecommendationText = new TextBlock
+        {
+            Text = "The recommended action for the selected quiz will appear here.",
+            Foreground = new SolidColorBrush(Color.FromRgb(71, 84, 103)),
+            TextWrapping = TextWrapping.Wrap,
+            LineHeight = 20,
+        };
+        recommendationStack.Children.Add(_websiteSeoAuditDetailRecommendationText);
+        Grid.SetColumn(recommendationStack, 2);
+        detailColumns.Children.Add(recommendationStack);
+
+        detailStack.Children.Add(detailColumns);
+        detailCard.Child = detailStack;
+        Grid.SetRow(detailCard, 3);
+        root.Children.Add(detailCard);
+
+        _websiteSeoAuditStatusText = new TextBlock
+        {
+            Text = "Open SEO to audit every website quiz. The first warning is selected automatically so its reason and recommended fix are immediately visible.",
+            Foreground = new SolidColorBrush(Color.FromRgb(102, 112, 133)),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 10, 0, 0),
+        };
+        Grid.SetRow(_websiteSeoAuditStatusText, 4);
         root.Children.Add(_websiteSeoAuditStatusText);
 
         return root;
@@ -279,14 +344,21 @@ public partial class MainShellWindow
             if (_websiteSeoAuditReadyText is not null) _websiteSeoAuditReadyText.Text = summary.Ready.ToString("N0");
             if (_websiteSeoAuditReadyNoteText is not null) _websiteSeoAuditReadyNoteText.Text = "no SEO issues found";
             if (_websiteSeoAuditWarningsText is not null) _websiteSeoAuditWarningsText.Text = summary.Warnings.ToString("N0");
-            if (_websiteSeoAuditWarningsNoteText is not null) _websiteSeoAuditWarningsNoteText.Text = "worth reviewing";
+            if (_websiteSeoAuditWarningsNoteText is not null) _websiteSeoAuditWarningsNoteText.Text = "select a row for the recommended fix";
             if (_websiteSeoAuditNeedsAttentionText is not null) _websiteSeoAuditNeedsAttentionText.Text = summary.NeedsAttention.ToString("N0");
             if (_websiteSeoAuditNeedsAttentionNoteText is not null) _websiteSeoAuditNeedsAttentionNoteText.Text = "structural SEO issues";
+
+            var firstFinding = rows.FirstOrDefault(row => row.Severity != WebsiteSeoAuditSeverity.Ready)
+                               ?? rows.FirstOrDefault();
+            _websiteSeoAuditGrid.SelectedItem = firstFinding;
+            if (firstFinding is not null)
+                _websiteSeoAuditGrid.ScrollIntoView(firstFinding);
+
             if (_websiteSeoAuditStatusText is not null)
             {
                 _websiteSeoAuditStatusText.Text = summary.Total == 0
                     ? "No website quizzes were returned by Cloudflare."
-                    : $"Audited {summary.Total:N0} quizzes • {summary.Ready:N0} ready • {summary.Warnings:N0} warnings • {summary.NeedsAttention:N0} need attention. Double-click any row to review its search and social preview.";
+                    : $"Audited {summary.Total:N0} quizzes • {summary.Ready:N0} ready • {summary.Warnings:N0} warnings • {summary.NeedsAttention:N0} need attention. Select a row to see the full reason and recommended fix, or double-click it to edit SEO.";
             }
             UpdateWebsiteSeoAuditSelection();
         }
@@ -339,7 +411,11 @@ public partial class MainShellWindow
     private void SetWebsiteSeoAuditUnavailable(string note)
     {
         _websiteSeoAuditQuizzes = Array.Empty<FactburstWebsiteSeoQuiz>();
-        if (_websiteSeoAuditGrid is not null) _websiteSeoAuditGrid.ItemsSource = null;
+        if (_websiteSeoAuditGrid is not null)
+        {
+            _websiteSeoAuditGrid.ItemsSource = null;
+            _websiteSeoAuditGrid.SelectedItem = null;
+        }
         if (_websiteSeoAuditTotalText is not null) _websiteSeoAuditTotalText.Text = "—";
         if (_websiteSeoAuditReadyText is not null) _websiteSeoAuditReadyText.Text = "—";
         if (_websiteSeoAuditWarningsText is not null) _websiteSeoAuditWarningsText.Text = "—";
@@ -354,8 +430,32 @@ public partial class MainShellWindow
 
     private void UpdateWebsiteSeoAuditSelection()
     {
+        var row = _websiteSeoAuditGrid?.SelectedItem as WebsiteSeoAuditRow;
         if (_websiteSeoAuditEditButton is not null)
-            _websiteSeoAuditEditButton.IsEnabled = _websiteSeoAuditGrid?.SelectedItem is WebsiteSeoAuditRow;
+            _websiteSeoAuditEditButton.IsEnabled = row is not null;
+
+        if (_websiteSeoAuditDetailTitleText is null ||
+            _websiteSeoAuditDetailReasonText is null ||
+            _websiteSeoAuditDetailRecommendationText is null)
+            return;
+
+        if (row is null)
+        {
+            _websiteSeoAuditDetailTitleText.Text = "Select a quiz to see its SEO finding";
+            _websiteSeoAuditDetailReasonText.Text = "Select a warning or needs-attention row to see the exact reason.";
+            _websiteSeoAuditDetailRecommendationText.Text = "The recommended action for the selected quiz will appear here.";
+            return;
+        }
+
+        _websiteSeoAuditDetailTitleText.Text = $"{row.Status} • {row.Quiz}";
+        _websiteSeoAuditDetailReasonText.Text = row.Issues;
+        _websiteSeoAuditDetailRecommendationText.Text = row.Recommendations;
+        _websiteSeoAuditDetailTitleText.Foreground = row.Severity switch
+        {
+            WebsiteSeoAuditSeverity.NeedsAttention => new SolidColorBrush(Color.FromRgb(180, 35, 24)),
+            WebsiteSeoAuditSeverity.Warning => new SolidColorBrush(Color.FromRgb(180, 83, 9)),
+            _ => new SolidColorBrush(Color.FromRgb(21, 128, 61)),
+        };
     }
 
     private static DataGridTextColumn SeoAuditTextColumn(string header, string property, double width) => new()
@@ -363,6 +463,32 @@ public partial class MainShellWindow
         Header = header,
         Binding = new Binding(property),
         Width = new DataGridLength(width),
+    };
+
+    private static DataGridTemplateColumn SeoAuditWrappedColumn(string header, string property, DataGridLength width)
+    {
+        var factory = new FrameworkElementFactory(typeof(TextBlock));
+        factory.SetBinding(TextBlock.TextProperty, new Binding(property));
+        factory.SetBinding(FrameworkElement.ToolTipProperty, new Binding(property));
+        factory.SetValue(TextBlock.TextWrappingProperty, TextWrapping.Wrap);
+        factory.SetValue(TextBlock.TextTrimmingProperty, TextTrimming.CharacterEllipsis);
+        factory.SetValue(TextBlock.VerticalAlignmentProperty, VerticalAlignment.Center);
+        factory.SetValue(TextBlock.MarginProperty, new Thickness(5, 3, 5, 3));
+        return new DataGridTemplateColumn
+        {
+            Header = header,
+            Width = width,
+            CellTemplate = new DataTemplate { VisualTree = factory },
+        };
+    }
+
+    private static TextBlock SeoAuditDetailLabel(string text) => new()
+    {
+        Text = text,
+        FontSize = 10,
+        FontWeight = FontWeights.SemiBold,
+        Foreground = new SolidColorBrush(Color.FromRgb(102, 112, 133)),
+        Margin = new Thickness(0, 0, 0, 4),
     };
 
     private static void AddWebsiteSeoAuditStat(
