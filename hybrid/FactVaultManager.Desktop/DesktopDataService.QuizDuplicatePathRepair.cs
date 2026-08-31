@@ -30,6 +30,25 @@ public sealed partial class DesktopDataService
 {
     private const int DuplicatePathUniquenessMargin = 25;
 
+    private static readonly IReadOnlyDictionary<string, string[]> DuplicateRepairQuizFamilies =
+        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Science"] = ["science"],
+            ["History"] = ["history"],
+            ["Geography"] = ["geography"],
+            ["Space"] = ["space"],
+            ["Nature & Animals"] = ["nature animals", "nature and animals"],
+            ["Technology"] = ["technology"],
+            ["Arts & Literature"] = ["arts literature", "arts and literature"],
+            ["Music"] = ["music"],
+            ["Film"] = ["film"],
+            ["Logos"] = ["logos", "logo", "icons", "icon"],
+            ["Sports"] = ["sports", "sport"],
+            ["Entertainment"] = ["entertainment"],
+            ["Mathematics"] = ["mathematics", "maths", "math"],
+            ["General Knowledge"] = ["general knowledge"],
+        };
+
     public QuizDuplicatePathRepairPreview PreviewDuplicateQuizHistoryProjectFolders()
     {
         var settings = LoadSettings();
@@ -320,6 +339,19 @@ public sealed partial class DesktopDataService
         if (candidate.Confidence == QuizArchiveMatchConfidence.NoMatch)
             return candidate;
 
+        // Folder identity is authoritative when it clearly names one of our stable quiz families.
+        // Matching an episode number or finding stale/copied JSON metadata can never outweigh a
+        // different family in the actual project-folder name.
+        if (TryGetDuplicateRepairFamilyConflict(history, fingerprint.FolderName, out var familyConflict))
+        {
+            return candidate with
+            {
+                Confidence = QuizArchiveMatchConfidence.NoMatch,
+                Score = 0,
+                Evidence = [familyConflict],
+            };
+        }
+
         var score = candidate.Score;
         var evidence = candidate.Evidence.ToList();
 
@@ -363,6 +395,86 @@ public sealed partial class DesktopDataService
             Score = confidence == QuizArchiveMatchConfidence.NoMatch ? 0 : score,
             Evidence = confidence == QuizArchiveMatchConfidence.NoMatch ? Array.Empty<string>() : evidence,
         };
+    }
+
+    private static bool TryGetDuplicateRepairFamilyConflict(
+        QuizHistorySummary history,
+        string folderName,
+        out string reason)
+    {
+        reason = "";
+        var historyFamily = DuplicateRepairHistoryFamily(history);
+        var folderFamily = DuplicateRepairFolderFamily(folderName);
+        if (historyFamily.Length == 0 || folderFamily.Length == 0 ||
+            string.Equals(historyFamily, folderFamily, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        reason = $"project folder family '{folderFamily}' conflicts with Quiz History family '{historyFamily}'";
+        return true;
+    }
+
+    private static string DuplicateRepairHistoryFamily(QuizHistorySummary history)
+    {
+        foreach (var category in (history.Categories ?? "")
+                     .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var family = DuplicateRepairFamilyFromText(category, requireWholeValue: true);
+            if (family.Length > 0)
+                return family;
+        }
+
+        foreach (var identity in new[] { history.SeriesName, history.Title })
+        {
+            var family = DuplicateRepairFamilyFromText(identity, requireWholeValue: false);
+            if (family.Length > 0)
+                return family;
+        }
+
+        return "";
+    }
+
+    private static string DuplicateRepairFolderFamily(string folderName) =>
+        DuplicateRepairFamilyFromText(folderName, requireWholeValue: false);
+
+    private static string DuplicateRepairFamilyFromText(string? value, bool requireWholeValue)
+    {
+        var normalized = NormalizeDuplicateRepairFamilyText(value);
+        if (normalized.Length == 0)
+            return "";
+
+        foreach (var family in DuplicateRepairQuizFamilies)
+        {
+            foreach (var alias in family.Value.OrderByDescending(item => item.Length))
+            {
+                if (requireWholeValue)
+                {
+                    if (string.Equals(normalized, alias, StringComparison.Ordinal))
+                        return family.Key;
+                }
+                else if (ContainsDuplicateRepairFamilyPhrase(normalized, alias))
+                {
+                    return family.Key;
+                }
+            }
+        }
+
+        return "";
+    }
+
+    private static bool ContainsDuplicateRepairFamilyPhrase(string normalized, string phrase) =>
+        $" {normalized} ".Contains($" {phrase} ", StringComparison.Ordinal);
+
+    private static string NormalizeDuplicateRepairFamilyText(string? value)
+    {
+        var chars = (value ?? "")
+            .ToLowerInvariant()
+            .Select(character => char.IsLetterOrDigit(character) ? character : ' ')
+            .ToArray();
+        return string.Join(
+            ' ',
+            new string(chars).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
     }
 
     private static int? TrailingProjectSequence(string folderName)
