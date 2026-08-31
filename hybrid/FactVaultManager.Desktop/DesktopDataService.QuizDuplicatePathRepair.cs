@@ -88,10 +88,9 @@ public sealed partial class DesktopDataService
 
         // Do not try to guess which History row "owns" the shared C: folder. That shared path is
         // the corrupt signal we are repairing and may not contain enough metadata to identify one
-        // owner safely. Instead, independently rescue any row that has a unique High-confidence
-        // alternate project folder elsewhere. Unresolved rows remain on the shared C: folder and
-        // are reconsidered on the next scan. This allows partial progress without weakening the
-        // episode/type guards used for destination matching.
+        // owner safely. Instead, independently score every duplicate row against eligible alternate
+        // project folders, then solve the whole set as one stable one-to-one assignment problem.
+        // Unresolved rows remain on the shared C: folder and are reconsidered on the next scan.
         var repairTargets = duplicateGroups
             .SelectMany(group => group.Histories)
             .OrderBy(history => history.Id)
@@ -155,21 +154,15 @@ public sealed partial class DesktopDataService
         ArgumentNullException.ThrowIfNull(repairTargets);
         ArgumentNullException.ThrowIfNull(fingerprints);
 
-        var candidatesByHistory = new Dictionary<int, List<QuizArchiveDeepCandidate>>();
-        var candidatesByFolder = new Dictionary<string, List<QuizArchiveDeepCandidate>>(StringComparer.OrdinalIgnoreCase);
+        var candidatesByHistory = new Dictionary<int, IReadOnlyList<QuizArchiveDeepCandidate>>();
         foreach (var history in repairTargets.OrderBy(history => history.Id))
         {
             var candidates = new List<QuizArchiveDeepCandidate>();
             foreach (var fingerprint in fingerprints)
             {
                 var candidate = EvaluateDuplicateRepairCandidate(history, fingerprint);
-                if (candidate.Confidence < QuizArchiveMatchConfidence.High)
-                    continue;
-
-                candidates.Add(candidate);
-                if (!candidatesByFolder.TryGetValue(fingerprint.Folder, out var folderCandidates))
-                    candidatesByFolder[fingerprint.Folder] = folderCandidates = [];
-                folderCandidates.Add(candidate);
+                if (candidate.Confidence >= QuizArchiveMatchConfidence.High)
+                    candidates.Add(candidate);
             }
 
             candidatesByHistory[history.Id] = candidates
@@ -178,41 +171,44 @@ public sealed partial class DesktopDataService
                 .ToList();
         }
 
-        foreach (var pair in candidatesByFolder)
-        {
-            pair.Value.Sort((left, right) =>
-            {
-                var score = right.Score.CompareTo(left.Score);
-                return score != 0 ? score : left.HistoryId.CompareTo(right.HistoryId);
-            });
-        }
+        // Local winner checks can deadlock a valid set when two rows both like the same folder even
+        // though a second folder makes the overall mapping obvious. Solve maximum-cardinality,
+        // maximum-score one-to-one matching across the complete duplicate set instead. A proposed
+        // pair is automatic only when forbidding that pair makes the global result materially worse;
+        // swappable/tied assignments remain unresolved.
+        var globalPlan = QuizDuplicateGlobalAssignmentPlanner.Plan(
+            candidatesByHistory,
+            DuplicatePathUniquenessMargin);
 
         var suggestions = new List<QuizDuplicatePathRepairSuggestion>();
         var conflicts = new List<QuizDuplicatePathRepairConflict>();
-        var usedFolders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var history in repairTargets.OrderBy(history => history.Id))
         {
-            if (!candidatesByHistory.TryGetValue(history.Id, out var historyCandidates) ||
-                !HasUniqueBest(historyCandidates, out var best))
+            var historyCandidates = candidatesByHistory[history.Id];
+            if (historyCandidates.Count == 0)
             {
                 conflicts.Add(new QuizDuplicatePathRepairConflict(
                     history.ProjectFolder,
                     [history.Id],
-                    historyCandidates is { Count: > 0 }
-                        ? $"No unique High-confidence alternate project folder. Best candidates: {string.Join(", ", historyCandidates.Take(3).Select(candidate => $"{Path.GetFileName(candidate.ArchiveFolder)} ({candidate.Score})"))}."
-                        : "No High-confidence alternate C: or Z: project folder was found for this History row."));
+                    "No High-confidence alternate C: or Z: project folder was found for this History row."));
                 continue;
             }
 
-            if (!candidatesByFolder.TryGetValue(best.ArchiveFolder, out var folderCandidates) ||
-                !HasUniqueBest(folderCandidates, out var folderWinner) ||
-                folderWinner.HistoryId != history.Id ||
-                !usedFolders.Add(best.ArchiveFolder))
+            if (!globalPlan.BestAssignments.TryGetValue(history.Id, out var best))
             {
                 conflicts.Add(new QuizDuplicatePathRepairConflict(
                     history.ProjectFolder,
                     [history.Id],
-                    $"The best alternate folder '{Path.GetFileName(best.ArchiveFolder)}' is also a strong match for another History row, so it was not assigned automatically."));
+                    $"No safe one-to-one alternate can be assigned while preserving the best global repair. Best candidates: {string.Join(", ", historyCandidates.Take(3).Select(candidate => $"{Path.GetFileName(candidate.ArchiveFolder)} ({candidate.Score})"))}."));
+                continue;
+            }
+
+            if (!globalPlan.StableHistoryIds.Contains(history.Id))
+            {
+                conflicts.Add(new QuizDuplicatePathRepairConflict(
+                    history.ProjectFolder,
+                    [history.Id],
+                    $"The global one-to-one assignment is still ambiguous for this History row. '{Path.GetFileName(best.ArchiveFolder)}' ({best.Score}) can be replaced by a competing assignment without losing enough evidence, so it was not changed automatically."));
                 continue;
             }
 
