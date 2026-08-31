@@ -55,6 +55,7 @@ public partial class MainShellWindow
             window.InitializeWebsiteSeoAutoFixButton();
             window.InitializeLogoQuizPromoArtworkRepair();
             window.InitializeAutopilotNeedsYouCountSync();
+            window.InitializeAutopilotNeedsYouVisualStability();
             window.InitializeAutopilotShellActivationFix();
             window.InitializeAutopilotRecoverySupervisor();
             window.InitializeAutopilotScheduleTarget();
