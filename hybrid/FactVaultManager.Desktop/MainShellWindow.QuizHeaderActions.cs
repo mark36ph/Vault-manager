@@ -111,12 +111,10 @@ public partial class MainShellWindow
         _quizHeaderProductionButton.Visibility = quizContext
             ? Visibility.Collapsed
             : Visibility.Visible;
-        _quizHeaderResolveButton.Visibility = selected == _quizTabIndex
-            ? Visibility.Visible
-            : Visibility.Collapsed;
 
-        // Quiz History actions belong to Quiz History's More menu. Keeping the global header
-        // contextual avoids four competing actions at the top of every Library visit.
+        // Manual render / Resolve access lives under Create > Finish > Manual settings & render.
+        // Keeping it out of the global header leaves Refresh and Updates as the only daily shell actions.
+        _quizHeaderResolveButton.Visibility = Visibility.Collapsed;
         _quizHeaderPublishButton.Visibility = Visibility.Collapsed;
         _quizHeaderReopenButton.Visibility = Visibility.Collapsed;
 
@@ -125,7 +123,7 @@ public partial class MainShellWindow
         _quizHeaderResolveButton.Content = hasExport ? "Open in Resolve" : "Render Final Video";
         _quizHeaderResolveButton.ToolTip = hasExport
             ? "Open DaVinci Resolve and show the latest quiz FCPXML package."
-            : "Go to the quiz Export step to render the finished MP4.";
+            : "Go to Create > Finish > Manual settings & render to render the finished MP4.";
     }
 
     private void ApplyQuizFinalRenderLabels()
@@ -180,7 +178,7 @@ public partial class MainShellWindow
                 SelectQuizWorkspacePage("export");
                 ApplyQuizFinalRenderLabels();
                 if (_quizPageStatusText is not null)
-                    _quizPageStatusText.Text = "Configure the quiz export, then click Render Final Video.";
+                    _quizPageStatusText.Text = "Open Manual settings & render, then click Render Final Video.";
                 return;
             }
 
