@@ -24,6 +24,11 @@ import { scoreGuestQuiz } from "./guest-score.js";
 import { createResendEmailAdapter } from "./resend-email.js";
 import { handleSeoRequest } from "./site-seo.js";
 import { handleAnalyticsApi } from "./site-analytics.js";
+import {
+  cleanRedirectLocation,
+  rewritePublicPaths,
+  seoAssetPath,
+} from "./clean-public-routes.js";
 
 let accountSchemaReady = false;
 
@@ -42,11 +47,21 @@ export default {
       if (maintenanceResponse) return maintenanceResponse;
     }
 
+    const legacyRedirect = cleanRedirectLocation(url);
+    if (legacyRedirect) {
+      return new Response(null, {
+        status: 301,
+        headers: {
+          location: legacyRedirect,
+          "cache-control": "public, max-age=3600",
+        },
+      });
+    }
+
     const seoUrl = new URL(url);
-    if (seoUrl.pathname === "/") seoUrl.pathname = "/index.html";
-    if (seoUrl.pathname === "/profile") seoUrl.pathname = "/profile.html";
+    seoUrl.pathname = seoAssetPath(seoUrl.pathname);
     const seoResponse = await handleSeoRequest(request, env, seoUrl, quizWorker);
-    if (seoResponse) return seoResponse;
+    if (seoResponse) return rewriteSeoResponse(seoResponse, request.method);
 
     const analyticsResponse = await handleAnalyticsApi(request, env, url);
     if (analyticsResponse) return analyticsResponse;
@@ -178,6 +193,39 @@ export default {
     return quizWorker.fetch(request, env, context);
   },
 };
+
+async function rewriteSeoResponse(response, method) {
+  const headers = new Headers(response.headers);
+  const location = headers.get("location");
+  if (location) headers.set("location", rewritePublicPaths(location));
+
+  if (method === "HEAD" || response.status === 204 || response.status === 304) {
+    return new Response(null, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+
+  const contentType = headers.get("content-type") || "";
+  const rewriteBody = /(?:text\/html|application\/xml|text\/plain)/i.test(contentType);
+  if (!rewriteBody) {
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+
+  const body = rewritePublicPaths(await response.text());
+  headers.delete("content-length");
+  headers.delete("etag");
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
 
 function isAccountRoute(pathname) {
   return pathname === "/api/account" ||
