@@ -107,6 +107,8 @@ jobs:
         run: |
           node --check cloudflare/factburst-quiz-site/worker.js
           node --check cloudflare/factburst-quiz-site/worker-entry.js
+          node --check cloudflare/factburst-quiz-site/site-seo.js
+          node --check cloudflare/factburst-quiz-site/social-card.js
           node --check cloudflare/factburst-quiz-site/accounts.js
           node --check cloudflare/factburst-quiz-site/account-auth.js
           node --check cloudflare/factburst-quiz-site/account-schema.js
@@ -123,12 +125,16 @@ jobs:
           node --check cloudflare/factburst-quiz-site/site-ads.js
           node --check cloudflare/factburst-quiz-site/resend-email.js
           node --check cloudflare/factburst-quiz-site/public/app.js
+          node --check cloudflare/factburst-quiz-site/public/landing.js
+          node --check cloudflare/factburst-quiz-site/public/growth.js
+          node --check cloudflare/factburst-quiz-site/public/engagement.js
           node --check cloudflare/factburst-quiz-site/public/account-ui.js
           node --check cloudflare/factburst-quiz-site/public/account-ui-v2.js
           node --check cloudflare/factburst-quiz-site/public/profile.js
           node --check cloudflare/factburst-quiz-site/public/profile-link.js
           node --check cloudflare/factburst-quiz-site/public/challenge-ui.js
           node --check cloudflare/factburst-quiz-site/public/comments.js
+          node --check cloudflare/factburst-quiz-site/public/comments-v2.js
           node --check cloudflare/factburst-quiz-site/public/ads.js
           node --check cloudflare/factburst-quiz-site/public/site-status.js
           node --check cloudflare/factburst-link-tracker/worker.js
@@ -139,7 +145,7 @@ jobs:
           node --check cloudflare/factburst-link-tracker/site-quiz-admin.js
           node --check cloudflare/factburst-link-tracker/site-question-report-admin.js
 
-      - name: Run website account tests
+      - name: Run website account and SEO tests
         run: >-
           node --test
           cloudflare/factburst-quiz-site/account-auth.test.mjs
@@ -147,6 +153,7 @@ jobs:
           cloudflare/factburst-quiz-site/build66-features.test.mjs
           cloudflare/factburst-quiz-site/maintenance-and-reports.test.mjs
           cloudflare/factburst-quiz-site/resend-email.test.mjs
+          cloudflare/factburst-quiz-site/site-seo.test.mjs
 
       - name: Validate quiz website Worker bundle
         working-directory: cloudflare/factburst-quiz-site

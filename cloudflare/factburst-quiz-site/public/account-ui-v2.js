@@ -496,8 +496,10 @@ async function refreshLeaderboards() {
 }
 
 function currentSlug() {
-  const slug = new URLSearchParams(location.search).get("slug") || "";
-  return /^[a-z0-9][a-z0-9-]{0,79}$/i.test(slug) ? slug : "";
+  const querySlug = new URLSearchParams(location.search).get("slug") || "";
+  if (/^[a-z0-9][a-z0-9-]{0,79}$/i.test(querySlug)) return querySlug.toLowerCase();
+  const match = location.pathname.match(/^\/quiz\/([a-z0-9][a-z0-9-]{0,79})\/?$/i);
+  return match ? match[1].toLowerCase() : "";
 }
 
 function tab(label, mode) {

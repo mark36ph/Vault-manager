@@ -239,10 +239,10 @@
     if (!card || card.querySelector(".report-question-button")) return;
     const button = buttonEl("Report this question", "report-question-button");
     button.addEventListener("click", async () => {
-      const slug = new URLSearchParams(location.search).get("slug") || "";
+      const slug = currentQuizSlug();
       const text = document.querySelector("#question-number")?.textContent || "";
       const position = Number((text.match(/\d+/) || [])[0] || 0);
-      if (!position) return;
+      if (!slug || !position) return;
       const reason = prompt("Report reason: incorrect, typo, duplicate, outdated, or other", "incorrect");
       if (!reason) return;
       const detail = prompt("Optional details about the problem", "") || "";
@@ -257,7 +257,8 @@
   async function enhanceQuizResult(score) {
     const panel = document.querySelector("#quiz-results");
     if (!panel || panel.classList.contains("hidden") || panel.querySelector("#quiz-engagement-tools")) return;
-    const slug = new URLSearchParams(location.search).get("slug") || "";
+    const slug = currentQuizSlug();
+    if (!slug) return;
     const title = document.querySelector("#quiz-title")?.textContent || document.title.replace(" | Factburst Quiz", "");
     const tools = el("div", "quiz-engagement-tools"); tools.id = "quiz-engagement-tools";
     tools.append(title3("Keep the score going"));
@@ -320,7 +321,7 @@
       if (!items.length) return;
       host.append(title3("Recommended next"));
       const actions = el("div", "engagement-actions");
-      for (const quiz of items) actions.append(linkButton(quiz.title, `/quiz.html?slug=${encodeURIComponent(quiz.slug)}`));
+      for (const quiz of items) actions.append(linkButton(quiz.title, quizUrl(quiz.slug)));
       host.append(actions);
     } catch {}
   }
@@ -406,9 +407,10 @@
     if (!blob) return;
     const file = new File([blob], "factburst-result.png", { type: "image/png" });
     const text = `I scored ${score.score}/${score.total} on “${title}” at Factburst Quiz. Can you beat me?`;
+    const url = quizUrl(currentQuizSlug());
     try {
-      if (navigator.canShare?.({ files: [file] })) await navigator.share({ title: "Factburst Quiz result", text, url: location.href, files: [file] });
-      else await shareOrCopy("Factburst Quiz result", text, location.href);
+      if (navigator.canShare?.({ files: [file] })) await navigator.share({ title: "Factburst Quiz result", text, url, files: [file] });
+      else await shareOrCopy("Factburst Quiz result", text, url);
     } catch {}
   }
 
@@ -448,26 +450,26 @@
   function dailyCard(daily, player) {
     const card = el("div", "engagement-card"); card.append(spanBadge("Daily Quiz"), title3(daily.title));
     card.append(paragraph(daily.completed ? `Completed today: ${daily.score}/${daily.total}` : `${daily.category || "Quiz"} • Keep your ${player?.streak || 0}-day streak moving.`));
-    card.append(linkButton(daily.completed ? "Play again" : "Play Daily Quiz", `/quiz.html?slug=${encodeURIComponent(daily.slug)}`)); return card;
+    card.append(linkButton(daily.completed ? "Play again" : "Play Daily Quiz", quizUrl(daily.slug))); return card;
   }
 
   function continueCard(items) {
     const card = el("div", "engagement-card"); card.append(spanBadge("Continue"), title3("Recently played"));
     if (!items.length) card.append(paragraph("Your latest quiz will appear here."));
-    else { const item = items[0]; card.append(paragraph(`${item.best_score}/${item.total} • ${item.percentage}%`), linkButton("Play again", `/quiz.html?slug=${encodeURIComponent(item.slug)}`)); }
+    else { const item = items[0]; card.append(paragraph(`${item.best_score}/${item.total} • ${item.percentage}%`), linkButton("Play again", quizUrl(item.slug))); }
     return card;
   }
 
   function recommendationCard(items) {
     const card = el("div", "engagement-card"); card.append(spanBadge("For you"), title3("Recommended quiz"));
     if (!items.length) card.append(paragraph("Play a few quizzes and recommendations will appear here."));
-    else { const item = items[0]; card.append(paragraph(item.category || "Quiz"), linkButton("Play recommendation", `/quiz.html?slug=${encodeURIComponent(item.slug)}`)); }
+    else { const item = items[0]; card.append(paragraph(item.category || "Quiz"), linkButton("Play recommendation", quizUrl(item.slug))); }
     return card;
   }
 
   function tournamentCard(tournament) {
     const card = el("div", "engagement-card engagement-section"); card.append(spanBadge("Weekly tournament"), title3("This week’s Factburst challenge"), paragraph("Play the featured quizzes this week. Your best scores count toward the tournament table."));
-    const links = el("div", "tournament-quiz-links"); for (const quiz of tournament.quizzes || []) links.append(linkButton(quiz.title, `/quiz.html?slug=${encodeURIComponent(quiz.slug)}`)); card.append(links);
+    const links = el("div", "tournament-quiz-links"); for (const quiz of tournament.quizzes || []) links.append(linkButton(quiz.title, quizUrl(quiz.slug))); card.append(links);
     const leaders = (tournament.leaderboard || []).slice(0, 5); if (leaders.length) { const list = el("div", "engagement-list"); for (const leader of leaders) { const row = el("div", "engagement-row"); row.append(strong(`#${leader.rank} ${leader.username}`), span(`${leader.score}/${leader.total} • ${leader.percentage}%`)); list.append(row); } card.append(list); }
     return card;
   }
@@ -476,8 +478,20 @@
     const card = el("div", "engagement-card"); card.append(title3(title));
     if (!items.length) { card.append(paragraph(emptyText)); return card; }
     const list = el("div", "engagement-list");
-    for (const item of items.slice(0, 5)) { const row = el("div", "engagement-row"); const a = document.createElement("a"); a.href = `/quiz.html?slug=${encodeURIComponent(item.slug)}`; a.textContent = item.title; a.style.color = "white"; a.style.fontWeight = "800"; const detail = span(item.percentage != null ? `${item.percentage}%` : item.category || "Quiz"); row.append(a, detail); list.append(row); }
+    for (const item of items.slice(0, 5)) { const row = el("div", "engagement-row"); const a = document.createElement("a"); a.href = quizUrl(item.slug); a.textContent = item.title; a.style.color = "white"; a.style.fontWeight = "800"; const detail = span(item.percentage != null ? `${item.percentage}%` : item.category || "Quiz"); row.append(a, detail); list.append(row); }
     card.append(list); return card;
+  }
+
+  function currentQuizSlug() {
+    const querySlug = new URLSearchParams(location.search).get("slug") || "";
+    if (/^[a-z0-9][a-z0-9-]{0,79}$/i.test(querySlug)) return querySlug.toLowerCase();
+    const match = location.pathname.match(/^\/quiz\/([a-z0-9][a-z0-9-]{0,79})\/?$/i);
+    return match ? match[1].toLowerCase() : "";
+  }
+
+  function quizUrl(slug) {
+    const value = String(slug || "").toLowerCase();
+    return /^[a-z0-9][a-z0-9-]{0,79}$/.test(value) ? `/quiz/${encodeURIComponent(value)}` : "/quizzes";
   }
 
   function metricCard(label, value, copy) { const card = el("div", "engagement-card"); card.append(spanBadge(label), strongBig(value), paragraph(copy)); return card; }

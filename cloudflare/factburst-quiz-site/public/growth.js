@@ -20,8 +20,36 @@
   }
 
   function currentSlug() {
-    const slug = new URLSearchParams(location.search).get("slug") || "";
-    return /^[a-z0-9][a-z0-9-]{0,79}$/i.test(slug) ? slug.toLowerCase() : "";
+    return quizSlugFromUrl(location.href);
+  }
+
+  function quizSlugFromUrl(value) {
+    try {
+      const target = new URL(value, location.href);
+      const querySlug = target.searchParams.get("slug") || "";
+      if (/^[a-z0-9][a-z0-9-]{0,79}$/i.test(querySlug)) return querySlug.toLowerCase();
+      const match = target.pathname.match(/^\/quiz\/([a-z0-9][a-z0-9-]{0,79})\/?$/i);
+      return match ? match[1].toLowerCase() : "";
+    } catch {
+      return "";
+    }
+  }
+
+  function slugifyCategory(value) {
+    return String(value || "")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/&/g, " and ")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .replace(/-and-/g, "-")
+      .slice(0, 80);
+  }
+
+  function categoryUrl(category) {
+    const slug = slugifyCategory(category);
+    return slug ? `/quizzes/${slug}#browse` : "/quizzes#browse";
   }
 
   function sourceName() {
@@ -30,10 +58,10 @@
       const ref = new URL(document.referrer);
       if (ref.origin !== location.origin && ref.origin !== SITE_ORIGIN) return "external";
       if (ref.pathname === "/" || ref.pathname === "/index.html") return "home";
-      if (ref.pathname === "/quizzes.html") return "quizzes";
+      if (ref.pathname === "/quizzes" || ref.pathname.startsWith("/quizzes/")) return "quizzes";
       if (ref.pathname === "/leaderboard.html") return "leaderboard";
       if (ref.pathname === "/profile.html") return "profile";
-      if (ref.pathname === "/quiz.html") return "quiz";
+      if (ref.pathname === "/quiz.html" || ref.pathname.startsWith("/quiz/")) return "quiz";
       return "internal";
     } catch {
       return "external";
@@ -75,7 +103,7 @@
 
   function canonicalQuizUrl() {
     const slug = currentSlug();
-    return slug ? `${SITE_ORIGIN}/quiz.html?slug=${encodeURIComponent(slug)}` : `${SITE_ORIGIN}/quizzes.html`;
+    return slug ? `${SITE_ORIGIN}/quiz/${encodeURIComponent(slug)}` : `${SITE_ORIGIN}/quizzes`;
   }
 
   function resultShareDetails() {
@@ -138,7 +166,7 @@
 
     const actions = results.querySelector(".result-actions");
     if (!actions) return;
-    const playAnother = actions.querySelector('a[href="/quizzes.html"]');
+    const playAnother = actions.querySelector('a[href="/quizzes"], a[href="/quizzes.html"]');
 
     if (!actions.querySelector("#copy-quiz-link")) {
       const copy = document.createElement("button");
@@ -155,7 +183,7 @@
       const more = document.createElement("a");
       more.id = "more-category-quizzes";
       more.className = "button button-secondary";
-      more.href = `/quizzes.html?category=${encodeURIComponent(category)}#browse`;
+      more.href = categoryUrl(category);
       more.textContent = `More ${category}`;
       if (playAnother) actions.insertBefore(more, playAnother);
       else actions.append(more);
@@ -177,7 +205,9 @@
     }
 
     let initialApplied = false;
-    const requested = new URLSearchParams(location.search).get("category")?.trim() || "";
+    const requested = document.body.dataset.category?.trim()
+      || new URLSearchParams(location.search).get("category")?.trim()
+      || "";
 
     const render = () => {
       const options = Array.from(filter.options)
@@ -196,29 +226,23 @@
 
       const values = ["", ...options];
       host.replaceChildren(...values.map(value => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "category-shortcut";
-        button.textContent = value || "All quizzes";
-        button.setAttribute("aria-pressed", String(filter.value === value));
-        button.addEventListener("click", () => {
-          filter.value = value;
-          filter.dispatchEvent(new Event("change", { bubbles: true }));
-          document.querySelector("#browse")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
-        return button;
+        const link = document.createElement("a");
+        link.className = "category-shortcut";
+        link.href = categoryUrl(value);
+        link.textContent = value || "All quizzes";
+        link.setAttribute("aria-pressed", String(filter.value === value));
+        return link;
       }));
     };
 
     filter.addEventListener("change", () => {
-      for (const button of host.querySelectorAll(".category-shortcut")) {
-        const value = button.textContent === "All quizzes" ? "" : button.textContent;
-        button.setAttribute("aria-pressed", String(value === filter.value));
+      for (const link of host.querySelectorAll(".category-shortcut")) {
+        const value = link.textContent === "All quizzes" ? "" : link.textContent;
+        link.setAttribute("aria-pressed", String(value === filter.value));
       }
-      const url = new URL(location.href);
-      if (filter.value) url.searchParams.set("category", filter.value);
-      else url.searchParams.delete("category");
-      history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+      const nextPath = filter.value ? `/quizzes/${slugifyCategory(filter.value)}` : "/quizzes";
+      const currentPath = location.pathname.replace(/\/+$/, "") || "/";
+      if (currentPath !== nextPath) location.assign(`${nextPath}#browse`);
     });
 
     render();
@@ -259,18 +283,15 @@
   }
 
   document.addEventListener("click", event => {
-    const quizLink = event.target.closest?.('a[href*="quiz.html?slug="]');
+    const quizLink = event.target.closest?.('a[href*="/quiz/"], a[href*="quiz.html?slug="]');
     if (quizLink) {
-      try {
-        const target = new URL(quizLink.href, location.href);
-        const slug = target.searchParams.get("slug") || "";
-        if (/^[a-z0-9][a-z0-9-]{0,79}$/i.test(slug)) {
-          track("quiz_link_clicked", {
-            quiz_slug: slug.toLowerCase(),
-            source: currentPageSource(),
-          });
-        }
-      } catch {}
+      const slug = quizSlugFromUrl(quizLink.href);
+      if (slug) {
+        track("quiz_link_clicked", {
+          quiz_slug: slug,
+          source: currentPageSource(),
+        });
+      }
     }
 
     const answer = event.target.closest?.(".answer-button");

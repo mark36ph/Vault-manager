@@ -96,8 +96,7 @@ async function createChallenge(request, env, url) {
     expiresAt,
   ).run();
 
-  const challengeUrl = new URL("/quiz.html", url.origin);
-  challengeUrl.searchParams.set("slug", String(score.slug));
+  const challengeUrl = new URL(`/quiz/${encodeURIComponent(String(score.slug))}`, url.origin);
   challengeUrl.searchParams.set("challenge", token);
   const challengePath = challengeUrl.pathname + challengeUrl.search;
   const challengerName = String(user.username || "Factburst player");
@@ -129,6 +128,7 @@ async function createChallenge(request, env, url) {
       score: Number(score.best_score),
       total: Number(score.total),
       expires_at: expiresAt,
+      url: challengeUrl.toString(),
       notification_sent: true,
       email_sent: emailSent,
     },
