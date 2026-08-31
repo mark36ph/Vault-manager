@@ -1,16 +1,16 @@
 {
-  "latest_version": "1.0.76",
-  "build": 101,
+  "latest_version": "1.0.77",
+  "build": 102,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 101 adds website SEO publishing controls directly to the desktop Website manager.",
-    "Select any website quiz and choose Edit SEO to manage its search title, meta description, social title and social description.",
-    "The editor includes a Google-style search preview, a Factburst social-card preview, character guidance and duplicate-title warnings.",
-    "Every quiz gets useful SEO defaults automatically even when no custom metadata has been saved yet.",
-    "Custom SEO metadata is stored in the shared Cloudflare quiz database and survives later scheduled syncs or manual resyncs.",
-    "Published quiz slugs are shown as clean factburstquiz.com/quiz/... URLs and remain locked after publication so existing links, comments, tracking and analytics are not split.",
-    "Social previews continue to use the generated 1200x630 Factburst PNG, with the saved social title feeding the card artwork and Open Graph/Twitter copy.",
-    "The SEO administration endpoint uses the existing private Link Tracker authentication; no second API key or public website admin page is required.",
-    "Website quiz scoring, player sizing, account behavior, publishing schedules and existing visibility controls are unchanged."
+    "Build 102 replaces the final duplicate-path blocker in the completed C: archive workflow with safe physical-folder grouping.",
+    "When several Quiz History rows point to the same physical C: project folder, Factburst now treats that folder as one archive unit instead of trying to guess which History row owns it.",
+    "Every linked History row must have all required uploads complete before the shared physical folder can move; otherwise the whole folder stays on C:.",
+    "The project is copied to Z: once and verified once, or an existing same-name Z: copy is reused only when the complete relative file set has a strong verified copy identity.",
+    "All linked Quiz History paths are updated together in one SQLite transaction and individually verified before any C: deletion is attempted.",
+    "Shared physical-project rows are explicitly registered so the database uniqueness guard still blocks unrelated duplicate paths while allowing the verified rows from one physical project to share their Z: path.",
+    "If the grouped database update cannot be verified, Factburst attempts to roll the group back to the original C: path and keeps the physical C: folder.",
+    "Existing Z: folders are never overwritten or deleted; new collisions continue to use archived-copy numbering.",
+    "The Archive completed C confirmation and progress screens now report physical folders separately from the number of linked Quiz History rows."
   ]
 }
