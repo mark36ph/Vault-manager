@@ -189,10 +189,52 @@ public sealed partial class DesktopDataService
         return result.RestoredFiles > 0;
     }
 
-    public QuizProjectProtectionSummary ProtectExistingQuizProjects(int limit = 2_000)
+    public QuizProjectProtectionSummary ProtectExistingQuizProjects(int limit = 2_000) =>
+        ProtectQuizProjects(GetQuizHistory(Math.Clamp(limit, 1, 2_000)));
+
+    public QuizProjectProtectionSummary ProtectQuizProjectsAfterHistoryId(int historyId, int limit = 500)
+    {
+        if (historyId < 0) throw new ArgumentOutOfRangeException(nameof(historyId));
+        return ProtectQuizProjects(
+            GetQuizHistory(Math.Clamp(limit, 1, 2_000))
+                .Where(history => history.Id > historyId)
+                .OrderBy(history => history.Id)
+                .ToList());
+    }
+
+    public QuizProjectRecoverySummary RestoreMissingQuizProjectFiles(int limit = 2_000)
     {
         EnsureQuizProjectSnapshotSchema();
         var histories = GetQuizHistory(Math.Clamp(limit, 1, 2_000));
+        var protectedHistoryIds = GetProtectedQuizHistoryIds();
+        var checkedCount = 0;
+        var projectsRestored = 0;
+        var filesRestored = 0;
+        long restoredBytes = 0;
+
+        foreach (var history in histories)
+        {
+            if (!protectedHistoryIds.Contains(history.Id))
+                continue;
+            checkedCount++;
+            var snapshot = GetQuizProjectSnapshot(history.Id)!;
+            var destination = history.ProjectFolder.Trim().Length > 0
+                ? history.ProjectFolder
+                : snapshot.ProjectPath;
+            var result = RestoreQuizProjectFiles(history.Id, destination, overwriteExisting: false);
+            if (result.RestoredFiles <= 0)
+                continue;
+            projectsRestored++;
+            filesRestored += result.RestoredFiles;
+            restoredBytes += result.RestoredBytes;
+        }
+
+        return new QuizProjectRecoverySummary(checkedCount, projectsRestored, filesRestored, restoredBytes);
+    }
+
+    private QuizProjectProtectionSummary ProtectQuizProjects(IReadOnlyList<QuizHistorySummary> histories)
+    {
+        EnsureQuizProjectSnapshotSchema();
         var protectedHistoryIds = GetProtectedQuizHistoryIds();
         var protectedCount = 0;
         var alreadyProtected = 0;
@@ -224,36 +266,6 @@ public sealed partial class DesktopDataService
         }
 
         return new QuizProjectProtectionSummary(protectedCount, alreadyProtected, unavailable, archiveBytes);
-    }
-
-    public QuizProjectRecoverySummary RestoreMissingQuizProjectFiles(int limit = 2_000)
-    {
-        EnsureQuizProjectSnapshotSchema();
-        var histories = GetQuizHistory(Math.Clamp(limit, 1, 2_000));
-        var protectedHistoryIds = GetProtectedQuizHistoryIds();
-        var checkedCount = 0;
-        var projectsRestored = 0;
-        var filesRestored = 0;
-        long restoredBytes = 0;
-
-        foreach (var history in histories)
-        {
-            if (!protectedHistoryIds.Contains(history.Id))
-                continue;
-            checkedCount++;
-            var snapshot = GetQuizProjectSnapshot(history.Id)!;
-            var destination = history.ProjectFolder.Trim().Length > 0
-                ? history.ProjectFolder
-                : snapshot.ProjectPath;
-            var result = RestoreQuizProjectFiles(history.Id, destination, overwriteExisting: false);
-            if (result.RestoredFiles <= 0)
-                continue;
-            projectsRestored++;
-            filesRestored += result.RestoredFiles;
-            restoredBytes += result.RestoredBytes;
-        }
-
-        return new QuizProjectRecoverySummary(checkedCount, projectsRestored, filesRestored, restoredBytes);
     }
 
     private HashSet<int> GetProtectedQuizHistoryIds()
