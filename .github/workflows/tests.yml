@@ -107,6 +107,7 @@ jobs:
         run: |
           node --check cloudflare/factburst-quiz-site/worker.js
           node --check cloudflare/factburst-quiz-site/worker-entry.js
+          node --check cloudflare/factburst-quiz-site/clean-public-routes.js
           node --check cloudflare/factburst-quiz-site/site-seo.js
           node --check cloudflare/factburst-quiz-site/social-card.js
           node --check cloudflare/factburst-quiz-site/accounts.js
@@ -137,6 +138,7 @@ jobs:
           node --check cloudflare/factburst-quiz-site/public/comments-v2.js
           node --check cloudflare/factburst-quiz-site/public/ads.js
           node --check cloudflare/factburst-quiz-site/public/site-status.js
+          node --check cloudflare/factburst-quiz-site/public/notification-header.js
           node --check cloudflare/factburst-link-tracker/worker.js
           node --check cloudflare/factburst-link-tracker/admin-worker-entry.js
           node --check cloudflare/factburst-link-tracker/site-user-admin.js
@@ -151,6 +153,7 @@ jobs:
           cloudflare/factburst-quiz-site/account-auth.test.mjs
           cloudflare/factburst-quiz-site/accounts.test.mjs
           cloudflare/factburst-quiz-site/build66-features.test.mjs
+          cloudflare/factburst-quiz-site/clean-public-routes.test.mjs
           cloudflare/factburst-quiz-site/maintenance-and-reports.test.mjs
           cloudflare/factburst-quiz-site/resend-email.test.mjs
           cloudflare/factburst-quiz-site/site-seo.test.mjs
