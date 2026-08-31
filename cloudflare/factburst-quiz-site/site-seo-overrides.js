@@ -57,14 +57,23 @@ export function effectiveSeoMetadata(quiz) {
   const category = compactText(quiz?.category) || "General Knowledge";
   const questionCount = Math.max(1, Number(quiz?.question_count) || 10);
   const baseDescription = compactText(quiz?.description);
+  const suffix = " | Factburst Quiz";
+  const generatedTitle = title.toLowerCase().endsWith("factburst quiz")
+    ? trimAtWord(title, 65)
+    : `${trimAtWord(title, Math.max(18, 65 - suffix.length))}${suffix}`;
+  const generatedDescription = trimAtWord(
+    `Take this ${questionCount}-question ${category} quiz from Factburst Quiz. Test your knowledge, see your score and discover the facts behind each answer.`,
+    160,
+  );
 
-  const seoTitle = compactText(quiz?.seo_title) || `${title} | Factburst Quiz`;
+  const seoTitle = compactText(quiz?.seo_title) || generatedTitle;
   const seoDescription = compactText(quiz?.seo_description) ||
-    baseDescription ||
-    `Take this ${questionCount}-question ${category} quiz from Factburst Quiz. Test your knowledge, see your score and discover the facts behind each answer.`;
-  const socialTitle = compactText(quiz?.social_title) || title;
-  const socialDescription = compactText(quiz?.social_description) ||
-    `${questionCount} questions on ${category}. Can you score ${questionCount}/${questionCount}?`;
+    (baseDescription.length >= 80 ? trimAtWord(baseDescription, 160) : generatedDescription);
+  const socialTitle = compactText(quiz?.social_title) || trimAtWord(title, 100);
+  const socialDescription = compactText(quiz?.social_description) || trimAtWord(
+    `${questionCount} questions on ${category}. Can you score ${questionCount}/${questionCount}? Play the Factburst Quiz and compare your result.`,
+    200,
+  );
 
   return { seoTitle, seoDescription, socialTitle, socialDescription };
 }
@@ -131,6 +140,16 @@ function replaceMeta(html, attribute, key, value) {
 
 function compactText(value) {
   return String(value ?? "").trim().replace(/\s+/g, " ");
+}
+
+function trimAtWord(value, maxLength) {
+  const text = compactText(value);
+  if (text.length <= maxLength) return text;
+  if (maxLength < 4) return text.slice(0, Math.max(0, maxLength));
+  let candidate = text.slice(0, maxLength).trimEnd();
+  const lastSpace = candidate.lastIndexOf(" ");
+  if (lastSpace >= Math.max(12, Math.floor(maxLength / 2))) candidate = candidate.slice(0, lastSpace);
+  return candidate.replace(/[\s\-:;,.]+$/g, "") + "…";
 }
 
 function escapeHtml(value) {
