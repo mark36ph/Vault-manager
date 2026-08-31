@@ -1,16 +1,13 @@
 {
-  "latest_version": "1.0.77",
-  "build": 102,
+  "latest_version": "1.0.78",
+  "build": 103,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 102 replaces the final duplicate-path blocker in the completed C: archive workflow with safe physical-folder grouping.",
-    "When several Quiz History rows point to the same physical C: project folder, Factburst now treats that folder as one archive unit instead of trying to guess which History row owns it.",
-    "Every linked History row must have all required uploads complete before the shared physical folder can move; otherwise the whole folder stays on C:.",
-    "The project is copied to Z: once and verified once, or an existing same-name Z: copy is reused only when the complete relative file set has a strong verified copy identity.",
-    "All linked Quiz History paths are updated together in one SQLite transaction and individually verified before any C: deletion is attempted.",
-    "Shared physical-project rows are explicitly registered so the database uniqueness guard still blocks unrelated duplicate paths while allowing the verified rows from one physical project to share their Z: path.",
-    "If the grouped database update cannot be verified, Factburst attempts to roll the group back to the original C: path and keeps the physical C: folder.",
-    "Existing Z: folders are never overwritten or deleted; new collisions continue to use archived-copy numbering.",
-    "The Archive completed C confirmation and progress screens now report physical folders separately from the number of linked Quiz History rows."
+    "Build 103 fixes the Archive completed C button so the new grouped physical-folder archive workflow opens directly instead of being intercepted by the older duplicate-path repair dialog.",
+    "The legacy global duplicate-path click gate is now disabled; its diagnostic repair code remains available but no longer blocks grouped C: to Z: archiving.",
+    "Shared C: project folders are handled by the Build 102 physical-folder archive engine: copy or reuse one verified Z: project, update every linked Quiz History row together, verify the database paths, then remove C: only after all checks pass.",
+    "Any linked History row with outstanding required uploads blocks the entire shared physical folder from moving.",
+    "Existing Z: folders are never overwritten or deleted and new archive collisions remain collision-safe.",
+    "A regression test now asserts that the legacy duplicate-path archive gate stays disabled."
   ]
 }
