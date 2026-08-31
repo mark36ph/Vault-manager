@@ -22,6 +22,8 @@ import { enforceMaintenanceMode, handleSiteStatusApi } from "./site-controls.js"
 import { handlePublicAdsConfig } from "./site-ads.js";
 import { scoreGuestQuiz } from "./guest-score.js";
 import { createResendEmailAdapter } from "./resend-email.js";
+import { handleSeoRequest } from "./site-seo.js";
+import { handleAnalyticsApi } from "./site-analytics.js";
 
 let accountSchemaReady = false;
 
@@ -39,6 +41,12 @@ export default {
       const maintenanceResponse = await enforceMaintenanceMode(request, env.DB, url);
       if (maintenanceResponse) return maintenanceResponse;
     }
+
+    const seoResponse = await handleSeoRequest(request, env, url, quizWorker);
+    if (seoResponse) return seoResponse;
+
+    const analyticsResponse = await handleAnalyticsApi(request, env, url);
+    if (analyticsResponse) return analyticsResponse;
 
     if (url.pathname === "/api/site/ads" && request.method === "GET") {
       if (!env.DB) {
@@ -185,6 +193,7 @@ function isCommentRoute(pathname) {
 }
 
 function shouldCheckSiteControls(pathname) {
+  if (pathname === "/robots.txt" || pathname === "/sitemap.xml") return false;
   if (pathname === "/api/site/status") return true;
   if (pathname.startsWith("/api/")) return true;
   return !/\.(?:css|js|ico|png|jpg|jpeg|gif|webp|svg|woff2?)$/i.test(pathname);
