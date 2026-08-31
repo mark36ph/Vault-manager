@@ -1,13 +1,13 @@
 {
-  "latest_version": "1.0.88",
-  "build": 113,
+  "latest_version": "1.0.89",
+  "build": 114,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 113 stops the Autopilot Needs You status from flashing between Needs you and Working while background supervision runs.",
-    "Outstanding human tasks now keep Needs you as the stable status until those tasks are actually cleared.",
-    "The one-second Needs You synchronizer no longer rewrites identical text values, reducing unnecessary WPF layout and repaint work.",
-    "Needs You task cards are still rebuilt only when their aligned task summary changes, and the guided Start next task control is restored after a genuine card refresh.",
-    "Regression tests cover the stable Needs you state even while Autopilot background work is active.",
-    "Build 112 performance-driven quiz category selection remains included unchanged."
+    "Build 114 improves Website Sync missing recovery for quizzes moved from C: to the configured Z: archive.",
+    "Website project recovery now checks up to 2,000 Quiz History entries, matching the Website audit instead of only the most recent history subset.",
+    "Known archive-journal links are safely restored before the normal local project search runs, using the same History ID, database and archive ownership checks as the archive workflow.",
+    "Genuinely missing project folders, quiz.json files and question images now report their specific error instead of being grouped under a generic files unavailable message.",
+    "Existing Cloudflare quiz copies remain untouched by Sync missing; only absent website quizzes are uploaded.",
+    "Build 113 stable Needs You status and Build 112 performance-driven quiz category selection remain included unchanged."
   ]
 }
