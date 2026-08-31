@@ -339,7 +339,59 @@ public sealed partial class DesktopDataService
         // The current stored path is the corrupt signal we are repairing. Blank it so only format,
         // title/series/category, episode and project-file metadata can earn a match.
         var detached = history with { ProjectFolder = "" };
-        return QuizArchiveDeepMatcher.Evaluate(detached, fingerprint, current: null);
+        var candidate = QuizArchiveDeepMatcher.Evaluate(detached, fingerprint, current: null);
+        if (candidate.Confidence == QuizArchiveMatchConfidence.NoMatch)
+            return candidate;
+
+        var score = candidate.Score;
+        var evidence = candidate.Evidence.ToList();
+
+        // Older project folders often use "Series Quiz - 002" rather than an explicit "#002".
+        // Treat that final three-digit sequence as episode evidence only when the name has no #episode
+        // marker and is not an archived-copy collision suffix. This deliberately avoids interpreting
+        // "Film Quiz #002 - Short - 001" as episode 001.
+        var canUseTrailingSequence = !fingerprint.FolderName.Contains('#') &&
+                                     !fingerprint.FolderName.Contains("archived-copy", StringComparison.OrdinalIgnoreCase);
+        var trailingSequence = canUseTrailingSequence
+            ? TrailingProjectSequence(fingerprint.FolderName)
+            : null;
+        if (trailingSequence.HasValue && history.EpisodeNumber > 0)
+        {
+            if (trailingSequence.Value == history.EpisodeNumber)
+            {
+                score += 110;
+                evidence.Add($"trailing project sequence {trailingSequence.Value:000} matches episode #{history.EpisodeNumber:000}");
+            }
+            else
+            {
+                score = Math.Max(0, score - 65);
+                evidence.Add($"trailing project sequence {trailingSequence.Value:000} differs from episode #{history.EpisodeNumber:000}");
+            }
+        }
+
+        var confidence = score >= 145
+            ? QuizArchiveMatchConfidence.High
+            : score >= 70
+                ? QuizArchiveMatchConfidence.Possible
+                : QuizArchiveMatchConfidence.NoMatch;
+        return candidate with
+        {
+            Confidence = confidence,
+            Score = confidence == QuizArchiveMatchConfidence.NoMatch ? 0 : score,
+            Evidence = confidence == QuizArchiveMatchConfidence.NoMatch ? Array.Empty<string>() : evidence,
+        };
+    }
+
+    private static int? TrailingProjectSequence(string folderName)
+    {
+        var tokens = (folderName ?? "")
+            .Split([' ', '-', '_'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (tokens.Length == 0)
+            return null;
+        var last = tokens[^1];
+        return last.Length == 3 && int.TryParse(last, out var value)
+            ? value
+            : null;
     }
 
     private static bool HasUniqueBest(
