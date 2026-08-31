@@ -20,4 +20,12 @@ public sealed class QuizHistoryUiCleanupTests
             "ApplyQuizHistoryUiCleanup",
             BindingFlags.Instance | BindingFlags.NonPublic));
     }
+
+    [Fact]
+    public void MainWindow_TracksQuizHistoryMoreButton()
+    {
+        Assert.NotNull(typeof(MainShellWindow).GetField(
+            "_quizHistoryMoreButton",
+            BindingFlags.Instance | BindingFlags.NonPublic));
+    }
 }
