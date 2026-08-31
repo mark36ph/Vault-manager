@@ -30,6 +30,17 @@
     }
   }
 
+  function currentPageSource() {
+    const layout = document.body.dataset.layout || "";
+    const page = document.body.dataset.page || "";
+    if (layout === "landing") return "home";
+    if (layout === "directory") return "quizzes";
+    if (layout === "leaderboard") return "leaderboard";
+    if (page === "profile") return "profile";
+    if (page === "quiz") return "quiz";
+    return "internal";
+  }
+
   function track(event, detail = {}) {
     if (!analyticsAllowed()) return;
     const payload = {
@@ -164,7 +175,10 @@
         const target = new URL(quizLink.href, location.href);
         const slug = target.searchParams.get("slug") || "";
         if (/^[a-z0-9][a-z0-9-]{0,79}$/i.test(slug)) {
-          track("quiz_link_clicked", { quiz_slug: slug.toLowerCase() });
+          track("quiz_link_clicked", {
+            quiz_slug: slug.toLowerCase(),
+            source: currentPageSource(),
+          });
         }
       } catch {}
     }
