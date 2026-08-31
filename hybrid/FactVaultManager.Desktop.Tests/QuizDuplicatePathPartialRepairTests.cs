@@ -54,8 +54,7 @@ public sealed class QuizDuplicatePathPartialRepairTests
 
             Assert.Empty(plan.Suggestions);
             Assert.Equal(2, plan.Conflicts.Count);
-            Assert.All(plan.Conflicts, conflict =>
-                Assert.Contains("also a strong match", conflict.Reason, StringComparison.OrdinalIgnoreCase));
+            Assert.Equal([70, 170], plan.Conflicts.SelectMany(conflict => conflict.HistoryIds).OrderBy(id => id).ToArray());
         }
         finally
         {
