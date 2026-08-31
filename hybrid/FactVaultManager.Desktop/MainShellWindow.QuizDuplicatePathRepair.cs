@@ -6,10 +6,19 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
+    // Build 102+ archives shared C: paths as one verified physical-folder group. The older
+    // semantic duplicate-repair gate must not intercept Archive completed C before that grouped
+    // workflow runs. Keep the repair UI code available for diagnostics, but do not register the
+    // global Button.Click class handler.
+    public const bool DuplicatePathArchiveGateEnabled = false;
+
     private static readonly bool QuizDuplicatePathArchiveHandlerRegistered = RegisterQuizDuplicatePathArchiveHandler();
 
     private static bool RegisterQuizDuplicatePathArchiveHandler()
     {
+        if (!DuplicatePathArchiveGateEnabled)
+            return true;
+
         EventManager.RegisterClassHandler(
             typeof(Button),
             Button.ClickEvent,
@@ -27,8 +36,6 @@ public partial class MainShellWindow
             return;
         }
 
-        // This class handler runs before the original per-button handler. Mark the routed event as
-        // handled so Build 94's direct archive action cannot run until duplicate links are repaired.
         e.Handled = true;
         await owner.ArchiveCompletedCWithDuplicateRepairAsync(button);
     }
