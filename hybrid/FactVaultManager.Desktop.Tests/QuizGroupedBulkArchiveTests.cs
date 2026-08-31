@@ -80,4 +80,10 @@ public sealed class QuizGroupedBulkArchiveTests
             nameof(MainShellWindow.InitializeQuizHistoryGroupedBulkArchiveUi),
             BindingFlags.Instance | BindingFlags.Public));
     }
+
+    [Fact]
+    public void GroupedArchive_DoesNotUseLegacyDuplicatePathClickGate()
+    {
+        Assert.False(MainShellWindow.DuplicatePathArchiveGateEnabled);
+    }
 }
