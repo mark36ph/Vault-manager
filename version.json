@@ -1,17 +1,16 @@
 {
-  "latest_version": "1.0.79",
-  "build": 104,
+  "latest_version": "1.0.80",
+  "build": 105,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 104 moves website SEO into its own administration page directly under Comments.",
-    "The SEO page audits every website quiz in one pass instead of checking only the selected quiz.",
-    "The audit summary shows total quizzes, ready metadata, warnings and structural issues that need attention.",
-    "Every quiz is classified as Automatic or Custom SEO so generated defaults are not treated as missing metadata.",
-    "The audit flags duplicate SEO titles, duplicate visible quiz titles, duplicate or invalid slugs, missing required metadata and search/social copy that falls outside recommended lengths.",
-    "Rows needing attention are sorted ahead of warnings and ready quizzes so the most important fixes are visible first.",
-    "Double-click a quiz or use Edit selected to open the existing search and social preview editor, save the change and immediately rerun the whole-catalogue audit.",
-    "The old Website catalogue Edit SEO button is suppressed so SEO management has one clear home under Comments.",
-    "Build 103 grouped physical-folder archive fixes remain included unchanged.",
-    "No website quiz scoring, publishing schedule, visibility, account or analytics behavior is changed."
+    "Build 105 makes every SEO warning explain exactly why the quiz was flagged and what change is recommended.",
+    "The SEO audit grid now has separate Why flagged and Recommended fix columns instead of relying on one clipped audit-result cell.",
+    "Selecting a quiz shows the full finding and full recommendation in a dedicated detail panel below the grid.",
+    "After each audit, the first warning or needs-attention quiz is selected automatically so its explanation is visible immediately.",
+    "Duplicate SEO titles, duplicate visible titles, slug problems, missing metadata and search/social length warnings now each provide targeted repair guidance.",
+    "Ready quizzes explicitly state that no change is recommended.",
+    "Regression tests require every non-ready audit row to contain both a reason and a recommendation.",
+    "Build 104 dedicated SEO administration and Build 103 archive fixes remain included unchanged.",
+    "No quiz scoring, publishing schedule, visibility, account or analytics behavior is changed."
   ]
 }
