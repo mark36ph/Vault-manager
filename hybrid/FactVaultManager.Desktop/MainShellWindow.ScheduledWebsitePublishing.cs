@@ -223,6 +223,6 @@ public partial class MainShellWindow
     }
 
     private static bool IsUnavailableProjectError(Exception error) =>
-        error is DirectoryNotFoundException or FileNotFoundException or DriveNotFoundException or
-            UnauthorizedAccessException or IOException;
+        error is UnauthorizedAccessException or DriveNotFoundException ||
+        error is IOException && error is not FileNotFoundException && error is not DirectoryNotFoundException;
 }
