@@ -291,6 +291,7 @@ public partial class MainShellWindow
                 var completedLinks = new List<string>();
                 var failures = new List<string>();
                 var warnings = new List<string>();
+                var publicationState = _data.PublicationState;
 
                 FactburstTrackerCampaignLinks? trackingLinks = null;
                 var activeTrackerSettings = FactburstTrackerSettingsStore.Load(_data.SettingsPath);
@@ -315,6 +316,8 @@ public partial class MainShellWindow
                 if (uploadYouTube)
                 {
                     statusText.Text = "Uploading the promotional Short to YouTube... Keep this window open.";
+                    publicationState.BeginAttempt(
+                        history.Id, PublicationPlatform.YouTube, PublicationContentKind.Promo);
                     try
                     {
                         var result = await _youtubeVideoUpload.UploadAsync(
@@ -331,6 +334,15 @@ public partial class MainShellWindow
                             result,
                             uploadPrivacy,
                             DateTimeOffset.Now);
+                        publicationState.RecordUploaded(
+                            history.Id,
+                            PublicationPlatform.YouTube,
+                            PublicationContentKind.Promo,
+                            result.VideoId,
+                            result.Url,
+                            uploadPrivacy,
+                            DateTimeOffset.Now,
+                            "promo-upload");
                         completed.Add("YouTube");
                         completedLinks.Add("YouTube: " + result.Url);
 
@@ -346,11 +358,27 @@ public partial class MainShellWindow
                         }
                         catch (Exception error)
                         {
+                            publicationState.RecordFailure(
+                                history.Id,
+                                PublicationPlatform.YouTube,
+                                PublicationContentKind.Promo,
+                                SocialUploadJournalStep.Verification,
+                                error.Message,
+                                result.VideoId,
+                                result.Url,
+                                "promo-upload");
                             warnings.Add("YouTube verification: " + error.Message);
                         }
                     }
                     catch (Exception error)
                     {
+                        publicationState.RecordFailure(
+                            history.Id,
+                            PublicationPlatform.YouTube,
+                            PublicationContentKind.Promo,
+                            SocialUploadJournalStep.Upload,
+                            error.Message,
+                            source: "promo-upload");
                         failures.Add("YouTube: " + error.Message);
                     }
                 }
@@ -358,6 +386,8 @@ public partial class MainShellWindow
                 if (uploadFacebook)
                 {
                     statusText.Text = "Uploading the promotional Reel to Facebook... Keep this window open.";
+                    publicationState.BeginAttempt(
+                        history.Id, PublicationPlatform.Facebook, PublicationContentKind.Promo);
                     try
                     {
                         var result = await _facebookReelUpload.UploadAsync(
@@ -369,6 +399,14 @@ public partial class MainShellWindow
                             history.ProjectFolder,
                             result,
                             DateTimeOffset.Now);
+                        publicationState.RecordUploaded(
+                            history.Id,
+                            PublicationPlatform.Facebook,
+                            PublicationContentKind.Promo,
+                            result.VideoId,
+                            result.Url,
+                            uploadedAt: DateTimeOffset.Now,
+                            source: "promo-upload");
                         completed.Add("Facebook");
                         if (result.Url.Trim().Length > 0)
                             completedLinks.Add("Facebook: " + result.Url);
@@ -382,11 +420,27 @@ public partial class MainShellWindow
                         }
                         catch (Exception error)
                         {
+                            publicationState.RecordFailure(
+                                history.Id,
+                                PublicationPlatform.Facebook,
+                                PublicationContentKind.Promo,
+                                SocialUploadJournalStep.Verification,
+                                error.Message,
+                                result.VideoId,
+                                result.Url,
+                                "promo-upload");
                             warnings.Add("Facebook verification: " + error.Message);
                         }
                     }
                     catch (Exception error)
                     {
+                        publicationState.RecordFailure(
+                            history.Id,
+                            PublicationPlatform.Facebook,
+                            PublicationContentKind.Promo,
+                            SocialUploadJournalStep.Upload,
+                            error.Message,
+                            source: "promo-upload");
                         failures.Add("Facebook: " + error.Message);
                     }
                 }
@@ -394,6 +448,8 @@ public partial class MainShellWindow
                 if (uploadInstagram)
                 {
                     statusText.Text = "Uploading the promotional Reel to Instagram... Keep this window open.";
+                    publicationState.BeginAttempt(
+                        history.Id, PublicationPlatform.Instagram, PublicationContentKind.Promo);
                     try
                     {
                         var instagramCaption = SocialVideoUploadRules.InstagramCaption(uploadDescription);
@@ -405,12 +461,27 @@ public partial class MainShellWindow
                             history.ProjectFolder,
                             result,
                             DateTimeOffset.Now);
+                        publicationState.RecordUploaded(
+                            history.Id,
+                            PublicationPlatform.Instagram,
+                            PublicationContentKind.Promo,
+                            result.MediaId,
+                            result.Url,
+                            uploadedAt: DateTimeOffset.Now,
+                            source: "promo-upload");
                         completed.Add("Instagram");
                         if (result.Url.Trim().Length > 0)
                             completedLinks.Add("Instagram: " + result.Url);
                     }
                     catch (Exception error)
                     {
+                        publicationState.RecordFailure(
+                            history.Id,
+                            PublicationPlatform.Instagram,
+                            PublicationContentKind.Promo,
+                            SocialUploadJournalStep.Upload,
+                            error.Message,
+                            source: "promo-upload");
                         failures.Add("Instagram: " + error.Message);
                     }
                 }
