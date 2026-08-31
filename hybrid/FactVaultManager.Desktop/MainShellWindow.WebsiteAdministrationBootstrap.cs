@@ -20,6 +20,7 @@ public partial class MainShellWindow
     {
         if (sender is not MainShellWindow window) return;
         window.InitializeWebsiteUsersPage();
+        window.InitializeWebsiteAnalyticsPage();
         window.InitializeWebsiteAdministrationEnhancements();
     }
 }

@@ -1,15 +1,13 @@
 {
-  "latest_version": "1.0.70",
-  "build": 95,
+  "latest_version": "1.0.71",
+  "build": 96,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 95 fixes the shared C: project-path blocker shown by Archive completed C by detecting Quiz History rows that incorrectly point at the same physical project folder.",
-    "Before archiving, Factburst identifies the single History row that best belongs to each shared C: folder using video type, series/title/category metadata, project files, and episode evidence; the corrupt stored path itself is excluded from the matching score.",
-    "Folders such as 'General Knowledge Quiz - 002' can use the trailing 002 as episode evidence, while folders with an explicit marker such as 'Film Quiz #002 - Short - 001' continue to use #002 and do not mistake the final 001 for the episode.",
-    "Other rows sharing that C: folder are offered only unique High-confidence one-to-one C:/Z: path repairs. Duplicate repair changes Quiz History database paths only and never moves, copies, overwrites, renames, or deletes project files.",
-    "After duplicate-path repair, Factburst rescans the database. Archive completed C proceeds only when the shared links are gone; unresolved or ambiguous rows remain untouched and block deletion of the affected C: folder.",
-    "Update paths now preserves valid one-to-one paths and refuses discovered matches when more than one History row would claim the same project folder.",
-    "A database update trigger also prevents future path-update operations from assigning a folder that is already linked to another Quiz History row, while still allowing existing duplicate rows to be repaired away from the shared path.",
-    "Build 94's faster archive preview and live x-of-y C: to Z: copy/verify progress window remain in place, and existing Z: folders are still never overwritten or deleted."
+    "Build 96 adds a Website Analytics page inside the Factburst desktop app. It uses the existing Link Tracker credentials and keeps analytics administration out of the public website.",
+    "Website Analytics supports 7, 30 and 90 day views with headline site views, quiz opens, completion rate and YouTube click-through rate, plus a full conversion funnel, per-quiz performance and traffic-source breakdowns.",
+    "The analytics feed remains aggregate-only. The desktop app reads daily event totals from the private authenticated go.factburstquiz.com admin Worker; it does not expose a public analytics dashboard or visitor-level records.",
+    "The quiz library now has quick category shortcuts and supports shareable category links such as quizzes.html?category=Space, while the standard category dropdown remains available.",
+    "Quiz results now add a More [category] action so players can continue with similar quizzes, and the Challenge a friend flow links directly to Profile when the player has no friends yet.",
+    "Build 95's duplicate Quiz History path repair and archive protections remain unchanged."
   ]
 }

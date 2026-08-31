@@ -6,6 +6,7 @@ import { handleSiteAdAdmin } from "./site-ad-admin.js";
 import { handleSiteAccessAdmin } from "./site-access-admin.js";
 import { handleSiteQuestionReportAdmin } from "./site-question-report-admin.js";
 import { handleSiteCommentAdmin } from "./site-comment-admin.js";
+import { websiteAnalyticsSummary } from "./site-analytics-admin.js";
 
 export default {
   async fetch(request, env, context) {
@@ -13,6 +14,10 @@ export default {
     if (isSiteAdminRoute(url.pathname)) {
       try {
         requireApiKey(request, env);
+
+        if (url.pathname === "/api/site/analytics" && request.method === "GET") {
+          return websiteAnalyticsSummary(env, url);
+        }
 
         const accessResponse = await handleSiteAccessAdmin(request, env, url);
         if (accessResponse) return accessResponse;
@@ -49,7 +54,8 @@ export default {
 };
 
 function isSiteAdminRoute(pathname) {
-  return pathname === "/api/site/ads" ||
+  return pathname === "/api/site/analytics" ||
+    pathname === "/api/site/ads" ||
     pathname === "/api/site/settings" ||
     pathname === "/api/site/comments" ||
     pathname.startsWith("/api/site/comments/") ||
