@@ -8,7 +8,6 @@ namespace FactVaultManager.Desktop;
 public partial class MainShellWindow
 {
     private const string GrowthAnalyticsRefreshHook = "youtube-growth-refresh-hook";
-    private const string GrowthAutopilotBatchHook = "youtube-growth-batch-hook";
     private static readonly bool YouTubeAnalyticsAutopilotRegistered = RegisterYouTubeAnalyticsAutopilot();
     private readonly YouTubeAnalyticsAutopilotService _youtubeAnalyticsAutopilot = new();
     private bool _youtubeGrowthRefreshRunning;
@@ -55,68 +54,12 @@ public partial class MainShellWindow
             button.Resources[GrowthAnalyticsRefreshHook] = true;
             button.Click += window.YouTubeGrowthAnalyticsRefresh_Click;
         }
-
-        if ((string.Equals(content, "Generate + Autopilot", StringComparison.Ordinal) ||
-             string.Equals(content, "Generate + Autopilot...", StringComparison.Ordinal)) &&
-            !button.Resources.Contains(GrowthAutopilotBatchHook))
-        {
-            button.Resources[GrowthAutopilotBatchHook] = true;
-            button.Click += window.YouTubeGrowthAutopilotBatch_Click;
-        }
     }
 
     private async void YouTubeGrowthAnalyticsRefresh_Click(object sender, RoutedEventArgs e)
     {
         await Dispatcher.Yield(DispatcherPriority.Background);
         await RefreshYouTubeGrowthAnalyticsAsync(showErrors: true);
-    }
-
-    private async void YouTubeGrowthAutopilotBatch_Click(object sender, RoutedEventArgs e)
-    {
-        // GenerateAndScheduleQuizBatch_Click runs first and yields before the first render.
-        // This companion handler uses that yield to choose the first performance-driven
-        // category, then advances the category whenever a new history row appears.
-        if (!_quizBatchAutomationRunning && !_quizBatchRenderRunning)
-            return;
-
-        var originalCategory = _quizCategoryComboBox?.SelectedItem;
-        var originalTitle = _quizTitleTextBox?.Text ?? "";
-        var existingIds = _data.GetQuizHistory(2_000).Select(history => history.Id).ToHashSet();
-        var plan = BuildYouTubeGrowthCategoryPlan(20);
-        if (plan.Count == 0)
-            return;
-
-        var renderedCount = 0;
-        ApplyYouTubeGrowthCategory(plan[0]);
-        if (_quizPageStatusText is not null)
-            _quizPageStatusText.Text = $"Growth Autopilot: starting with {plan[0]} based on channel performance";
-
-        try
-        {
-            while (_quizBatchAutomationRunning || _quizBatchRenderRunning)
-            {
-                var createdCount = _data.GetQuizHistory(2_000).Count(history => !existingIds.Contains(history.Id));
-                if (createdCount > renderedCount)
-                {
-                    renderedCount = createdCount;
-                    if (renderedCount < plan.Count && (_quizBatchAutomationRunning || _quizBatchRenderRunning))
-                    {
-                        var next = plan[renderedCount];
-                        ApplyYouTubeGrowthCategory(next);
-                        if (_quizPageStatusText is not null)
-                            _quizPageStatusText.Text = $"Growth Autopilot: next category {next}";
-                    }
-                }
-                await Task.Delay(25);
-            }
-        }
-        finally
-        {
-            if (_quizCategoryComboBox is not null && originalCategory is not null)
-                _quizCategoryComboBox.SelectedItem = originalCategory;
-            if (_quizTitleTextBox is not null)
-                _quizTitleTextBox.Text = originalTitle;
-        }
     }
 
     private IReadOnlyList<string> BuildYouTubeGrowthCategoryPlan(int count)
