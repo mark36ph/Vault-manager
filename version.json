@@ -1,16 +1,18 @@
 {
-  "latest_version": "1.0.74",
-  "build": 99,
+  "latest_version": "1.0.75",
+  "build": 100,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 99 prevents duplicate Quiz History path repair from crossing between clearly different quiz families.",
-    "A Space History row can no longer be automatically linked to a General Knowledge project just because both use the same episode number or copied project metadata contains Space text.",
-    "Folder-family identity is checked before legacy trailing episode scoring can strengthen a candidate.",
-    "The guard covers the stable quiz families including Science, History, Geography, Space, Nature & Animals, Technology, Arts & Literature, Music, Film, Sports, Entertainment, Mathematics and General Knowledge.",
-    "Logos and Icons are intentionally treated as the same quiz family so legacy Icons project folders can still match Logos Quiz History safely.",
-    "The final apply step repeats the same family and episode safety checks immediately before any database path is changed.",
-    "Duplicate-path repair remains database-only and does not move, copy, rename, overwrite or delete C: or Z: files.",
-    "Build 98 partial one-to-one repair, faster archive reporting, live C: to Z: progress, verified archive reuse and no-overwrite protections remain in place.",
-    "Regression tests cover the exact Space #003 versus General Knowledge #003 failure, a valid Space #003 match, and the Logos/Icons family alias."
+    "Build 100 finishes the duplicate Quiz History path resolver with a stable global one-to-one assignment planner.",
+    "Duplicate rows are no longer decided independently when several rows compete for several valid C: or Z: project folders.",
+    "The planner maximizes the number of recovered History rows first, then maximizes total identity evidence across the whole duplicate set.",
+    "Every proposed pair is stress-tested by forbidding that pair and recalculating the best global assignment. Swappable or near-tied mappings remain unresolved instead of being guessed.",
+    "A locally second-best folder can now be selected when that produces a stronger and complete one-to-one mapping for the overall set.",
+    "The same destination folder can never be assigned to two Quiz History rows.",
+    "Build 99 quiz-family protection remains enforced, so Space cannot cross-match General Knowledge and Logos/Icons remain the intentional alias.",
+    "Explicit and trusted trailing episode conflicts remain hard No-match conditions.",
+    "Duplicate-path repair remains database-only. It does not move, copy, rename, overwrite or delete C: or Z: files.",
+    "Archive completed C keeps the faster preview and live C: to Z: copy/verify progress once duplicate-path repair is complete.",
+    "The Windows suite includes global assignment, maximum-cardinality, tied-assignment, contested-folder, family and episode safety regressions."
   ]
 }
