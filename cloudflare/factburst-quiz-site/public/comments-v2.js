@@ -1,10 +1,10 @@
-const quizSlug = new URLSearchParams(location.search).get("slug") || "";
+const quizSlug = currentQuizSlug();
 const commentsList = document.querySelector("#quiz-comments-list");
 const commentsComposer = document.querySelector("#quiz-comment-composer");
 const commentsStatus = document.querySelector("#quiz-comment-status");
 let viewer = { authenticated: false, user: null };
 
-if (document.body.dataset.page === "quiz" && /^[a-z0-9][a-z0-9-]{0,79}$/i.test(quizSlug)) {
+if (document.body.dataset.page === "quiz" && quizSlug) {
   startComments().catch(error => showStatus(error.message || "Comments are unavailable.", "error"));
 }
 
@@ -143,6 +143,13 @@ function action(label, handler, extra = "") {
   const button = document.createElement("button"); button.type = "button"; button.className = `comment-action ${extra}`.trim(); button.textContent = label;
   button.addEventListener("click", async () => { button.disabled = true; try { await handler(); } catch (error) { showStatus(error.message || "Action failed.", "error"); } finally { button.disabled = false; } });
   return button;
+}
+
+function currentQuizSlug() {
+  const querySlug = new URLSearchParams(location.search).get("slug") || "";
+  if (/^[a-z0-9][a-z0-9-]{0,79}$/i.test(querySlug)) return querySlug.toLowerCase();
+  const match = location.pathname.match(/^\/quiz\/([a-z0-9][a-z0-9-]{0,79})\/?$/i);
+  return match ? match[1].toLowerCase() : "";
 }
 
 async function getAccount() { try { return await api("/api/account"); } catch { return { authenticated: false, user: null }; } }

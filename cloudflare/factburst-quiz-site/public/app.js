@@ -196,14 +196,14 @@ function formatRelease(value) {
 }
 
 async function initQuiz() {
-  const slug = new URLSearchParams(location.search).get("slug") || "";
+  const slug = currentQuizSlug();
   const loading = document.querySelector("#quiz-loading");
   const player = document.querySelector("#quiz-player");
   const resultsPanel = document.querySelector("#quiz-results");
   const errorPanel = document.querySelector("#quiz-error");
   const errorCopy = document.querySelector("#quiz-error-copy");
 
-  if (!/^[a-z0-9][a-z0-9-]{0,79}$/i.test(slug)) {
+  if (!slug) {
     showQuizError("That quiz link is not valid.");
     return;
   }
@@ -392,7 +392,7 @@ function renderResults(quiz, score, answers, player, panel) {
   const share = document.querySelector("#share-score");
   share.onclick = async () => {
     const text = `I scored ${score.score}/${score.total} on “${quiz.title}” at Factburst Quiz. Can you beat me?`;
-    const url = location.href;
+    const url = quizUrl(quiz.slug || currentQuizSlug());
     try {
       if (navigator.share) {
         await navigator.share({ title: quiz.title, text, url });
@@ -409,8 +409,16 @@ function renderResults(quiz, score, answers, player, panel) {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function currentQuizSlug() {
+  const querySlug = new URLSearchParams(location.search).get("slug") || "";
+  if (/^[a-z0-9][a-z0-9-]{0,79}$/i.test(querySlug)) return querySlug.toLowerCase();
+  const match = location.pathname.match(/^\/quiz\/([a-z0-9][a-z0-9-]{0,79})\/?$/i);
+  return match ? match[1].toLowerCase() : "";
+}
+
 function quizUrl(slug) {
-  return `/quiz.html?slug=${encodeURIComponent(slug)}`;
+  const value = String(slug || "").toLowerCase();
+  return /^[a-z0-9][a-z0-9-]{0,79}$/.test(value) ? `/quiz/${encodeURIComponent(value)}` : "/quizzes";
 }
 
 function messageBlock(title, copy) {

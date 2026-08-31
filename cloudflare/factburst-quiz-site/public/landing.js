@@ -26,7 +26,7 @@ async function initializeLanding() {
     latestCta.href = quizUrl(latest.slug);
     latestCta.textContent = "Play the latest quiz";
   } else if (latestCta) {
-    latestCta.href = "/quizzes.html";
+    latestCta.href = "/quizzes";
     latestCta.textContent = "Browse quizzes";
   }
 
@@ -101,7 +101,8 @@ function isUpcomingQuiz(quiz, now = Date.now()) {
 }
 
 function quizUrl(slug) {
-  return `/quiz.html?slug=${encodeURIComponent(slug)}`;
+  const value = String(slug || "").toLowerCase();
+  return /^[a-z0-9][a-z0-9-]{0,79}$/.test(value) ? `/quiz/${encodeURIComponent(value)}` : "/quizzes";
 }
 
 function messageBlock(title, copy) {

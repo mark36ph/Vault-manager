@@ -10,20 +10,25 @@
     if (!nav) return false;
 
     const currentPath = location.pathname.replace(/\/+$/, "") || "/";
-    const activePath = currentPath === "/quiz.html" ? "/quizzes.html" : currentPath;
+    const activePath = currentPath === "/quiz.html" || currentPath.startsWith("/quiz/") || currentPath.startsWith("/quizzes/")
+      ? "/quizzes"
+      : currentPath === "/quizzes.html"
+        ? "/quizzes"
+        : currentPath;
 
     for (const link of nav.querySelectorAll("a[href]")) {
       link.removeAttribute("aria-current");
-      const linkPath = new URL(link.href, location.origin).pathname.replace(/\/+$/, "") || "/";
+      let linkPath = new URL(link.href, location.origin).pathname.replace(/\/+$/, "") || "/";
+      if (linkPath === "/quizzes.html") linkPath = "/quizzes";
       if (linkPath === activePath) link.setAttribute("aria-current", "page");
     }
 
     const profilePlay = document.querySelector('.profile-actions a[href="/#browse"]');
-    if (profilePlay) profilePlay.href = "/quizzes.html";
+    if (profilePlay) profilePlay.href = "/quizzes";
     const resultPlay = document.querySelector('.result-actions a[href="/"]');
-    if (resultPlay) resultPlay.href = "/quizzes.html";
+    if (resultPlay) resultPlay.href = "/quizzes";
     const quizErrorBack = document.querySelector('#quiz-error a[href="/"]');
-    if (quizErrorBack) quizErrorBack.href = "/quizzes.html";
+    if (quizErrorBack) quizErrorBack.href = "/quizzes";
 
     return true;
   }

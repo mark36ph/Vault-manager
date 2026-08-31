@@ -1,9 +1,9 @@
-const slug = new URLSearchParams(location.search).get("slug") || "";
+const slug = currentQuizSlug();
 const challengeToken = new URLSearchParams(location.search).get("challenge") || "";
 let incomingChallenge = null;
 let resultObserver = null;
 
-if (document.body.dataset.page === "quiz" && /^[a-z0-9][a-z0-9-]{0,79}$/i.test(slug)) {
+if (document.body.dataset.page === "quiz" && slug) {
   document.addEventListener("click", interceptLegacyRematch, true);
   initializeChallenges().catch(error => console.error("Challenge UI failed", error));
 }
@@ -212,6 +212,13 @@ async function interceptLegacyRematch(event) {
     button.textContent = "Rematch";
     showChallengeNotice(error.message || "Could not send rematch.", "error");
   }
+}
+
+function currentQuizSlug() {
+  const querySlug = new URLSearchParams(location.search).get("slug") || "";
+  if (/^[a-z0-9][a-z0-9-]{0,79}$/i.test(querySlug)) return querySlug.toLowerCase();
+  const match = location.pathname.match(/^\/quiz\/([a-z0-9][a-z0-9-]{0,79})\/?$/i);
+  return match ? match[1].toLowerCase() : "";
 }
 
 function closeChallengePicker() {
