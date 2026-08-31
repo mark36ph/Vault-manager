@@ -35,7 +35,13 @@ public static class AutopilotNeedsYouCountSummary
         IEnumerable<AutopilotAlignedTaskItem> tasks)
     {
         ArgumentNullException.ThrowIfNull(tasks);
-        var list = tasks.ToList();
+
+        // "Needs you" means something the user can act on now. Future Related Video,
+        // Instagram and other queued work remains in the aligned planner, but it must not
+        // inflate the home counter or make Start next task open an empty wizard.
+        var list = tasks
+            .Where(task => task.ActionReady)
+            .ToList();
         var relatedVideos = AutopilotNeedsYouAlignedPlanner.Count(list, AutopilotAlignedTaskKind.RelatedVideo);
         var instagramPromos = AutopilotNeedsYouAlignedPlanner.Count(list, AutopilotAlignedTaskKind.InstagramPromo);
         var packagingRescues = AutopilotNeedsYouAlignedPlanner.Count(list, AutopilotAlignedTaskKind.PackagingRescue);
@@ -50,17 +56,11 @@ public static class AutopilotNeedsYouCountSummary
             viewerReplies,
             releaseWarnings);
     }
-
-    public static bool NeedsCardRefresh(
-        AutopilotNeedsYouGroupedSummary? previous,
-        AutopilotNeedsYouGroupedSummary current) =>
-        previous is null || previous != current;
 }
 
 public partial class MainShellWindow
 {
     private DispatcherTimer? _autopilotNeedsYouCountSyncTimer;
-    private AutopilotNeedsYouGroupedSummary? _autopilotNeedsYouRenderedSummary;
 
     public void InitializeAutopilotNeedsYouCountSync()
     {
@@ -104,18 +104,14 @@ public partial class MainShellWindow
                 _autopilotNeedsNoteText,
                 total == 0
                     ? "Autopilot is handling the queue"
-                    : "Actual pending tasks requiring your input");
+                    : "Ready now — Factburst will guide you one task at a time");
             SetAutopilotTextIfChanged(_autopilotHealthText, health);
 
-            var cards = BuildAutopilotHomeTaskCards(grouped);
-            var summaryChanged = AutopilotNeedsYouCountSummary.NeedsCardRefresh(_autopilotNeedsYouRenderedSummary, grouped);
-            var visibleCardsMatch = RenderedAutopilotHomeTaskCardsMatch(cards);
-            if (summaryChanged || !visibleCardsMatch)
-            {
-                RenderManualAutopilotTasks(cards);
-                EnsureGuidedNeedsYouButton();
-                _autopilotNeedsYouRenderedSummary = grouped;
-            }
+            // Daily UI cleanup owns the guided Needs You panel. Older code rebuilt a set of
+            // individual task rows here every second while DailyUiCleanup removed those same
+            // rows every second. The two timers were literally fighting each other, which is
+            // what made the Needs You area blink. Update the existing guided controls in place.
+            ApplyAutopilotHomeCleanup();
 
             if (MainTabs.SelectedIndex == _autopilotHomeTabIndex)
             {
@@ -136,80 +132,4 @@ public partial class MainShellWindow
             return;
         target.Text = value;
     }
-
-    private List<AutopilotManualTask> BuildAutopilotHomeTaskCards(AutopilotNeedsYouGroupedSummary grouped)
-    {
-        var cards = new List<AutopilotManualTask>();
-
-        if (grouped.RelatedVideos > 0)
-        {
-            cards.Add(new AutopilotManualTask(
-                $"Set Related Video on {grouped.RelatedVideos:N0} Short{(grouped.RelatedVideos == 1 ? "" : "s")}",
-                "YouTube keeps this Studio-only, so Autopilot cannot set it through the API.",
-                "Release Readiness",
-                "Open tasks"));
-        }
-
-        if (grouped.InstagramPromos > 0)
-        {
-            cards.Add(new AutopilotManualTask(
-                $"Instagram: {grouped.InstagramPromos:N0} promo{(grouped.InstagramPromos == 1 ? "" : "s")}",
-                "Only Instagram promos whose posting time has arrived are shown here.",
-                "Instagram Manager",
-                "Open Instagram"));
-        }
-
-        if (grouped.PackagingRescues > 0)
-        {
-            cards.Add(new AutopilotManualTask(
-                $"Review {grouped.PackagingRescues:N0} packaging rescue{(grouped.PackagingRescues == 1 ? "" : "s")}",
-                "Replacement A/B/C title and thumbnail packages are prepared; applying them remains your decision.",
-                "YouTube Manager",
-                "Review rescue"));
-        }
-
-        if (grouped.ViewerReplies > 0)
-        {
-            cards.Add(new AutopilotManualTask(
-                $"Review {grouped.ViewerReplies:N0} viewer repl{(grouped.ViewerReplies == 1 ? "y" : "ies")}",
-                "Autopilot drafted replies but will not speak publicly to viewers without approval.",
-                "YouTube Manager",
-                "Review replies"));
-        }
-
-        if (grouped.ReleaseWarnings > 0)
-        {
-            cards.Add(new AutopilotManualTask(
-                $"Check {grouped.ReleaseWarnings:N0} release packaging warning{(grouped.ReleaseWarnings == 1 ? "" : "s")}",
-                "Autopilot will repair safe release state, but it will not blindly overwrite a live title or thumbnail.",
-                "Release Readiness",
-                "Review warning"));
-        }
-
-        return cards;
-    }
-
-    private bool RenderedAutopilotHomeTaskCardsMatch(IReadOnlyList<AutopilotManualTask> expectedCards)
-    {
-        if (_autopilotNeedsPanel is null) return false;
-
-        var expectedTitles = expectedCards
-            .Select(card => card.Title.Trim())
-            .ToList();
-        var renderedTitles = _autopilotNeedsPanel.Children
-            .OfType<Grid>()
-            .Select(row => row.Children.OfType<StackPanel>().FirstOrDefault())
-            .Where(stack => stack is not null)
-            .Select(stack => stack!.Children.OfType<TextBlock>().FirstOrDefault()?.Text?.Trim() ?? "")
-            .Where(IsAutopilotHomeTaskCardTitle)
-            .ToList();
-
-        return renderedTitles.SequenceEqual(expectedTitles, StringComparer.Ordinal);
-    }
-
-    private static bool IsAutopilotHomeTaskCardTitle(string title) =>
-        title.StartsWith("Set Related Video on ", StringComparison.Ordinal) ||
-        title.StartsWith("Instagram: ", StringComparison.Ordinal) ||
-        title.StartsWith("Review ", StringComparison.Ordinal) ||
-        title.StartsWith("Check ", StringComparison.Ordinal);
 }
