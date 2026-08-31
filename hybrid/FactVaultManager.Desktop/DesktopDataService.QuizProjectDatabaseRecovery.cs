@@ -175,10 +175,13 @@ public sealed partial class DesktopDataService
     {
         ArgumentNullException.ThrowIfNull(history);
         result = null;
-        if (history.Id <= 0 || !HasQuizProjectSnapshot(history.Id))
+        if (history.Id <= 0)
             return false;
 
-        var snapshot = GetQuizProjectSnapshot(history.Id)!;
+        var snapshot = GetQuizProjectSnapshot(history.Id);
+        if (snapshot is null)
+            return false;
+
         var destination = history.ProjectFolder.Trim().Length > 0
             ? history.ProjectFolder
             : snapshot.ProjectPath;
@@ -190,6 +193,7 @@ public sealed partial class DesktopDataService
     {
         EnsureQuizProjectSnapshotSchema();
         var histories = GetQuizHistory(Math.Clamp(limit, 1, 2_000));
+        var protectedHistoryIds = GetProtectedQuizHistoryIds();
         var protectedCount = 0;
         var alreadyProtected = 0;
         var unavailable = 0;
@@ -197,7 +201,7 @@ public sealed partial class DesktopDataService
 
         foreach (var history in histories)
         {
-            if (HasQuizProjectSnapshot(history.Id))
+            if (protectedHistoryIds.Contains(history.Id))
             {
                 alreadyProtected++;
                 continue;
@@ -214,6 +218,7 @@ public sealed partial class DesktopDataService
             using var transaction = connection.BeginTransaction();
             StoreQuizProjectSnapshot(connection, transaction, history.Id, history.ProjectFolder, capture);
             transaction.Commit();
+            protectedHistoryIds.Add(history.Id);
             protectedCount++;
             archiveBytes += capture.ArchiveBytes;
         }
@@ -225,6 +230,7 @@ public sealed partial class DesktopDataService
     {
         EnsureQuizProjectSnapshotSchema();
         var histories = GetQuizHistory(Math.Clamp(limit, 1, 2_000));
+        var protectedHistoryIds = GetProtectedQuizHistoryIds();
         var checkedCount = 0;
         var projectsRestored = 0;
         var filesRestored = 0;
@@ -232,7 +238,7 @@ public sealed partial class DesktopDataService
 
         foreach (var history in histories)
         {
-            if (!HasQuizProjectSnapshot(history.Id))
+            if (!protectedHistoryIds.Contains(history.Id))
                 continue;
             checkedCount++;
             var snapshot = GetQuizProjectSnapshot(history.Id)!;
@@ -248,6 +254,18 @@ public sealed partial class DesktopDataService
         }
 
         return new QuizProjectRecoverySummary(checkedCount, projectsRestored, filesRestored, restoredBytes);
+    }
+
+    private HashSet<int> GetProtectedQuizHistoryIds()
+    {
+        using var connection = OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT history_id FROM quiz_project_snapshots";
+        using var reader = command.ExecuteReader();
+        var ids = new HashSet<int>();
+        while (reader.Read())
+            ids.Add(reader.GetInt32(0));
+        return ids;
     }
 
     private static QuizProjectDatabaseSnapshot ReadQuizProjectSnapshot(SqliteDataReader reader) => new(
