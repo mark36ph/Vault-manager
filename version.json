@@ -1,13 +1,17 @@
 {
-  "latest_version": "1.0.78",
-  "build": 103,
+  "latest_version": "1.0.79",
+  "build": 104,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 103 fixes the Archive completed C button so the new grouped physical-folder archive workflow opens directly instead of being intercepted by the older duplicate-path repair dialog.",
-    "The legacy global duplicate-path click gate is now disabled; its diagnostic repair code remains available but no longer blocks grouped C: to Z: archiving.",
-    "Shared C: project folders are handled by the Build 102 physical-folder archive engine: copy or reuse one verified Z: project, update every linked Quiz History row together, verify the database paths, then remove C: only after all checks pass.",
-    "Any linked History row with outstanding required uploads blocks the entire shared physical folder from moving.",
-    "Existing Z: folders are never overwritten or deleted and new archive collisions remain collision-safe.",
-    "A regression test now asserts that the legacy duplicate-path archive gate stays disabled."
+    "Build 104 moves website SEO into its own administration page directly under Comments.",
+    "The SEO page audits every website quiz in one pass instead of checking only the selected quiz.",
+    "The audit summary shows total quizzes, ready metadata, warnings and structural issues that need attention.",
+    "Every quiz is classified as Automatic or Custom SEO so generated defaults are not treated as missing metadata.",
+    "The audit flags duplicate SEO titles, duplicate visible quiz titles, duplicate or invalid slugs, missing required metadata and search/social copy that falls outside recommended lengths.",
+    "Rows needing attention are sorted ahead of warnings and ready quizzes so the most important fixes are visible first.",
+    "Double-click a quiz or use Edit selected to open the existing search and social preview editor, save the change and immediately rerun the whole-catalogue audit.",
+    "The old Website catalogue Edit SEO button is suppressed so SEO management has one clear home under Comments.",
+    "Build 103 grouped physical-folder archive fixes remain included unchanged.",
+    "No website quiz scoring, publishing schedule, visibility, account or analytics behavior is changed."
   ]
 }
