@@ -1,18 +1,16 @@
 {
-  "latest_version": "1.0.75",
-  "build": 100,
+  "latest_version": "1.0.76",
+  "build": 101,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 100 finishes the duplicate Quiz History path resolver with a stable global one-to-one assignment planner.",
-    "Duplicate rows are no longer decided independently when several rows compete for several valid C: or Z: project folders.",
-    "The planner maximizes the number of recovered History rows first, then maximizes total identity evidence across the whole duplicate set.",
-    "Every proposed pair is stress-tested by forbidding that pair and recalculating the best global assignment. Swappable or near-tied mappings remain unresolved instead of being guessed.",
-    "A locally second-best folder can now be selected when that produces a stronger and complete one-to-one mapping for the overall set.",
-    "The same destination folder can never be assigned to two Quiz History rows.",
-    "Build 99 quiz-family protection remains enforced, so Space cannot cross-match General Knowledge and Logos/Icons remain the intentional alias.",
-    "Explicit and trusted trailing episode conflicts remain hard No-match conditions.",
-    "Duplicate-path repair remains database-only. It does not move, copy, rename, overwrite or delete C: or Z: files.",
-    "Archive completed C keeps the faster preview and live C: to Z: copy/verify progress once duplicate-path repair is complete.",
-    "The Windows suite includes global assignment, maximum-cardinality, tied-assignment, contested-folder, family and episode safety regressions."
+    "Build 101 adds website SEO publishing controls directly to the desktop Website manager.",
+    "Select any website quiz and choose Edit SEO to manage its search title, meta description, social title and social description.",
+    "The editor includes a Google-style search preview, a Factburst social-card preview, character guidance and duplicate-title warnings.",
+    "Every quiz gets useful SEO defaults automatically even when no custom metadata has been saved yet.",
+    "Custom SEO metadata is stored in the shared Cloudflare quiz database and survives later scheduled syncs or manual resyncs.",
+    "Published quiz slugs are shown as clean factburstquiz.com/quiz/... URLs and remain locked after publication so existing links, comments, tracking and analytics are not split.",
+    "Social previews continue to use the generated 1200x630 Factburst PNG, with the saved social title feeding the card artwork and Open Graph/Twitter copy.",
+    "The SEO administration endpoint uses the existing private Link Tracker authentication; no second API key or public website admin page is required.",
+    "Website quiz scoring, player sizing, account behavior, publishing schedules and existing visibility controls are unchanged."
   ]
 }
