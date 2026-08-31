@@ -1,5 +1,4 @@
 const PUBLIC_EVENT_PATH = "/api/analytics/event";
-const ADMIN_ANALYTICS_PATH = "/api/admin/analytics";
 const ALLOWED_EVENTS = new Set([
   "home_view",
   "quiz_directory_view",
@@ -19,15 +18,6 @@ export async function handleAnalyticsApi(request, env, url) {
     if (!env.DB) return json({ ok: true, recorded: false });
     await ensureAnalyticsSchema(env.DB);
     return recordPublicEvent(request, env.DB);
-  }
-
-  if (url.pathname === ADMIN_ANALYTICS_PATH && request.method === "GET") {
-    if (!env.DB) return json({ error: "Analytics database is not configured." }, 503);
-    if (!env.SITE_ADMIN_KEY) return json({ error: "Analytics access is not configured." }, 503);
-    const supplied = request.headers.get("authorization") || "";
-    if (supplied !== `Bearer ${env.SITE_ADMIN_KEY}`) return json({ error: "Unauthorized." }, 401);
-    await ensureAnalyticsSchema(env.DB);
-    return analyticsSummary(env.DB, url);
   }
 
   return null;
@@ -75,53 +65,6 @@ async function recordPublicEvent(request, db) {
   `).bind(day, eventName, quizSlug, source).run();
 
   return json({ ok: true, recorded: true });
-}
-
-async function analyticsSummary(db, url) {
-  const requestedDays = Number.parseInt(url.searchParams.get("days") || "30", 10);
-  const days = Number.isFinite(requestedDays) ? Math.min(Math.max(requestedDays, 1), 180) : 30;
-  const from = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
-
-  const [eventRows, quizRows, dailyRows] = await Promise.all([
-    db.prepare(`
-      SELECT event_name, SUM(count) AS count
-      FROM site_analytics_daily
-      WHERE day >= ?
-      GROUP BY event_name
-      ORDER BY count DESC, event_name ASC
-    `).bind(from).all(),
-    db.prepare(`
-      SELECT quiz_slug, event_name, SUM(count) AS count
-      FROM site_analytics_daily
-      WHERE day >= ? AND quiz_slug <> ''
-      GROUP BY quiz_slug, event_name
-      ORDER BY quiz_slug ASC, event_name ASC
-    `).bind(from).all(),
-    db.prepare(`
-      SELECT day, event_name, SUM(count) AS count
-      FROM site_analytics_daily
-      WHERE day >= ?
-      GROUP BY day, event_name
-      ORDER BY day ASC, event_name ASC
-    `).bind(from).all(),
-  ]);
-
-  const events = Object.fromEntries((eventRows.results || []).map(row => [row.event_name, Number(row.count) || 0]));
-  const quizzes = {};
-  for (const row of quizRows.results || []) {
-    const slug = String(row.quiz_slug || "");
-    if (!quizzes[slug]) quizzes[slug] = {};
-    quizzes[slug][row.event_name] = Number(row.count) || 0;
-  }
-
-  return json({
-    days,
-    from,
-    to: new Date().toISOString().slice(0, 10),
-    events,
-    quizzes,
-    daily: dailyRows.results || [],
-  }, 200, { "cache-control": "no-store" });
 }
 
 function normalizeSlug(value) {
