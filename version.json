@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.92",
-  "build": 117,
+  "latest_version": "1.0.93",
+  "build": 118,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 117 makes project folders permanent: changing a project between In Progress, Scheduled, Published or other statuses now updates the database only and never moves the project directory.",
-    "New projects now receive a stable ID-based folder such as 000184-Space Quiz, so their filesystem location no longer depends on workflow status.",
-    "Existing projects keep their current folder exactly where it is; no migration, rename or bulk folder move is performed by this update.",
-    "Regression tests cover both new stable folders and legacy status-based folders to prevent future status changes from breaking project paths.",
-    "Build 116 Needs You stability improvements and Build 115 SQLite project protection remain included unchanged."
+    "Build 118 adds a canonical SQLite publication_state model for YouTube, Facebook, Instagram, the Factburst website, and promotional Shorts.",
+    "Full quizzes and promo Shorts now use separate publication records, preventing a promo upload from overwriting or being confused with its parent quiz upload state.",
+    "Publication State in Upload Manager reconciles existing quiz history, detailed upload journal records, remote IDs, schedules, errors, and existing promo metadata without deleting the legacy records.",
+    "Website preparation now records durable in-progress, scheduled, published, and failed states locally, including the last website error when a sync needs attention.",
+    "Build 117 permanent project folders and all earlier publishing safeguards remain included unchanged."
   ]
 }
