@@ -42,7 +42,9 @@ export default {
       if (maintenanceResponse) return maintenanceResponse;
     }
 
-    const seoResponse = await handleSeoRequest(request, env, url, quizWorker);
+    const seoUrl = new URL(url);
+    if (seoUrl.pathname === "/") seoUrl.pathname = "/index.html";
+    const seoResponse = await handleSeoRequest(request, env, seoUrl, quizWorker);
     if (seoResponse) return seoResponse;
 
     const analyticsResponse = await handleAnalyticsApi(request, env, url);
