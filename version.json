@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.91",
-  "build": 116,
+  "latest_version": "1.0.92",
+  "build": 117,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 116 stops the Autopilot Needs You area blinking by removing the competing one-second task-row rebuild and cleanup loops.",
-    "Needs You now counts only tasks that are actually ready for action now; future Related Video, Instagram and other queued work remains scheduled without inflating the current counter.",
-    "Start next task and the Needs You counter now use the same actionable-task source, so a non-zero counter no longer opens an empty task wizard.",
-    "Needs You remains visually stable while Autopilot continues background work, and status text is only changed when its value really changes.",
-    "Build 115 SQLite project protection, restore tools and verified Z: database backups remain included unchanged."
+    "Build 117 makes project folders permanent: changing a project between In Progress, Scheduled, Published or other statuses now updates the database only and never moves the project directory.",
+    "New projects now receive a stable ID-based folder such as 000184-Space Quiz, so their filesystem location no longer depends on workflow status.",
+    "Existing projects keep their current folder exactly where it is; no migration, rename or bulk folder move is performed by this update.",
+    "Regression tests cover both new stable folders and legacy status-based folders to prevent future status changes from breaking project paths.",
+    "Build 116 Needs You stability improvements and Build 115 SQLite project protection remain included unchanged."
   ]
 }
