@@ -97,6 +97,80 @@ public sealed class QuizDuplicatePathPartialRepairTests
         }
     }
 
+    [Fact]
+    public void Planner_RejectsSpaceHistory_WhenFolderIsGeneralKnowledgeWithSameEpisode()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"duplicate-family-reject-{Guid.NewGuid():N}");
+        try
+        {
+            // Deliberately put stale/copied Space metadata inside a General Knowledge project. The
+            // folder family must win over matching episode 003 and misleading JSON evidence.
+            var wrongFamily = CreateProjectFolder(root, "General Knowledge Quiz - 003", "Space Quiz");
+            var history = History(92, "Space Quiz", "Space Quiz", 3, "16:9", @"C:\projects\Space - 001");
+
+            var plan = DesktopDataService.PlanDuplicatePathRepairTargets(
+                [history],
+                [QuizArchiveDeepMatcher.InspectProjectFolder(wrongFamily)]);
+
+            Assert.Empty(plan.Suggestions);
+            var conflict = Assert.Single(plan.Conflicts);
+            Assert.Equal([92], conflict.HistoryIds);
+            Assert.Contains("No High-confidence alternate", conflict.Reason, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Planner_AllowsSpaceHistory_WhenFolderIsSpaceWithSameEpisode()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"duplicate-family-space-{Guid.NewGuid():N}");
+        try
+        {
+            var space = CreateProjectFolder(root, "Space - 003", "Space Quiz");
+            var history = History(92, "Space Quiz", "Space Quiz", 3, "16:9", @"C:\projects\Space - 001");
+
+            var plan = DesktopDataService.PlanDuplicatePathRepairTargets(
+                [history],
+                [QuizArchiveDeepMatcher.InspectProjectFolder(space)]);
+
+            var suggestion = Assert.Single(plan.Suggestions);
+            Assert.Equal(92, suggestion.HistoryId);
+            Assert.Equal(space, suggestion.ProposedFolder);
+            Assert.Empty(plan.Conflicts);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Planner_TreatsIconsFolderAsLogosFamily()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"duplicate-family-logos-{Guid.NewGuid():N}");
+        try
+        {
+            var icons = CreateProjectFolder(root, "Icons - 001", "Logos Quiz");
+            var history = History(83, "Logos Quiz", "Logos Quiz", 1, "16:9", @"C:\projects\Logos - 001");
+
+            var plan = DesktopDataService.PlanDuplicatePathRepairTargets(
+                [history],
+                [QuizArchiveDeepMatcher.InspectProjectFolder(icons)]);
+
+            var suggestion = Assert.Single(plan.Suggestions);
+            Assert.Equal(83, suggestion.HistoryId);
+            Assert.Equal(icons, suggestion.ProposedFolder);
+            Assert.Empty(plan.Conflicts);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static string CreateProjectFolder(string root, string folderName, string title)
     {
         var folder = Path.Combine(root, folderName);
