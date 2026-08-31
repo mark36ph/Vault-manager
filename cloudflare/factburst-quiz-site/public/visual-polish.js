@@ -23,16 +23,18 @@
     return CATEGORY_KEYS.get(normalized) || "general-knowledge";
   }
 
-  function decorateCategoryCards(root = document) {
-    const cards = [];
-    if (root instanceof Element && root.matches(".quiz-card, .quiz-feature")) cards.push(root);
-    if (root.querySelectorAll) cards.push(...root.querySelectorAll(".quiz-card, .quiz-feature"));
+  function decorateCard(card) {
+    if (!(card instanceof Element) || !card.matches(".quiz-card, .quiz-feature")) return;
+    if (card.classList.contains("skeleton-card")) return;
+    const pill = card.querySelector(".category-pill");
+    if (!pill) return;
+    card.dataset.categoryKey = categoryKey(pill.textContent);
+  }
 
-    for (const card of cards) {
-      if (card.classList.contains("skeleton-card")) continue;
-      const pill = card.querySelector(".category-pill");
-      if (!pill) continue;
-      card.dataset.categoryKey = categoryKey(pill.textContent);
+  function decorateCategoryCards(root = document) {
+    if (root instanceof Element) decorateCard(root);
+    if (root.querySelectorAll) {
+      for (const card of root.querySelectorAll(".quiz-card, .quiz-feature")) decorateCard(card);
     }
   }
 
@@ -52,8 +54,11 @@
 
     const observer = new MutationObserver(records => {
       for (const record of records) {
+        if (record.target instanceof Element) decorateCard(record.target.closest(".quiz-card, .quiz-feature"));
         for (const node of record.addedNodes) {
-          if (node instanceof Element) decorateCategoryCards(node);
+          if (!(node instanceof Element)) continue;
+          decorateCategoryCards(node);
+          decorateCard(node.parentElement?.closest(".quiz-card, .quiz-feature"));
         }
       }
       updateProfileAvatar();
