@@ -164,6 +164,7 @@ public partial class MainShellWindow
             var unavailable = 0;
             var failed = preflightProblems.Count;
             var problems = new List<string>(preflightProblems);
+            var publicationState = _data.PublicationState;
 
             for (var index = 0; index < targets.Count; index++)
             {
@@ -171,6 +172,10 @@ public partial class MainShellWindow
                 sourceButton.Content = $"Website {index + 1:N0}/{targets.Count:N0}";
                 SetScheduledReadinessStatus(
                     $"Syncing website quiz {index + 1:N0}/{targets.Count:N0}: {target.Row.Quiz}");
+                publicationState.BeginAttempt(
+                    target.History.Id,
+                    PublicationPlatform.Website,
+                    PublicationContentKind.Quiz);
 
                 try
                 {
@@ -179,15 +184,49 @@ public partial class MainShellWindow
                         target.Row.PublishAt,
                         questionImagePaths);
                     await website.PublishQuizAsync(settings.BaseUrl, settings.ApiKey, payload);
+                    if (target.Row.PublishAt > DateTimeOffset.Now)
+                    {
+                        publicationState.RecordScheduled(
+                            target.History.Id,
+                            PublicationPlatform.Website,
+                            PublicationContentKind.Quiz,
+                            target.Row.PublishAt,
+                            remoteId: payload.Slug,
+                            source: "website-sync");
+                    }
+                    else
+                    {
+                        publicationState.RecordPublished(
+                            target.History.Id,
+                            PublicationPlatform.Website,
+                            PublicationContentKind.Quiz,
+                            remoteId: payload.Slug,
+                            publishedAt: DateTimeOffset.Now,
+                            source: "website-sync");
+                    }
                     synced++;
                 }
                 catch (Exception error) when (IsUnavailableProjectError(error))
                 {
+                    publicationState.RecordFailure(
+                        target.History.Id,
+                        PublicationPlatform.Website,
+                        PublicationContentKind.Quiz,
+                        "prepare",
+                        error.Message,
+                        source: "website-sync");
                     unavailable++;
                     problems.Add($"{target.Row.Quiz}: project or question image files unavailable.");
                 }
                 catch (Exception error)
                 {
+                    publicationState.RecordFailure(
+                        target.History.Id,
+                        PublicationPlatform.Website,
+                        PublicationContentKind.Quiz,
+                        "sync",
+                        error.Message,
+                        source: "website-sync");
                     failed++;
                     problems.Add($"{target.Row.Quiz}: {error.Message}");
                 }
