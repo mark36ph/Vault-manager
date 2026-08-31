@@ -17,6 +17,7 @@ public sealed record WebsiteSeoAuditRow(
     string Mode,
     string SeoTitle,
     string Issues,
+    string Recommendations,
     string Slug,
     FactburstWebsiteSeoQuiz Source);
 
@@ -73,49 +74,76 @@ public static class FactburstWebsiteSeoAudit
         var category = Compact(quiz.Category);
         var effective = FactburstWebsiteSeoDefaults.Effective(quiz);
         var issues = new List<string>();
+        var recommendations = new List<string>();
         var severe = false;
 
         if (!SlugPattern.IsMatch(slug))
         {
             issues.Add("Invalid or missing published slug");
+            recommendations.Add("Use a lowercase, hyphenated slug containing only letters, numbers and hyphens. If this quiz is already published, repair the inventory carefully so existing links are not broken.");
             severe = true;
         }
         if (slug.Length > 0 && duplicateSlugs.Contains(slug))
         {
             issues.Add("Duplicate published slug");
+            recommendations.Add("Resolve the duplicate inventory so every website quiz has one unique published slug before publishing or resyncing more copies.");
             severe = true;
         }
         if (visibleTitle.Length == 0)
         {
             issues.Add("Visible quiz title is missing");
+            recommendations.Add("Add a clear, specific visible quiz title that describes the topic players will be tested on.");
             severe = true;
         }
         if (category.Length == 0)
         {
             issues.Add("Quiz category is missing");
+            recommendations.Add("Assign the quiz to the most specific supported Factburst category so search metadata and catalogue grouping have clear context.");
             severe = true;
         }
         if (effective.SeoTitle.Length == 0 || effective.SeoDescription.Length == 0 ||
             effective.SocialTitle.Length == 0 || effective.SocialDescription.Length == 0)
         {
             issues.Add("Required search or social metadata is missing");
+            recommendations.Add("Open Edit selected and fill all four search/social fields. Use the suggested values as a safe starting point, then make the copy specific to this quiz.");
             severe = true;
         }
 
         if (visibleTitle.Length > 0 && duplicateTitles.Contains(Normalize(visibleTitle)))
+        {
             issues.Add("Duplicate visible quiz title");
+            recommendations.Add("Make the visible quiz title distinct from the other matching quiz by adding the specific subject, theme or challenge angle.");
+        }
         if (effective.SeoTitle.Length > 0 && duplicateSeoTitles.Contains(Normalize(effective.SeoTitle)))
+        {
             issues.Add("Duplicate SEO title");
+            recommendations.Add($"Give this quiz a unique SEO title. Add the specific topic or challenge angle while keeping the title at {FactburstWebsiteSeoDefaults.RecommendedTitleLength} characters or fewer where practical.");
+        }
         if (effective.SeoTitle.Length > FactburstWebsiteSeoDefaults.RecommendedTitleLength)
+        {
             issues.Add($"SEO title is {effective.SeoTitle.Length} characters (recommended ≤ {FactburstWebsiteSeoDefaults.RecommendedTitleLength})");
+            recommendations.Add($"Shorten the SEO title to {FactburstWebsiteSeoDefaults.RecommendedTitleLength} characters or fewer, keeping the quiz topic near the beginning so it is less likely to be truncated in search results.");
+        }
         if (effective.SeoDescription.Length > 0 && effective.SeoDescription.Length < 70)
+        {
             issues.Add($"SEO description is short ({effective.SeoDescription.Length} characters)");
+            recommendations.Add("Expand the meta description to roughly 120–160 useful characters. Describe what the quiz covers and give players a reason to click without repeating the title word-for-word.");
+        }
         if (effective.SeoDescription.Length > FactburstWebsiteSeoDefaults.RecommendedDescriptionLength)
+        {
             issues.Add($"SEO description is {effective.SeoDescription.Length} characters (recommended ≤ {FactburstWebsiteSeoDefaults.RecommendedDescriptionLength})");
+            recommendations.Add($"Trim the meta description to about 120–{FactburstWebsiteSeoDefaults.RecommendedDescriptionLength} characters so the important message appears before search engines truncate it.");
+        }
         if (effective.SocialTitle.Length > FactburstWebsiteSeoDefaults.RecommendedSocialTitleLength)
+        {
             issues.Add($"Social title is {effective.SocialTitle.Length} characters (recommended ≤ {FactburstWebsiteSeoDefaults.RecommendedSocialTitleLength})");
+            recommendations.Add($"Shorten the social title to {FactburstWebsiteSeoDefaults.RecommendedSocialTitleLength} characters or fewer so it stays readable on shared preview cards.");
+        }
         if (effective.SocialDescription.Length > FactburstWebsiteSeoDefaults.RecommendedSocialDescriptionLength)
+        {
             issues.Add($"Social description is {effective.SocialDescription.Length} characters (recommended ≤ {FactburstWebsiteSeoDefaults.RecommendedSocialDescriptionLength})");
+            recommendations.Add($"Trim the social description to {FactburstWebsiteSeoDefaults.RecommendedSocialDescriptionLength} characters or fewer and lead with the strongest reason to play the quiz.");
+        }
 
         var severity = severe
             ? WebsiteSeoAuditSeverity.NeedsAttention
@@ -136,6 +164,9 @@ public static class FactburstWebsiteSeoAudit
             mode,
             effective.SeoTitle,
             issues.Count > 0 ? string.Join(" • ", issues) : "SEO looks ready",
+            recommendations.Count > 0
+                ? string.Join(" ", recommendations.Distinct(StringComparer.OrdinalIgnoreCase))
+                : "No change recommended. The current search and social metadata passes the audit checks.",
             slug,
             quiz);
     }
