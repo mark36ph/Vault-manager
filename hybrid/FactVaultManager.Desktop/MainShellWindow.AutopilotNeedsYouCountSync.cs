@@ -28,6 +28,9 @@ public static class AutopilotNeedsYouCountSummary
                Math.Max(0, releaseWarnings);
     }
 
+    public static string Health(bool running, int total) =>
+        total > 0 ? "Needs you" : running ? "Working" : "Healthy";
+
     public static AutopilotNeedsYouGroupedSummary FromAlignedTasks(
         IEnumerable<AutopilotAlignedTaskItem> tasks)
     {
@@ -94,16 +97,15 @@ public partial class MainShellWindow
             var tasks = AutopilotNeedsYouAlignedPlanner.Build(rows, state, snapshots);
             var grouped = AutopilotNeedsYouCountSummary.FromAlignedTasks(tasks);
             var total = grouped.Total;
-            var health = AutopilotHomePlanner.Health(_fullAutopilotRunning, total);
+            var health = AutopilotNeedsYouCountSummary.Health(_fullAutopilotRunning, total);
 
-            if (_autopilotNeedsText is not null)
-                _autopilotNeedsText.Text = total == 0 ? "Nothing" : total.ToString("N0");
-            if (_autopilotNeedsNoteText is not null)
-                _autopilotNeedsNoteText.Text = total == 0
+            SetAutopilotTextIfChanged(_autopilotNeedsText, total == 0 ? "Nothing" : total.ToString("N0"));
+            SetAutopilotTextIfChanged(
+                _autopilotNeedsNoteText,
+                total == 0
                     ? "Autopilot is handling the queue"
-                    : "Actual pending tasks requiring your input";
-            if (_autopilotHealthText is not null)
-                _autopilotHealthText.Text = health;
+                    : "Actual pending tasks requiring your input");
+            SetAutopilotTextIfChanged(_autopilotHealthText, health);
 
             var cards = BuildAutopilotHomeTaskCards(grouped);
             var summaryChanged = AutopilotNeedsYouCountSummary.NeedsCardRefresh(_autopilotNeedsYouRenderedSummary, grouped);
@@ -111,16 +113,28 @@ public partial class MainShellWindow
             if (summaryChanged || !visibleCardsMatch)
             {
                 RenderManualAutopilotTasks(cards);
+                EnsureGuidedNeedsYouButton();
                 _autopilotNeedsYouRenderedSummary = grouped;
             }
 
             if (MainTabs.SelectedIndex == _autopilotHomeTabIndex)
-                HeaderStatusText.Text = $"Autopilot: {health} • {rows.Count:N0} scheduled • {total:N0} need you";
+            {
+                SetAutopilotTextIfChanged(
+                    HeaderStatusText,
+                    $"Autopilot: {health} • {rows.Count:N0} scheduled • {total:N0} need you");
+            }
         }
         catch (Exception error)
         {
             Debug.WriteLine("Autopilot Needs You count sync failed: " + error);
         }
+    }
+
+    private static void SetAutopilotTextIfChanged(TextBlock? target, string value)
+    {
+        if (target is null || string.Equals(target.Text, value, StringComparison.Ordinal))
+            return;
+        target.Text = value;
     }
 
     private List<AutopilotManualTask> BuildAutopilotHomeTaskCards(AutopilotNeedsYouGroupedSummary grouped)
