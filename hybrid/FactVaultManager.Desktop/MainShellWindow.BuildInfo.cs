@@ -56,13 +56,9 @@ public partial class MainShellWindow
             window.InitializeAutopilotShellActivationFix();
             window.InitializeAutopilotRecoverySupervisor();
             window.InitializeAutopilotScheduleTarget();
-            window.InitializeQuizHistoryManualArchiveUi();
-            window.InitializeQuizHistoryArchiveMatcherUi();
-            window.InitializeQuizHistoryArchiveActionsVisibilityFix();
             window.InitializeQuizHistoryBulkArchiveUi();
             window.InitializeQuizHistoryGroupedBulkArchiveUi();
-            window.InitializeQuizArchivePersistentAudit();
-            window.InitializeQuizArchiveDiagnosticsUi();
+            window.InitializeQuizHistoryUiCleanup();
         }
     }
 }
