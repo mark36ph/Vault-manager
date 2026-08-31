@@ -181,15 +181,15 @@ public partial class MainShellWindow
             Binding = new Binding(nameof(PublicationStateEntry.LastError)),
             Width = new DataGridLength(220),
         });
-        Grid.SetRow(grid, 2);
-        root.Children.Add(new Border
+        var table = new Border
         {
             BorderBrush = new SolidColorBrush(Color.FromRgb(0, 204, 255)),
             BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(12),
             Child = grid,
-        });
-        Grid.SetRow(grid.Parent as Border, 2);
+        };
+        Grid.SetRow(table, 2);
+        root.Children.Add(table);
 
         void Refresh()
         {
