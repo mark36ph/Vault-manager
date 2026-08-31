@@ -22,7 +22,7 @@ import { enforceMaintenanceMode, handleSiteStatusApi } from "./site-controls.js"
 import { handlePublicAdsConfig } from "./site-ads.js";
 import { scoreGuestQuiz } from "./guest-score.js";
 import { createResendEmailAdapter } from "./resend-email.js";
-import { handleSeoRequest } from "./site-seo.js";
+import { handleSeoRequest } from "./site-seo-overrides.js";
 import { handleAnalyticsApi } from "./site-analytics.js";
 import {
   cleanRedirectLocation,

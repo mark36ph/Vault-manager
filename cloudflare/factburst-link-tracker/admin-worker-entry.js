@@ -6,6 +6,7 @@ import { handleSiteAdAdmin } from "./site-ad-admin.js";
 import { handleSiteAccessAdmin } from "./site-access-admin.js";
 import { handleSiteQuestionReportAdmin } from "./site-question-report-admin.js";
 import { handleSiteCommentAdmin } from "./site-comment-admin.js";
+import { handleSiteQuizSeoAdmin } from "./site-quiz-seo.js";
 import { websiteAnalyticsSummary } from "./site-analytics-admin.js";
 
 export default {
@@ -18,6 +19,9 @@ export default {
         if (url.pathname === "/api/site/analytics" && request.method === "GET") {
           return websiteAnalyticsSummary(env, url);
         }
+
+        const seoResponse = await handleSiteQuizSeoAdmin(request, env, url);
+        if (seoResponse) return seoResponse;
 
         const accessResponse = await handleSiteAccessAdmin(request, env, url);
         if (accessResponse) return accessResponse;
@@ -55,6 +59,8 @@ export default {
 
 function isSiteAdminRoute(pathname) {
   return pathname === "/api/site/analytics" ||
+    pathname === "/api/site/quiz-seo" ||
+    pathname.startsWith("/api/site/quiz-seo/") ||
     pathname === "/api/site/ads" ||
     pathname === "/api/site/settings" ||
     pathname === "/api/site/comments" ||
