@@ -2,16 +2,57 @@
   const CONSENT_KEY = "factburst-cookie-consent-v1";
   const CONSENT_ACCEPTED = "accepted";
   const CONSENT_ESSENTIAL = "essential";
+  const CLEAN_PAGE_PATHS = new Map([
+    ["/index.html", "/"],
+    ["/quizzes.html", "/quizzes"],
+    ["/profile.html", "/profile"],
+    ["/leaderboard.html", "/leaderboard"],
+    ["/terms.html", "/terms"],
+    ["/privacy.html", "/privacy"],
+  ]);
 
   let memoryConsent = "";
 
+  function cleanPublicPath(pathname) {
+    return CLEAN_PAGE_PATHS.get(pathname) || pathname;
+  }
+
+  function cleanLegacyLinks(root = document) {
+    for (const link of root.querySelectorAll?.("a[href]") || []) {
+      let target;
+      try {
+        target = new URL(link.href, location.origin);
+      } catch {
+        continue;
+      }
+      if (target.origin !== location.origin) continue;
+      const cleanPath = CLEAN_PAGE_PATHS.get(target.pathname);
+      if (!cleanPath) continue;
+      link.href = `${cleanPath}${target.search}${target.hash}`;
+    }
+  }
+
+  function cleanLegacyLinkOnClick(event) {
+    const link = event.target?.closest?.("a[href]");
+    if (!link) return;
+    let target;
+    try {
+      target = new URL(link.href, location.origin);
+    } catch {
+      return;
+    }
+    if (target.origin !== location.origin) return;
+    const cleanPath = CLEAN_PAGE_PATHS.get(target.pathname);
+    if (!cleanPath) return;
+    link.href = `${cleanPath}${target.search}${target.hash}`;
+  }
+
   function prepareNavigation() {
-    if (location.pathname === "/profile.html") {
-      history.replaceState(history.state, "", `/profile${location.search}${location.hash}`);
+    const cleanLocation = CLEAN_PAGE_PATHS.get(location.pathname);
+    if (cleanLocation) {
+      history.replaceState(history.state, "", `${cleanLocation}${location.search}${location.hash}`);
     }
-    for (const link of document.querySelectorAll('a[href="/profile.html"]')) {
-      link.setAttribute("href", "/profile");
-    }
+    cleanLegacyLinks();
 
     const nav = document.querySelector(".top-nav");
     if (!nav) return false;
@@ -19,15 +60,12 @@
     const currentPath = location.pathname.replace(/\/+$/, "") || "/";
     const activePath = currentPath === "/quiz.html" || currentPath.startsWith("/quiz/") || currentPath.startsWith("/quizzes/")
       ? "/quizzes"
-      : currentPath === "/quizzes.html"
-        ? "/quizzes"
-        : currentPath;
+      : cleanPublicPath(currentPath);
 
     for (const link of nav.querySelectorAll("a[href]")) {
       link.removeAttribute("aria-current");
       let linkPath = new URL(link.href, location.origin).pathname.replace(/\/+$/, "") || "/";
-      if (linkPath === "/quizzes.html") linkPath = "/quizzes";
-      if (linkPath === "/profile.html") linkPath = "/profile";
+      linkPath = cleanPublicPath(linkPath);
       if (linkPath === activePath) link.setAttribute("aria-current", "page");
     }
 
@@ -128,7 +166,7 @@
     const copy = document.createElement("p");
     copy.append(
       document.createTextNode("Factburst uses essential storage for core site preferences and account features. With your permission, optional advertising services may use cookies or similar identifiers. Read the "),
-      footerLink("privacy notice", "/privacy.html"),
+      footerLink("privacy notice", "/privacy"),
       document.createTextNode(" for more information."),
     );
     content.append(eyebrow, title, copy);
@@ -159,6 +197,7 @@
 
   function initializeSharedShell() {
     prepareNavigation();
+    document.addEventListener("click", cleanLegacyLinkOnClick, true);
     bindStaticFooter();
     buildCookieBanner();
     showCookieBanner();
@@ -172,6 +211,7 @@
     if (placeNotificationUi()) return;
 
     const observer = new MutationObserver(() => {
+      cleanLegacyLinks();
       if (!placeNotificationUi()) return;
       observer.disconnect();
     });
