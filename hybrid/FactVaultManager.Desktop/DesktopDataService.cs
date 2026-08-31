@@ -75,43 +75,69 @@ public sealed partial class DesktopDataService
         if (string.IsNullOrWhiteSpace(category)) throw new ArgumentException("Category is required.");
 
         var root = GetProjectsRoot();
-        var folder = ProjectPathSecurity.CombineContained(root, status, title);
-        if (Directory.Exists(folder)) throw new IOException($"Project folder already exists: {folder}");
+        EnsureDatabase();
+        string? folder = null;
+        var id = 0;
 
-        var createdFolders = new[]
-        {
-            folder,
-            Path.Combine(folder, "Assets", "Images"), Path.Combine(folder, "Assets", "Videos"),
-            Path.Combine(folder, "Assets", "Music"), Path.Combine(folder, "Assets", "SFX"),
-            Path.Combine(folder, "Assets", "Overlays"), Path.Combine(folder, "Assets", "Thumbnails"),
-            Path.Combine(folder, "Export"), Path.Combine(folder, "Voice")
-        };
-
-        foreach (var path in createdFolders) Directory.CreateDirectory(path);
         try
         {
-            EnsureDatabase();
-            using var connection = OpenConnection();
-            using var command = connection.CreateCommand();
-            var created = DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
-            command.CommandText = """
-                INSERT INTO projects(title, category, status, folder, created, script, description, pinned_comment, notes, updated)
-                VALUES($title, $category, $status, $folder, $created, '', '', '', '', $created);
-                SELECT last_insert_rowid();
-                """;
-            command.Parameters.AddWithValue("$title", title);
-            command.Parameters.AddWithValue("$category", category);
-            command.Parameters.AddWithValue("$status", status);
-            command.Parameters.AddWithValue("$folder", Path.GetRelativePath(root, folder));
-            command.Parameters.AddWithValue("$created", created);
-            var id = Convert.ToInt32((long)(command.ExecuteScalar() ?? 0L));
-            return GetProjects().First(project => project.Id == id);
+            using (var connection = OpenConnection())
+            using (var transaction = connection.BeginTransaction())
+            {
+                var created = DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+                using (var insert = connection.CreateCommand())
+                {
+                    insert.Transaction = transaction;
+                    insert.CommandText = """
+                        INSERT INTO projects(title, category, status, folder, created, script, description, pinned_comment, notes, updated)
+                        VALUES($title, $category, $status, '', $created, '', '', '', '', $created);
+                        SELECT last_insert_rowid();
+                        """;
+                    insert.Parameters.AddWithValue("$title", title);
+                    insert.Parameters.AddWithValue("$category", category);
+                    insert.Parameters.AddWithValue("$status", status);
+                    insert.Parameters.AddWithValue("$created", created);
+                    id = Convert.ToInt32((long)(insert.ExecuteScalar() ?? 0L));
+                }
+
+                if (id <= 0)
+                    throw new InvalidOperationException("The project could not be assigned a stable ID.");
+
+                folder = ProjectPathSecurity.CombineContained(root, $"{id:D6}-{title}");
+                if (Directory.Exists(folder))
+                    throw new IOException($"Project folder already exists: {folder}");
+
+                var createdFolders = new[]
+                {
+                    folder,
+                    Path.Combine(folder, "Assets", "Images"), Path.Combine(folder, "Assets", "Videos"),
+                    Path.Combine(folder, "Assets", "Music"), Path.Combine(folder, "Assets", "SFX"),
+                    Path.Combine(folder, "Assets", "Overlays"), Path.Combine(folder, "Assets", "Thumbnails"),
+                    Path.Combine(folder, "Export"), Path.Combine(folder, "Voice")
+                };
+                foreach (var path in createdFolders) Directory.CreateDirectory(path);
+
+                using (var updateFolder = connection.CreateCommand())
+                {
+                    updateFolder.Transaction = transaction;
+                    updateFolder.CommandText = "UPDATE projects SET folder=$folder WHERE id=$id";
+                    updateFolder.Parameters.AddWithValue("$folder", Path.GetRelativePath(root, folder));
+                    updateFolder.Parameters.AddWithValue("$id", id);
+                    if (updateFolder.ExecuteNonQuery() != 1)
+                        throw new InvalidOperationException("The stable project folder could not be recorded.");
+                }
+
+                transaction.Commit();
+            }
         }
         catch
         {
-            if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+            if (folder is not null && Directory.Exists(folder))
+                Directory.Delete(folder, recursive: true);
             throw;
         }
+
+        return GetProjects().First(project => project.Id == id);
     }
 
     public void SaveProject(DesktopProject project)
@@ -145,31 +171,19 @@ public sealed partial class DesktopDataService
     {
         newStatus = ProjectPathSecurity.ValidateSegment(newStatus, "Project status");
         if (newStatus == project.Status) return project;
-        var root = GetProjectsRoot();
-        var oldFolder = ResolveProjectFolder(project);
-        var safeTitle = ProjectPathSecurity.ValidateSegment(project.Title, "Project title");
-        var newFolder = ProjectPathSecurity.CombineContained(root, newStatus, safeTitle);
-        if (!Directory.Exists(oldFolder)) throw new DirectoryNotFoundException(oldFolder);
-        if (Directory.Exists(newFolder)) throw new IOException($"Destination already exists: {newFolder}");
 
-        Directory.CreateDirectory(Path.GetDirectoryName(newFolder)!);
-        Directory.Move(oldFolder, newFolder);
-        try
+        EnsureDatabase();
+        using (var connection = OpenConnection())
+        using (var command = connection.CreateCommand())
         {
-            using var connection = OpenConnection();
-            using var command = connection.CreateCommand();
-            command.CommandText = "UPDATE projects SET status=$status, folder=$folder, updated=$updated WHERE id=$id";
+            command.CommandText = "UPDATE projects SET status=$status, updated=$updated WHERE id=$id";
             command.Parameters.AddWithValue("$status", newStatus);
-            command.Parameters.AddWithValue("$folder", Path.GetRelativePath(root, newFolder));
             command.Parameters.AddWithValue("$updated", DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture));
             command.Parameters.AddWithValue("$id", project.Id);
-            command.ExecuteNonQuery();
+            if (command.ExecuteNonQuery() != 1)
+                throw new InvalidOperationException("The project could not be found while changing its status.");
         }
-        catch
-        {
-            if (Directory.Exists(newFolder) && !Directory.Exists(oldFolder)) Directory.Move(newFolder, oldFolder);
-            throw;
-        }
+
         return GetProjects().First(item => item.Id == project.Id);
     }
 
