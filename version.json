@@ -1,15 +1,15 @@
 {
-  "latest_version": "1.0.69",
-  "build": 94,
+  "latest_version": "1.0.70",
+  "build": 95,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 94 makes Archive completed C self-reconcile previously archived Quiz History rows that have fallen back to their old C: path, using the independent archive journal as exact proof of History ID, previous C: path, Z: destination, and database path.",
-    "Journal reconciliation changes only the Quiz History database link and never deletes or moves files; rows without exact journal proof remain safety-skipped.",
-    "Duplicate C: safety messages now show the exact Quiz History IDs that reference the same folder instead of a generic duplicate warning.",
-    "The archive preview is faster because Factburst no longer recursively fingerprints every Z: quiz folder; it indexes Z: folder names first and reads only the exact-name Z: candidates needed for a C: project.",
-    "Pressing Yes no longer reruns the entire expensive preview. The confirmed preview is used and every item is individually rechecked immediately before its action.",
-    "A live progress window now shows x of y, the current History ID and quiz, the current archive stage, the C: source path, and the Z: destination while projects are being copied, verified, linked, or removed.",
-    "Quiz History Z: paths are read back and confirmed before C: deletion, followed by a post-run journal reconciliation and another reconciliation after the Quiz History UI refresh.",
-    "Existing Z: folders remain protected: they are never overwritten or deleted, and new-copy collisions continue to use archived-copy NNN destinations."
+    "Build 95 fixes the shared C: project-path blocker shown by Archive completed C by detecting Quiz History rows that incorrectly point at the same physical project folder.",
+    "Before archiving, Factburst identifies the single History row that best belongs to each shared C: folder using video type, series/title/category metadata, project files, and episode evidence; the corrupt stored path itself is excluded from the matching score.",
+    "Folders such as 'General Knowledge Quiz - 002' can use the trailing 002 as episode evidence, while folders with an explicit marker such as 'Film Quiz #002 - Short - 001' continue to use #002 and do not mistake the final 001 for the episode.",
+    "Other rows sharing that C: folder are offered only unique High-confidence one-to-one C:/Z: path repairs. Duplicate repair changes Quiz History database paths only and never moves, copies, overwrites, renames, or deletes project files.",
+    "After duplicate-path repair, Factburst rescans the database. Archive completed C proceeds only when the shared links are gone; unresolved or ambiguous rows remain untouched and block deletion of the affected C: folder.",
+    "Update paths now preserves valid one-to-one paths and refuses discovered matches when more than one History row would claim the same project folder.",
+    "A database update trigger also prevents future path-update operations from assigning a folder that is already linked to another Quiz History row, while still allowing existing duplicate rows to be repaired away from the shared path.",
+    "Build 94's faster archive preview and live x-of-y C: to Z: copy/verify progress window remain in place, and existing Z: folders are still never overwritten or deleted."
   ]
 }
