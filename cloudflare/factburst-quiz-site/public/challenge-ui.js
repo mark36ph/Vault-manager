@@ -124,9 +124,15 @@ function renderChallengeFriends(friends) {
   if (!host) return;
   host.replaceChildren();
   if (friends.length === 0) {
-    const empty = document.createElement("p");
+    const empty = document.createElement("div");
     empty.className = "challenge-empty";
-    empty.textContent = "You do not have any Factburst friends yet. Add friends from your profile first.";
+    const copy = document.createElement("p");
+    copy.textContent = "You do not have any Factburst friends yet. Add someone from your profile, then come back and challenge them to this score.";
+    const profile = document.createElement("a");
+    profile.className = "button button-secondary challenge-profile-link";
+    profile.href = "/profile.html";
+    profile.textContent = "Add friends in Profile";
+    empty.append(copy, profile);
     host.append(empty);
     return;
   }
