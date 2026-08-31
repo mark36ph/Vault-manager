@@ -364,8 +364,14 @@ public sealed partial class DesktopDataService
             }
             else
             {
-                score = Math.Max(0, score - 65);
-                evidence.Add($"trailing project sequence {trailingSequence.Value:000} differs from episode #{history.EpisodeNumber:000}");
+                // Once a trailing sequence is trusted as episode evidence, a conflict is decisive.
+                // Do not let title/series metadata outweigh a contradictory episode number.
+                return candidate with
+                {
+                    Confidence = QuizArchiveMatchConfidence.NoMatch,
+                    Score = 0,
+                    Evidence = [$"trailing project sequence {trailingSequence.Value:000} conflicts with episode #{history.EpisodeNumber:000}"],
+                };
             }
         }
 
