@@ -1,13 +1,15 @@
 {
-  "latest_version": "1.0.71",
-  "build": 96,
+  "latest_version": "1.0.72",
+  "build": 97,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 96 adds a Website Analytics page inside the Factburst desktop app. It uses the existing Link Tracker credentials and keeps analytics administration out of the public website.",
-    "Website Analytics supports 7, 30 and 90 day views with headline site views, quiz opens, completion rate and YouTube click-through rate, plus a full conversion funnel, per-quiz performance and traffic-source breakdowns.",
-    "The analytics feed remains aggregate-only. The desktop app reads daily event totals from the private authenticated go.factburstquiz.com admin Worker; it does not expose a public analytics dashboard or visitor-level records.",
-    "The quiz library now has quick category shortcuts and supports shareable category links such as quizzes.html?category=Space, while the standard category dropdown remains available.",
-    "Quiz results now add a More [category] action so players can continue with similar quizzes, and the Challenge a friend flow links directly to Profile when the player has no friends yet.",
-    "Build 95's duplicate Quiz History path repair and archive protections remain unchanged."
+    "Build 97 hardens duplicate Quiz History path repair so contradictory episode evidence can never be approved automatically.",
+    "When a legacy project folder uses a trusted trailing sequence such as 'Logos - 001', a History row for episode #003 is now rejected as No match immediately instead of merely receiving a score penalty.",
+    "A matching trailing sequence still strengthens valid repairs, such as 'History Quiz - 001' for episode #001.",
+    "Folders with an explicit #episode marker keep that marker authoritative: for example 'Film Quiz #002 - Short - 001' is treated as episode #002 and the trailing export sequence is not misread as the episode.",
+    "The final apply step repeats the same episode-safety evaluation before any database path is changed, so a stale preview cannot bypass the rule.",
+    "Duplicate-path repair remains database-only and does not move, copy, rename, overwrite or delete C: or Z: files.",
+    "The faster Archive completed C report, live C: to Z: progress display, archive verification and no-overwrite protections remain in place.",
+    "Regression tests cover the Logos #003 rejection, a valid matching trailing sequence, and explicit #episode precedence."
   ]
 }
