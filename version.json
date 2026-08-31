@@ -1,13 +1,13 @@
 {
-  "latest_version": "1.0.89",
-  "build": 114,
+  "latest_version": "1.0.90",
+  "build": 115,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 114 improves Website Sync missing recovery for quizzes moved from C: to the configured Z: archive.",
-    "Website project recovery now checks up to 2,000 Quiz History entries, matching the Website audit instead of only the most recent history subset.",
-    "Known archive-journal links are safely restored before the normal local project search runs, using the same History ID, database and archive ownership checks as the archive workflow.",
-    "Genuinely missing project folders, quiz.json files and question images now report their specific error instead of being grouped under a generic files unavailable message.",
-    "Existing Cloudflare quiz copies remain untouched by Sync missing; only absent website quizzes are uploaded.",
-    "Build 113 stable Needs You status and Build 112 performance-driven quiz category selection remain included unchanged."
+    "Build 115 makes SQLite the recovery source for quiz project data, storing the exact quiz manifest and compressed non-video project source files for protected Quiz History entries.",
+    "New quiz projects are protected automatically in the background, and older existing projects can be backfilled from Settings → Project Integrity with Protect existing quizzes.",
+    "Restore missing quiz files recreates missing cards, audio, manifests, metadata and timeline files from SQLite without overwriting files that still exist; final videos remain derived outputs that can be rendered again.",
+    "The FactVault SQLite database is backed up automatically once per day to Z:\\Factburst Quiz Manager\\Database Backups when Z: is available, with a Back up database now button for immediate verified backups.",
+    "Database backups use SQLite's live backup API and must pass PRAGMA integrity_check before the backup is kept.",
+    "Build 114 Website Sync archive recovery remains included unchanged."
   ]
 }
