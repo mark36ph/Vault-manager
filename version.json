@@ -1,13 +1,12 @@
 {
-  "latest_version": "1.0.90",
-  "build": 115,
+  "latest_version": "1.0.91",
+  "build": 116,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 115 makes SQLite the recovery source for quiz project data, storing the exact quiz manifest and compressed non-video project source files for protected Quiz History entries.",
-    "New quiz projects are protected automatically in the background, and older existing projects can be backfilled from Settings → Project Integrity with Protect existing quizzes.",
-    "Restore missing quiz files recreates missing cards, audio, manifests, metadata and timeline files from SQLite without overwriting files that still exist; final videos remain derived outputs that can be rendered again.",
-    "The FactVault SQLite database is backed up automatically once per day to Z:\\Factburst Quiz Manager\\Database Backups when Z: is available, with a Back up database now button for immediate verified backups.",
-    "Database backups use SQLite's live backup API and must pass PRAGMA integrity_check before the backup is kept.",
-    "Build 114 Website Sync archive recovery remains included unchanged."
+    "Build 116 stops the Autopilot Needs You area blinking by removing the competing one-second task-row rebuild and cleanup loops.",
+    "Needs You now counts only tasks that are actually ready for action now; future Related Video, Instagram and other queued work remains scheduled without inflating the current counter.",
+    "Start next task and the Needs You counter now use the same actionable-task source, so a non-zero counter no longer opens an empty task wizard.",
+    "Needs You remains visually stable while Autopilot continues background work, and status text is only changed when its value really changes.",
+    "Build 115 SQLite project protection, restore tools and verified Z: database backups remain included unchanged."
   ]
 }
