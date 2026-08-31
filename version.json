@@ -1,16 +1,14 @@
 {
-  "latest_version": "1.0.80",
-  "build": 105,
+  "latest_version": "1.0.81",
+  "build": 106,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 105 makes every SEO warning explain exactly why the quiz was flagged and what change is recommended.",
-    "The SEO audit grid now has separate Why flagged and Recommended fix columns instead of relying on one clipped audit-result cell.",
-    "Selecting a quiz shows the full finding and full recommendation in a dedicated detail panel below the grid.",
-    "After each audit, the first warning or needs-attention quiz is selected automatically so its explanation is visible immediately.",
-    "Duplicate SEO titles, duplicate visible titles, slug problems, missing metadata and search/social length warnings now each provide targeted repair guidance.",
-    "Ready quizzes explicitly state that no change is recommended.",
-    "Regression tests require every non-ready audit row to contain both a reason and a recommendation.",
-    "Build 104 dedicated SEO administration and Build 103 archive fixes remain included unchanged.",
-    "No quiz scoring, publishing schedule, visibility, account or analytics behavior is changed."
+    "Build 106 simplifies the Quiz History action bar now that the C: to Z: migration is complete.",
+    "The normal Quiz History screen no longer shows the old Match archive, Archive selected, or Update paths recovery controls.",
+    "Archive completed C remains available as the supported ongoing archive/catch-up action and is now labelled Archive C → Z.",
+    "Questions, Metadata, YouTube, Folder, Delete and Refresh remain unchanged for day-to-day use.",
+    "Legacy archive matching, manual archive and path-recovery implementation remains in the codebase for emergency maintenance, but its UI is no longer registered during normal startup.",
+    "The old archive diagnostic/persistence UI hooks are also no longer registered on normal startup because they were tied to the retired Match archive workflow.",
+    "Build 105 SEO audit improvements and Build 103-104 archive/SEO changes remain included unchanged."
   ]
 }
