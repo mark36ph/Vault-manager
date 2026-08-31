@@ -129,8 +129,6 @@ public sealed partial class DesktopDataService
 
                 transaction.Commit();
             }
-
-            return GetProjects().First(project => project.Id == id);
         }
         catch
         {
@@ -138,6 +136,8 @@ public sealed partial class DesktopDataService
                 Directory.Delete(folder, recursive: true);
             throw;
         }
+
+        return GetProjects().First(project => project.Id == id);
     }
 
     public void SaveProject(DesktopProject project)
