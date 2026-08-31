@@ -3,6 +3,16 @@
   const EVENT_ENDPOINT = "/api/analytics/event";
   const tracked = new Set();
 
+  ensureGrowthStyles();
+
+  function ensureGrowthStyles() {
+    if (document.querySelector('link[href^="/growth-discovery.css"]')) return;
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "/growth-discovery.css?v=1";
+    document.head.append(link);
+  }
+
   function analyticsAllowed() {
     return navigator.globalPrivacyControl !== true &&
       navigator.doNotTrack !== "1" &&
@@ -127,15 +137,93 @@
     if (share) share.textContent = "Share my score";
 
     const actions = results.querySelector(".result-actions");
-    if (!actions || actions.querySelector("#copy-quiz-link")) return;
-    const copy = document.createElement("button");
-    copy.id = "copy-quiz-link";
-    copy.type = "button";
-    copy.className = "button button-secondary";
-    copy.textContent = "Copy quiz link";
+    if (!actions) return;
     const playAnother = actions.querySelector('a[href="/quizzes.html"]');
-    if (playAnother) actions.insertBefore(copy, playAnother);
-    else actions.append(copy);
+
+    if (!actions.querySelector("#copy-quiz-link")) {
+      const copy = document.createElement("button");
+      copy.id = "copy-quiz-link";
+      copy.type = "button";
+      copy.className = "button button-secondary";
+      copy.textContent = "Copy quiz link";
+      if (playAnother) actions.insertBefore(copy, playAnother);
+      else actions.append(copy);
+    }
+
+    const category = document.querySelector("#quiz-category")?.textContent?.trim() || "";
+    if (category && !actions.querySelector("#more-category-quizzes")) {
+      const more = document.createElement("a");
+      more.id = "more-category-quizzes";
+      more.className = "button button-secondary";
+      more.href = `/quizzes.html?category=${encodeURIComponent(category)}#browse`;
+      more.textContent = `More ${category}`;
+      if (playAnother) actions.insertBefore(more, playAnother);
+      else actions.append(more);
+    }
+  }
+
+  function initializeDirectoryDiscovery() {
+    const filter = document.querySelector("#category-filter");
+    const grid = document.querySelector("#quiz-grid");
+    if (!filter || !grid) return;
+
+    let host = document.querySelector("#category-shortcuts");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "category-shortcuts";
+      host.className = "category-shortcuts";
+      host.setAttribute("aria-label", "Quiz category shortcuts");
+      grid.parentElement?.insertBefore(host, grid);
+    }
+
+    let initialApplied = false;
+    const requested = new URLSearchParams(location.search).get("category")?.trim() || "";
+
+    const render = () => {
+      const options = Array.from(filter.options)
+        .map(option => option.value)
+        .filter(Boolean);
+      if (options.length === 0) return;
+
+      if (!initialApplied && requested) {
+        const match = options.find(value => value.toLowerCase() === requested.toLowerCase());
+        if (match) {
+          filter.value = match;
+          filter.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+        initialApplied = true;
+      }
+
+      const values = ["", ...options];
+      host.replaceChildren(...values.map(value => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "category-shortcut";
+        button.textContent = value || "All quizzes";
+        button.setAttribute("aria-pressed", String(filter.value === value));
+        button.addEventListener("click", () => {
+          filter.value = value;
+          filter.dispatchEvent(new Event("change", { bubbles: true }));
+          document.querySelector("#browse")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+        return button;
+      }));
+    };
+
+    filter.addEventListener("change", () => {
+      for (const button of host.querySelectorAll(".category-shortcut")) {
+        const value = button.textContent === "All quizzes" ? "" : button.textContent;
+        button.setAttribute("aria-pressed", String(value === filter.value));
+      }
+      const url = new URL(location.href);
+      if (filter.value) url.searchParams.set("category", filter.value);
+      else url.searchParams.delete("category");
+      history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    });
+
+    render();
+    const observer = new MutationObserver(render);
+    observer.observe(filter, { childList: true });
   }
 
   function observeQuizState() {
@@ -163,8 +251,10 @@
     const layout = document.body.dataset.layout || "";
     const page = document.body.dataset.page || "";
     if (layout === "landing") trackOnce("view", "home_view", { quiz_slug: "" });
-    else if (layout === "directory") trackOnce("view", "quiz_directory_view", { quiz_slug: "" });
-    else if (layout === "leaderboard") trackOnce("view", "leaderboard_view", { quiz_slug: "" });
+    else if (layout === "directory") {
+      trackOnce("view", "quiz_directory_view", { quiz_slug: "" });
+      initializeDirectoryDiscovery();
+    } else if (layout === "leaderboard") trackOnce("view", "leaderboard_view", { quiz_slug: "" });
     else if (page === "quiz") observeQuizState();
   }
 
