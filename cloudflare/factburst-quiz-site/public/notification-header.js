@@ -6,6 +6,13 @@
   let memoryConsent = "";
 
   function prepareNavigation() {
+    if (location.pathname === "/profile.html") {
+      history.replaceState(history.state, "", `/profile${location.search}${location.hash}`);
+    }
+    for (const link of document.querySelectorAll('a[href="/profile.html"]')) {
+      link.setAttribute("href", "/profile");
+    }
+
     const nav = document.querySelector(".top-nav");
     if (!nav) return false;
 
@@ -20,6 +27,7 @@
       link.removeAttribute("aria-current");
       let linkPath = new URL(link.href, location.origin).pathname.replace(/\/+$/, "") || "/";
       if (linkPath === "/quizzes.html") linkPath = "/quizzes";
+      if (linkPath === "/profile.html") linkPath = "/profile";
       if (linkPath === activePath) link.setAttribute("aria-current", "page");
     }
 

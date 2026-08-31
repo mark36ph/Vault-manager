@@ -44,6 +44,7 @@ export default {
 
     const seoUrl = new URL(url);
     if (seoUrl.pathname === "/") seoUrl.pathname = "/index.html";
+    if (seoUrl.pathname === "/profile") seoUrl.pathname = "/profile.html";
     const seoResponse = await handleSeoRequest(request, env, seoUrl, quizWorker);
     if (seoResponse) return seoResponse;
 
