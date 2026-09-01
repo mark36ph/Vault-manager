@@ -16,18 +16,50 @@ public sealed class AutopilotScheduleTargetTests
     }
 
     [Fact]
-    public void MissingScheduleDays_CountsOnlyUncoveredTargetDates()
+    public void MissingScheduledQuizzes_TwelveFutureQuizzesRefillsFourteenWithTwo()
     {
-        var now = new DateTimeOffset(2026, 8, 29, 6, 0, 0, TimeSpan.FromHours(1));
+        var now = new DateTimeOffset(2026, 9, 1, 11, 0, 0, TimeSpan.FromHours(1));
+        var history = Enumerable.Range(1, 12)
+            .Select(index => History(100 + index, now.AddDays(index).ToString("O")))
+            .ToArray();
+
+        Assert.Equal(12, AutopilotScheduleTargetPlanner.ScheduledQuizCount(history, now));
+        var missing = AutopilotScheduleTargetPlanner.MissingScheduledQuizzes(history, 14, now);
+        Assert.Equal(2, missing);
+        Assert.Equal(2, AutopilotScheduleTargetPlanner.BatchSizeForMissingDays(missing));
+    }
+
+    [Fact]
+    public void ScheduledQuizCount_IgnoresPastShortAndNotUploadedRecords()
+    {
+        var now = new DateTimeOffset(2026, 9, 1, 11, 0, 0, TimeSpan.FromHours(1));
         var history = new[]
         {
-            History(101, now.AddDays(1).Date.AddHours(9).ToString("O")),
-            History(102, now.AddDays(2).Date.AddHours(9).ToString("O")),
-            History(103, now.AddDays(4).Date.AddHours(9).ToString("O")),
-            History(104, now.AddDays(20).Date.AddHours(9).ToString("O")),
+            History(101, now.AddDays(1).ToString("O")),
+            History(102, now.AddDays(-1).ToString("O")),
+            History(103, now.AddDays(2).ToString("O"), format: "9:16"),
+            History(104, now.AddDays(3).ToString("O"), published: false),
+            History(105, "not-a-date"),
         };
 
-        Assert.Equal(4, AutopilotScheduleTargetPlanner.MissingScheduleDays(history, 7, now));
+        Assert.Equal(1, AutopilotScheduleTargetPlanner.ScheduledQuizCount(history, now));
+        Assert.Equal(6, AutopilotScheduleTargetPlanner.MissingScheduledQuizzes(history, 7, now));
+    }
+
+    [Fact]
+    public void ScheduledQuizCount_IsInventoryBasedRatherThanCalendarCoverage()
+    {
+        var now = new DateTimeOffset(2026, 9, 1, 11, 0, 0, TimeSpan.FromHours(1));
+        var sameDate = now.AddDays(2).Date.AddHours(9);
+        var history = new[]
+        {
+            History(101, sameDate.ToString("O")),
+            History(102, sameDate.AddMinutes(30).ToString("O")),
+        };
+
+        Assert.Equal(2, AutopilotScheduleTargetPlanner.ScheduledQuizCount(history, now));
+        Assert.Equal(5, AutopilotScheduleTargetPlanner.MissingScheduledQuizzes(history, 7, now));
+        Assert.Equal(5, AutopilotScheduleTargetPlanner.MissingScheduleDays(history, 7, now));
     }
 
     [Theory]
@@ -42,10 +74,10 @@ public sealed class AutopilotScheduleTargetTests
     }
 
     [Fact]
-    public void ShouldAutoFill_IsOptInAndFillsEvenOneMissingDay()
+    public void ShouldAutoFill_IsOptInAndFillsAnyMissingInventory()
     {
         var preferences = new AutopilotSchedulePreferences { TargetDays = 14, AutoFillEnabled = false };
-        var now = new DateTime(2026, 8, 29, 6, 0, 0, DateTimeKind.Utc);
+        var now = new DateTime(2026, 9, 1, 10, 0, 0, DateTimeKind.Utc);
 
         Assert.False(AutopilotScheduleTargetPlanner.ShouldAutoFill(preferences, 5, false, now));
         preferences.AutoFillEnabled = true;
@@ -58,7 +90,7 @@ public sealed class AutopilotScheduleTargetTests
     [Fact]
     public void ShouldAutoFill_UsesTwentyMinuteDuplicateStartGuard()
     {
-        var now = new DateTime(2026, 8, 29, 6, 0, 0, DateTimeKind.Utc);
+        var now = new DateTime(2026, 9, 1, 10, 0, 0, DateTimeKind.Utc);
         var preferences = new AutopilotSchedulePreferences
         {
             AutoFillEnabled = true,
@@ -70,7 +102,20 @@ public sealed class AutopilotScheduleTargetTests
     }
 
     [Fact]
-    public void DefaultPreferences_RequireTheMasterSwitchToBeTurnedOnOnce()
+    public void CancelledAutomaticLaunch_ClearsArmedBatchAndTrustedPreflight()
+    {
+        AutopilotBatchCountRequest.Arm(2);
+        AutopilotTrustedPublishingPreflight.Arm();
+
+        AutopilotBatchCountRequest.Cancel();
+        AutopilotTrustedPublishingPreflight.Cancel();
+
+        Assert.False(AutopilotBatchCountRequest.TryConsume(out _));
+        Assert.False(AutopilotTrustedPublishingPreflight.TryConsume());
+    }
+
+    [Fact]
+    public void DefaultPreferences_KeepFourteenScheduledAsTheDefaultTarget()
     {
         var preferences = new AutopilotSchedulePreferences();
         Assert.Equal(14, preferences.TargetDays);
@@ -78,11 +123,15 @@ public sealed class AutopilotScheduleTargetTests
     }
 
     [Fact]
-    public void Build79Source_UsesVisibleMasterSwitchAndFiveMinuteContinuousChecks()
+    public void Build123Source_UsesScheduledQuizInventoryAndContinuousChecks()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotScheduleTarget.cs");
         Assert.Contains("AUTOPILOT ON", source, StringComparison.Ordinal);
         Assert.Contains("AUTOPILOT OFF", source, StringComparison.Ordinal);
+        Assert.Contains("Keep at least ", source, StringComparison.Ordinal);
+        Assert.Contains(" quizzes scheduled", source, StringComparison.Ordinal);
+        Assert.Contains("MissingScheduledQuizzes", source, StringComparison.Ordinal);
+        Assert.Contains("ScheduledQuizCount", source, StringComparison.Ordinal);
         Assert.Contains("Fill schedule now", source, StringComparison.Ordinal);
         Assert.Contains("Generate + Schedule Quiz Batch", source, StringComparison.Ordinal);
         Assert.Contains("AutopilotBatchCountRequest.TryConsume", source, StringComparison.Ordinal);
@@ -96,13 +145,20 @@ public sealed class AutopilotScheduleTargetTests
     }
 
     [Fact]
-    public void Build79Source_DoesNotBurnRetryCooldownUntilProductionActuallyStarts()
+    public void Build123Source_DoesNotBurnRetryCooldownWhenProductionFailsToStart()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotScheduleTarget.cs");
         var raise = source.IndexOf("_quizAutopilotPrimaryButton.RaiseEvent", StringComparison.Ordinal);
+        var startedCheck = source.IndexOf("productionStarted = _quizBatchAutomationRunning || _quizBatchRenderRunning", StringComparison.Ordinal);
+        var failedGuard = source.IndexOf("if (!productionStarted)", startedCheck, StringComparison.Ordinal);
         var stamp = source.IndexOf("preferences.LastAutomaticFillUtc = DateTime.UtcNow", StringComparison.Ordinal);
-        Assert.True(raise >= 0, "The existing tested production button should still be used.");
-        Assert.True(stamp > raise, "The retry cooldown must only be stamped after production is actually launched.");
+
+        Assert.True(raise >= 0, "The tested production button should still be used.");
+        Assert.True(startedCheck > raise, "The launch must verify that the batch pipeline actually started.");
+        Assert.True(failedGuard > startedCheck, "A failed start must take the no-cooldown path.");
+        Assert.True(stamp > failedGuard, "The retry cooldown must be stamped only after the successful-start guard.");
+        Assert.Contains("AutopilotBatchCountRequest.Cancel()", source, StringComparison.Ordinal);
+        Assert.Contains("AutopilotTrustedPublishingPreflight.Cancel()", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -116,14 +172,18 @@ public sealed class AutopilotScheduleTargetTests
         Assert.Contains("SocialPublishingAccountGuard.EnsureMatches", source, StringComparison.Ordinal);
     }
 
-    private static QuizHistorySummary History(int id, string scheduledFor) =>
+    private static QuizHistorySummary History(
+        int id,
+        string scheduledFor,
+        string format = "16:9",
+        bool published = true) =>
         new(
             Id: id,
             Title: "Science Quiz",
-            Created: "2026-08-29 05:00:00",
+            Created: "2026-09-01 05:00:00",
             QuestionCount: 10,
             Categories: "Science",
-            Format: "16:9",
+            Format: format,
             QuestionSeconds: 8,
             ShuffleAnswers: true,
             ProjectFolder: $"C:/Factburst/Science-{id}",
@@ -133,10 +193,10 @@ public sealed class AutopilotScheduleTargetTests
             YouTubeDescription: "Description",
             Hashtags: "#quiz",
             PinnedComment: "How many did you get right?",
-            PublishedOnYouTube: true,
-            YouTubeUrl: $"https://www.youtube.com/watch?v=abcdefgh{id % 10:0}",
+            PublishedOnYouTube: published,
+            YouTubeUrl: published ? $"https://www.youtube.com/watch?v=abcdefgh{id % 10:0}" : "",
             YouTubeFirstCommentId: "",
-            YouTubePrivacy: "private",
+            YouTubePrivacy: published ? "private" : "",
             YouTubeScheduledFor: scheduledFor);
 
     private static string ReadRepositoryFile(string relativePath)

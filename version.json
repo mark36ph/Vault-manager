@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.97",
-  "build": 122,
+  "latest_version": "1.0.98",
+  "build": 123,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 122 turns Library into the first content-management view without adding another sidebar page or another lifecycle database.",
-    "Every quiz now receives a derived Stage and Next action from existing Quiz History, canonical publication state and local rendered-video availability.",
-    "Workflow filters let Library show All, Needs attention, Scheduled, Published, Uploaded, Rendered or Exported quizzes, with live visible and attention counts.",
-    "Publication failures take priority, scheduled quizzes detect missing project folders, and historical published quizzes are not incorrectly marked broken when old local folders have been archived.",
-    "Existing Questions, Metadata, Publication State, YouTube, Folder and More actions continue to use the original Quiz History records unchanged."
+    "Build 123 fixes Autopilot schedule replenishment so the target means future scheduled full quizzes, matching the Scheduled count shown in the app.",
+    "A 14-quiz target with 12 future scheduled quizzes now requests a two-quiz generation batch and lets the existing scheduler place them on the next free YouTube dates.",
+    "Past releases, Shorts, unscheduled records and quizzes that were not uploaded to YouTube no longer inflate the refill inventory.",
+    "Autopilot now confirms the batch pipeline actually started before applying its 20-minute duplicate-start cooldown.",
+    "Failed starts clear temporary batch and trusted-publishing requests so Autopilot can retry cleanly instead of silently waiting after a false launch."
   ]
 }
