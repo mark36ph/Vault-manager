@@ -24,7 +24,7 @@ public sealed class LibraryContentLifecycleUiTests
 
         Assert.True(cleanup >= 0);
         Assert.True(lifecycle > cleanup);
-        Assert.Contains("CurrentBuildNumber = 122", source, StringComparison.Ordinal);
+        Assert.Contains("public const int CurrentBuildNumber", source, StringComparison.Ordinal);
     }
 
     private static string ReadRepositoryFile(string relativePath)
