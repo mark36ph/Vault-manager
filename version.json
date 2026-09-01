@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.96",
-  "build": 121,
+  "latest_version": "1.0.97",
+  "build": 122,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 121 removes the white Windows icon gutter from the Library More dropdown.",
-    "The More menu now uses Factburst-only ContextMenu, MenuItem and separator templates with a continuous dark background and cyan border.",
-    "Hover, disabled and destructive menu states remain visually distinct without falling back to default Windows chrome.",
-    "A regression check protects the custom menu chrome so the white gutter cannot silently return.",
-    "Build 120 Publication State header contrast and More button outline improvements remain included unchanged."
+    "Build 122 turns Library into the first content-management view without adding another sidebar page or another lifecycle database.",
+    "Every quiz now receives a derived Stage and Next action from existing Quiz History, canonical publication state and local rendered-video availability.",
+    "Workflow filters let Library show All, Needs attention, Scheduled, Published, Uploaded, Rendered or Exported quizzes, with live visible and attention counts.",
+    "Publication failures take priority, scheduled quizzes detect missing project folders, and historical published quizzes are not incorrectly marked broken when old local folders have been archived.",
+    "Existing Questions, Metadata, Publication State, YouTube, Folder and More actions continue to use the original Quiz History records unchanged."
   ]
 }
