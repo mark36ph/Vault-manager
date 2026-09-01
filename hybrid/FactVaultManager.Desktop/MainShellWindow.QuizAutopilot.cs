@@ -9,6 +9,7 @@ namespace FactVaultManager.Desktop;
 public partial class MainShellWindow
 {
     private const string QuizAutopilotHookKey = "quiz-autopilot-hooked";
+    private static readonly TimeSpan QuizAutopilotMediaPersistencePollInterval = TimeSpan.FromSeconds(1);
     private static readonly bool QuizAutopilotUiRegistered = RegisterQuizAutopilotUi();
     private bool _quizAutopilotFinishing;
 
@@ -44,22 +45,26 @@ public partial class MainShellWindow
         if (_quizAutopilotFinishing)
             return;
 
-        var existingIds = _data.GetQuizHistory(2_000)
+        var existingIds = await Task.Run(() => _data.GetQuizHistory(2_000)
             .Select(history => history.Id)
-            .ToHashSet();
+            .ToHashSet());
+        var persistedIds = new HashSet<int>();
+        var questionBank = await Task.Run(LoadQuizAutopilotQuestionBank);
 
         // The original Generate + Schedule click handler runs first. It yields before
         // rendering the first quiz, so this companion handler can preserve image media
-        // while the batch is being built and before its promo renderer needs it.
+        // while the batch is being built and before its promo renderer needs it. Keep
+        // database scans and media copies off the WPF dispatcher so Autopilot does not
+        // make the rest of the app unresponsive while a batch is rendering.
         await Dispatcher.Yield(DispatcherPriority.Background);
         while (_quizBatchAutomationRunning || _quizBatchRenderRunning)
         {
-            TryPersistNewQuizProjectQuestionMedia(existingIds);
-            await Task.Delay(150);
+            await Task.Run(() => TryPersistNewQuizProjectQuestionMedia(existingIds, persistedIds, questionBank));
+            await Task.Delay(QuizAutopilotMediaPersistencePollInterval);
         }
-        TryPersistNewQuizProjectQuestionMedia(existingIds);
+        await Task.Run(() => TryPersistNewQuizProjectQuestionMedia(existingIds, persistedIds, questionBank));
 
-        var created = _data.GetQuizHistory(2_000)
+        var created = await Task.Run(() => _data.GetQuizHistory(2_000)
             .Where(history => !existingIds.Contains(history.Id))
             .Where(history =>
                 history.PublishedOnYouTube &&
@@ -70,7 +75,7 @@ public partial class MainShellWindow
                     out _))
             .OrderBy(history => history.YouTubeScheduledFor, StringComparer.Ordinal)
             .ThenBy(history => history.Id)
-            .ToList();
+            .ToList());
         if (created.Count == 0)
             return;
 
@@ -107,26 +112,41 @@ public partial class MainShellWindow
         }
     }
 
-    private void TryPersistNewQuizProjectQuestionMedia(ISet<int> existingIds)
+    private IReadOnlyDictionary<int, QuizQuestion> LoadQuizAutopilotQuestionBank()
     {
-        IReadOnlyDictionary<int, QuizQuestion> bank;
         try
         {
-            bank = _data.GetQuizQuestions(limit: 10_000)
+            return _data.GetQuizQuestions(limit: 10_000)
                 .Where(question => question.Id > 0)
                 .GroupBy(question => question.Id)
                 .ToDictionary(group => group.Key, group => group.First());
         }
         catch
         {
-            return;
+            return new Dictionary<int, QuizQuestion>();
         }
+    }
 
-        foreach (var history in _data.GetQuizHistory(2_000).Where(history => !existingIds.Contains(history.Id)))
+    private void TryPersistNewQuizProjectQuestionMedia(
+        ISet<int> existingIds,
+        ISet<int> persistedIds,
+        IReadOnlyDictionary<int, QuizQuestion> bank)
+    {
+        foreach (var history in _data.GetQuizHistory(2_000).Where(history =>
+                     !existingIds.Contains(history.Id) &&
+                     !persistedIds.Contains(history.Id)))
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(history.ProjectFolder) ||
+                    !Directory.Exists(history.ProjectFolder) ||
+                    !File.Exists(Path.Combine(history.ProjectFolder, "quiz.json")))
+                {
+                    continue;
+                }
+
                 PersistQuizProjectQuestionMedia(history.ProjectFolder, bank);
+                persistedIds.Add(history.Id);
             }
             catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
             {

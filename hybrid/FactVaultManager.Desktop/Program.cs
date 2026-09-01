@@ -26,7 +26,6 @@ public static class Program
         {
             VelopackApp.Build().Run();
             InstalledDataMigration.Run();
-            InstalledDatabaseRecovery.Run();
             InstalledLibraryRecoveryV2.Run();
             InstalledQuestionLibraryRecoveryV3.Run();
             InstalledProjectConsolidation.Run();
