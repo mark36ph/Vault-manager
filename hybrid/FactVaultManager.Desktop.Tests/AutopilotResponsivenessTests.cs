@@ -72,13 +72,31 @@ public sealed class AutopilotResponsivenessTests
     [Fact]
     public void Build137_RemovesNeedsYouCompatibilityShim()
     {
-        var build = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var countSync = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
         var alignedQueue = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/AutopilotNeedsYouAlignedQueue.cs");
 
-        Assert.Contains("CurrentBuildNumber = 137", build, StringComparison.Ordinal);
         Assert.DoesNotContain("private void SyncAutopilotNeedsYouCount()", countSync, StringComparison.Ordinal);
         Assert.Contains("await SyncAutopilotNeedsYouCountAsync();", alignedQueue, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build138_ProjectFolderReadinessDoesNotRunRecursiveRecoveryDuringRefresh()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.ScheduledReleaseReadiness.cs");
+
+        Assert.DoesNotContain("_data.RecoverQuizHistoryProjectFolders();", source, StringComparison.Ordinal);
+        Assert.Contains("var local = await Task.Run(() =>", source, StringComparison.Ordinal);
+        Assert.Contains("var histories = _data.GetQuizHistory(2_000);", source, StringComparison.Ordinal);
+        Assert.Contains("var rows = await Task.Run(() =>", source, StringComparison.Ordinal);
+        Assert.Contains("ScheduledReleaseReadinessPlanner.Build(", source, StringComparison.Ordinal);
+        Assert.Contains("if (_scheduledReadinessRefreshing || _scheduledReadinessGrid is null) return;", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build138_IsTheProjectFolderResponsivenessRelease()
+    {
+        var build = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
+        Assert.Contains("CurrentBuildNumber = 138", build, StringComparison.Ordinal);
     }
 
     private static string ReadRepositoryFile(string relativePath)
