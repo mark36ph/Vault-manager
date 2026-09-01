@@ -28,7 +28,8 @@ public partial class MainShellWindow
         if (sender is not Button button ||
             !string.Equals(button.Tag?.ToString(), QuizBatchAutomationButtonTag, StringComparison.Ordinal) ||
             Window.GetWindow(button) is not MainShellWindow window ||
-            button.Resources.Contains(QuizAutopilotHookKey))n        {
+            button.Resources.Contains(QuizAutopilotHookKey))
+        {
             return;
         }
 
