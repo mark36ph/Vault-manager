@@ -641,7 +641,7 @@ public partial class MainShellWindow
         {
             _alignedTaskQueueWindow = null;
             await RefreshAutopilotHomeAsync();
-            SyncAutopilotNeedsYouCount();
+            await SyncAutopilotNeedsYouCountAsync();
         }
     }
 
