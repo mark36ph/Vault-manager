@@ -103,11 +103,6 @@ public partial class MainShellWindow
             }));
     }
 
-    // Keep the original entry point for older aligned-queue code. The work itself is now async
-    // and guarded, so callers cannot bring the state/snapshot file reads back onto the dispatcher.
-    private void SyncAutopilotNeedsYouCount() =>
-        _ = SyncAutopilotNeedsYouCountAsync();
-
     private async Task SyncAutopilotNeedsYouCountAsync()
     {
         if (_autopilotHomeRefreshing ||
