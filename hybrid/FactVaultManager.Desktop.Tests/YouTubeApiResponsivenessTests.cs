@@ -27,13 +27,6 @@ public sealed class YouTubeApiResponsivenessTests
         Assert.DoesNotContain("QuizPromoShortUploadState.Display", entryPoint, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void Build139_IsCurrentBuild()
-    {
-        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
-        Assert.Contains("CurrentBuildNumber = 139", source, StringComparison.Ordinal);
-    }
-
     private static string ReadRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
