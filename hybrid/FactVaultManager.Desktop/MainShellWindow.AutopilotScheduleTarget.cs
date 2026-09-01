@@ -45,11 +45,15 @@ public partial class MainShellWindow
         var preferences = AutopilotSchedulePreferencesStore.Load(_data.SettingsPath);
         ApplyAutopilotMasterState(preferences.AutoFillEnabled);
 
-        Loaded += async (_, _) =>
-        {
-            await Task.Delay(TimeSpan.FromSeconds(15));
-            await EvaluateAutomaticScheduleFillAsync();
-        };
+        // BuildInfo calls this from the window Loaded route, so attaching another Loaded
+        // handler here is unreliable. Queue the delayed startup evaluation directly.
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            new Action(async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(15));
+                await EvaluateAutomaticScheduleFillAsync();
+            }));
 
         _autopilotScheduleTargetTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
