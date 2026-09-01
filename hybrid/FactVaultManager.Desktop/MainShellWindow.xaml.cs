@@ -16,7 +16,7 @@ public partial class MainShellWindow : Window
         Loaded += (_, _) =>
         {
             RefreshAll();
-            _data.ResumeQuizFolderCleanup();
+            _data.ResumeQuizFolderCleanupSafely();
             InitializeUploadManagerThumbnailRegenerationActions();
         };
     }
