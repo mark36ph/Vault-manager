@@ -40,6 +40,7 @@ public static class Program
             AppInteractionPolish.Initialize();
             application.DispatcherUnhandledException += Application_DispatcherUnhandledException;
             var mainWindow = new MainShellWindow();
+            mainWindow.PrepareFactburstFirstPaint();
             mainWindow.InitializeQuizHeaderActionsForApp();
             mainWindow.InitializeQuizWorkspaceNavigationForApp();
             mainWindow.InitializeFactburstTrackerForApp();
