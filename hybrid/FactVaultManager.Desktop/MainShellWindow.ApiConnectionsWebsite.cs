@@ -139,9 +139,9 @@ public partial class MainShellWindow
         var baseUrl = RequireApiValue(_apiConnectionsTrackerBaseUrl?.Text, "Website tracker base URL");
         var apiKey = RequireApiValue(_apiConnectionsTrackerApiKey?.Password, "Website tracker API key");
 
-        using var client = new FactburstLinkTrackerClient();
-        var health = await client.HealthAsync(baseUrl);
-        if (!health.Ok)
+        var client = new FactburstLinkTrackerClient();
+        var healthy = await client.HealthAsync(baseUrl);
+        if (!healthy)
             throw new InvalidOperationException("The Factburst tracker health check did not report OK.");
 
         await client.FetchStatsAsync(baseUrl, apiKey);
