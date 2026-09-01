@@ -4,7 +4,7 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    public const int CurrentBuildNumber = 140;
+    public const int CurrentBuildNumber = 141;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
 
@@ -23,6 +23,9 @@ public partial class MainShellWindow
         if (sender is MainShellWindow window)
         {
             window.Title = $"Factburst Quiz Manager • Build {CurrentBuildNumber}";
+            window.InitializeSettingsWorkflow();
+            window.InitializeApiConnectionsSettings();
+            window.FinalizeApiConnectionsYouTubeButton();
             window.InitializeFinalVideoLabelSync();
             window.InitializeQuizBatchButtonSync();
             window.InitializeQuizYouTubePackagingMenuSync();
