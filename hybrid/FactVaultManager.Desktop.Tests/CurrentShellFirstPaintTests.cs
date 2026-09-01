@@ -64,6 +64,19 @@ public sealed class CurrentShellFirstPaintTests
         Assert.DoesNotContain("StyleQuizHistoryButton(more, Color.FromRgb(160, 175, 215));", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void LibraryMoreMenu_ReplacesDefaultWindowsIconGutter()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.QuizHistoryUiCleanup.cs");
+
+        Assert.Contains("Template = CreateQuizHistoryContextMenuTemplate()", source, StringComparison.Ordinal);
+        Assert.Contains("Style = menuItemStyle", source, StringComparison.Ordinal);
+        Assert.Contains("CreateQuizHistoryContextMenuSeparator()", source, StringComparison.Ordinal);
+        Assert.Contains("new ControlTemplate(typeof(ContextMenu))", source, StringComparison.Ordinal);
+        Assert.Contains("new ControlTemplate(typeof(MenuItem))", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("menu.Items.Add(new Separator());", source, StringComparison.Ordinal);
+    }
+
     private static string ReadRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
