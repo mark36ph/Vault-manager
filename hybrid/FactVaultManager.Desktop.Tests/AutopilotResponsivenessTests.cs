@@ -92,13 +92,6 @@ public sealed class AutopilotResponsivenessTests
         Assert.Contains("if (_scheduledReadinessRefreshing || _scheduledReadinessGrid is null) return;", source, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void Build138_IsTheProjectFolderResponsivenessRelease()
-    {
-        var build = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
-        Assert.Contains("CurrentBuildNumber = 138", build, StringComparison.Ordinal);
-    }
-
     private static string ReadRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
