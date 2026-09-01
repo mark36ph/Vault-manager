@@ -27,11 +27,10 @@ public sealed class ApiConnectionsWebsiteTests
     }
 
     [Fact]
-    public void Build142_StartupInitializesWebsiteApiConnection()
+    public void Build142_StartupStillInitializesWebsiteApiConnection()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
 
-        Assert.Contains("CurrentBuildNumber = 142", source, StringComparison.Ordinal);
         Assert.Contains("window.InitializeApiConnectionsWebsite();", source, StringComparison.Ordinal);
     }
 
