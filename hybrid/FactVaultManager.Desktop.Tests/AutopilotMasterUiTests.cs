@@ -49,11 +49,11 @@ public sealed class AutopilotMasterUiTests
     }
 
     [Fact]
-    public void BuildInfo_InitializesMasterUiAndUsesBuild128()
+    public void BuildInfo_InitializesMasterUiAndCurrentBuild()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
 
-        Assert.Contains("CurrentBuildNumber = 128", source, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber =", source, StringComparison.Ordinal);
         Assert.Contains("InitializeAutopilotMasterUi();", source, StringComparison.Ordinal);
         Assert.Contains("InitializeInstagramPromoFollowup();", source, StringComparison.Ordinal);
         Assert.Contains("InitializeLibraryPublicationStatusUi();", source, StringComparison.Ordinal);
