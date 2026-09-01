@@ -7,7 +7,7 @@ public sealed class AutopilotSchedulePreferences
     // Kept as TargetDays for settings-file compatibility. The value now represents the
     // minimum number of future full quizzes Autopilot keeps scheduled.
     public int TargetDays { get; set; } = 14;
-    public bool AutoFillEnabled { get; set; }
+    public bool AutoFillEnabled { get; set; } = true;
     public DateTime? LastAutomaticFillUtc { get; set; }
 }
 
