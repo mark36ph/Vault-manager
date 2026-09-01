@@ -30,7 +30,6 @@ public partial class MainShellWindow
 
         _apiConnectionsSettingsInitialized = true;
 
-        CollapseLegacyImageApiKeySection();
         foreach (var key in new[] { "ai", "youtube", "facebook", "instagram" })
         {
             if (_settingsNavButtons.TryGetValue(key, out var oldButton))
@@ -39,8 +38,6 @@ public partial class MainShellWindow
 
         Detach(OpenAiKeyPasswordBox);
         Detach(OpenAiModelTextBox);
-        Detach(PexelsKeyPasswordBox);
-        Detach(PixabayKeyPasswordBox);
         Detach(YouTubeApiKeyPasswordBox);
         DetachIfPresent(_settingsYouTubeClientId);
         DetachIfPresent(_settingsYouTubeClientSecret);
@@ -70,14 +67,6 @@ public partial class MainShellWindow
         panel.Children.Insert(Math.Max(0, insertAfter), button);
     }
 
-    private void CollapseLegacyImageApiKeySection()
-    {
-        if (PixabayKeyPasswordBox.Parent is not FrameworkElement keyStack)
-            return;
-        if (keyStack.Parent is FrameworkElement section)
-            section.Visibility = Visibility.Collapsed;
-    }
-
     private static void DetachIfPresent(FrameworkElement? element)
     {
         if (element is not null)
@@ -102,28 +91,10 @@ public partial class MainShellWindow
             OpenAiKeyPasswordBox,
             "openai",
             TestOpenAiConnectionAsync,
-            "Used for question generation, research and production AI tasks.");
+            "Used for quiz question generation and related Factburst quiz text tasks.");
         openAiStack.Children.Add(SettingsFieldLabel("Text model"));
         OpenAiModelTextBox.Margin = new Thickness(0, 5, 0, 0);
         openAiStack.Children.Add(OpenAiModelTextBox);
-
-        var images = SettingsSection("Image providers");
-        page.Children.Add(images);
-        var imagesStack = (StackPanel)images.Child;
-        AddApiCredentialRow(
-            imagesStack,
-            "Pixabay API key",
-            PixabayKeyPasswordBox,
-            "pixabay",
-            TestPixabayConnectionAsync,
-            "Tests a small image search; no image is downloaded.");
-        AddApiCredentialRow(
-            imagesStack,
-            "Pexels API key",
-            PexelsKeyPasswordBox,
-            "pexels",
-            TestPexelsConnectionAsync,
-            "Tests a small image search; no image is downloaded.");
 
         var youtube = SettingsSection("YouTube");
         page.Children.Add(youtube);
@@ -287,8 +258,6 @@ public partial class MainShellWindow
     private void InitializeApiConnectionStatuses()
     {
         SetConfiguredStatus("openai", OpenAiKeyPasswordBox.Password);
-        SetConfiguredStatus("pixabay", PixabayKeyPasswordBox.Password);
-        SetConfiguredStatus("pexels", PexelsKeyPasswordBox.Password);
         SetConfiguredStatus("youtube-api", YouTubeApiKeyPasswordBox.Password);
         SetConfiguredStatus("facebook", _settingsFacebookPageAccessToken?.Password);
         SetConfiguredStatus("instagram", _settingsInstagramAccessToken?.Password);
@@ -379,22 +348,6 @@ public partial class MainShellWindow
         if (!response.IsSuccessStatusCode)
             throw new InvalidOperationException($"OpenAI rejected the key (HTTP {(int)response.StatusCode}).");
         return "Working — OpenAI accepted the API key";
-    }
-
-    private async Task<string> TestPixabayConnectionAsync()
-    {
-        var key = RequireApiValue(PixabayKeyPasswordBox.Password, "Pixabay API key");
-        using var provider = new NativePixabayAssetProvider(key);
-        await provider.SearchAsync("nature", "image", 3);
-        return "Working — Pixabay search succeeded";
-    }
-
-    private async Task<string> TestPexelsConnectionAsync()
-    {
-        var key = RequireApiValue(PexelsKeyPasswordBox.Password, "Pexels API key");
-        using var provider = new NativePexelsAssetProvider(key);
-        await provider.SearchAsync("nature", "image", 1);
-        return "Working — Pexels search succeeded";
     }
 
     private async Task<string> TestYouTubeApiConnectionAsync()
