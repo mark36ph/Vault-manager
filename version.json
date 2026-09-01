@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.113",
-  "build": 138,
+  "latest_version": "1.0.114",
+  "build": 139,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 138 fixes the slowdown that can appear after configuring the Projects Folder by removing recursive legacy project-path recovery from normal Release Readiness and Autopilot refreshes.",
-    "Release Readiness now loads quiz history, tracker settings and project-backed readiness files away from the WPF UI thread, so large or network-backed project folders do not block the rest of the app while status is being calculated.",
-    "The existing readiness refresh guard remains in place so repeated navigation or refresh requests cannot stack overlapping scans.",
-    "Legacy project-path recovery code remains available for explicit repair and diagnostics, while current startup consolidation and database backup/restore protections remain unchanged."
+    "Build 139 fixes an app freeze that could appear after a YouTube Data API key was configured and YouTube analytics became active.",
+    "Upload Manager now builds its quiz-history, social-journal and per-project promo-status snapshot away from the WPF UI thread, preventing YouTube analytics refreshes from triggering blocking project-folder scans.",
+    "Upload Manager refreshes now use an overlap guard so repeated analytics, Library and upload-state refreshes cannot stack the same filesystem work.",
+    "YouTube API key storage, OAuth account connection and publishing behaviour are unchanged; this release is focused on responsiveness."
   ]
 }
