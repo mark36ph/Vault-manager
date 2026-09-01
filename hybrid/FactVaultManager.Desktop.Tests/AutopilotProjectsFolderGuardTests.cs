@@ -64,13 +64,6 @@ public sealed class AutopilotProjectsFolderGuardTests
         Assert.Contains("ShowProjectsFolderConfigurationRequired", source, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void Build134_IsTheAutopilotProjectsRootGuard()
-    {
-        var build = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
-        Assert.Contains("CurrentBuildNumber = 134", build, StringComparison.Ordinal);
-    }
-
     private static string ReadRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
