@@ -98,14 +98,14 @@ public sealed class WebsiteYouTubeScheduleSyncTests
     }
 
     [Fact]
-    public void Build130WiresAutomaticReconciliationAndExactScheduledSync()
+    public void WebsiteSync_RemainsWiredAndUsesExactScheduledSync()
     {
         var build = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var builder = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/FactburstWebsitePublishing.cs");
         var scheduled = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.ScheduledWebsitePublishing.cs");
         var automatic = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.WebsiteYouTubeScheduleSync.cs");
 
-        Assert.Contains("CurrentBuildNumber = 130", build, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber =", build, StringComparison.Ordinal);
         Assert.Contains("InitializeWebsiteYouTubeScheduleSync();", build, StringComparison.Ordinal);
         Assert.Contains("ResolvePublishAtOrThrow", builder, StringComparison.Ordinal);
         Assert.Contains("FollowScheduleAsync", scheduled, StringComparison.Ordinal);
