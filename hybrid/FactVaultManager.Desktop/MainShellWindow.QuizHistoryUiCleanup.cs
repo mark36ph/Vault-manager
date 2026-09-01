@@ -148,7 +148,7 @@ public partial class MainShellWindow
             ToolTip = "Reopen, publish, archive and delete actions",
             ContextMenu = menu,
         };
-        StyleQuizHistoryButton(more, Color.FromRgb(160, 175, 215));
+        StyleQuizHistoryButton(more, Color.FromRgb(105, 118, 255));
         more.Click += (_, _) =>
         {
             if (more.ContextMenu is null)
