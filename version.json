@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.112",
-  "build": 137,
+  "latest_version": "1.0.113",
+  "build": 138,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 137 removes the obsolete five-minute Autopilot recovery supervisor source now that it is no longer part of startup.",
-    "The retired Build 52-54 installed-database recovery v1 implementation and its dedicated tests have been removed; current Library V2/V3 recovery, project consolidation and database backup/restore protections remain in place.",
-    "The aligned Needs You task queue now awaits the current asynchronous count refresh directly, removing the temporary compatibility shim.",
-    "This is a maintenance cleanup release with no intended change to normal quiz creation, publishing or recovery behavior."
+    "Build 138 fixes the slowdown that can appear after configuring the Projects Folder by removing recursive legacy project-path recovery from normal Release Readiness and Autopilot refreshes.",
+    "Release Readiness now loads quiz history, tracker settings and project-backed readiness files away from the WPF UI thread, so large or network-backed project folders do not block the rest of the app while status is being calculated.",
+    "The existing readiness refresh guard remains in place so repeated navigation or refresh requests cannot stack overlapping scans.",
+    "Legacy project-path recovery code remains available for explicit repair and diagnostics, while current startup consolidation and database backup/restore protections remain unchanged."
   ]
 }
