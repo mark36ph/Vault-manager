@@ -154,6 +154,31 @@ public partial class MainShellWindow
             AlternatingRowBackground = new SolidColorBrush(Color.FromRgb(29, 48, 122)),
             BorderThickness = new Thickness(0),
         };
+
+        var headerStyle = new Style(typeof(DataGridColumnHeader));
+        headerStyle.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(13, 24, 78))));
+        headerStyle.Setters.Add(new Setter(
+            Control.ForegroundProperty,
+            new SolidColorBrush(Color.FromRgb(255, 220, 94))));
+        headerStyle.Setters.Add(new Setter(
+            Control.FontWeightProperty,
+            FontWeights.SemiBold));
+        headerStyle.Setters.Add(new Setter(
+            Control.PaddingProperty,
+            new Thickness(10, 8, 10, 8)));
+        headerStyle.Setters.Add(new Setter(
+            Control.HorizontalContentAlignmentProperty,
+            HorizontalAlignment.Left));
+        headerStyle.Setters.Add(new Setter(
+            DataGridColumnHeader.BorderBrushProperty,
+            new SolidColorBrush(Color.FromRgb(0, 204, 255))));
+        headerStyle.Setters.Add(new Setter(
+            DataGridColumnHeader.BorderThicknessProperty,
+            new Thickness(0, 0, 1, 1)));
+        grid.ColumnHeaderStyle = headerStyle;
+
         grid.Columns.Add(new DataGridTextColumn
         {
             Header = "Content",
