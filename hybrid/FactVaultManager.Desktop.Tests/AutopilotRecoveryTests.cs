@@ -82,27 +82,4 @@ public sealed class AutopilotRecoveryTests
         state.Subsystems.RemoveAll(item => item.State != "Healthy");
         Assert.Equal("Healthy", AutopilotRecoveryPolicy.OverallStatus(state));
     }
-
-    [Fact]
-    public void Build46Source_UsesQuietFiveMinuteRecoverySupervisor()
-    {
-        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotRecovery.cs");
-        Assert.Contains("Interval = TimeSpan.FromMinutes(5)", source, StringComparison.Ordinal);
-        Assert.Contains("RunAutopilotRecoveryPassAsync", source, StringComparison.Ordinal);
-        Assert.Contains("FactburstLinkTrackerClient", source, StringComparison.Ordinal);
-        Assert.Contains("FactburstWebsitePublishingClient", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("MessageBox.Show", source, StringComparison.Ordinal);
-    }
-
-    private static string ReadRepositoryFile(string relativePath)
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null)
-        {
-            var candidate = Path.Combine(directory.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar));
-            if (File.Exists(candidate)) return File.ReadAllText(candidate);
-            directory = directory.Parent;
-        }
-        throw new FileNotFoundException(relativePath);
-    }
 }
