@@ -70,10 +70,15 @@ public sealed class AutopilotResponsivenessTests
     }
 
     [Fact]
-    public void Build136_IsTheAutopilotResponsivenessRelease()
+    public void Build137_RemovesNeedsYouCompatibilityShim()
     {
         var build = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
-        Assert.Contains("CurrentBuildNumber = 136", build, StringComparison.Ordinal);
+        var countSync = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
+        var alignedQueue = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/AutopilotNeedsYouAlignedQueue.cs");
+
+        Assert.Contains("CurrentBuildNumber = 137", build, StringComparison.Ordinal);
+        Assert.DoesNotContain("private void SyncAutopilotNeedsYouCount()", countSync, StringComparison.Ordinal);
+        Assert.Contains("await SyncAutopilotNeedsYouCountAsync();", alignedQueue, StringComparison.Ordinal);
     }
 
     private static string ReadRepositoryFile(string relativePath)
