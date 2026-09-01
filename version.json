@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.99",
-  "build": 124,
+  "latest_version": "1.0.100",
+  "build": 125,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 124 makes the Autopilot master ON/OFF state visible on the actual Autopilot home page instead of relying on a hidden Loaded-event control injection.",
-    "When Autopilot is ON, schedule replenishment is automatic: turning it on evaluates the target immediately, the saved ON state checks again after startup, and the existing five-minute supervisor keeps the schedule topped up.",
-    "The Autopilot header now exposes the future scheduled-quiz target directly so the master state and target are always visible together.",
-    "Fill schedule now remains only as an optional legacy/manual override; normal Autopilot operation does not require clicking it.",
-    "The visible master hint explicitly shows when automatic refill is active or paused."
+    "Build 125 fixes the Autopilot startup race that could leave the real home page showing only the Working badge with no ON/OFF master switch.",
+    "The master controls are now queued immediately from startup and retry until the Autopilot header exists, instead of registering a second Loaded handler after the window has already loaded.",
+    "The automatic schedule refill startup check is queued directly as well, so Autopilot ON reliably evaluates the future scheduled-quiz target without a Fill Schedule click.",
+    "When no Autopilot preference has ever been saved, Factburst now defaults to ON with a target of 14 scheduled quizzes; an explicitly saved OFF state is still respected.",
+    "The existing five-minute refill supervisor, safe batch scheduling, account guard and failed-start no-cooldown behavior remain unchanged."
   ]
 }
