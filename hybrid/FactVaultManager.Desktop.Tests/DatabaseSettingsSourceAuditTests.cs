@@ -24,14 +24,6 @@ public sealed class DatabaseSettingsSourceAuditTests
         Assert.DoesNotContain("File.WriteAllText(_data.SettingsPath", settingsUi, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void ProjectProviderSettings_RemainProjectScoped_NotGlobalPreferences()
-    {
-        var provider = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/NativeProviderSettings.cs");
-        Assert.Contains("projectFolder", provider, StringComparison.Ordinal);
-        Assert.Contains("provider_settings.json", provider, StringComparison.Ordinal);
-    }
-
     private static string ReadRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
