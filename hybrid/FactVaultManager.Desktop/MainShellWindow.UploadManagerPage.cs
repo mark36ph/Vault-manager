@@ -16,6 +16,7 @@ public partial class MainShellWindow
     private TextBlock? _uploadManagerScheduledText;
     private TextBlock? _uploadManagerCommentReadyText;
     private TextBlock? _uploadManagerCompleteText;
+    private bool _uploadManagerRefreshRunning;
 
     private void InitializeUploadManagerPage()
     {
@@ -328,7 +329,39 @@ public partial class MainShellWindow
 
     private void RefreshUploadManager()
     {
-        if (!_uploadManagerPageInitialized || _uploadManagerGrid is null) return;
+        if (!_uploadManagerPageInitialized || _uploadManagerGrid is null || _uploadManagerRefreshRunning)
+            return;
+
+        _uploadManagerRefreshRunning = true;
+        _ = RefreshUploadManagerAsync();
+    }
+
+    private async Task RefreshUploadManagerAsync()
+    {
+        try
+        {
+            var snapshot = await Task.Run(BuildUploadManagerSnapshot);
+            if (!_uploadManagerPageInitialized || _uploadManagerGrid is null)
+                return;
+
+            _uploadManagerGrid.ItemsSource = snapshot.History;
+            _uploadManagerNeedsUploadText!.Text = snapshot.NeedsUpload.ToString("N0");
+            _uploadManagerScheduledText!.Text = snapshot.Scheduled.ToString("N0");
+            _uploadManagerCommentReadyText!.Text = snapshot.CommentReady.ToString("N0");
+            _uploadManagerCompleteText!.Text = snapshot.Complete.ToString("N0");
+        }
+        catch (Exception error)
+        {
+            Debug.WriteLine("Upload Manager refresh: " + error);
+        }
+        finally
+        {
+            _uploadManagerRefreshRunning = false;
+        }
+    }
+
+    private UploadManagerSnapshot BuildUploadManagerSnapshot()
+    {
         var journal = _data.SocialUploadJournal.List()
             .GroupBy(entry => entry.HistoryId)
             .ToDictionary(group => group.Key, group => group.ToList());
@@ -343,14 +376,21 @@ public partial class MainShellWindow
                     : QuizPromoShortUploadState.Display(item.ProjectFolder),
             })
             .ToList();
-        _uploadManagerGrid.ItemsSource = history;
-        _uploadManagerNeedsUploadText!.Text = history.Count(item =>
-            SocialUploadQueuePlanner.RemainingDestinations(item) != SocialUploadDestination.None).ToString("N0");
-        _uploadManagerScheduledText!.Text = history.Count(item => item.YouTubeIsScheduled || item.FacebookIsScheduled).ToString("N0");
-        _uploadManagerCommentReadyText!.Text = history.Count(item => item.FirstCommentDisplay == "Ready to post").ToString("N0");
-        _uploadManagerCompleteText!.Text = history.Count(item =>
-            SocialUploadQueuePlanner.RemainingDestinations(item) == SocialUploadDestination.None).ToString("N0");
+
+        return new UploadManagerSnapshot(
+            history,
+            history.Count(item => SocialUploadQueuePlanner.RemainingDestinations(item) != SocialUploadDestination.None),
+            history.Count(item => item.YouTubeIsScheduled || item.FacebookIsScheduled),
+            history.Count(item => item.FirstCommentDisplay == "Ready to post"),
+            history.Count(item => SocialUploadQueuePlanner.RemainingDestinations(item) == SocialUploadDestination.None));
     }
+
+    private sealed record UploadManagerSnapshot(
+        IReadOnlyList<QuizHistorySummary> History,
+        int NeedsUpload,
+        int Scheduled,
+        int CommentReady,
+        int Complete);
 
     private DataGridTemplateColumn BuildUploadPlatformLinkColumn(
         string header,
