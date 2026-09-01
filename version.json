@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.119",
-  "build": 144,
+  "latest_version": "1.0.120",
+  "build": 145,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 144 physically removes the retired generic fact-video implementation and its obsolete workspace code.",
-    "Deletes the unused stock-media acquisition/provider stack for Pexels, Pixabay, Openverse and Wikimedia-backed fact-video production paths.",
-    "Removes obsolete fact-video production, visual-selection, provider-security and stock-media regression tests.",
-    "Keeps the active quiz renderer, quiz audio, Resolve/FFmpeg export, OpenAI quiz features, publishing integrations, analytics and website management intact."
+    "Build 145 removes retired stock-image providers from API & Connections instead of hiding them at runtime.",
+    "The shared provider credential model is now focused on the OpenAI key used by active quiz workflows.",
+    "Deletes the temporary Pexels/Pixabay compatibility provider shim introduced during the Build 144 dead-code extraction.",
+    "Keeps YouTube, Facebook, Instagram, OpenAI quiz generation, publishing, analytics and website connections intact."
   ]
 }
