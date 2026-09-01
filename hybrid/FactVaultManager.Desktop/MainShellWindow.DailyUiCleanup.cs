@@ -49,6 +49,7 @@ public partial class MainShellWindow
     private const string SimpleNeedsNoteTag = "autopilot-simple-needs-note";
     private bool _dailyUiCleanupInitialized;
     private DispatcherTimer? _dailyUiCleanupTimer;
+    private int _dailyUiCleanupStartupPassesRemaining;
     private Button? _dailyUpdatesButton;
     private bool _dailyUpdateCheckStarted;
 
@@ -58,18 +59,28 @@ public partial class MainShellWindow
             return;
 
         _dailyUiCleanupInitialized = true;
-        Loaded += (_, _) => Dispatcher.BeginInvoke(
-            DispatcherPriority.ContextIdle,
-            new Action(ApplyDailyUiCleanup));
+
+        // This compatibility cleanup used to walk much of the WPF visual tree every second for
+        // the lifetime of the app. Run a short settling window for late-created controls, then
+        // rely on the existing tab-change hook for any page that is built later.
         MainTabs.SelectionChanged += (_, _) => Dispatcher.BeginInvoke(
             DispatcherPriority.ContextIdle,
             new Action(ApplyDailyUiCleanup));
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.ApplicationIdle,
+            new Action(ApplyDailyUiCleanup));
 
+        _dailyUiCleanupStartupPassesRemaining = 8;
         _dailyUiCleanupTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromSeconds(1),
+            Interval = TimeSpan.FromMilliseconds(500),
         };
-        _dailyUiCleanupTimer.Tick += (_, _) => ApplyDailyUiCleanup();
+        _dailyUiCleanupTimer.Tick += (_, _) =>
+        {
+            ApplyDailyUiCleanup();
+            if (--_dailyUiCleanupStartupPassesRemaining <= 0)
+                _dailyUiCleanupTimer?.Stop();
+        };
         _dailyUiCleanupTimer.Start();
         Closed += (_, _) => _dailyUiCleanupTimer?.Stop();
     }
