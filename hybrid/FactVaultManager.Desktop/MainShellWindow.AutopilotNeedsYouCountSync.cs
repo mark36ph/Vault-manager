@@ -61,22 +61,22 @@ public static class AutopilotNeedsYouCountSummary
 public partial class MainShellWindow
 {
     private DispatcherTimer? _autopilotNeedsYouCountSyncTimer;
+    private int _autopilotNeedsYouCountSyncBusy;
 
     public void InitializeAutopilotNeedsYouCountSync()
     {
         if (_autopilotNeedsYouCountSyncTimer is not null) return;
 
-        // Needs You reads Autopilot state and YouTube snapshot files. It only needs a frequent
-        // refresh while the Autopilot home page is visible; publishing supervisors have their
-        // own cadence and are not driven by this UI counter.
+        // Needs You reads Autopilot state and YouTube snapshot files. Keep those reads off the
+        // WPF dispatcher and never allow the five-second timer to stack overlapping refreshes.
         _autopilotNeedsYouCountSyncTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = TimeSpan.FromSeconds(5),
         };
-        _autopilotNeedsYouCountSyncTimer.Tick += (_, _) =>
+        _autopilotNeedsYouCountSyncTimer.Tick += async (_, _) =>
         {
             if (MainTabs.SelectedIndex == _autopilotHomeTabIndex)
-                SyncAutopilotNeedsYouCount();
+                await SyncAutopilotNeedsYouCountAsync();
         };
         _autopilotNeedsYouCountSyncTimer.Start();
 
@@ -90,7 +90,7 @@ public partial class MainShellWindow
 
             Dispatcher.BeginInvoke(
                 DispatcherPriority.ContextIdle,
-                new Action(SyncAutopilotNeedsYouCount));
+                new Action(() => _ = SyncAutopilotNeedsYouCountAsync()));
         };
 
         Closed += (_, _) => _autopilotNeedsYouCountSyncTimer?.Stop();
@@ -99,15 +99,16 @@ public partial class MainShellWindow
             new Action(() =>
             {
                 if (MainTabs.SelectedIndex == _autopilotHomeTabIndex)
-                    SyncAutopilotNeedsYouCount();
+                    _ = SyncAutopilotNeedsYouCountAsync();
             }));
     }
 
-    private void SyncAutopilotNeedsYouCount()
+    private async Task SyncAutopilotNeedsYouCountAsync()
     {
         if (_autopilotHomeRefreshing ||
             _autopilotHomeTabIndex < 0 ||
-            MainTabs.SelectedIndex != _autopilotHomeTabIndex)
+            MainTabs.SelectedIndex != _autopilotHomeTabIndex ||
+            Interlocked.CompareExchange(ref _autopilotNeedsYouCountSyncBusy, 1, 0) != 0)
         {
             return;
         }
@@ -117,18 +118,33 @@ public partial class MainShellWindow
             var rows = _scheduledReadinessRows
                 .Where(row => row.PublishAt >= DateTimeOffset.Now.AddHours(-2))
                 .ToList();
-            var state = FactburstFullAutopilotStateStore.Load(_data.SettingsPath);
-            var snapshots = YouTubeGrowthSnapshotStore.Load(YouTubeGrowthStorePath())
-                .GroupBy(snapshot => snapshot.HistoryId)
-                .Select(group => group.OrderByDescending(snapshot => snapshot.CheckedAtUtc).First())
-                .ToList();
+            var settingsPath = _data.SettingsPath;
+            var growthStorePath = YouTubeGrowthStorePath();
 
-            var tasks = AutopilotNeedsYouAlignedPlanner.Build(rows, state, snapshots);
-            var grouped = AutopilotNeedsYouCountSummary.FromAlignedTasks(tasks);
+            var grouped = await Task.Run(() =>
+            {
+                var state = FactburstFullAutopilotStateStore.Load(settingsPath);
+                var snapshots = YouTubeGrowthSnapshotStore.Load(growthStorePath)
+                    .GroupBy(snapshot => snapshot.HistoryId)
+                    .Select(group => group.OrderByDescending(snapshot => snapshot.CheckedAtUtc).First())
+                    .ToList();
+                var tasks = AutopilotNeedsYouAlignedPlanner.Build(rows, state, snapshots);
+                return AutopilotNeedsYouCountSummary.FromAlignedTasks(tasks);
+            });
+
+            if (!IsLoaded ||
+                _autopilotHomeTabIndex < 0 ||
+                MainTabs.SelectedIndex != _autopilotHomeTabIndex)
+            {
+                return;
+            }
+
             var total = grouped.Total;
             var health = AutopilotNeedsYouCountSummary.Health(_fullAutopilotRunning, total);
+            var needsText = total == 0 ? "Nothing" : total.ToString("N0");
+            var needsChanged = !string.Equals(_autopilotNeedsText?.Text, needsText, StringComparison.Ordinal);
 
-            SetAutopilotTextIfChanged(_autopilotNeedsText, total == 0 ? "Nothing" : total.ToString("N0"));
+            SetAutopilotTextIfChanged(_autopilotNeedsText, needsText);
             SetAutopilotTextIfChanged(
                 _autopilotNeedsNoteText,
                 total == 0
@@ -136,9 +152,10 @@ public partial class MainShellWindow
                     : "Ready now — Factburst will guide you one task at a time");
             SetAutopilotTextIfChanged(_autopilotHealthText, health);
 
-            // Daily UI cleanup owns the guided Needs You panel. Update the existing controls in
-            // place instead of rebuilding task rows.
-            ApplyAutopilotHomeCleanup();
+            // The cleanup walks the Needs You visual tree, so only run it when the visible count
+            // actually changes instead of doing the same work on every five-second timer tick.
+            if (needsChanged)
+                ApplyAutopilotHomeCleanup();
 
             SetAutopilotTextIfChanged(
                 HeaderStatusText,
@@ -147,6 +164,10 @@ public partial class MainShellWindow
         catch (Exception error)
         {
             Debug.WriteLine("Autopilot Needs You count sync failed: " + error);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _autopilotNeedsYouCountSyncBusy, 0);
         }
     }
 
