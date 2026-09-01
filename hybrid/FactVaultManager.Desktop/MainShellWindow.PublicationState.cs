@@ -46,10 +46,17 @@ public partial class MainShellWindow
             return;
         }
 
-        var uploadQueue = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(
-                Convert.ToString(button.Content), "Upload Queue", StringComparison.Ordinal));
-        if (uploadQueue?.Parent is not WrapPanel actions)
+        var metadata = FindVisualChildren<Button>(root)
+            .FirstOrDefault(button =>
+                string.Equals(Convert.ToString(button.Content), "Metadata", StringComparison.Ordinal) &&
+                button.Parent is StackPanel panel &&
+                panel.Children.OfType<Button>().Any(candidate =>
+                    string.Equals(Convert.ToString(candidate.Content), "Questions", StringComparison.Ordinal)) &&
+                panel.Children.OfType<Button>().Any(candidate =>
+                    string.Equals(Convert.ToString(candidate.Content), "YouTube", StringComparison.Ordinal)) &&
+                panel.Children.OfType<Button>().Any(candidate =>
+                    string.Equals(Convert.ToString(candidate.Content), "Folder", StringComparison.Ordinal)));
+        if (metadata?.Parent is not StackPanel actions)
         {
             RetryPublicationStateButton();
             return;
@@ -61,13 +68,15 @@ public partial class MainShellWindow
             Tag = PublicationStateButtonTag,
             MinWidth = 126,
             Margin = new Thickness(8, 0, 0, 0),
-            ToolTip = "Show the unified local publication state for the selected quiz and its promo.",
+            ToolTip = "Show the unified publication state for the selected quiz and its promo.",
         };
         StyleQuizHistoryButton(button, Color.FromRgb(73, 190, 255));
         button.Click += (_, _) => ShowUnifiedPublicationState();
 
-        var uploadQueueIndex = actions.Children.IndexOf(uploadQueue);
-        actions.Children.Insert(uploadQueueIndex < 0 ? actions.Children.Count : uploadQueueIndex, button);
+        var metadataIndex = actions.Children.IndexOf(metadata);
+        actions.Children.Insert(
+            metadataIndex < 0 ? actions.Children.Count : Math.Min(actions.Children.Count, metadataIndex + 1),
+            button);
         _publicationStateButton = button;
     }
 
@@ -88,9 +97,9 @@ public partial class MainShellWindow
 
     private void ShowUnifiedPublicationState()
     {
-        if (_uploadManagerGrid?.SelectedItem is not QuizHistorySummary history)
+        if (_quizHistoryGrid?.SelectedItem is not QuizHistorySummary history)
         {
-            MessageBox.Show(this, "Select a quiz in Upload Manager first.",
+            MessageBox.Show(this, "Select a quiz in Library first.",
                 "Publication State", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
