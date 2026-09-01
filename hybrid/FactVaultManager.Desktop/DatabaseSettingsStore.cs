@@ -65,13 +65,28 @@ public static class DatabaseSettingsStore
     public static string? LoadOrMigrateLegacy(string settingsPath, string settingKey, string legacyPath)
     {
         var databasePath = DatabasePathFromSettingsPath(settingsPath);
-        var stored = LoadJson(databasePath, settingKey);
+        var databaseReadSucceeded = false;
+        string? stored = null;
+        try
+        {
+            stored = LoadJson(databasePath, settingKey);
+            databaseReadSucceeded = true;
+        }
+        catch (SqliteException error)
+        {
+            // A compatibility mirror prevents a transient database lock/corruption from turning
+            // into an unexpected settings reset. We never overwrite the database after a failed
+            // read because an authoritative row may already exist there.
+            Debug.WriteLine($"Could not read database setting '{settingKey}': {error.Message}");
+        }
+
         if (!string.IsNullOrWhiteSpace(stored)) return stored;
         if (!File.Exists(legacyPath)) return null;
 
         var legacy = File.ReadAllText(legacyPath);
         if (string.IsNullOrWhiteSpace(legacy)) return null;
-        SaveJson(databasePath, settingKey, legacy);
+        if (databaseReadSucceeded && File.Exists(databasePath))
+            SaveJson(databasePath, settingKey, legacy);
         return legacy;
     }
 
@@ -136,7 +151,18 @@ public static class AppSettingsDocumentStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(settingsPath);
         var databasePath = DatabaseSettingsStore.DatabasePathFromSettingsPath(settingsPath);
-        var stored = DatabaseSettingsStore.LoadJson(databasePath, DatabaseSettingsStore.MainSettingsKey);
+        var databaseReadSucceeded = false;
+        string? stored = null;
+        try
+        {
+            stored = DatabaseSettingsStore.LoadJson(databasePath, DatabaseSettingsStore.MainSettingsKey);
+            databaseReadSucceeded = true;
+        }
+        catch (SqliteException error)
+        {
+            Debug.WriteLine("Could not read app settings from database: " + error.Message);
+        }
+
         if (TryParseObject(stored, out var databaseDocument))
             return databaseDocument;
 
@@ -145,10 +171,13 @@ public static class AppSettingsDocumentStore
             var legacy = File.ReadAllText(settingsPath);
             if (TryParseObject(legacy, out var legacyDocument))
             {
-                DatabaseSettingsStore.SaveJson(
-                    databasePath,
-                    DatabaseSettingsStore.MainSettingsKey,
-                    legacyDocument.ToJsonString(IndentedJson));
+                if (databaseReadSucceeded && File.Exists(databasePath))
+                {
+                    DatabaseSettingsStore.SaveJson(
+                        databasePath,
+                        DatabaseSettingsStore.MainSettingsKey,
+                        legacyDocument.ToJsonString(IndentedJson));
+                }
                 return legacyDocument;
             }
         }
