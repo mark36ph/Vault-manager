@@ -32,7 +32,7 @@ public sealed class DatabaseSettingsPersistenceTests
             File.Delete(settingsPath);
             var restored = AppSettingsDocumentStore.Load(settingsPath);
             Assert.Equal(@"Z:\FactVaultManager\Quizzes", restored["general"]?["projects_folder"]?.GetValue<string>());
-            Assert.True(restored["general"]?["start_maximized"]?.GetValue<bool>());
+            Assert.True(restored["general"]?["start_maximized"]?.GetValue<bool>() ?? false);
         }
         finally
         {
@@ -112,7 +112,7 @@ public sealed class DatabaseSettingsPersistenceTests
                 Path.Combine(root, "factvault.db"),
                 DatabaseSettingsStore.TrackerSettingsKey);
             Assert.NotNull(raw);
-            Assert.DoesNotContain(apiKey, raw!, StringComparison.Ordinal);
+            Assert.DoesNotContain(apiKey, raw!);
 
             File.Delete(FactburstTrackerSettingsStore.PathFor(settingsPath));
             var loaded = FactburstTrackerSettingsStore.Load(settingsPath);
