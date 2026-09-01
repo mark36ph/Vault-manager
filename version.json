@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.93",
-  "build": 118,
+  "latest_version": "1.0.94",
+  "build": 119,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 118 adds a canonical SQLite publication_state model for YouTube, Facebook, Instagram, the Factburst website, and promotional Shorts.",
-    "Full quizzes and promo Shorts now use separate publication records, preventing a promo upload from overwriting or being confused with its parent quiz upload state.",
-    "Publication State in Upload Manager reconciles existing quiz history, detailed upload journal records, remote IDs, schedules, errors, and existing promo metadata without deleting the legacy records.",
-    "Website preparation now records durable in-progress, scheduled, published, and failed states locally, including the last website error when a sync needs attention.",
-    "Build 117 permanent project folders and all earlier publishing safeguards remain included unchanged."
+    "Build 119 removes the old-screen startup flash by keeping the main window visually hidden until the current Factburst navigation has been assembled.",
+    "The first visible frame now uses the current Autopilot, Create, Performance, Library, Website, Analytics, Users, Comments, SEO, Advanced, and Settings shell.",
+    "Publication State is now available from Library / Quiz History for the selected quiz instead of depending on the hidden legacy Upload Manager page.",
+    "No separate Upload Manager is added to the current Factburst sidebar; existing internal upload and retry workflows remain compatible.",
+    "Build 118 unified publication state and Build 117 permanent project folders remain included unchanged."
   ]
 }
