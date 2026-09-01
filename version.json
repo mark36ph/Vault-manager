@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.98",
-  "build": 123,
+  "latest_version": "1.0.99",
+  "build": 124,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 123 fixes Autopilot schedule replenishment so the target means future scheduled full quizzes, matching the Scheduled count shown in the app.",
-    "A 14-quiz target with 12 future scheduled quizzes now requests a two-quiz generation batch and lets the existing scheduler place them on the next free YouTube dates.",
-    "Past releases, Shorts, unscheduled records and quizzes that were not uploaded to YouTube no longer inflate the refill inventory.",
-    "Autopilot now confirms the batch pipeline actually started before applying its 20-minute duplicate-start cooldown.",
-    "Failed starts clear temporary batch and trusted-publishing requests so Autopilot can retry cleanly instead of silently waiting after a false launch."
+    "Build 124 makes the Autopilot master ON/OFF state visible on the actual Autopilot home page instead of relying on a hidden Loaded-event control injection.",
+    "When Autopilot is ON, schedule replenishment is automatic: turning it on evaluates the target immediately, the saved ON state checks again after startup, and the existing five-minute supervisor keeps the schedule topped up.",
+    "The Autopilot header now exposes the future scheduled-quiz target directly so the master state and target are always visible together.",
+    "Fill schedule now remains only as an optional legacy/manual override; normal Autopilot operation does not require clicking it.",
+    "The visible master hint explicitly shows when automatic refill is active or paused."
   ]
 }
