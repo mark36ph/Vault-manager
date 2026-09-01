@@ -32,6 +32,12 @@ public partial class MainShellWindow
             return;
 
         _libraryPlatformSymbolFixInitialized = true;
+        if (_libraryPlatformStatusFixTimer is not null)
+        {
+            _libraryPlatformStatusFixTimer.Tick += (_, _) => Dispatcher.BeginInvoke(
+                DispatcherPriority.ContextIdle,
+                new Action(ApplyLibraryPlatformSymbolFix));
+        }
         Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(ApplyLibraryPlatformSymbolFix));
     }
 
@@ -52,6 +58,7 @@ public partial class MainShellWindow
 
         SetLibraryColumnWidth("Stage", 128);
         SetLibraryColumnWidth("Next action", 180);
+        _quizHistoryGrid.Items.Refresh();
     }
 
     private bool RebindLibrarySocialSymbolColumn(string header, LibraryReleasePlatformStatusField field)
