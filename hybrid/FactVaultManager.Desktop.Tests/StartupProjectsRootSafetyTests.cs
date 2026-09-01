@@ -3,7 +3,7 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class StartupProjectsRootSafetyTests
 {
     [Fact]
-    public void StartupFolderCleanup_UsesNonFatalWrapper()
+    public void StartupFolderCleanup_OnlySkipsMissingProjectsFolderConfiguration()
     {
         var shell = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.xaml.cs");
         var safety = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/DesktopDataService.StartupFolderCleanupSafety.cs");
@@ -12,7 +12,9 @@ public sealed class StartupProjectsRootSafetyTests
         Assert.DoesNotContain("_data.ResumeQuizFolderCleanup();", shell, StringComparison.Ordinal);
         Assert.Contains("public void ResumeQuizFolderCleanupSafely()", safety, StringComparison.Ordinal);
         Assert.Contains("ResumeQuizFolderCleanup();", safety, StringComparison.Ordinal);
-        Assert.Contains("catch (Exception error)", safety, StringComparison.Ordinal);
+        Assert.Contains("catch (InvalidOperationException error) when", safety, StringComparison.Ordinal);
+        Assert.Contains("Set the Projects Folder in Settings first.", safety, StringComparison.Ordinal);
+        Assert.DoesNotContain("catch (Exception error)", safety, StringComparison.Ordinal);
     }
 
     [Fact]
