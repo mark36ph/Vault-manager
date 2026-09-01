@@ -1,12 +1,11 @@
 {
-  "latest_version": "1.0.106",
-  "build": 131,
+  "latest_version": "1.0.107",
+  "build": 132,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 131 reduces background UI overhead so navigation and large management pages stay more responsive.",
-    "The global compatibility cleanup now runs only during a short startup settling window and on page changes instead of scanning the WPF visual tree every second forever.",
-    "Needs You status polling now refreshes every five seconds only while the Autopilot home page is visible, avoiding repeated state and snapshot file reads elsewhere in the app.",
-    "Library publication audits now perform SQLite, project-folder and promo-metadata reads off the WPF UI thread and use a 30-second safety refresh with immediate refresh when Library opens.",
-    "Library now explicitly uses recycling row and column virtualization so off-screen cells do less measure and rendering work; publishing and five-minute Autopilot supervisor cadences are unchanged."
+    "Build 132 fixes a startup hang introduced by Build 131's aggressive startup UI cleanup cadence.",
+    "The legacy repeating visual-tree cleanup is no longer started during window loading.",
+    "Startup now performs one coalesced UI cleanup after the window has loaded, then only coalesced cleanup passes on real page changes.",
+    "Build 131's Library background I/O, virtualization, Needs You polling and publishing supervisor improvements remain in place."
   ]
 }
