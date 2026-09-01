@@ -11,6 +11,7 @@ public partial class MainShellWindow
     private DispatcherTimer? _instagramPromoNeedsSyncTimer;
     private bool _instagramPromoFollowupInitialized;
     private bool _instagramPromoAutopilotRunning;
+    private int _instagramPromoNeedsSyncBusy;
     private static bool _instagramPromoGuidedHandlerRegistered;
 
     public void InitializeInstagramPromoFollowup()
@@ -21,7 +22,7 @@ public partial class MainShellWindow
         _instagramPromoFollowupInitialized = true;
 
         // Build 126 extends the same home counter with post-release Instagram work. Stop the
-        // older counter timer so two one-second writers cannot fight over the Needs You value.
+        // older counter timer so there is only one background writer for the Needs You value.
         _autopilotNeedsYouCountSyncTimer?.Stop();
 
         if (!_instagramPromoGuidedHandlerRegistered)
@@ -36,9 +37,9 @@ public partial class MainShellWindow
 
         _instagramPromoNeedsSyncTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromSeconds(1),
+            Interval = TimeSpan.FromSeconds(5),
         };
-        _instagramPromoNeedsSyncTimer.Tick += (_, _) => SyncAutopilotNeedsYouWithInstagram();
+        _instagramPromoNeedsSyncTimer.Tick += async (_, _) => await SyncAutopilotNeedsYouWithInstagramAsync();
         _instagramPromoNeedsSyncTimer.Start();
 
         _instagramPromoAutopilotTimer = new DispatcherTimer(DispatcherPriority.Background)
@@ -54,7 +55,7 @@ public partial class MainShellWindow
             {
                 await Task.Delay(TimeSpan.FromSeconds(15));
                 await RunInstagramPromoFollowupAsync();
-                SyncAutopilotNeedsYouWithInstagram();
+                await SyncAutopilotNeedsYouWithInstagramAsync();
             }));
 
         Closed += (_, _) =>
@@ -164,9 +165,11 @@ public partial class MainShellWindow
             .ToList();
     }
 
-    private void SyncAutopilotNeedsYouWithInstagram()
+    private async Task SyncAutopilotNeedsYouWithInstagramAsync()
     {
         if (_autopilotHomeRefreshing || _autopilotHomeTabIndex < 0)
+            return;
+        if (Interlocked.CompareExchange(ref _instagramPromoNeedsSyncBusy, 1, 0) != 0)
             return;
 
         try
@@ -175,33 +178,43 @@ public partial class MainShellWindow
             var scheduleRows = _scheduledReadinessRows
                 .Where(row => row.PublishAt >= now.AddHours(-2))
                 .ToList();
-            var state = FactburstFullAutopilotStateStore.Load(_data.SettingsPath);
-            var snapshots = YouTubeGrowthSnapshotStore.Load(YouTubeGrowthStorePath())
-                .GroupBy(snapshot => snapshot.HistoryId)
-                .Select(group => group.OrderByDescending(snapshot => snapshot.CheckedAtUtc).First())
-                .ToList();
+            var settingsPath = _data.SettingsPath;
+            var growthStorePath = YouTubeGrowthStorePath();
+            var fullAutopilotRunning = _fullAutopilotRunning;
 
-            var alignedTasks = AutopilotNeedsYouAlignedPlanner.Build(scheduleRows, state, snapshots);
-            var grouped = AutopilotNeedsYouCountSummary.FromAlignedTasks(alignedTasks);
-            var alreadyCountedInstagram = alignedTasks
-                .Where(task => task.ActionReady && task.Kind == AutopilotAlignedTaskKind.InstagramPromo)
-                .Select(task => task.HistoryId)
-                .ToHashSet();
-            var instagramNeeds = BuildInstagramPromoFollowupNeeds(state)
-                .Where(need => !alreadyCountedInstagram.Contains(need.HistoryId))
-                .ToList();
-            var total = grouped.Total + instagramNeeds.Count;
-            var health = AutopilotNeedsYouCountSummary.Health(_fullAutopilotRunning, total);
+            var summary = await Task.Run(() =>
+            {
+                var state = FactburstFullAutopilotStateStore.Load(settingsPath);
+                var snapshots = YouTubeGrowthSnapshotStore.Load(growthStorePath)
+                    .GroupBy(snapshot => snapshot.HistoryId)
+                    .Select(group => group.OrderByDescending(snapshot => snapshot.CheckedAtUtc).First())
+                    .ToList();
 
-            SetAutopilotTextIfChanged(_autopilotNeedsText, total == 0 ? "Nothing" : total.ToString("N0"));
+                var alignedTasks = AutopilotNeedsYouAlignedPlanner.Build(scheduleRows, state, snapshots);
+                var grouped = AutopilotNeedsYouCountSummary.FromAlignedTasks(alignedTasks);
+                var alreadyCountedInstagram = alignedTasks
+                    .Where(task => task.ActionReady && task.Kind == AutopilotAlignedTaskKind.InstagramPromo)
+                    .Select(task => task.HistoryId)
+                    .ToHashSet();
+                var instagramNeeds = BuildInstagramPromoFollowupNeeds(state)
+                    .Where(need => !alreadyCountedInstagram.Contains(need.HistoryId))
+                    .ToList();
+                var total = grouped.Total + instagramNeeds.Count;
+                var health = AutopilotNeedsYouCountSummary.Health(fullAutopilotRunning, total);
+                return (Total: total, Health: health, InstagramNeeds: instagramNeeds.Count);
+            });
+
+            SetAutopilotTextIfChanged(
+                _autopilotNeedsText,
+                summary.Total == 0 ? "Nothing" : summary.Total.ToString("N0"));
             SetAutopilotTextIfChanged(
                 _autopilotNeedsNoteText,
-                total == 0
+                summary.Total == 0
                     ? "Autopilot is handling the queue"
-                    : instagramNeeds.Count > 0
-                        ? $"{instagramNeeds.Count:N0} Instagram promo{(instagramNeeds.Count == 1 ? "" : "s")} still need posting"
+                    : summary.InstagramNeeds > 0
+                        ? $"{summary.InstagramNeeds:N0} Instagram promo{(summary.InstagramNeeds == 1 ? "" : "s")} still need posting"
                         : "Ready now — Factburst will guide you one task at a time");
-            SetAutopilotTextIfChanged(_autopilotHealthText, health);
+            SetAutopilotTextIfChanged(_autopilotHealthText, summary.Health);
 
             ApplyAutopilotHomeCleanup();
 
@@ -209,12 +222,16 @@ public partial class MainShellWindow
             {
                 SetAutopilotTextIfChanged(
                     HeaderStatusText,
-                    $"Autopilot: {health} • {scheduleRows.Count:N0} scheduled • {total:N0} need you");
+                    $"Autopilot: {summary.Health} • {scheduleRows.Count:N0} scheduled • {summary.Total:N0} need you");
             }
         }
         catch (Exception error)
         {
             Debug.WriteLine("Instagram Needs You sync failed: " + error);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _instagramPromoNeedsSyncBusy, 0);
         }
     }
 
@@ -223,41 +240,48 @@ public partial class MainShellWindow
         if (_instagramPromoAutopilotRunning)
             return;
 
-        var preferences = AutopilotSchedulePreferencesStore.Load(_data.SettingsPath);
-        if (!preferences.AutoFillEnabled)
-            return;
-
         _instagramPromoAutopilotRunning = true;
         try
         {
+            var settingsPath = _data.SettingsPath;
             var now = DateTimeOffset.Now;
-            var publicationState = _data.PublicationState;
-            IReadOnlyList<PublicationStateEntry> publications;
-            try { publications = publicationState.List(); }
-            catch { publications = []; }
+            var local = await Task.Run(() =>
+            {
+                var preferences = AutopilotSchedulePreferencesStore.Load(settingsPath);
+                var publicationState = _data.PublicationState;
+                IReadOnlyList<PublicationStateEntry> publications;
+                try { publications = publicationState.List(); }
+                catch { publications = []; }
 
-            var recentCandidates = _data.GetQuizHistory(2_000)
-                .Where(history => InstagramPromoFollowupPlanner.IsWithinWindow(
-                    history,
-                    now,
-                    InstagramPromoFollowupPlanner.AutomaticWindow))
-                .Where(history => QuizPromoShortSocialPublicationStore.LoadInstagram(history.ProjectFolder) is null)
-                .Select(history => new
-                {
-                    History = history,
-                    VideoId = YouTubeVideoAnalyticsService.TryGetVideoId(history.YouTubeUrl),
-                    Publication = publications.FirstOrDefault(entry =>
-                        entry.HistoryId == history.Id &&
-                        string.Equals(entry.ContentKind, PublicationContentKind.Promo, StringComparison.Ordinal) &&
-                        string.Equals(entry.Platform, PublicationPlatform.Instagram, StringComparison.OrdinalIgnoreCase)),
-                })
-                .Where(item => item.VideoId is not null)
-                .Where(item => InstagramPromoFollowupPlanner.RetryAllowed(item.Publication, now))
-                .OrderBy(item => InstagramPromoFollowupPlanner.ReleaseAt(item.History))
-                .ToList();
-            if (recentCandidates.Count == 0)
+                var recentCandidates = preferences.AutoFillEnabled
+                    ? _data.GetQuizHistory(2_000)
+                        .Where(history => InstagramPromoFollowupPlanner.IsWithinWindow(
+                            history,
+                            now,
+                            InstagramPromoFollowupPlanner.AutomaticWindow))
+                        .Where(history => QuizPromoShortSocialPublicationStore.LoadInstagram(history.ProjectFolder) is null)
+                        .Select(history => new
+                        {
+                            History = history,
+                            VideoId = YouTubeVideoAnalyticsService.TryGetVideoId(history.YouTubeUrl),
+                            Publication = publications.FirstOrDefault(entry =>
+                                entry.HistoryId == history.Id &&
+                                string.Equals(entry.ContentKind, PublicationContentKind.Promo, StringComparison.Ordinal) &&
+                                string.Equals(entry.Platform, PublicationPlatform.Instagram, StringComparison.OrdinalIgnoreCase)),
+                        })
+                        .Where(item => item.VideoId is not null)
+                        .Where(item => InstagramPromoFollowupPlanner.RetryAllowed(item.Publication, now))
+                        .OrderBy(item => InstagramPromoFollowupPlanner.ReleaseAt(item.History))
+                        .ToList()
+                    : [];
+                return (Preferences: preferences, PublicationState: publicationState, RecentCandidates: recentCandidates);
+            });
+
+            if (!local.Preferences.AutoFillEnabled || local.RecentCandidates.Count == 0)
                 return;
 
+            var publicationState = local.PublicationState;
+            var recentCandidates = local.RecentCandidates;
             var settings = _data.LoadSettings();
             if (settings.ApprovedYouTubeChannelId.Trim().Length == 0)
                 return;
@@ -297,7 +321,7 @@ public partial class MainShellWindow
         finally
         {
             _instagramPromoAutopilotRunning = false;
-            SyncAutopilotNeedsYouWithInstagram();
+            await SyncAutopilotNeedsYouWithInstagramAsync();
             RefreshLibraryPublicationStatusSnapshot();
         }
     }
@@ -349,7 +373,7 @@ public partial class MainShellWindow
         var need = BuildInstagramPromoFollowupNeeds(state).FirstOrDefault();
         if (need is null)
         {
-            SyncAutopilotNeedsYouWithInstagram();
+            await SyncAutopilotNeedsYouWithInstagramAsync();
             return;
         }
 
@@ -407,7 +431,7 @@ public partial class MainShellWindow
         }
         finally
         {
-            SyncAutopilotNeedsYouWithInstagram();
+            await SyncAutopilotNeedsYouWithInstagramAsync();
             RefreshLibraryPublicationStatusSnapshot();
         }
     }
