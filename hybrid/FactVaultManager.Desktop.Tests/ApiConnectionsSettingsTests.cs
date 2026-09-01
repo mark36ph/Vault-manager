@@ -59,11 +59,10 @@ public sealed class ApiConnectionsSettingsTests
     }
 
     [Fact]
-    public void Build141_IsCurrentBuildAndInitializesUnifiedSettings()
+    public void Build141_UnifiedSettingsRemainInitializedByLaterBuilds()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
 
-        Assert.Contains("CurrentBuildNumber = 141", source, StringComparison.Ordinal);
         Assert.Contains("InitializeSettingsWorkflow();", source, StringComparison.Ordinal);
         Assert.Contains("InitializeApiConnectionsSettings();", source, StringComparison.Ordinal);
     }
