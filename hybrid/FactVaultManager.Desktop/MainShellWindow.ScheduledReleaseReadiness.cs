@@ -331,16 +331,30 @@ public partial class MainShellWindow
         {
             _scheduledReadinessRefreshing = true;
             SetScheduledReadinessStatus("Checking scheduled quizzes and tracker campaigns...");
-            _data.RecoverQuizHistoryProjectFolders();
-            var histories = _data.GetQuizHistory(2_000);
-            var trackerSettings = FactburstTrackerSettingsStore.Load(_data.SettingsPath);
+
+            // Do not run the historical recursive project-path repair as part of an ordinary
+            // screen refresh. Once a Projects Folder points at a large or network-backed tree,
+            // that recovery can enumerate thousands of directories and block the WPF dispatcher.
+            // Current startup consolidation owns legacy path migration; diagnostics can still call
+            // RecoverQuizHistoryProjectFolders explicitly when a repair is actually requested.
+            var settingsPath = _data.SettingsPath;
+            var horizonDays = ScheduledReadinessHorizonDays();
+            var local = await Task.Run(() =>
+            {
+                var histories = _data.GetQuizHistory(2_000);
+                var trackerSettings = FactburstTrackerSettingsStore.Load(settingsPath);
+                return (Histories: histories, TrackerSettings: trackerSettings);
+            });
+
             HashSet<string>? trackerCampaigns = null;
             _scheduledReadinessTrackerNote = "";
-            if (trackerSettings.IsConfigured)
+            if (local.TrackerSettings.IsConfigured)
             {
                 try
                 {
-                    var remote = await _factburstLinkTracker.FetchStatsAsync(trackerSettings.BaseUrl, trackerSettings.ApiKey);
+                    var remote = await _factburstLinkTracker.FetchStatsAsync(
+                        local.TrackerSettings.BaseUrl,
+                        local.TrackerSettings.ApiKey);
                     trackerCampaigns = remote.Select(item => item.Slug).ToHashSet(StringComparer.OrdinalIgnoreCase);
                 }
                 catch (Exception error)
@@ -350,17 +364,17 @@ public partial class MainShellWindow
             }
 
             var now = DateTimeOffset.Now;
-            var rows = ScheduledReleaseReadinessPlanner.Build(
-                histories,
-                trackerCampaigns,
-                trackerSettings.IsConfigured,
-                now);
-            var horizonDays = ScheduledReadinessHorizonDays();
-            if (horizonDays > 0)
+            var rows = await Task.Run(() =>
             {
+                var planned = ScheduledReleaseReadinessPlanner.Build(
+                    local.Histories,
+                    trackerCampaigns,
+                    local.TrackerSettings.IsConfigured,
+                    now);
+                if (horizonDays <= 0) return planned;
                 var cutoff = now.AddDays(horizonDays);
-                rows = rows.Where(row => row.PublishAt <= cutoff).ToList();
-            }
+                return planned.Where(row => row.PublishAt <= cutoff).ToList();
+            });
 
             _scheduledReadinessRows = rows;
             var ready = rows.Count(row => row.ReadyCount == row.TotalChecks);
