@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.100",
-  "build": 125,
+  "latest_version": "1.0.101",
+  "build": 126,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 125 fixes the Autopilot startup race that could leave the real home page showing only the Working badge with no ON/OFF master switch.",
-    "The master controls are now queued immediately from startup and retry until the Autopilot header exists, instead of registering a second Loaded handler after the window has already loaded.",
-    "The automatic schedule refill startup check is queued directly as well, so Autopilot ON reliably evaluates the future scheduled-quiz target without a Fill Schedule click.",
-    "When no Autopilot preference has ever been saved, Factburst now defaults to ON with a target of 14 scheduled quizzes; an explicitly saved OFF state is still respected.",
-    "The existing five-minute refill supervisor, safe batch scheduling, account guard and failed-start no-cooldown behavior remain unchanged."
+    "Build 126 adds post-release Instagram promo follow-through: when Autopilot is ON, Factburst verifies the full YouTube quiz is actually public and then publishes the prepared Instagram Reel automatically.",
+    "Automatic Instagram publishing only uses an already-approved Facebook Page / linked Instagram destination. Missing approval, account-link problems, missing promo files and upload failures are recorded and surfaced in Needs You instead of disappearing.",
+    "Needs You now includes recent public YouTube quizzes whose Instagram promo is still missing and provides a dedicated Post Instagram promo action for manual fallback.",
+    "Library now shows compact YT, FB and IG full-quiz publication columns plus a separate IG promo column with Waiting, Posted, Needs upload or Promo missing state.",
+    "Library platform state refreshes while Library is open and reconciles existing publication records so older quizzes gain the same status view."
   ]
 }
