@@ -15,6 +15,17 @@ public sealed class AutopilotMasterUiTests
     }
 
     [Fact]
+    public void MasterUi_QueuesImmediatelyInsteadOfWaitingForAnotherLoadedEvent()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotMasterUi.cs");
+
+        Assert.Contains("Dispatcher.BeginInvoke(", source, StringComparison.Ordinal);
+        Assert.Contains("new Action(EnsureAutopilotMasterUi)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Loaded += (_, _) => Dispatcher.BeginInvoke", source, StringComparison.Ordinal);
+        Assert.Contains("RetryAutopilotMasterUi();", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TurningAutopilotOn_ImmediatelyEvaluatesScheduleWithoutFillClick()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotMasterUi.cs");
@@ -38,11 +49,11 @@ public sealed class AutopilotMasterUiTests
     }
 
     [Fact]
-    public void BuildInfo_InitializesMasterUiAndUsesBuild124()
+    public void BuildInfo_InitializesMasterUiAndUsesBuild125()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
 
-        Assert.Contains("CurrentBuildNumber = 124", source, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 125", source, StringComparison.Ordinal);
         Assert.Contains("InitializeAutopilotMasterUi();", source, StringComparison.Ordinal);
         var firstUi = source.IndexOf("InitializeAutopilotFirstUi();", StringComparison.Ordinal);
         var masterUi = source.IndexOf("InitializeAutopilotMasterUi();", StringComparison.Ordinal);
