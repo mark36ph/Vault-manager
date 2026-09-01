@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.103",
-  "build": 128,
+  "latest_version": "1.0.105",
+  "build": 130,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 128 stabilizes the Library page so background status checks no longer keep rebinding columns or reapplying widths.",
-    "The older 30-second Library publication timer is stopped and the Build 127 platform timer now refreshes data only; layout is constructed once and then frozen.",
-    "The one-second general UI cleanup no longer mutates Library columns after the final layout is ready.",
-    "YT / FB / IG values continue to refresh live, but the grid is repainted only when a platform status actually changes.",
-    "The compact FB / IG tick-cross display, wider Stage / Next action columns and automatic Instagram follow-through remain unchanged."
+    "Build 130 makes the long-form YouTube release the source of truth for Factburst website timing.",
+    "Scheduled website quizzes now use the exact YouTube scheduled time, and existing published website copies are realigned without re-uploading their questions.",
+    "Private or unlisted long-form YouTube uploads without a release schedule can no longer be published to the website early.",
+    "The app reconciles live Cloudflare quiz inventory back into unified Website publication state and clears stale remote-publication state when the website copy is missing.",
+    "When Autopilot is on, website schedule reconciliation runs after startup and every five minutes; manual Website offline drafts remain offline."
   ]
 }
