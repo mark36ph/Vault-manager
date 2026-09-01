@@ -174,6 +174,8 @@ public partial class MainShellWindow
     {
         if (_quizHistoryGrid is null)
             return;
+        if (_libraryStableLayoutLocked)
+            return;
 
         _quizHistoryGrid.MinColumnWidth = 46;
         _quizHistoryGrid.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;

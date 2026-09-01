@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.102",
-  "build": 127,
+  "latest_version": "1.0.103",
+  "build": 128,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 127 simplifies Library platform tracking so each normal quiz row shows YT for the full YouTube quiz and compact FB / IG social follow-through state for that same release.",
-    "Facebook and Instagram cells now use a simple tick when the promo is posted, a cross when it needs action, and a dash while the YouTube release is not due yet; hovering keeps the detailed state available.",
-    "The redundant IG promo column and legacy Status column are removed from Library, reducing horizontal clutter.",
-    "Stage and Next action columns are widened so lifecycle labels are readable instead of clipped.",
-    "The existing automatic Instagram follow-through, Needs You fallback and live publication-state refresh remain unchanged."
+    "Build 128 stabilizes the Library page so background status checks no longer keep rebinding columns or reapplying widths.",
+    "The older 30-second Library publication timer is stopped and the Build 127 platform timer now refreshes data only; layout is constructed once and then frozen.",
+    "The one-second general UI cleanup no longer mutates Library columns after the final layout is ready.",
+    "YT / FB / IG values continue to refresh live, but the grid is repainted only when a platform status actually changes.",
+    "The compact FB / IG tick-cross display, wider Stage / Next action columns and automatic Instagram follow-through remain unchanged."
   ]
 }
