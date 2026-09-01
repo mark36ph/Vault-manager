@@ -46,11 +46,8 @@ public static class QuizResolveExportPreferenceStore
     {
         try
         {
-            if (!File.Exists(settingsPath))
-                return new QuizResolveExportPreferences();
-
-            var root = JsonNode.Parse(File.ReadAllText(settingsPath)) as JsonObject;
-            var node = root?["quiz"]?["resolve_export"] as JsonObject;
+            var root = AppSettingsDocumentStore.Load(settingsPath);
+            var node = root["quiz"]?["resolve_export"] as JsonObject;
             if (node is null)
                 return new QuizResolveExportPreferences();
 
@@ -79,9 +76,7 @@ public static class QuizResolveExportPreferenceStore
         ArgumentNullException.ThrowIfNull(preferences);
         var value = preferences.Normalize();
 
-        var root = File.Exists(settingsPath)
-            ? JsonNode.Parse(File.ReadAllText(settingsPath)) as JsonObject ?? new JsonObject()
-            : new JsonObject();
+        var root = AppSettingsDocumentStore.Load(settingsPath);
         var quiz = root["quiz"] as JsonObject ?? new JsonObject();
         root["quiz"] = quiz;
         quiz["resolve_export"] = new JsonObject
@@ -98,10 +93,7 @@ public static class QuizResolveExportPreferenceStore
             ["background_music_path"] = value.BackgroundMusicPath,
         };
 
-        Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
-        var temporary = settingsPath + ".tmp";
-        File.WriteAllText(temporary, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-        File.Move(temporary, settingsPath, overwrite: true);
+        AppSettingsDocumentStore.Save(settingsPath, root);
     }
 
     private static bool ReadBool(JsonObject node, string name, bool fallback) =>

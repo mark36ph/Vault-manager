@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -26,10 +25,16 @@ public static class FactburstTrackerSettingsStore
     public static FactburstTrackerSettings Load(string appSettingsPath)
     {
         var path = PathFor(appSettingsPath);
-        if (!File.Exists(path)) return new FactburstTrackerSettings(DefaultBaseUrl, "");
         try
         {
-            var root = JsonNode.Parse(File.ReadAllText(path)) as JsonObject ?? new JsonObject();
+            var json = DatabaseSettingsStore.LoadOrMigrateLegacy(
+                appSettingsPath,
+                DatabaseSettingsStore.TrackerSettingsKey,
+                path);
+            if (string.IsNullOrWhiteSpace(json))
+                return new FactburstTrackerSettings(DefaultBaseUrl, "");
+
+            var root = JsonNode.Parse(json) as JsonObject ?? new JsonObject();
             return new FactburstTrackerSettings(
                 PreferredBaseUrl(root["base_url"]?.GetValue<string>()),
                 LocalSecretProtector.Unprotect(root["api_key"]?.GetValue<string>() ?? ""));
@@ -56,18 +61,16 @@ public static class FactburstTrackerSettingsStore
         if (key.Length < 16)
             throw new ArgumentException("Tracker API key looks too short. Paste the secret generated for TRACKER_API_KEY.");
 
-        var path = PathFor(appSettingsPath);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var payload = new JsonObject
         {
             ["base_url"] = rootUrl,
             ["api_key"] = LocalSecretProtector.Protect(key),
         };
-        var temporary = path + ".tmp";
-        File.WriteAllText(
-            temporary,
-            payload.ToJsonString(new JsonSerializerOptions { WriteIndented = true }),
-            new UTF8Encoding(false));
-        File.Move(temporary, path, overwrite: true);
+        var json = payload.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+        DatabaseSettingsStore.SaveJsonAndMirror(
+            appSettingsPath,
+            DatabaseSettingsStore.TrackerSettingsKey,
+            PathFor(appSettingsPath),
+            json);
     }
 }

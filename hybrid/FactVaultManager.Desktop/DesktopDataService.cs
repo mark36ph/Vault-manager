@@ -27,6 +27,10 @@ public sealed partial class DesktopDataService
     public string SettingsPath => _settingsPath;
     public SocialUploadJournalStore SocialUploadJournal => new(_databasePath);
 
+    public JsonObject LoadSettingsDocument() => AppSettingsDocumentStore.Load(_settingsPath);
+
+    public void SaveSettingsDocument(JsonObject document) => AppSettingsDocumentStore.Save(_settingsPath, document);
+
     public IReadOnlyList<DesktopProject> GetProjects()
     {
         EnsureDatabase();
@@ -270,8 +274,7 @@ public sealed partial class DesktopDataService
 
     public AppSettingsModel LoadSettings()
     {
-        if (!File.Exists(_settingsPath)) return new AppSettingsModel();
-        var node = JsonNode.Parse(File.ReadAllText(_settingsPath)) as JsonObject ?? new JsonObject();
+        var node = AppSettingsDocumentStore.Load(_settingsPath);
         var openAiStored = node["ai"]?["api_key"]?.GetValue<string>() ?? "";
         var pexelsStored = node["images"]?["pexels_api_key"]?.GetValue<string>() ?? "";
         var pixabayStored = node["images"]?["pixabay_api_key"]?.GetValue<string>() ?? "";
@@ -314,10 +317,7 @@ public sealed partial class DesktopDataService
 
     public void SaveSettings(AppSettingsModel settings)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
-        var node = File.Exists(_settingsPath)
-            ? JsonNode.Parse(File.ReadAllText(_settingsPath)) as JsonObject ?? new JsonObject()
-            : new JsonObject();
+        var node = AppSettingsDocumentStore.Load(_settingsPath);
         var general = node["general"] as JsonObject ?? new JsonObject();
         var ai = node["ai"] as JsonObject ?? new JsonObject();
         var images = node["images"] as JsonObject ?? new JsonObject();
@@ -381,10 +381,7 @@ public sealed partial class DesktopDataService
 
     private void WriteSettingsNode(JsonObject node)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
-        var temporary = _settingsPath + ".tmp";
-        File.WriteAllText(temporary, node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-        File.Move(temporary, _settingsPath, overwrite: true);
+        AppSettingsDocumentStore.Save(_settingsPath, node);
     }
 
     private string GetProjectsRoot()

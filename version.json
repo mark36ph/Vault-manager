@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.109",
-  "build": 134,
+  "latest_version": "1.0.110",
+  "build": 135,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 134 prevents Autopilot navigation from crashing the app when the Projects Folder is blank or unavailable.",
-    "Autopilot now blocks entry cleanly and routes to Settings when project storage needs attention.",
-    "The global WPF dispatcher guard treats the exact missing-Projects-Folder configuration exception as recoverable instead of shutting down the whole application.",
-    "Unexpected dispatcher exceptions still keep the existing crash log and shutdown behaviour."
+    "Build 135 makes SQLite the source of truth for global Factburst Quiz Manager settings so reinstall/update file loss no longer resets saved configuration.",
+    "Existing settings.json, Autopilot preferences and tracker settings are migrated into the database automatically on first read; JSON files remain compatibility mirrors only.",
+    "Settings saved from the UI, Resolve quiz export preferences, Autopilot target/on-off state, API credentials, approved publishing destinations and tracker configuration now persist through the database-backed settings layer.",
+    "Sensitive credentials remain encrypted with the existing Windows local secret protection before they are written to SQLite."
   ]
 }

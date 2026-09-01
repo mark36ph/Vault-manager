@@ -83,10 +83,15 @@ public static class AutopilotSchedulePreferencesStore
     public static AutopilotSchedulePreferences Load(string settingsPath)
     {
         var path = PathFor(settingsPath);
-        if (!File.Exists(path)) return new AutopilotSchedulePreferences();
         try
         {
-            var preferences = JsonSerializer.Deserialize<AutopilotSchedulePreferences>(File.ReadAllText(path))
+            var json = DatabaseSettingsStore.LoadOrMigrateLegacy(
+                settingsPath,
+                DatabaseSettingsStore.AutopilotPreferencesKey,
+                path);
+            if (string.IsNullOrWhiteSpace(json)) return new AutopilotSchedulePreferences();
+
+            var preferences = JsonSerializer.Deserialize<AutopilotSchedulePreferences>(json)
                               ?? new AutopilotSchedulePreferences();
             preferences.TargetDays = AutopilotScheduleTargetPlanner.NormalizeTargetDays(preferences.TargetDays);
             return preferences;
@@ -102,11 +107,12 @@ public static class AutopilotSchedulePreferencesStore
     {
         ArgumentNullException.ThrowIfNull(preferences);
         preferences.TargetDays = AutopilotScheduleTargetPlanner.NormalizeTargetDays(preferences.TargetDays);
-        var path = PathFor(settingsPath);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var temporary = path + ".tmp";
-        File.WriteAllText(temporary, JsonSerializer.Serialize(preferences, new JsonSerializerOptions { WriteIndented = true }));
-        File.Move(temporary, path, overwrite: true);
+        var json = JsonSerializer.Serialize(preferences, new JsonSerializerOptions { WriteIndented = true });
+        DatabaseSettingsStore.SaveJsonAndMirror(
+            settingsPath,
+            DatabaseSettingsStore.AutopilotPreferencesKey,
+            PathFor(settingsPath),
+            json);
     }
 }
 

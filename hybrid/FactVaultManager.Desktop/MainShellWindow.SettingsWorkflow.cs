@@ -571,7 +571,7 @@ public partial class MainShellWindow
         var detailsStack = (StackPanel)details.Child;
         detailsStack.Children.Add(SettingsAboutRow("Runtime root", _data.RuntimeRoot));
         detailsStack.Children.Add(SettingsAboutRow("Database", _data.DatabasePath));
-        detailsStack.Children.Add(SettingsAboutRow("Settings", _data.SettingsPath));
+        detailsStack.Children.Add(SettingsAboutRow("Settings mirror", _data.SettingsPath));
 
         var updates = SettingsSection("Updates");
         page.Children.Add(updates);
@@ -663,10 +663,9 @@ public partial class MainShellWindow
             resolve["scripting_module_path"] = _settingsResolveModulePath?.Text.Trim() ?? "";
             resolve["integration_mode"] = _settingsResolveMode?.SelectedItem?.ToString() ?? "external";
             ai["provider"] = "OpenAI";
-            Directory.CreateDirectory(Path.GetDirectoryName(_data.SettingsPath)!);
-            File.WriteAllText(_data.SettingsPath, node.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            _data.SaveSettingsDocument(node);
 
-            var message = "Settings saved.";
+            var message = "Settings saved to database.";
             SettingsStatusText.Text = message;
             if (_settingsPageStatus is not null) _settingsPageStatus.Text = message;
             HeaderStatusText.Text = message;
@@ -751,7 +750,9 @@ public partial class MainShellWindow
         {
             var lines = new List<string>();
             lines.Add(File.Exists(_data.DatabasePath) ? "✓ Database found" : "✕ Database missing");
-            lines.Add(File.Exists(_data.SettingsPath) ? "✓ Settings file found" : "! Settings file not created yet");
+            lines.Add(DatabaseSettingsStore.LoadJson(_data.DatabasePath, DatabaseSettingsStore.MainSettingsKey) is not null
+                ? "✓ App settings stored in database"
+                : "! App settings have not been saved to database yet");
 
             var settings = _data.LoadSettings();
             var root = settings.ProjectsFolder.Trim();
@@ -789,11 +790,7 @@ public partial class MainShellWindow
         catch { return true; }
     }
 
-    private JsonObject LoadSettingsJson()
-    {
-        if (!File.Exists(_data.SettingsPath)) return new JsonObject();
-        return JsonNode.Parse(File.ReadAllText(_data.SettingsPath)) as JsonObject ?? new JsonObject();
-    }
+    private JsonObject LoadSettingsJson() => _data.LoadSettingsDocument();
 
     private static JsonObject EnsureSection(JsonObject root, string name)
     {
