@@ -42,6 +42,28 @@ public sealed class CurrentShellFirstPaintTests
         Assert.DoesNotContain("Select a quiz in Upload Manager", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PublicationState_UsesHighContrastColumnHeaders()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.PublicationState.cs");
+
+        Assert.Contains("new Style(typeof(DataGridColumnHeader))", source, StringComparison.Ordinal);
+        Assert.Contains("grid.ColumnHeaderStyle = headerStyle;", source, StringComparison.Ordinal);
+        Assert.Contains("Color.FromRgb(13, 24, 78)", source, StringComparison.Ordinal);
+        Assert.Contains("Color.FromRgb(255, 220, 94)", source, StringComparison.Ordinal);
+        Assert.Contains("FontWeights.SemiBold", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LibraryMoreButton_UsesColoredOutlineInsteadOfPaleWhiteEdge()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.QuizHistoryUiCleanup.cs");
+
+        Assert.Contains("Content = \"More ▾\"", source, StringComparison.Ordinal);
+        Assert.Contains("StyleQuizHistoryButton(more, Color.FromRgb(105, 118, 255));", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("StyleQuizHistoryButton(more, Color.FromRgb(160, 175, 215));", source, StringComparison.Ordinal);
+    }
+
     private static string ReadRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

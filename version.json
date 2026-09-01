@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.94",
-  "build": 119,
+  "latest_version": "1.0.95",
+  "build": 120,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 119 removes the old-screen startup flash by keeping the main window visually hidden until the current Factburst navigation has been assembled.",
-    "The first visible frame now uses the current Autopilot, Create, Performance, Library, Website, Analytics, Users, Comments, SEO, Advanced, and Settings shell.",
-    "Publication State is now available from Library / Quiz History for the selected quiz instead of depending on the hidden legacy Upload Manager page.",
-    "No separate Upload Manager is added to the current Factburst sidebar; existing internal upload and retry workflows remain compatible.",
-    "Build 118 unified publication state and Build 117 permanent project folders remain included unchanged."
+    "Build 120 improves Library visual contrast based on the current Factburst interface.",
+    "Publication State now uses a dark navy header row with bold gold labels and cyan separators so every column title remains readable.",
+    "The Library More button now uses a saturated blue-violet outline instead of the pale border that appeared white against the dark action bar.",
+    "Regression checks protect both visual fixes.",
+    "Build 119 current-shell startup and Library publication-state integration remain included unchanged."
   ]
 }
