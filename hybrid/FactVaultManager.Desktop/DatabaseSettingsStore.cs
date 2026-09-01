@@ -92,7 +92,12 @@ public static class DatabaseSettingsStore
 
     public static void SaveJsonAndMirror(string settingsPath, string settingKey, string legacyPath, string valueJson)
     {
-        SaveJson(DatabasePathFromSettingsPath(settingsPath), settingKey, valueJson);
+        var databasePath = DatabasePathFromSettingsPath(settingsPath);
+        if (File.Exists(databasePath))
+            SaveJson(databasePath, settingKey, valueJson);
+        // Legacy recovery utilities and isolated preference tests can legitimately run before a
+        // FactVault database exists. In the installed app, DesktopDataService enforces database
+        // presence before user settings are saved, so this remains only a compatibility path.
         TryWriteCompatibilityMirror(legacyPath, valueJson);
     }
 
@@ -190,10 +195,14 @@ public static class AppSettingsDocumentStore
         ArgumentException.ThrowIfNullOrWhiteSpace(settingsPath);
         ArgumentNullException.ThrowIfNull(document);
         var json = document.ToJsonString(IndentedJson);
-        DatabaseSettingsStore.SaveJson(
-            DatabaseSettingsStore.DatabasePathFromSettingsPath(settingsPath),
-            DatabaseSettingsStore.MainSettingsKey,
-            json);
+        var databasePath = DatabaseSettingsStore.DatabasePathFromSettingsPath(settingsPath);
+        if (File.Exists(databasePath))
+        {
+            DatabaseSettingsStore.SaveJson(
+                databasePath,
+                DatabaseSettingsStore.MainSettingsKey,
+                json);
+        }
         DatabaseSettingsStore.TryWriteCompatibilityMirror(settingsPath, json);
     }
 
