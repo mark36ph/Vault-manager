@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.105",
-  "build": 130,
+  "latest_version": "1.0.106",
+  "build": 131,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 130 makes the long-form YouTube release the source of truth for Factburst website timing.",
-    "Scheduled website quizzes now use the exact YouTube scheduled time, and existing published website copies are realigned without re-uploading their questions.",
-    "Private or unlisted long-form YouTube uploads without a release schedule can no longer be published to the website early.",
-    "The app reconciles live Cloudflare quiz inventory back into unified Website publication state and clears stale remote-publication state when the website copy is missing.",
-    "When Autopilot is on, website schedule reconciliation runs after startup and every five minutes; manual Website offline drafts remain offline."
+    "Build 131 reduces background UI overhead so navigation and large management pages stay more responsive.",
+    "The global compatibility cleanup now runs only during a short startup settling window and on page changes instead of scanning the WPF visual tree every second forever.",
+    "Needs You status polling now refreshes every five seconds only while the Autopilot home page is visible, avoiding repeated state and snapshot file reads elsewhere in the app.",
+    "Library publication audits now perform SQLite, project-folder and promo-metadata reads off the WPF UI thread and use a 30-second safety refresh with immediate refresh when Library opens.",
+    "Library now explicitly uses recycling row and column virtualization so off-screen cells do less measure and rendering work; publishing and five-minute Autopilot supervisor cadences are unchanged."
   ]
 }
