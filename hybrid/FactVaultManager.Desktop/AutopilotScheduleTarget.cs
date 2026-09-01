@@ -1,10 +1,11 @@
-using System.Globalization;
 using System.Text.Json;
 
 namespace FactVaultManager.Desktop;
 
 public sealed class AutopilotSchedulePreferences
 {
+    // Kept as TargetDays for settings-file compatibility. The value now represents the
+    // minimum number of future full quizzes Autopilot keeps scheduled.
     public int TargetDays { get; set; } = 14;
     public bool AutoFillEnabled { get; set; }
     public DateTime? LastAutomaticFillUtc { get; set; }
@@ -17,51 +18,52 @@ public static class AutopilotScheduleTargetPlanner
     public static int NormalizeTargetDays(int value) =>
         AllowedTargets.Contains(value) ? value : 14;
 
-    public static int MissingScheduleDays(
+    public static int ScheduledQuizCount(
         IEnumerable<QuizHistorySummary> history,
-        int targetDays,
         DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(history);
-        targetDays = NormalizeTargetDays(targetDays);
-        var start = now.LocalDateTime.Date.AddDays(1);
-        var desired = Enumerable.Range(0, targetDays)
-            .Select(offset => start.AddDays(offset))
-            .ToHashSet();
-
-        foreach (var item in history)
-        {
-            if (!string.Equals(item.VideoType, "Video", StringComparison.Ordinal) ||
-                string.IsNullOrWhiteSpace(item.YouTubeScheduledFor))
-                continue;
-            if (!DateTimeOffset.TryParse(
-                    item.YouTubeScheduledFor,
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeLocal,
-                    out var scheduled))
-                continue;
-            desired.Remove(scheduled.LocalDateTime.Date);
-        }
-        return desired.Count;
+        return history.Count(item =>
+            item.PublishedOnYouTube &&
+            string.Equals(item.VideoType, "Video", StringComparison.Ordinal) &&
+            ScheduledReleaseReadinessPlanner.TryFutureSchedule(item.YouTubeScheduledFor, now, out _));
     }
+
+    public static int MissingScheduledQuizzes(
+        IEnumerable<QuizHistorySummary> history,
+        int targetCount,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        targetCount = NormalizeTargetDays(targetCount);
+        return Math.Max(0, targetCount - ScheduledQuizCount(history, now));
+    }
+
+    // Compatibility for older callers/settings-era tests. Schedule refill is now based on
+    // future scheduled quiz inventory rather than whether individual calendar dates happen
+    // to be occupied.
+    public static int MissingScheduleDays(
+        IEnumerable<QuizHistorySummary> history,
+        int targetDays,
+        DateTimeOffset now) =>
+        MissingScheduledQuizzes(history, targetDays, now);
 
     public static int BatchSizeForMissingDays(int missingDays)
     {
         if (missingDays <= 0) return 0;
-        // The existing proven batch renderer intentionally starts at two items.
+        // The existing proven batch renderer and trusted publishing preflight intentionally
+        // start at two items. A target therefore means "keep at least N scheduled".
         return Math.Clamp(missingDays == 1 ? 2 : missingDays, 2, 20);
     }
 
     public static bool ShouldAutoFill(
         AutopilotSchedulePreferences preferences,
-        int missingDays,
+        int missingCount,
         bool productionBusy,
         DateTime utcNow)
     {
         ArgumentNullException.ThrowIfNull(preferences);
-        // Master Autopilot keeps the rolling schedule completely full. Even one
-        // missing target day is enough to start the existing safe batch pipeline.
-        if (!preferences.AutoFillEnabled || productionBusy || missingDays <= 0)
+        if (!preferences.AutoFillEnabled || productionBusy || missingCount <= 0)
             return false;
         if (preferences.LastAutomaticFillUtc is { } last && utcNow - last < TimeSpan.FromMinutes(20))
             return false;
@@ -124,6 +126,15 @@ public static class AutopilotBatchCountRequest
         }
     }
 
+    public static void Cancel()
+    {
+        lock (Gate)
+        {
+            _count = 0;
+            _expiresUtc = default;
+        }
+    }
+
     public static bool TryConsume(out int count)
     {
         lock (Gate)
@@ -153,6 +164,15 @@ public static class AutopilotTrustedPublishingPreflight
         {
             _armed = true;
             _expiresUtc = DateTime.UtcNow.AddHours(8);
+        }
+    }
+
+    public static void Cancel()
+    {
+        lock (Gate)
+        {
+            _armed = false;
+            _expiresUtc = default;
         }
     }
 
