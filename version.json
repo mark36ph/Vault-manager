@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.115",
-  "build": 140,
+  "latest_version": "1.0.116",
+  "build": 141,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 140 fixes whole-app stalls that could become noticeable after social credentials are configured by removing recursive legacy project-path recovery from the routine Full Autopilot loop.",
-    "Full Autopilot now loads quiz history and YouTube growth snapshots away from the WPF UI thread before running its social and post-release checks.",
-    "Instagram and Needs You background sync is throttled from every second to every five seconds, guarded against overlap, and performs history, publication and project-file checks away from the UI thread.",
-    "The five-minute Instagram promo candidate scan also runs off the dispatcher; Facebook, YouTube and Instagram credentials and publishing behaviour are unchanged."
+    "Build 141 consolidates external credentials into one Settings → API & Connections page while keeping the existing encrypted credential storage.",
+    "Adds individual live Test buttons and Test all connections for OpenAI, Pixabay, Pexels, YouTube Data API, YouTube OAuth, Facebook Page and Instagram.",
+    "Instagram settings now link directly to Meta's Instagram Login setup and identify the connected professional account with a lightweight read-only check.",
+    "Connection tests are asynchronous and read-only: they do not upload, publish, delete or modify social content."
   ]
 }
