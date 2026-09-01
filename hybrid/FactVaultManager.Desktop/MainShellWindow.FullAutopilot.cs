@@ -94,32 +94,48 @@ public partial class MainShellWindow
         if (_fullAutopilotRunning) return;
         _fullAutopilotRunning = true;
         var notes = new List<string>();
-        var state = FactburstFullAutopilotStateStore.Load(_data.SettingsPath);
+        var settingsPath = _data.SettingsPath;
+        FactburstFullAutopilotState? state = null;
         try
         {
-            _data.RecoverQuizHistoryProjectFolders();
-            var histories = _data.GetQuizHistory(2_000);
-            RegisterNewFullAutopilotReleaseWatches(state, histories);
+            // Routine Autopilot refreshes must never perform the legacy recursive project-path
+            // recovery. Current startup consolidation owns migration, while the explicit Quiz
+            // History "Update paths" action remains available for manual repair when needed.
+            var growthStorePath = YouTubeGrowthStorePath();
+            var local = await Task.Run(() =>
+            {
+                var loadedState = FactburstFullAutopilotStateStore.Load(settingsPath);
+                var histories = _data.GetQuizHistory(2_000);
+                var latestSnapshots = YouTubeGrowthSnapshotStore.Load(growthStorePath)
+                    .GroupBy(snapshot => snapshot.VideoId, StringComparer.Ordinal)
+                    .Select(group => group.OrderByDescending(snapshot => snapshot.CheckedAtUtc).First())
+                    .ToList();
+                return (State: loadedState, Histories: histories, LatestSnapshots: latestSnapshots);
+            });
 
-            var latestSnapshots = YouTubeGrowthSnapshotStore.Load(YouTubeGrowthStorePath())
-                .GroupBy(snapshot => snapshot.VideoId, StringComparer.Ordinal)
-                .Select(group => group.OrderByDescending(snapshot => snapshot.CheckedAtUtc).First())
-                .ToList();
-            var newWinners = YouTubeWinnerFollowUpPlanner.EnqueueNewWinners(state, latestSnapshots, DateTime.UtcNow);
-            RegisterWinnerPromoBundles(state);
+            var activeState = local.State;
+            state = activeState;
+            var histories = local.Histories;
+            RegisterNewFullAutopilotReleaseWatches(activeState, histories);
+
+            var newWinners = YouTubeWinnerFollowUpPlanner.EnqueueNewWinners(
+                activeState,
+                local.LatestSnapshots,
+                DateTime.UtcNow);
+            RegisterWinnerPromoBundles(activeState);
             if (newWinners > 0)
                 notes.Add($"{newWinners:N0} winner follow-up queued");
 
             await RunIsolatedAsync("Facebook first comment", notes,
-                () => RunFacebookFirstCommentAutopilotAsync(state, histories));
+                () => RunFacebookFirstCommentAutopilotAsync(activeState, histories));
             await RunIsolatedAsync("post-release audit", notes,
-                () => RunYouTubePostReleaseAuditAsync(state, histories));
+                () => RunYouTubePostReleaseAuditAsync(activeState, histories));
             await RunIsolatedAsync("comment triage", notes,
-                () => RunYouTubeCommentTriageAsync(state));
+                () => RunYouTubeCommentTriageAsync(activeState));
             await RunIsolatedAsync("winner promos", notes,
-                () => RunWinnerPromoAutopilotAsync(state, histories));
+                () => RunWinnerPromoAutopilotAsync(activeState, histories));
 
-            FactburstFullAutopilotStateStore.Save(_data.SettingsPath, state);
+            await Task.Run(() => FactburstFullAutopilotStateStore.Save(settingsPath, activeState));
             EnsureFullAutopilotUiHooks();
             var summary = notes.Count == 0
                 ? "Full Autopilot: monitoring releases, winners and comments"
@@ -132,8 +148,11 @@ public partial class MainShellWindow
         }
         finally
         {
-            try { FactburstFullAutopilotStateStore.Save(_data.SettingsPath, state); }
-            catch (Exception error) { Debug.WriteLine("Full Autopilot state save failed: " + error.Message); }
+            if (state is not null)
+            {
+                try { await Task.Run(() => FactburstFullAutopilotStateStore.Save(settingsPath, state)); }
+                catch (Exception error) { Debug.WriteLine("Full Autopilot state save failed: " + error.Message); }
+            }
             _fullAutopilotRunning = false;
         }
     }
