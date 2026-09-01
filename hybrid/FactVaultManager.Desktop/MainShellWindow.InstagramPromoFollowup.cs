@@ -1,19 +1,17 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using System.Windows.Threading;
 
 namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    private const string InstagramPromoNeedsButtonTag = "autopilot-instagram-promo-followup";
     private DispatcherTimer? _instagramPromoAutopilotTimer;
     private DispatcherTimer? _instagramPromoNeedsSyncTimer;
     private bool _instagramPromoFollowupInitialized;
     private bool _instagramPromoAutopilotRunning;
-    private Button? _instagramPromoNeedsButton;
+    private static bool _instagramPromoGuidedHandlerRegistered;
 
     public void InitializeInstagramPromoFollowup()
     {
@@ -25,6 +23,16 @@ public partial class MainShellWindow
         // Build 126 extends the same home counter with post-release Instagram work. Stop the
         // older counter timer so two one-second writers cannot fight over the Needs You value.
         _autopilotNeedsYouCountSyncTimer?.Stop();
+
+        if (!_instagramPromoGuidedHandlerRegistered)
+        {
+            EventManager.RegisterClassHandler(
+                typeof(Button),
+                Button.ClickEvent,
+                new RoutedEventHandler(InstagramPromoGuidedButton_Click),
+                handledEventsToo: true);
+            _instagramPromoGuidedHandlerRegistered = true;
+        }
 
         _instagramPromoNeedsSyncTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
@@ -54,6 +62,28 @@ public partial class MainShellWindow
             _instagramPromoNeedsSyncTimer?.Stop();
             _instagramPromoAutopilotTimer?.Stop();
         };
+    }
+
+    private static void InstagramPromoGuidedButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button ||
+            !string.Equals(button.Content?.ToString(), "Start next task", StringComparison.Ordinal) ||
+            Window.GetWindow(button) is not MainShellWindow window)
+        {
+            return;
+        }
+
+        var need = window.BuildInstagramPromoFollowupNeeds().FirstOrDefault();
+        if (need is null)
+            return;
+
+        // A class handler runs before the button's normal Click handler. Marking the event
+        // handled keeps the legacy guided queue from opening an empty task list for this
+        // post-release Instagram item.
+        e.Handled = true;
+        window.Dispatcher.BeginInvoke(
+            DispatcherPriority.Input,
+            new Action(async () => await window.PublishNextInstagramPromoManuallyAsync()));
     }
 
     private IReadOnlyList<InstagramPromoFollowupNeed> BuildInstagramPromoFollowupNeeds(
@@ -174,7 +204,6 @@ public partial class MainShellWindow
             SetAutopilotTextIfChanged(_autopilotHealthText, health);
 
             ApplyAutopilotHomeCleanup();
-            EnsureInstagramPromoNeedsButton(instagramNeeds);
 
             if (MainTabs.SelectedIndex == _autopilotHomeTabIndex)
             {
@@ -187,48 +216,6 @@ public partial class MainShellWindow
         {
             Debug.WriteLine("Instagram Needs You sync failed: " + error);
         }
-    }
-
-    private void EnsureInstagramPromoNeedsButton(IReadOnlyList<InstagramPromoFollowupNeed> needs)
-    {
-        if (_autopilotNeedsPanel is null)
-            return;
-
-        var existing = _autopilotNeedsPanel.Children
-            .OfType<Button>()
-            .FirstOrDefault(button => string.Equals(
-                button.Tag?.ToString(),
-                InstagramPromoNeedsButtonTag,
-                StringComparison.Ordinal));
-
-        if (needs.Count == 0)
-        {
-            if (existing is not null)
-                _autopilotNeedsPanel.Children.Remove(existing);
-            _instagramPromoNeedsButton = null;
-            return;
-        }
-
-        if (existing is null)
-        {
-            existing = new Button
-            {
-                Tag = InstagramPromoNeedsButtonTag,
-                MinWidth = 178,
-                MinHeight = 36,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                Margin = new Thickness(0, 8, 0, 2),
-            };
-            StyleQuizHistoryButton(existing, Color.FromRgb(214, 67, 155));
-            existing.Click += async (_, _) => await PublishNextInstagramPromoManuallyAsync();
-            _autopilotNeedsPanel.Children.Add(existing);
-        }
-
-        existing.Content = needs.Count == 1
-            ? "Post Instagram promo"
-            : $"Post Instagram promos ({needs.Count:N0})";
-        existing.ToolTip = needs[0].Detail;
-        _instagramPromoNeedsButton = existing;
     }
 
     private async Task RunInstagramPromoFollowupAsync()
