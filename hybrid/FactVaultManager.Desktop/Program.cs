@@ -57,6 +57,33 @@ public static class Program
 
     private static void Application_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
+        if (ProjectsFolderConfigurationGuard.IsMissingProjectsFolderException(e.Exception))
+        {
+            WriteCrashLog("WPF dispatcher Projects Folder configuration exception (handled)", e.Exception);
+            e.Handled = true;
+
+            if (sender is Application application && application.MainWindow is MainShellWindow shell)
+            {
+                shell.ShowProjectsFolderConfigurationRequired();
+            }
+            else
+            {
+                try
+                {
+                    MessageBox.Show(
+                        "Set the Projects Folder in Settings before using project-based features.",
+                        "Projects Folder Required",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+                catch
+                {
+                }
+            }
+
+            return;
+        }
+
         WriteCrashLog("WPF dispatcher unhandled exception", e.Exception);
 
         try
@@ -72,8 +99,8 @@ public static class Program
         }
 
         e.Handled = true;
-        if (sender is Application application)
-            application.Shutdown(-1);
+        if (sender is Application applicationToShutdown)
+            applicationToShutdown.Shutdown(-1);
     }
 
     private static void ShowFatalError(string heading, Exception error)
