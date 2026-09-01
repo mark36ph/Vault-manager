@@ -25,10 +25,13 @@ public sealed class StartupProjectsRootSafetyTests
     }
 
     [Fact]
-    public void Build133_IsTheStartupProjectsRootHotfix()
+    public void StartupProjectsRootHotfix_RemainsIndependentOfLaterBuildNumbers()
     {
-        var build = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
-        Assert.Contains("CurrentBuildNumber = 133", build, StringComparison.Ordinal);
+        var shell = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.xaml.cs");
+        var safety = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/DesktopDataService.StartupFolderCleanupSafety.cs");
+
+        Assert.Contains("ResumeQuizFolderCleanupSafely", shell, StringComparison.Ordinal);
+        Assert.Contains("ResumeQuizFolderCleanupSafely", safety, StringComparison.Ordinal);
     }
 
     private static string ReadRepositoryFile(string relativePath)
