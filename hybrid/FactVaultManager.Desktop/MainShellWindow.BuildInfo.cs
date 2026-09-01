@@ -61,7 +61,6 @@ public partial class MainShellWindow
             window.InitializeInstagramPromoFollowup();
             window.InitializeAutopilotNeedsYouVisualStability();
             window.InitializeAutopilotShellActivationFix();
-            window.InitializeAutopilotRecoverySupervisor();
             window.InitializeAutopilotScheduleTarget();
             window.InitializeQuizHistoryBulkArchiveUi();
             window.InitializeQuizHistoryGroupedBulkArchiveUi();
