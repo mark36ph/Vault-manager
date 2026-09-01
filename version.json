@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.116",
-  "build": 141,
+  "latest_version": "1.0.117",
+  "build": 142,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 141 consolidates external credentials into one Settings → API & Connections page while keeping the existing encrypted credential storage.",
-    "Adds individual live Test buttons and Test all connections for OpenAI, Pixabay, Pexels, YouTube Data API, YouTube OAuth, Facebook Page and Instagram.",
-    "Instagram settings now link directly to Meta's Instagram Login setup and identify the connected professional account with a lightweight read-only check.",
-    "Connection tests are asynchronous and read-only: they do not upload, publish, delete or modify social content."
+    "Build 142 adds the Factburst website tracker connection to Settings → API & Connections so website credentials live with the other external service credentials.",
+    "The website connection reuses the existing encrypted TRACKER_API_KEY storage and the default https://go.factburstquiz.com tracker URL used by Website administration.",
+    "Adds a read-only Website Test that checks the tracker health endpoint and then performs an authenticated analytics request to verify the saved key.",
+    "The unified Save API & website settings action now also saves the tracker connection without changing the existing Website Manager or recovery paths."
   ]
 }
