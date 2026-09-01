@@ -3,11 +3,11 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class StartupUiCleanupHotfixTests
 {
     [Fact]
-    public void Build132_DoesNotStartTheLegacyRepeatingCleanupDuringWindowLoad()
+    public void StartupCleanup_DoesNotStartTheLegacyRepeatingCleanupDuringWindowLoad()
     {
         var build = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
 
-        Assert.Contains("CurrentBuildNumber = 132", build, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber =", build, StringComparison.Ordinal);
         Assert.Contains("InitializeStartupSafeUiCleanup();", build, StringComparison.Ordinal);
         Assert.DoesNotContain("window.InitializeDailyUiCleanup();", build, StringComparison.Ordinal);
     }
