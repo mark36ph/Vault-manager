@@ -40,6 +40,36 @@ public sealed class AutopilotResponsivenessTests
     }
 
     [Fact]
+    public void AutopilotNeedsYouRefresh_RunsFileReadsOffDispatcherAndPreventsOverlap()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
+
+        Assert.Contains(
+            "Interlocked.CompareExchange(ref _autopilotNeedsYouCountSyncBusy, 1, 0)",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains("var grouped = await Task.Run(() =>", source, StringComparison.Ordinal);
+        Assert.Contains("FactburstFullAutopilotStateStore.Load(settingsPath)", source, StringComparison.Ordinal);
+        Assert.Contains("YouTubeGrowthSnapshotStore.Load(growthStorePath)", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "Interlocked.Exchange(ref _autopilotNeedsYouCountSyncBusy, 0);",
+            source,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build136_RetiresObsoleteAutomaticRecoveryPasses()
+    {
+        var build = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
+        var program = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/Program.cs");
+
+        Assert.DoesNotContain("InitializeAutopilotRecoverySupervisor();", build, StringComparison.Ordinal);
+        Assert.DoesNotContain("InstalledDatabaseRecovery.Run();", program, StringComparison.Ordinal);
+        Assert.Contains("InstalledLibraryRecoveryV2.Run();", program, StringComparison.Ordinal);
+        Assert.Contains("InstalledQuestionLibraryRecoveryV3.Run();", program, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Build136_IsTheAutopilotResponsivenessRelease()
     {
         var build = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
