@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.101",
-  "build": 126,
+  "latest_version": "1.0.102",
+  "build": 127,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 126 adds post-release Instagram promo follow-through: when Autopilot is ON, Factburst verifies the full YouTube quiz is actually public and then publishes the prepared Instagram Reel automatically.",
-    "Automatic Instagram publishing only uses an already-approved Facebook Page / linked Instagram destination. Missing approval, account-link problems, missing promo files and upload failures are recorded and surfaced in Needs You instead of disappearing.",
-    "Needs You now includes recent public YouTube quizzes whose Instagram promo is still missing and provides a dedicated Post Instagram promo action for manual fallback.",
-    "Library now shows compact YT, FB and IG full-quiz publication columns plus a separate IG promo column with Waiting, Posted, Needs upload or Promo missing state.",
-    "Library platform state refreshes while Library is open and reconciles existing publication records so older quizzes gain the same status view."
+    "Build 127 simplifies Library platform tracking so each normal quiz row shows YT for the full YouTube quiz and compact FB / IG social follow-through state for that same release.",
+    "Facebook and Instagram cells now use a simple tick when the promo is posted, a cross when it needs action, and a dash while the YouTube release is not due yet; hovering keeps the detailed state available.",
+    "The redundant IG promo column and legacy Status column are removed from Library, reducing horizontal clutter.",
+    "Stage and Next action columns are widened so lifecycle labels are readable instead of clipped.",
+    "The existing automatic Instagram follow-through, Needs You fallback and live publication-state refresh remain unchanged."
   ]
 }
