@@ -83,7 +83,7 @@ public partial class MainShellWindow
         var stack = new StackPanel
         {
             VerticalAlignment = VerticalAlignment.Center,
-            MinWidth = 260,
+            MinWidth = 280,
         };
 
         _autopilotScheduleAutoFillChoice = new CheckBox
@@ -95,7 +95,7 @@ public partial class MainShellWindow
             FontSize = 14,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-            ToolTip = "When ON, Factburst keeps the rolling quiz schedule full and runs all available Autopilot supervision while the app is open.",
+            ToolTip = "When ON, Factburst keeps at least the selected number of future full quizzes scheduled and runs all available Autopilot supervision while the app is open.",
             Margin = new Thickness(0, 0, 0, 8),
         };
         stack.Children.Add(_autopilotScheduleAutoFillChoice);
@@ -107,7 +107,7 @@ public partial class MainShellWindow
         };
         controls.Children.Add(new TextBlock
         {
-            Text = "Keep ",
+            Text = "Keep at least ",
             Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(207, 220, 255)),
             VerticalAlignment = VerticalAlignment.Center,
         });
@@ -122,7 +122,7 @@ public partial class MainShellWindow
         controls.Children.Add(_autopilotScheduleTargetChoice);
         controls.Children.Add(new TextBlock
         {
-            Text = " days ready",
+            Text = " quizzes scheduled",
             Foreground = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(207, 220, 255)),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(4, 0, 9, 0),
@@ -130,7 +130,7 @@ public partial class MainShellWindow
         stack.Children.Add(controls);
 
         fillButton.Content = "Fill schedule now";
-        fillButton.ToolTip = "Manual override. Autopilot fills the schedule automatically while it is ON.";
+        fillButton.ToolTip = "Manual override. Autopilot tops the future scheduled quiz count back up automatically while it is ON.";
         fillButton.Margin = new Thickness(0, 8, 0, 0);
         stack.Children.Add(fillButton);
 
@@ -189,15 +189,15 @@ public partial class MainShellWindow
         }
 
         var preferences = AutopilotSchedulePreferencesStore.Load(window._data.SettingsPath);
-        var missing = AutopilotScheduleTargetPlanner.MissingScheduleDays(
-            window._data.GetQuizHistory(2_000),
-            preferences.TargetDays,
-            DateTimeOffset.Now);
+        var history = window._data.GetQuizHistory(2_000);
+        var now = DateTimeOffset.Now;
+        var scheduled = AutopilotScheduleTargetPlanner.ScheduledQuizCount(history, now);
+        var missing = AutopilotScheduleTargetPlanner.MissingScheduledQuizzes(history, preferences.TargetDays, now);
         var count = AutopilotScheduleTargetPlanner.BatchSizeForMissingDays(missing);
         if (count == 0)
         {
             if (window._autopilotScheduleTargetStatusText is not null)
-                window._autopilotScheduleTargetStatusText.Text = $"Target met — {preferences.TargetDays:N0} days are covered.";
+                window._autopilotScheduleTargetStatusText.Text = $"Target met — {scheduled:N0} future quizzes are scheduled.";
             e.Handled = true;
             return;
         }
@@ -205,7 +205,7 @@ public partial class MainShellWindow
         AutopilotBatchCountRequest.Arm(count);
         window.ArmTrustedAutopilotPublishingIfApproved();
         if (window._autopilotScheduleTargetStatusText is not null)
-            window._autopilotScheduleTargetStatusText.Text = $"Filling {missing:N0} missing day{(missing == 1 ? "" : "s")} with {count:N0} quiz{(count == 1 ? "" : "zes")}...";
+            window._autopilotScheduleTargetStatusText.Text = $"{scheduled:N0} scheduled • creating {count:N0} quiz{(count == 1 ? "" : "zes")} to restore the {preferences.TargetDays:N0} target...";
     }
 
     private static void AutopilotBatchCountWindow_Loaded(object sender, RoutedEventArgs e)
@@ -234,7 +234,9 @@ public partial class MainShellWindow
 
         var preferences = AutopilotSchedulePreferencesStore.Load(_data.SettingsPath);
         var history = _data.GetQuizHistory(2_000);
-        var missing = AutopilotScheduleTargetPlanner.MissingScheduleDays(history, preferences.TargetDays, DateTimeOffset.Now);
+        var now = DateTimeOffset.Now;
+        var scheduled = AutopilotScheduleTargetPlanner.ScheduledQuizCount(history, now);
+        var missing = AutopilotScheduleTargetPlanner.MissingScheduledQuizzes(history, preferences.TargetDays, now);
         var productionBusy = _quizBatchAutomationRunning || _quizBatchRenderRunning ||
                              _quizAutopilotFinishing || _quizGrowthAutopilotRunning;
         if (!AutopilotScheduleTargetPlanner.ShouldAutoFill(preferences, missing, productionBusy, DateTime.UtcNow))
@@ -265,6 +267,7 @@ public partial class MainShellWindow
         if (count == 0) return;
 
         _autopilotScheduleFillStarting = true;
+        var productionStarted = false;
         try
         {
             NavigateLegacy("Quizzes", "Create");
@@ -280,14 +283,29 @@ public partial class MainShellWindow
             AutopilotBatchCountRequest.Arm(count);
             AutopilotTrustedPublishingPreflight.Arm();
             if (_autopilotScheduleTargetStatusText is not null)
-                _autopilotScheduleTargetStatusText.Text = $"Autopilot starting {count:N0} quiz{(count == 1 ? "" : "zes")} for {missing:N0} missing day{(missing == 1 ? "" : "s")}.";
+                _autopilotScheduleTargetStatusText.Text = $"Autopilot: {scheduled:N0} scheduled • starting {count:N0} new quiz{(count == 1 ? "" : "zes")} to restore {preferences.TargetDays:N0}.";
 
             _quizAutopilotPrimaryButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            productionStarted = _quizBatchAutomationRunning || _quizBatchRenderRunning;
+            if (!productionStarted)
+            {
+                AutopilotBatchCountRequest.Cancel();
+                AutopilotTrustedPublishingPreflight.Cancel();
+                if (_autopilotScheduleTargetStatusText is not null)
+                    _autopilotScheduleTargetStatusText.Text = "Autopilot could not start quiz production. No cooldown was applied; it will retry automatically.";
+                return;
+            }
+
             preferences.LastAutomaticFillUtc = DateTime.UtcNow;
             AutopilotSchedulePreferencesStore.Save(_data.SettingsPath, preferences);
         }
         catch (Exception error)
         {
+            if (!productionStarted)
+            {
+                AutopilotBatchCountRequest.Cancel();
+                AutopilotTrustedPublishingPreflight.Cancel();
+            }
             Debug.WriteLine("Automatic schedule fill could not start: " + error);
             if (_autopilotScheduleTargetStatusText is not null)
                 _autopilotScheduleTargetStatusText.Text = "Autopilot will retry later: " + error.Message;
@@ -312,9 +330,6 @@ public partial class MainShellWindow
         }
 
         _fullAutopilotTimer?.Stop();
-        // FullAutopilot has a delayed startup pass of its own. Holding the existing
-        // running gate while master Autopilot is OFF prevents that pending pass from
-        // doing post-release work before the user turns the master switch on.
         if (!_fullAutopilotRunning)
         {
             _fullAutopilotRunning = true;
@@ -341,21 +356,21 @@ public partial class MainShellWindow
         try
         {
             var preferences = AutopilotSchedulePreferencesStore.Load(_data.SettingsPath);
-            var missing = AutopilotScheduleTargetPlanner.MissingScheduleDays(
-                _data.GetQuizHistory(2_000),
-                preferences.TargetDays,
-                DateTimeOffset.Now);
+            var history = _data.GetQuizHistory(2_000);
+            var now = DateTimeOffset.Now;
+            var scheduled = AutopilotScheduleTargetPlanner.ScheduledQuizCount(history, now);
+            var missing = AutopilotScheduleTargetPlanner.MissingScheduledQuizzes(history, preferences.TargetDays, now);
             if (!preferences.AutoFillEnabled)
             {
                 _autopilotScheduleTargetStatusText.Text = missing == 0
-                    ? $"Autopilot is off • {preferences.TargetDays:N0} days currently covered"
-                    : $"Autopilot is off • {missing:N0} day{(missing == 1 ? "" : "s")} need filling";
+                    ? $"Autopilot is off • {scheduled:N0} future quizzes scheduled"
+                    : $"Autopilot is off • {scheduled:N0}/{preferences.TargetDays:N0} scheduled • {missing:N0} need creating";
                 return;
             }
 
             _autopilotScheduleTargetStatusText.Text = missing == 0
-                ? $"Autopilot running • maintaining {preferences.TargetDays:N0} days ready"
-                : $"Autopilot running • {missing:N0} day{(missing == 1 ? "" : "s")} queued to fill";
+                ? $"Autopilot running • {scheduled:N0} future quizzes scheduled"
+                : $"Autopilot running • {scheduled:N0}/{preferences.TargetDays:N0} scheduled • {missing:N0} queued to create";
         }
         catch (Exception error)
         {
