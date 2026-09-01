@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.108",
-  "build": 133,
+  "latest_version": "1.0.109",
+  "build": 134,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 133 fixes the startup crash caused by optional quiz-folder cleanup when the Projects Folder setting is blank or unavailable.",
-    "Startup folder maintenance is now non-fatal, so the app can open normally and Settings remains accessible even when the Projects Folder needs attention.",
-    "Operations that genuinely require a Projects Folder still keep the existing strict validation and clear Settings error.",
-    "Build 132's startup UI hotfix and Build 131's safer Library and Autopilot performance improvements remain in place."
+    "Build 134 prevents Autopilot navigation from crashing the app when the Projects Folder is blank or unavailable.",
+    "Autopilot now blocks entry cleanly and routes to Settings when project storage needs attention.",
+    "The global WPF dispatcher guard treats the exact missing-Projects-Folder configuration exception as recoverable instead of shutting down the whole application.",
+    "Unexpected dispatcher exceptions still keep the existing crash log and shutdown behaviour."
   ]
 }
