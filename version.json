@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.118",
-  "build": 143,
+  "latest_version": "1.0.119",
+  "build": 144,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 143 makes Factburst Quiz Manager explicitly quiz-only and retires the old generic fact-video workspace surfaces.",
-    "Removes Pixabay and Pexels from API & Connections, Test all connections, and the active settings experience, and clears their obsolete saved credentials.",
-    "Retires the legacy Images settings page plus the old Dashboard, Projects, generic Production, Media Library and Asset Review entry points while keeping the quiz workspace and publishing managers.",
-    "Keeps Resolve, FFmpeg/native quiz rendering, OpenAI, YouTube, Facebook, Instagram and Website integrations because they are used by the current quiz creation and publishing pipeline."
+    "Build 144 physically removes the retired generic fact-video implementation and its obsolete workspace code.",
+    "Deletes the unused stock-media acquisition/provider stack for Pexels, Pixabay, Openverse and Wikimedia-backed fact-video production paths.",
+    "Removes obsolete fact-video production, visual-selection, provider-security and stock-media regression tests.",
+    "Keeps the active quiz renderer, quiz audio, Resolve/FFmpeg export, OpenAI quiz features, publishing integrations, analytics and website management intact."
   ]
 }
