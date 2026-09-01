@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.95",
-  "build": 120,
+  "latest_version": "1.0.96",
+  "build": 121,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 120 improves Library visual contrast based on the current Factburst interface.",
-    "Publication State now uses a dark navy header row with bold gold labels and cyan separators so every column title remains readable.",
-    "The Library More button now uses a saturated blue-violet outline instead of the pale border that appeared white against the dark action bar.",
-    "Regression checks protect both visual fixes.",
-    "Build 119 current-shell startup and Library publication-state integration remain included unchanged."
+    "Build 121 removes the white Windows icon gutter from the Library More dropdown.",
+    "The More menu now uses Factburst-only ContextMenu, MenuItem and separator templates with a continuous dark background and cyan border.",
+    "Hover, disabled and destructive menu states remain visually distinct without falling back to default Windows chrome.",
+    "A regression check protects the custom menu chrome so the white gutter cannot silently return.",
+    "Build 120 Publication State header contrast and More button outline improvements remain included unchanged."
   ]
 }

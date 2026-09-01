@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
+using System.Windows.Documents;
 using System.Windows.Media;
 using System.Windows.Threading;
 
@@ -89,6 +91,7 @@ public partial class MainShellWindow
         if (delete is not null)
             delete.Visibility = Visibility.Collapsed;
 
+        var menuItemStyle = CreateQuizHistoryContextMenuItemStyle();
         var menu = new ContextMenu
         {
             Placement = PlacementMode.Bottom,
@@ -96,12 +99,16 @@ public partial class MainShellWindow
             Foreground = Brushes.White,
             BorderBrush = new SolidColorBrush(Color.FromRgb(0, 204, 255)),
             BorderThickness = new Thickness(1),
+            Padding = new Thickness(0),
+            Template = CreateQuizHistoryContextMenuTemplate(),
+            ItemsPanel = CreateQuizHistoryContextMenuItemsPanel(),
         };
 
         var publishItem = new MenuItem
         {
             Header = "Open Publish",
             ToolTip = "Reopen the selected quiz directly at its Publish step",
+            Style = menuItemStyle,
         };
         publishItem.Click += (_, _) => ReopenSelectedQuizHistoryInBuilder("publish");
         menu.Items.Add(publishItem);
@@ -110,17 +117,19 @@ public partial class MainShellWindow
         {
             Header = "Reopen in Quiz Builder",
             ToolTip = "Load the selected Quiz History entry back into the quiz workflow",
+            Style = menuItemStyle,
         };
         reopenItem.Click += (_, _) => ReopenSelectedQuizHistoryInBuilder();
         menu.Items.Add(reopenItem);
 
-        menu.Items.Add(new Separator());
+        menu.Items.Add(CreateQuizHistoryContextMenuSeparator());
 
         var archiveItem = new MenuItem
         {
             Header = "Archive completed C → Z",
             ToolTip = "Archive completed physical C: quiz projects to Z: after upload and verification checks",
             IsEnabled = archive is not null,
+            Style = menuItemStyle,
         };
         archiveItem.Click += async (_, _) =>
         {
@@ -129,13 +138,14 @@ public partial class MainShellWindow
         };
         menu.Items.Add(archiveItem);
 
-        menu.Items.Add(new Separator());
+        menu.Items.Add(CreateQuizHistoryContextMenuSeparator());
 
         var deleteItem = new MenuItem
         {
             Header = "Delete selected quiz…",
             Foreground = new SolidColorBrush(Color.FromRgb(255, 125, 135)),
             ToolTip = "Delete the selected Quiz History entry",
+            Style = menuItemStyle,
         };
         deleteItem.Click += (_, _) => DeleteSelectedQuizHistory();
         menu.Items.Add(deleteItem);
@@ -160,6 +170,95 @@ public partial class MainShellWindow
         var deleteIndex = delete is null ? actions.Children.Count : actions.Children.IndexOf(delete);
         actions.Children.Insert(Math.Max(0, deleteIndex), more);
         _quizHistoryMoreButton = more;
+    }
+
+    private static ControlTemplate CreateQuizHistoryContextMenuTemplate()
+    {
+        var template = new ControlTemplate(typeof(ContextMenu));
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.SetValue(Border.BackgroundProperty, new SolidColorBrush(Color.FromRgb(13, 24, 78)));
+        border.SetValue(Border.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(0, 204, 255)));
+        border.SetValue(Border.BorderThicknessProperty, new Thickness(1));
+        border.SetValue(Border.PaddingProperty, new Thickness(2));
+        border.SetValue(Border.SnapsToDevicePixelsProperty, true);
+
+        var presenter = new FrameworkElementFactory(typeof(ItemsPresenter));
+        border.AppendChild(presenter);
+        template.VisualTree = border;
+        return template;
+    }
+
+    private static ItemsPanelTemplate CreateQuizHistoryContextMenuItemsPanel()
+    {
+        return new ItemsPanelTemplate(new FrameworkElementFactory(typeof(StackPanel)));
+    }
+
+    private static Style CreateQuizHistoryContextMenuItemStyle()
+    {
+        var style = new Style(typeof(MenuItem));
+        style.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+        style.Setters.Add(new Setter(Control.BackgroundProperty, new SolidColorBrush(Color.FromRgb(13, 24, 78))));
+        style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(12, 7, 18, 7)));
+        style.Setters.Add(new Setter(Control.MinHeightProperty, 30d));
+        style.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty, HorizontalAlignment.Stretch));
+
+        var template = new ControlTemplate(typeof(MenuItem));
+        var border = new FrameworkElementFactory(typeof(Border));
+        border.SetBinding(Border.BackgroundProperty, new Binding(nameof(Control.Background))
+        {
+            RelativeSource = RelativeSource.TemplatedParent,
+        });
+        border.SetBinding(Border.PaddingProperty, new Binding(nameof(Control.Padding))
+        {
+            RelativeSource = RelativeSource.TemplatedParent,
+        });
+
+        var presenter = new FrameworkElementFactory(typeof(ContentPresenter));
+        presenter.SetValue(ContentPresenter.ContentSourceProperty, "Header");
+        presenter.SetValue(ContentPresenter.RecognizesAccessKeyProperty, true);
+        presenter.SetValue(FrameworkElement.VerticalAlignmentProperty, VerticalAlignment.Center);
+        presenter.SetBinding(TextElement.ForegroundProperty, new Binding(nameof(Control.Foreground))
+        {
+            RelativeSource = RelativeSource.TemplatedParent,
+        });
+        border.AppendChild(presenter);
+        template.VisualTree = border;
+        style.Setters.Add(new Setter(Control.TemplateProperty, template));
+
+        var highlighted = new Trigger
+        {
+            Property = MenuItem.IsHighlightedProperty,
+            Value = true,
+        };
+        highlighted.Setters.Add(new Setter(
+            Control.BackgroundProperty,
+            new SolidColorBrush(Color.FromRgb(28, 55, 132))));
+        style.Triggers.Add(highlighted);
+
+        var disabled = new Trigger
+        {
+            Property = UIElement.IsEnabledProperty,
+            Value = false,
+        };
+        disabled.Setters.Add(new Setter(UIElement.OpacityProperty, 0.5d));
+        style.Triggers.Add(disabled);
+        return style;
+    }
+
+    private static Separator CreateQuizHistoryContextMenuSeparator()
+    {
+        var template = new ControlTemplate(typeof(Separator));
+        var line = new FrameworkElementFactory(typeof(Border));
+        line.SetValue(Border.BackgroundProperty, new SolidColorBrush(Color.FromRgb(92, 112, 190)));
+        template.VisualTree = line;
+
+        return new Separator
+        {
+            Height = 1,
+            Margin = new Thickness(10, 5, 10, 5),
+            Template = template,
+            SnapsToDevicePixels = true,
+        };
     }
 
     private static void RemoveQuizHistoryButtonsByContent(Panel? panel, params string[] contents)
