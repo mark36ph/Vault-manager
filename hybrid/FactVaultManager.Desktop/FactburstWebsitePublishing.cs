@@ -211,6 +211,14 @@ public static class FactburstWebsiteQuizBuilder
         if (youtubeUrl.Length == 0)
             throw new InvalidDataException("The long-form YouTube link is missing.");
 
+        // The long-form YouTube release is authoritative for the website. A caller can no
+        // longer publish an unscheduled private/unlisted upload early or preserve stale
+        // Cloudflare timing by passing a different publishAt value.
+        publishAt = WebsiteYouTubeSchedulePlanner.ResolvePublishAtOrThrow(
+            history,
+            publishAt,
+            DateTimeOffset.Now);
+
         return new FactburstWebsiteQuizPayload(
             FactburstLinkTrackerClient.CampaignSlug(history),
             title,

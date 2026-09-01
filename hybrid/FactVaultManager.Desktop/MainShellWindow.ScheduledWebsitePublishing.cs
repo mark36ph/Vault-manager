@@ -125,6 +125,7 @@ public partial class MainShellWindow
             _data.RecoverQuizHistoryProjectFolders();
 
             using var website = new FactburstWebsitePublishingClient();
+            using var visibility = new FactburstWebsiteVisibilityClient();
             _ = await website.FetchQuizzesAsync(settings.BaseUrl, settings.ApiKey);
 
             var histories = _data.GetQuizHistory(2_000)
@@ -155,7 +156,7 @@ public partial class MainShellWindow
 
             var confirmation =
                 $"Sync {targets.Count:N0} scheduled quiz(es) to the Factburst website now?\n\n" +
-                "Existing website copies will be refreshed too, so newly supported logo/question images are added without creating duplicates. Their normal website release schedule is preserved.\n\n" +
+                "Existing website copies will be refreshed too, so newly supported logo/question images are added without creating duplicates. Their website release time will be forced to the exact linked YouTube release time.\n\n" +
                 "If a project folder or question image is currently unavailable, that quiz will be skipped safely and can be retried later. Nothing is uploaded to social platforms by this action.";
             if (MessageBox.Show(this, confirmation, title, MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
                 return;
@@ -184,6 +185,11 @@ public partial class MainShellWindow
                         target.Row.PublishAt,
                         questionImagePaths);
                     await website.PublishQuizAsync(settings.BaseUrl, settings.ApiKey, payload);
+                    await visibility.FollowScheduleAsync(
+                        settings.BaseUrl,
+                        settings.ApiKey,
+                        payload.Slug,
+                        target.Row.PublishAt);
                     if (target.Row.PublishAt > DateTimeOffset.Now)
                     {
                         publicationState.RecordScheduled(
@@ -201,7 +207,7 @@ public partial class MainShellWindow
                             PublicationPlatform.Website,
                             PublicationContentKind.Quiz,
                             remoteId: payload.Slug,
-                            publishedAt: DateTimeOffset.Now,
+                            publishedAt: target.Row.PublishAt,
                             source: "website-sync");
                     }
                     synced++;
@@ -238,7 +244,7 @@ public partial class MainShellWindow
             SetScheduledReadinessStatus(summary);
 
             var message = summary + "\n\n" +
-                "Successfully synced quizzes are stored in Cloudflare. Logo and other available question images are included in the website copy.";
+                "Successfully synced quizzes are stored in Cloudflare. Logo and other available question images are included in the website copy, and the website release time matches YouTube exactly.";
             if (unavailable > 0)
             {
                 message += "\n\nUnavailable quizzes were not changed. Run Prepare website again after the recovered files are available on the new drive.";
