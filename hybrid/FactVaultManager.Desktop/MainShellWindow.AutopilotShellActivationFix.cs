@@ -45,10 +45,79 @@ public static class AutopilotTopBarLocator
 
 public partial class MainShellWindow
 {
+    private static readonly string[] FactburstFirstPaintNavigationKeys =
+    {
+        "Autopilot",
+        "Create",
+        "Performance",
+        "Library",
+        "Website",
+        "Web Analytics",
+        "Users",
+        "Comments",
+        "SEO",
+        "Advanced",
+        "Settings",
+    };
+
     private bool _autopilotShellActivationFixInitialized;
     private bool _autopilotShellActivationFixApplied;
     private DispatcherTimer? _autopilotShellActivationTimer;
     private readonly HashSet<Button> _autopilotGuardedProductionButtons = new();
+    private bool _factburstFirstPaintPrepared;
+    private int _factburstFirstPaintAttempts;
+    private DispatcherTimer? _factburstFirstPaintTimer;
+
+    public void PrepareFactburstFirstPaint()
+    {
+        if (_factburstFirstPaintPrepared)
+            return;
+
+        _factburstFirstPaintPrepared = true;
+        Opacity = 0;
+        Loaded += FactburstFirstPaint_Loaded;
+        Closed += (_, _) => _factburstFirstPaintTimer?.Stop();
+    }
+
+    private void FactburstFirstPaint_Loaded(object sender, RoutedEventArgs e)
+    {
+        TryRevealFactburstFirstPaint();
+        if (Opacity >= 1)
+            return;
+
+        _factburstFirstPaintTimer ??= new DispatcherTimer(DispatcherPriority.ApplicationIdle)
+        {
+            Interval = TimeSpan.FromMilliseconds(40),
+        };
+        _factburstFirstPaintTimer.Tick -= FactburstFirstPaintTimer_Tick;
+        _factburstFirstPaintTimer.Tick += FactburstFirstPaintTimer_Tick;
+        _factburstFirstPaintTimer.Start();
+    }
+
+    private void FactburstFirstPaintTimer_Tick(object? sender, EventArgs e) =>
+        TryRevealFactburstFirstPaint();
+
+    private void TryRevealFactburstFirstPaint()
+    {
+        TryActivateAutopilotShellAfterNavigationRebuild();
+
+        if (!IsFactburstFirstPaintReady() && ++_factburstFirstPaintAttempts < 125)
+            return;
+
+        _factburstFirstPaintTimer?.Stop();
+        Opacity = 1;
+    }
+
+    private bool IsFactburstFirstPaintReady()
+    {
+        if (!_autopilotShellActivationFixApplied ||
+            _autopilotNavContainer?.Parent is null)
+        {
+            return false;
+        }
+
+        return FactburstFirstPaintNavigationKeys.All(_autopilotNavButtons.ContainsKey);
+    }
 
     public void InitializeAutopilotShellActivationFix()
     {
