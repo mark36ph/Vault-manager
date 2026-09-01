@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.114",
-  "build": 139,
+  "latest_version": "1.0.115",
+  "build": 140,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 139 fixes an app freeze that could appear after a YouTube Data API key was configured and YouTube analytics became active.",
-    "Upload Manager now builds its quiz-history, social-journal and per-project promo-status snapshot away from the WPF UI thread, preventing YouTube analytics refreshes from triggering blocking project-folder scans.",
-    "Upload Manager refreshes now use an overlap guard so repeated analytics, Library and upload-state refreshes cannot stack the same filesystem work.",
-    "YouTube API key storage, OAuth account connection and publishing behaviour are unchanged; this release is focused on responsiveness."
+    "Build 140 fixes whole-app stalls that could become noticeable after social credentials are configured by removing recursive legacy project-path recovery from the routine Full Autopilot loop.",
+    "Full Autopilot now loads quiz history and YouTube growth snapshots away from the WPF UI thread before running its social and post-release checks.",
+    "Instagram and Needs You background sync is throttled from every second to every five seconds, guarded against overlap, and performs history, publication and project-file checks away from the UI thread.",
+    "The five-minute Instagram promo candidate scan also runs off the dispatcher; Facebook, YouTube and Instagram credentials and publishing behaviour are unchanged."
   ]
 }
