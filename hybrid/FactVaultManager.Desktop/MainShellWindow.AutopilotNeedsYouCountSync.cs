@@ -66,22 +66,51 @@ public partial class MainShellWindow
     {
         if (_autopilotNeedsYouCountSyncTimer is not null) return;
 
+        // Needs You reads Autopilot state and YouTube snapshot files. It only needs a frequent
+        // refresh while the Autopilot home page is visible; publishing supervisors have their
+        // own cadence and are not driven by this UI counter.
         _autopilotNeedsYouCountSyncTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromSeconds(1),
+            Interval = TimeSpan.FromSeconds(5),
         };
-        _autopilotNeedsYouCountSyncTimer.Tick += (_, _) => SyncAutopilotNeedsYouCount();
+        _autopilotNeedsYouCountSyncTimer.Tick += (_, _) =>
+        {
+            if (MainTabs.SelectedIndex == _autopilotHomeTabIndex)
+                SyncAutopilotNeedsYouCount();
+        };
         _autopilotNeedsYouCountSyncTimer.Start();
+
+        MainTabs.SelectionChanged += (_, eventArgs) =>
+        {
+            if (!ReferenceEquals(eventArgs.OriginalSource, MainTabs) ||
+                MainTabs.SelectedIndex != _autopilotHomeTabIndex)
+            {
+                return;
+            }
+
+            Dispatcher.BeginInvoke(
+                DispatcherPriority.ContextIdle,
+                new Action(SyncAutopilotNeedsYouCount));
+        };
 
         Closed += (_, _) => _autopilotNeedsYouCountSyncTimer?.Stop();
         Dispatcher.BeginInvoke(
             DispatcherPriority.ApplicationIdle,
-            new Action(SyncAutopilotNeedsYouCount));
+            new Action(() =>
+            {
+                if (MainTabs.SelectedIndex == _autopilotHomeTabIndex)
+                    SyncAutopilotNeedsYouCount();
+            }));
     }
 
     private void SyncAutopilotNeedsYouCount()
     {
-        if (_autopilotHomeRefreshing || _autopilotHomeTabIndex < 0) return;
+        if (_autopilotHomeRefreshing ||
+            _autopilotHomeTabIndex < 0 ||
+            MainTabs.SelectedIndex != _autopilotHomeTabIndex)
+        {
+            return;
+        }
 
         try
         {
@@ -107,18 +136,13 @@ public partial class MainShellWindow
                     : "Ready now — Factburst will guide you one task at a time");
             SetAutopilotTextIfChanged(_autopilotHealthText, health);
 
-            // Daily UI cleanup owns the guided Needs You panel. Older code rebuilt a set of
-            // individual task rows here every second while DailyUiCleanup removed those same
-            // rows every second. The two timers were literally fighting each other, which is
-            // what made the Needs You area blink. Update the existing guided controls in place.
+            // Daily UI cleanup owns the guided Needs You panel. Update the existing controls in
+            // place instead of rebuilding task rows.
             ApplyAutopilotHomeCleanup();
 
-            if (MainTabs.SelectedIndex == _autopilotHomeTabIndex)
-            {
-                SetAutopilotTextIfChanged(
-                    HeaderStatusText,
-                    $"Autopilot: {health} • {rows.Count:N0} scheduled • {total:N0} need you");
-            }
+            SetAutopilotTextIfChanged(
+                HeaderStatusText,
+                $"Autopilot: {health} • {rows.Count:N0} scheduled • {total:N0} need you");
         }
         catch (Exception error)
         {

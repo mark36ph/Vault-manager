@@ -11,7 +11,7 @@ public sealed class LibraryStableRefreshTests
         Assert.Contains("RefreshLibraryReleasePlatformStatusSnapshot();", source, StringComparison.Ordinal);
         Assert.Contains("var changed =", source, StringComparison.Ordinal);
         Assert.Contains("if (!changed)", source, StringComparison.Ordinal);
-        Assert.Contains("_quizHistoryGrid.Items.Refresh();", source, StringComparison.Ordinal);
+        Assert.Contains("Items.Refresh();", source, StringComparison.Ordinal);
     }
 
     [Fact]

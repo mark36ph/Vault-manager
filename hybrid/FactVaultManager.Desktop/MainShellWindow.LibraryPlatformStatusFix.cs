@@ -45,6 +45,7 @@ public partial class MainShellWindow
     private bool _libraryPlatformStatusFixInitialized;
     private bool _libraryPlatformLayoutApplied;
     private bool _libraryStableLayoutLocked;
+    private bool _libraryPlatformStatusRefreshRunning;
     private DispatcherTimer? _libraryPlatformStatusFixTimer;
     private readonly Dictionary<int, LibraryReleasePlatformStatusRow> _libraryReleasePlatformStatusByHistoryId = [];
 
@@ -56,9 +57,11 @@ public partial class MainShellWindow
         _libraryPlatformStatusFixInitialized = true;
         Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(ApplyLibraryPlatformStatusFix));
 
+        // Publication state is refreshed immediately when Library opens. The background timer is
+        // only a safety refresh for a page left open, so it does not need to wake the UI every ten seconds.
         _libraryPlatformStatusFixTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromSeconds(10),
+            Interval = TimeSpan.FromSeconds(30),
         };
         _libraryPlatformStatusFixTimer.Tick += (_, _) =>
         {
@@ -94,9 +97,17 @@ public partial class MainShellWindow
         _libraryPublicationStatusRefreshTimer?.Stop();
 
         // Let the older general cleanup establish the base widths/styles once, then freeze the
-        // Library layout so its one-second timer cannot keep re-measuring the table.
+        // Library layout so its cleanup path cannot keep re-measuring the table.
         if (!_libraryStableLayoutLocked)
             ApplyQuizHistoryTableCleanup();
+
+        // The Library is wide. Recycle both rows and columns so cells outside the viewport do not
+        // stay realized and participate in measure/layout work.
+        _quizHistoryGrid.EnableRowVirtualization = true;
+        _quizHistoryGrid.EnableColumnVirtualization = true;
+        VirtualizingPanel.SetIsVirtualizing(_quizHistoryGrid, true);
+        VirtualizingPanel.SetVirtualizationMode(_quizHistoryGrid, VirtualizationMode.Recycling);
+        ScrollViewer.SetCanContentScroll(_quizHistoryGrid, true);
 
         var instagramPromo = _quizHistoryGrid.Columns
             .FirstOrDefault(column => string.Equals(column.Header?.ToString(), "IG promo", StringComparison.Ordinal));
@@ -153,81 +164,30 @@ public partial class MainShellWindow
 
     private void RefreshLibraryReleasePlatformStatusSnapshot()
     {
-        if (_quizHistoryGrid?.ItemsSource is not IEnumerable<QuizHistorySummary> source)
+        if (MainTabs.SelectedIndex != _quizHistoryTabIndex ||
+            _libraryPlatformStatusRefreshRunning ||
+            _quizHistoryGrid?.ItemsSource is not IEnumerable<QuizHistorySummary> source)
+        {
             return;
+        }
 
         // The older Build 126 timer may have been created after our startup callback. Stop it on
         // every data pass as well so it cannot reappear as a second layout/repaint loop.
         _libraryPublicationStatusRefreshTimer?.Stop();
 
+        var histories = source.ToList();
+        _libraryPlatformStatusRefreshRunning = true;
+        _ = RefreshLibraryReleasePlatformStatusSnapshotAsync(histories);
+    }
+
+    private async Task RefreshLibraryReleasePlatformStatusSnapshotAsync(
+        IReadOnlyList<QuizHistorySummary> histories)
+    {
         try
         {
-            var histories = source.ToList();
-            IReadOnlyList<PublicationStateEntry> publications;
-            try { publications = _data.PublicationState.List(); }
-            catch (Exception error)
-            {
-                Debug.WriteLine("Library release platform state: " + error.Message);
-                publications = [];
-            }
-
-            var byHistory = publications
-                .GroupBy(entry => entry.HistoryId)
-                .ToDictionary(group => group.Key, group => (IReadOnlyList<PublicationStateEntry>)group.ToList());
-            var state = FactburstFullAutopilotStateStore.Load(_data.SettingsPath);
-            var verifiedPublicIds = state.PostReleaseAudits
-                .Where(record => record.IsPublic)
-                .GroupBy(record => record.HistoryId)
-                .Select(group => group.OrderByDescending(record => record.CheckedAtUtc).First().HistoryId)
-                .ToHashSet();
-
-            var next = new Dictionary<int, LibraryReleasePlatformStatusRow>();
-            foreach (var history in histories)
-            {
-                var entries = byHistory.TryGetValue(history.Id, out var stored) ? stored : [];
-                var verifiedYouTubePublic = verifiedPublicIds.Contains(history.Id) ||
-                    InstagramPromoFollowupPlanner.IsVerifiedYouTubePublic(history.Id, state, entries);
-
-                if (!string.Equals(history.VideoType, "Video", StringComparison.Ordinal))
-                {
-                    next[history.Id] = new LibraryReleasePlatformStatusRow(
-                        LibraryPublicationStatusPlanner.FullQuizStatus(entries, PublicationPlatform.YouTube, verifiedYouTubePublic),
-                        LibraryPublicationStatusPlanner.FullQuizStatus(entries, PublicationPlatform.Facebook),
-                        LibraryPublicationStatusPlanner.FullQuizStatus(entries, PublicationPlatform.Instagram));
-                    continue;
-                }
-
-                var promoFileReady = false;
-                var facebookUploaded = false;
-                var instagramUploaded = false;
-                try
-                {
-                    promoFileReady = history.ProjectFolder.Trim().Length > 0 &&
-                                     Directory.Exists(history.ProjectFolder) &&
-                                     QuizPromoShortPaths.FindExisting(history.ProjectFolder) is not null;
-                    facebookUploaded = QuizPromoShortSocialPublicationStore.LoadFacebook(history.ProjectFolder) is not null;
-                    instagramUploaded = QuizPromoShortSocialPublicationStore.LoadInstagram(history.ProjectFolder) is not null;
-                }
-                catch (Exception error)
-                {
-                    Debug.WriteLine($"Library promo status #{history.Id}: {error.Message}");
-                }
-
-                next[history.Id] = new LibraryReleasePlatformStatusRow(
-                    LibraryPublicationStatusPlanner.FullQuizStatus(entries, PublicationPlatform.YouTube, verifiedYouTubePublic),
-                    LibraryReleasePlatformStatusPlanner.SocialPromoStatus(
-                        entries,
-                        PublicationPlatform.Facebook,
-                        verifiedYouTubePublic,
-                        promoFileReady,
-                        facebookUploaded),
-                    LibraryReleasePlatformStatusPlanner.SocialPromoStatus(
-                        entries,
-                        PublicationPlatform.Instagram,
-                        verifiedYouTubePublic,
-                        promoFileReady,
-                        instagramUploaded));
-            }
+            // SQLite reads, project-folder probes and promo metadata reads can be noticeably slow
+            // on a large library or a recovered/network drive. Keep them off the WPF dispatcher.
+            var next = await Task.Run(() => ComputeLibraryReleasePlatformStatuses(histories));
 
             var changed = next.Count != _libraryReleasePlatformStatusByHistoryId.Count ||
                           next.Any(pair =>
@@ -240,12 +200,88 @@ public partial class MainShellWindow
             foreach (var pair in next)
                 _libraryReleasePlatformStatusByHistoryId[pair.Key] = pair.Value;
 
-            _quizHistoryGrid.Items.Refresh();
+            _quizHistoryGrid?.Items.Refresh();
         }
         catch (Exception error)
         {
             Debug.WriteLine("Library release platform status refresh: " + error);
         }
+        finally
+        {
+            _libraryPlatformStatusRefreshRunning = false;
+        }
+    }
+
+    private Dictionary<int, LibraryReleasePlatformStatusRow> ComputeLibraryReleasePlatformStatuses(
+        IReadOnlyList<QuizHistorySummary> histories)
+    {
+        IReadOnlyList<PublicationStateEntry> publications;
+        try { publications = _data.PublicationState.List(); }
+        catch (Exception error)
+        {
+            Debug.WriteLine("Library release platform state: " + error.Message);
+            publications = [];
+        }
+
+        var byHistory = publications
+            .GroupBy(entry => entry.HistoryId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<PublicationStateEntry>)group.ToList());
+        var state = FactburstFullAutopilotStateStore.Load(_data.SettingsPath);
+        var verifiedPublicIds = state.PostReleaseAudits
+            .Where(record => record.IsPublic)
+            .GroupBy(record => record.HistoryId)
+            .Select(group => group.OrderByDescending(record => record.CheckedAtUtc).First().HistoryId)
+            .ToHashSet();
+
+        var next = new Dictionary<int, LibraryReleasePlatformStatusRow>();
+        foreach (var history in histories)
+        {
+            var entries = byHistory.TryGetValue(history.Id, out var stored) ? stored : [];
+            var verifiedYouTubePublic = verifiedPublicIds.Contains(history.Id) ||
+                InstagramPromoFollowupPlanner.IsVerifiedYouTubePublic(history.Id, state, entries);
+
+            if (!string.Equals(history.VideoType, "Video", StringComparison.Ordinal))
+            {
+                next[history.Id] = new LibraryReleasePlatformStatusRow(
+                    LibraryPublicationStatusPlanner.FullQuizStatus(entries, PublicationPlatform.YouTube, verifiedYouTubePublic),
+                    LibraryPublicationStatusPlanner.FullQuizStatus(entries, PublicationPlatform.Facebook),
+                    LibraryPublicationStatusPlanner.FullQuizStatus(entries, PublicationPlatform.Instagram));
+                continue;
+            }
+
+            var promoFileReady = false;
+            var facebookUploaded = false;
+            var instagramUploaded = false;
+            try
+            {
+                promoFileReady = history.ProjectFolder.Trim().Length > 0 &&
+                                 Directory.Exists(history.ProjectFolder) &&
+                                 QuizPromoShortPaths.FindExisting(history.ProjectFolder) is not null;
+                facebookUploaded = QuizPromoShortSocialPublicationStore.LoadFacebook(history.ProjectFolder) is not null;
+                instagramUploaded = QuizPromoShortSocialPublicationStore.LoadInstagram(history.ProjectFolder) is not null;
+            }
+            catch (Exception error)
+            {
+                Debug.WriteLine($"Library promo status #{history.Id}: {error.Message}");
+            }
+
+            next[history.Id] = new LibraryReleasePlatformStatusRow(
+                LibraryPublicationStatusPlanner.FullQuizStatus(entries, PublicationPlatform.YouTube, verifiedYouTubePublic),
+                LibraryReleasePlatformStatusPlanner.SocialPromoStatus(
+                    entries,
+                    PublicationPlatform.Facebook,
+                    verifiedYouTubePublic,
+                    promoFileReady,
+                    facebookUploaded),
+                LibraryReleasePlatformStatusPlanner.SocialPromoStatus(
+                    entries,
+                    PublicationPlatform.Instagram,
+                    verifiedYouTubePublic,
+                    promoFileReady,
+                    instagramUploaded));
+        }
+
+        return next;
     }
 
     private LibraryReleasePlatformStatusRow ResolveLibraryReleasePlatformStatus(QuizHistorySummary history) =>
