@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
 
@@ -18,9 +17,6 @@ public partial class MainShellWindow
         RemoveLegacyStockProviderConfiguration();
         RemoveLegacyFactVideoSettingsSurfaces();
         RemoveLegacyFactVideoApiConnections();
-        Dispatcher.BeginInvoke(
-            DispatcherPriority.ApplicationIdle,
-            new Action(RemoveLegacyFactVideoWorkspaceSurfaces));
     }
 
     private void RemoveLegacyStockProviderConfiguration()
@@ -95,41 +91,4 @@ public partial class MainShellWindow
         if (section is not null)
             page.Children.Remove(section);
     }
-
-    private void RemoveLegacyFactVideoWorkspaceSurfaces()
-    {
-        if (Content is not DependencyObject root)
-            return;
-
-        var retiredLabels = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "⌂ Dashboard",
-            "▤ Projects",
-            "▷ Production",
-            "□ Media Library",
-            "◉ Asset Review",
-        };
-
-        foreach (var button in FindVisualChildren<Button>(root))
-        {
-            var normalized = NormalizeUiLabel(button.Content?.ToString());
-            if (retiredLabels.Contains(normalized))
-                button.Visibility = Visibility.Collapsed;
-        }
-
-        // The first five XAML tabs are the retired generic Dashboard/Projects/Production/Media/Asset Review workspace.
-        // Keep their indexes stable for compatibility, but make them inaccessible in the quiz-only product.
-        for (var index = 0; index < Math.Min(5, MainTabs.Items.Count); index++)
-        {
-            if (MainTabs.Items[index] is TabItem tab)
-                tab.IsEnabled = false;
-        }
-
-        if (MainTabs.SelectedIndex >= 0 && MainTabs.SelectedIndex < 5)
-            MainTabs.SelectedIndex = _quizTabIndex;
-    }
-
-    private static string NormalizeUiLabel(string? value) =>
-        string.Join(" ", (value ?? "")
-            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 }

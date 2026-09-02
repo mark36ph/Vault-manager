@@ -114,7 +114,7 @@ public static class InstalledCredentialRecovery
         if (settingsChanged)
         {
             BackupDestinationSettings(destinationSettings, appDataRoot);
-            WriteSettings(destinationSettings, destination);
+            AppSettingsDocumentStore.Save(destinationSettings, destination);
         }
 
         if (!recoveredAfter.SetEquals(recoveredBefore))
@@ -308,16 +308,6 @@ public static class InstalledCredentialRecovery
             backupRoot,
             $"settings-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.json");
         File.Copy(destinationSettings, backup, overwrite: false);
-    }
-
-    private static void WriteSettings(string destinationSettings, JsonObject root)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(destinationSettings)!);
-        var temporary = destinationSettings + ".credential-recovery.tmp";
-        File.WriteAllText(
-            temporary,
-            root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-        File.Move(temporary, destinationSettings, overwrite: true);
     }
 
     private static IEnumerable<string> CandidateSettingsPaths(string appDataRoot)

@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.120",
-  "build": 145,
-  "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
+  "latest_version": "1.0.126",
+  "build": 152,
+  "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
+  "sha256": "",
   "release_notes": [
-    "Build 145 removes retired stock-image providers from API & Connections instead of hiding them at runtime.",
-    "The shared provider credential model is now focused on the OpenAI key used by active quiz workflows.",
-    "Deletes the temporary Pexels/Pixabay compatibility provider shim introduced during the Build 144 dead-code extraction.",
-    "Keeps YouTube, Facebook, Instagram, OpenAI quiz generation, publishing, analytics and website connections intact."
+    "Build 152 fixes installed-settings recovery to also sync into the SQLite app_settings row, not just the JSON mirror.",
+    "Recovered API credentials and non-secret settings (like project folder) now appear correctly after upgrading over an installation that already has a factvault.db.",
+    "Build 147 scheduling and autopilot behavior remains intact; this build is a settings-preservation fix rather than another workspace cleanup."
   ]
 }

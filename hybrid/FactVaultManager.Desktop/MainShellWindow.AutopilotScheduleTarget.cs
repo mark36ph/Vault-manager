@@ -46,21 +46,24 @@ public partial class MainShellWindow
         ApplyAutopilotMasterState(preferences.AutoFillEnabled);
 
         // BuildInfo calls this from the window Loaded route, so attaching another Loaded
-        // handler here is unreliable. Queue the delayed startup evaluation directly.
+        // handler here is unreliable. Queue a short delayed startup evaluation directly.
         Dispatcher.BeginInvoke(
             DispatcherPriority.Background,
             new Action(async () =>
             {
-                await Task.Delay(TimeSpan.FromSeconds(15));
+                await Task.Delay(TimeSpan.FromSeconds(5));
                 await EvaluateAutomaticScheduleFillAsync();
             }));
 
+        // Schedule inventory can fall as soon as a release becomes public. Check frequently
+        // enough that an enabled target behaves like a continuous minimum, not a slow batch job.
         _autopilotScheduleTargetTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromMinutes(5),
+            Interval = TimeSpan.FromMinutes(1),
         };
         _autopilotScheduleTargetTimer.Tick += async (_, _) => await EvaluateAutomaticScheduleFillAsync();
         _autopilotScheduleTargetTimer.Start();
+        UpdateScheduleTargetStatus();
     }
 
     private static void AutopilotScheduleTargetButton_Loaded(object sender, RoutedEventArgs e)
@@ -193,8 +196,8 @@ public partial class MainShellWindow
         }
 
         var preferences = AutopilotSchedulePreferencesStore.Load(window._data.SettingsPath);
-        var history = window._data.GetQuizHistory(2_000);
         var now = DateTimeOffset.Now;
+        var history = window._data.GetFutureScheduledYouTubeQuizHistory(now);
         var scheduled = AutopilotScheduleTargetPlanner.ScheduledQuizCount(history, now);
         var missing = AutopilotScheduleTargetPlanner.MissingScheduledQuizzes(history, preferences.TargetDays, now);
         var count = AutopilotScheduleTargetPlanner.BatchSizeForMissingDays(missing);
@@ -237,15 +240,33 @@ public partial class MainShellWindow
         if (_autopilotScheduleFillStarting) return;
 
         var preferences = AutopilotSchedulePreferencesStore.Load(_data.SettingsPath);
-        var history = _data.GetQuizHistory(2_000);
         var now = DateTimeOffset.Now;
+        var history = _data.GetFutureScheduledYouTubeQuizHistory(now);
         var scheduled = AutopilotScheduleTargetPlanner.ScheduledQuizCount(history, now);
         var missing = AutopilotScheduleTargetPlanner.MissingScheduledQuizzes(history, preferences.TargetDays, now);
         var productionBusy = _quizBatchAutomationRunning || _quizBatchRenderRunning ||
                              _quizAutopilotFinishing || _quizGrowthAutopilotRunning;
         if (!AutopilotScheduleTargetPlanner.ShouldAutoFill(preferences, missing, productionBusy, DateTime.UtcNow))
         {
-            UpdateScheduleTargetStatus();
+            if (preferences.AutoFillEnabled && missing > 0 && _autopilotScheduleTargetStatusText is not null)
+            {
+                if (productionBusy)
+                {
+                    _autopilotScheduleTargetStatusText.Text =
+                        $"Autopilot waiting for current quiz production • {scheduled:N0}/{preferences.TargetDays:N0} scheduled";
+                }
+                else
+                {
+                    var retry = AutopilotScheduleTargetPlanner.AutomaticFillRetryRemaining(preferences, DateTime.UtcNow);
+                    _autopilotScheduleTargetStatusText.Text = retry > TimeSpan.Zero
+                        ? $"Autopilot top-up retry in {Math.Max(1, (int)Math.Ceiling(retry.TotalSeconds)):N0}s • {scheduled:N0}/{preferences.TargetDays:N0} scheduled"
+                        : $"Autopilot running • {scheduled:N0}/{preferences.TargetDays:N0} scheduled • {missing:N0} queued to create";
+                }
+            }
+            else
+            {
+                UpdateScheduleTargetStatus();
+            }
             return;
         }
 
@@ -257,16 +278,10 @@ public partial class MainShellWindow
             return;
         }
 
-        var recovery = AutopilotRecoveryStateStore.Load(_data.SettingsPath);
-        var youtubeHealth = recovery.Subsystems.FirstOrDefault(item =>
-            string.Equals(item.Name, "YouTube", StringComparison.OrdinalIgnoreCase));
-        if (youtubeHealth?.State is "Recovering" or "Needs setup")
-        {
-            if (_autopilotScheduleTargetStatusText is not null)
-                _autopilotScheduleTargetStatusText.Text = "Autopilot is waiting for the YouTube connection to recover.";
-            return;
-        }
-
+        // Do not gate schedule production on the retired AutopilotRecovery supervisor state.
+        // That state is persisted from older builds and can remain at Recovering/Needs setup
+        // even after the current YouTube connection is healthy. The trusted publishing preflight
+        // below performs the live account/channel checks before anything is uploaded.
         var count = AutopilotScheduleTargetPlanner.BatchSizeForMissingDays(missing);
         if (count == 0) return;
 
@@ -280,7 +295,7 @@ public partial class MainShellWindow
             if (_quizAutopilotPrimaryButton is null || !_quizAutopilotPrimaryButton.IsEnabled)
             {
                 if (_autopilotScheduleTargetStatusText is not null)
-                    _autopilotScheduleTargetStatusText.Text = "Autopilot is waiting for production to become ready; it will retry in a few minutes.";
+                    _autopilotScheduleTargetStatusText.Text = "Autopilot is waiting for production to become ready; it will retry within a minute.";
                 return;
             }
 
@@ -296,7 +311,7 @@ public partial class MainShellWindow
                 AutopilotBatchCountRequest.Cancel();
                 AutopilotTrustedPublishingPreflight.Cancel();
                 if (_autopilotScheduleTargetStatusText is not null)
-                    _autopilotScheduleTargetStatusText.Text = "Autopilot could not start quiz production. No cooldown was applied; it will retry automatically.";
+                    _autopilotScheduleTargetStatusText.Text = "Autopilot could not start quiz production. No cooldown was applied; it will retry within a minute.";
                 return;
             }
 
@@ -312,7 +327,7 @@ public partial class MainShellWindow
             }
             Debug.WriteLine("Automatic schedule fill could not start: " + error);
             if (_autopilotScheduleTargetStatusText is not null)
-                _autopilotScheduleTargetStatusText.Text = "Autopilot will retry later: " + error.Message;
+                _autopilotScheduleTargetStatusText.Text = "Autopilot will retry automatically: " + error.Message;
         }
         finally
         {
@@ -356,14 +371,18 @@ public partial class MainShellWindow
 
     private void UpdateScheduleTargetStatus()
     {
-        if (_autopilotScheduleTargetStatusText is null) return;
         try
         {
             var preferences = AutopilotSchedulePreferencesStore.Load(_data.SettingsPath);
-            var history = _data.GetQuizHistory(2_000);
             var now = DateTimeOffset.Now;
+            var history = _data.GetFutureScheduledYouTubeQuizHistory(now);
             var scheduled = AutopilotScheduleTargetPlanner.ScheduledQuizCount(history, now);
             var missing = AutopilotScheduleTargetPlanner.MissingScheduledQuizzes(history, preferences.TargetDays, now);
+
+            if (_autopilotScheduledCountText is not null)
+                _autopilotScheduledCountText.Text = scheduled.ToString("N0");
+
+            if (_autopilotScheduleTargetStatusText is null) return;
             if (!preferences.AutoFillEnabled)
             {
                 _autopilotScheduleTargetStatusText.Text = missing == 0
