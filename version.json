@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.119",
-  "build": 144,
+  "latest_version": "1.0.121",
+  "build": 146,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 144 physically removes the retired generic fact-video implementation and its obsolete workspace code.",
-    "Deletes the unused stock-media acquisition/provider stack for Pexels, Pixabay, Openverse and Wikimedia-backed fact-video production paths.",
-    "Removes obsolete fact-video production, visual-selection, provider-security and stock-media regression tests.",
-    "Keeps the active quiz renderer, quiz audio, Resolve/FFmpeg export, OpenAI quiz features, publishing integrations, analytics and website management intact."
+    "Build 146 fixes scheduled-quiz counts so future YouTube schedules are not limited to the newest 2,000 history rows.",
+    "Autopilot schedule target and the dashboard Scheduled count now use a dedicated future-schedule database query that does not scan project folders.",
+    "YouTube status refresh preserves a known future schedule when the API temporarily omits publishAt, while still clearing it when YouTube confirms the video is public.",
+    "Directory path changes remain isolated from YouTube scheduling metadata and no recursive path scan was reintroduced."
   ]
 }
