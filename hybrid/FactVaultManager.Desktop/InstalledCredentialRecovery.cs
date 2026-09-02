@@ -40,7 +40,6 @@ public static class InstalledCredentialRecovery
             error is IOException or UnauthorizedAccessException or JsonException or
             InvalidOperationException or ArgumentException or NotSupportedException)
         {
-            // Credential recovery is best-effort and must never prevent app startup.
             Debug.WriteLine($"Installed credential recovery could not complete: {error}");
         }
     }
@@ -72,8 +71,6 @@ public static class InstalledCredentialRecovery
 
             if (destinationState.IsValid)
             {
-                // Older development settings may still contain plaintext values. Keep
-                // the same value, but normalize it to DPAPI in installed storage.
                 if (!LocalSecretProtector.IsProtected(destinationState.Raw))
                 {
                     SetCredential(destination, spec, LocalSecretProtector.Protect(destinationState.Clear));
@@ -85,8 +82,6 @@ public static class InstalledCredentialRecovery
             var wasInvalid = destinationState.IsPresent && destinationState.Raw.Length > 0;
             var wasRecoveredPreviously = recoveredBefore.Contains(spec.Name);
 
-            // If a value was successfully imported once and is now empty, assume the
-            // user intentionally cleared it. Do not resurrect an old checkout secret.
             if (!wasInvalid && wasRecoveredPreviously)
                 continue;
 
@@ -102,9 +97,6 @@ public static class InstalledCredentialRecovery
 
             if (wasInvalid)
             {
-                // One malformed/undecryptable DPAPI value currently prevents the entire
-                // settings model from loading. Clear only that unusable field. The
-                // original settings file is backed up before this write.
                 SetCredential(destination, spec, "");
                 settingsChanged = true;
                 clearedInvalidCount++;
@@ -126,62 +118,36 @@ public static class InstalledCredentialRecovery
             settingsChanged);
     }
 
-    private static IReadOnlyList<JsonObject> LoadSourceSettings(
-        string destinationSettings,
-        IEnumerable<string> sourceSettingsPaths)
+    private static IReadOnlyList<JsonObject> LoadSourceSettings(string destinationSettings, IEnumerable<string> sourceSettingsPaths)
     {
         var results = new List<JsonObject>();
-        var seen = new HashSet<string>(
-            OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
-
+        var seen = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
         foreach (var candidate in sourceSettingsPaths)
         {
-            if (string.IsNullOrWhiteSpace(candidate))
-                continue;
-
+            if (string.IsNullOrWhiteSpace(candidate)) continue;
             string fullPath;
+            try { fullPath = Path.GetFullPath(candidate); }
+            catch (Exception error) when (error is ArgumentException or NotSupportedException) { continue; }
+            if (PathsEqual(fullPath, destinationSettings) || !seen.Add(fullPath) || !File.Exists(fullPath)) continue;
             try
             {
-                fullPath = Path.GetFullPath(candidate);
+                if (JsonNode.Parse(File.ReadAllText(fullPath)) is JsonObject root) results.Add(root);
             }
-            catch (Exception error) when (error is ArgumentException or NotSupportedException)
-            {
-                continue;
-            }
-
-            if (PathsEqual(fullPath, destinationSettings) || !seen.Add(fullPath) || !File.Exists(fullPath))
-                continue;
-
-            try
-            {
-                if (JsonNode.Parse(File.ReadAllText(fullPath)) is JsonObject root)
-                    results.Add(root);
-            }
-            catch (Exception error) when (
-                error is IOException or UnauthorizedAccessException or JsonException)
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
             {
                 Debug.WriteLine($"Could not inspect credential source '{fullPath}': {error.Message}");
             }
         }
-
         return results;
     }
 
-    private static bool TryFindSourceCredential(
-        IReadOnlyList<JsonObject> sources,
-        CredentialSpec spec,
-        out string clear)
+    private static bool TryFindSourceCredential(IReadOnlyList<JsonObject> sources, CredentialSpec spec, out string clear)
     {
         foreach (var source in sources)
         {
             var state = ReadCredential(source, spec);
-            if (!state.IsValid)
-                continue;
-
-            clear = state.Clear;
-            return true;
+            if (state.IsValid) { clear = state.Clear; return true; }
         }
-
         clear = "";
         return false;
     }
@@ -189,9 +155,7 @@ public static class InstalledCredentialRecovery
     private static bool TryReadEnvironmentCredential(CredentialSpec spec, out string clear)
     {
         clear = "";
-        if (string.IsNullOrWhiteSpace(spec.EnvironmentVariable))
-            return false;
-
+        if (string.IsNullOrWhiteSpace(spec.EnvironmentVariable)) return false;
         clear = (Environment.GetEnvironmentVariable(spec.EnvironmentVariable) ?? "").Trim();
         return clear.Length > 0;
     }
@@ -199,98 +163,65 @@ public static class InstalledCredentialRecovery
     private static CredentialState ReadCredential(JsonObject root, CredentialSpec spec)
     {
         var section = root[spec.Section] as JsonObject;
-        if (section is null || section[spec.Key] is null)
-            return new CredentialState(false, "", "", false);
-
+        if (section is null || section[spec.Key] is null) return new CredentialState(false, "", "", false);
         var node = section[spec.Key];
         if (node is not JsonValue value || !value.TryGetValue<string>(out var rawValue))
             return new CredentialState(true, node?.ToJsonString() ?? "<invalid>", "", false);
-
         var raw = (rawValue ?? "").Trim();
-        if (raw.Length == 0)
-            return new CredentialState(true, "", "", false);
-
+        if (raw.Length == 0) return new CredentialState(true, "", "", false);
         try
         {
             var clear = LocalSecretProtector.Unprotect(raw).Trim();
             return new CredentialState(true, raw, clear, clear.Length > 0);
         }
-        catch (InvalidOperationException)
-        {
-            return new CredentialState(true, raw, "", false);
-        }
+        catch (InvalidOperationException) { return new CredentialState(true, raw, "", false); }
     }
 
     private static void SetCredential(JsonObject root, CredentialSpec spec, string value)
     {
         var section = root[spec.Section] as JsonObject;
-        if (section is null)
-        {
-            section = new JsonObject();
-            root[spec.Section] = section;
-        }
-
+        if (section is null) { section = new JsonObject(); root[spec.Section] = section; }
         section[spec.Key] = value;
     }
 
     private static JsonObject ReadSettingsOrEmpty(string path)
     {
-        if (!File.Exists(path))
-            return new JsonObject();
-
-        try
-        {
-            return JsonNode.Parse(File.ReadAllText(path)) as JsonObject ?? new JsonObject();
-        }
-        catch (JsonException)
-        {
-            // Do not replace a malformed settings file wholesale. Let the normal
-            // settings loader report it rather than risking unrelated preferences.
-            throw;
-        }
+        if (!File.Exists(path)) return new JsonObject();
+        try { return JsonNode.Parse(File.ReadAllText(path)) as JsonObject ?? new JsonObject(); }
+        catch (JsonException) { throw; }
     }
 
     private static HashSet<string> ReadRecoveredKeys(string markerPath)
     {
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (!File.Exists(markerPath))
-            return result;
-
+        if (!File.Exists(markerPath)) return result;
         try
         {
             var marker = JsonNode.Parse(File.ReadAllText(markerPath)) as JsonObject;
-            if (marker?["recovered"] is not JsonArray recovered)
-                return result;
-
+            if (marker?["recovered"] is not JsonArray recovered) return result;
             foreach (var item in recovered)
             {
                 var value = item?.GetValue<string>()?.Trim() ?? "";
-                if (value.Length > 0)
-                    result.Add(value);
+                if (value.Length > 0) result.Add(value);
             }
         }
-        catch (Exception error) when (
-            error is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
         {
             Debug.WriteLine($"Could not read credential recovery marker: {error.Message}");
         }
-
         return result;
     }
 
     private static void WriteRecoveryMarker(string markerPath, HashSet<string> recovered)
     {
         var recoveredArray = new JsonArray();
-        foreach (var name in recovered.OrderBy(name => name, StringComparer.OrdinalIgnoreCase))
-            recoveredArray.Add(name);
-
+        foreach (var name in recovered.OrderBy(name => name, StringComparer.OrdinalIgnoreCase)) recoveredArray.Add(name);
         var marker = new JsonObject
         {
             ["version"] = RecoveryVersion,
             ["updated_utc"] = DateTimeOffset.UtcNow.ToString("O"),
             ["recovered"] = recoveredArray,
         };
-
         Directory.CreateDirectory(Path.GetDirectoryName(markerPath)!);
         var temporary = markerPath + ".tmp";
         File.WriteAllText(temporary, marker.ToJsonString());
@@ -299,21 +230,16 @@ public static class InstalledCredentialRecovery
 
     private static void BackupDestinationSettings(string destinationSettings, string appDataRoot)
     {
-        if (!File.Exists(destinationSettings))
-            return;
-
+        if (!File.Exists(destinationSettings)) return;
         var backupRoot = Path.Combine(appDataRoot, "credential-recovery-backup");
         Directory.CreateDirectory(backupRoot);
-        var backup = Path.Combine(
-            backupRoot,
-            $"settings-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.json");
+        var backup = Path.Combine(backupRoot, $"settings-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.json");
         File.Copy(destinationSettings, backup, overwrite: false);
     }
 
     private static IEnumerable<string> CandidateSettingsPaths(string appDataRoot)
     {
-        foreach (var candidate in RawCandidateSettingsPaths(appDataRoot))
-            yield return candidate;
+        foreach (var candidate in RawCandidateSettingsPaths(appDataRoot)) yield return candidate;
     }
 
     private static IEnumerable<string> RawCandidateSettingsPaths(string appDataRoot)
@@ -322,95 +248,55 @@ public static class InstalledCredentialRecovery
         if (File.Exists(developmentRootMarker))
         {
             var root = File.ReadAllText(developmentRootMarker).Trim();
-            if (root.Length > 0)
-                yield return Path.Combine(root, "data", "settings.json");
+            if (root.Length > 0) yield return Path.Combine(root, "data", "settings.json");
         }
-
         var migrationMarker = Path.Combine(appDataRoot, "installed-data-migration-v2.json");
         if (File.Exists(migrationMarker))
         {
             JsonObject? marker = null;
-            try
-            {
-                marker = JsonNode.Parse(File.ReadAllText(migrationMarker)) as JsonObject;
-            }
-            catch (JsonException)
-            {
-            }
-
+            try { marker = JsonNode.Parse(File.ReadAllText(migrationMarker)) as JsonObject; } catch (JsonException) { }
             var sourceData = marker?["source_data"]?.GetValue<string>()?.Trim() ?? "";
-            if (sourceData.Length > 0)
-                yield return Path.Combine(sourceData, "settings.json");
+            if (sourceData.Length > 0) yield return Path.Combine(sourceData, "settings.json");
         }
-
         foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
         {
             var directory = new DirectoryInfo(start);
             while (directory is not null)
             {
-                if (IsDevelopmentRepositoryRoot(directory.FullName))
-                    yield return Path.Combine(directory.FullName, "data", "settings.json");
+                if (IsDevelopmentRepositoryRoot(directory.FullName)) yield return Path.Combine(directory.FullName, "data", "settings.json");
                 directory = directory.Parent;
             }
         }
-
         var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        foreach (var root in NamedDocumentRoots(documents))
-            yield return Path.Combine(root, "data", "settings.json");
-
+        foreach (var root in NamedDocumentRoots(documents)) yield return Path.Combine(root, "data", "settings.json");
         var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         var physicalDocuments = Path.Combine(userProfile, "Documents");
-        foreach (var root in NamedDocumentRoots(physicalDocuments))
-            yield return Path.Combine(root, "data", "settings.json");
-        foreach (var root in CommonCheckoutRoots(userProfile))
-            yield return Path.Combine(root, "data", "settings.json");
-
+        foreach (var root in NamedDocumentRoots(physicalDocuments)) yield return Path.Combine(root, "data", "settings.json");
+        foreach (var root in CommonCheckoutRoots(userProfile)) yield return Path.Combine(root, "data", "settings.json");
         var oneDrive = Environment.GetEnvironmentVariable("OneDrive") ?? "";
-        foreach (var root in CommonCheckoutRoots(oneDrive))
-            yield return Path.Combine(root, "data", "settings.json");
-
+        foreach (var root in CommonCheckoutRoots(oneDrive)) yield return Path.Combine(root, "data", "settings.json");
         if (Directory.Exists(appDataRoot))
         {
             IEnumerable<string> topLevel;
-            try
-            {
-                topLevel = Directory.EnumerateDirectories(appDataRoot, "*", SearchOption.TopDirectoryOnly).ToArray();
-            }
-            catch
-            {
-                topLevel = Array.Empty<string>();
-            }
-
+            try { topLevel = Directory.EnumerateDirectories(appDataRoot, "*", SearchOption.TopDirectoryOnly).ToArray(); } catch { topLevel = Array.Empty<string>(); }
             foreach (var directory in topLevel)
             {
                 yield return Path.Combine(directory, "settings.json");
                 yield return Path.Combine(directory, "data", "settings.json");
             }
         }
-
         var migrationBackup = Path.Combine(appDataRoot, "migration-backup");
         if (Directory.Exists(migrationBackup))
         {
             IEnumerable<string> backups;
-            try
-            {
-                backups = Directory.EnumerateDirectories(migrationBackup, "*", SearchOption.TopDirectoryOnly).ToArray();
-            }
-            catch
-            {
-                backups = Array.Empty<string>();
-            }
-
-            foreach (var backup in backups)
-                yield return Path.Combine(backup, "settings.json");
+            try { backups = Directory.EnumerateDirectories(migrationBackup, "*", SearchOption.TopDirectoryOnly).ToArray(); } catch { backups = Array.Empty<string>(); }
+            foreach (var backup in backups) yield return Path.Combine(backup, "settings.json");
         }
     }
 
     private static IEnumerable<string> NamedDocumentRoots(string documents)
     {
-        if (string.IsNullOrWhiteSpace(documents))
-            yield break;
-
+        if (string.IsNullOrWhiteSpace(documents)) yield break;
         yield return Path.Combine(documents, "FactVaultManager");
         yield return Path.Combine(documents, "Fact Vault Manager");
         yield return Path.Combine(documents, "Vault-manager");
@@ -419,9 +305,7 @@ public static class InstalledCredentialRecovery
 
     private static IEnumerable<string> CommonCheckoutRoots(string profileRoot)
     {
-        if (string.IsNullOrWhiteSpace(profileRoot))
-            yield break;
-
+        if (string.IsNullOrWhiteSpace(profileRoot)) yield break;
         yield return Path.Combine(profileRoot, "Vault-manager");
         yield return Path.Combine(profileRoot, "FactVaultManager");
         yield return Path.Combine(profileRoot, "source", "repos", "Vault-manager");
@@ -430,22 +314,15 @@ public static class InstalledCredentialRecovery
         yield return Path.Combine(profileRoot, "Desktop", "Vault-manager");
     }
 
-    private static bool IsDevelopmentRepositoryRoot(string root) =>
-        File.Exists(Path.Combine(root, "hybrid", "FactVaultManager.Desktop", "FactVaultManager.Desktop.csproj"));
+    private static bool IsDevelopmentRepositoryRoot(string root) => File.Exists(Path.Combine(root, "hybrid", "FactVaultManager.Desktop", "FactVaultManager.Desktop.csproj"));
 
     private static bool PathsEqual(string left, string right)
     {
         try
         {
-            return string.Equals(
-                Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+            return string.Equals(Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
         }
-        catch (Exception error) when (error is ArgumentException or NotSupportedException)
-        {
-            return false;
-        }
+        catch (Exception error) when (error is ArgumentException or NotSupportedException) { return false; }
     }
 
     private sealed record CredentialSpec(string Section, string Key, string? EnvironmentVariable = null)
@@ -453,9 +330,5 @@ public static class InstalledCredentialRecovery
         public string Name => $"{Section}.{Key}";
     }
 
-    private sealed record CredentialState(
-        bool IsPresent,
-        string Raw,
-        string Clear,
-        bool IsValid);
+    private sealed record CredentialState(bool IsPresent, string Raw, string Clear, bool IsValid);
 }
