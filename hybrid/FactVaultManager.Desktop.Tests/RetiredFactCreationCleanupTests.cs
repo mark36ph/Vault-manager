@@ -25,11 +25,51 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void RetiredWorkspaceCleanupRemainsUntilLegacyXamlIsRemoved()
+    public void Build150_RemovesRetiredWorkspaceSurfacesFromXaml()
+    {
+        var xaml = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.xaml");
+
+        Assert.DoesNotContain("⌂   Dashboard", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("▤   Projects", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("▷   Production", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("□   Media Library", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("◉   Asset Review", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Open Production Workspace", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Ready to start production.", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PrimaryNavigationPanel\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"MainTabs\"", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build150_DoesNotRefreshRetiredWorkspaceDuringWindowLoad()
+    {
+        var shell = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.xaml.cs");
+
+        Assert.DoesNotContain("RefreshAll();", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadMedia(", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadAssetReview(", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("OpenProduction_Click", shell, StringComparison.Ordinal);
+        Assert.Contains("LoadBootstrapSettingsInputs();", shell, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build150_NoLongerNeedsRuntimeWorkspaceHidingShim()
     {
         var cleanup = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.QuizOnlyCleanup.cs");
-        Assert.Contains("RemoveLegacyFactVideoWorkspaceSurfaces", cleanup, StringComparison.Ordinal);
-        Assert.Contains("retired generic Dashboard/Projects/Production/Media/Asset Review workspace", cleanup, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("RemoveLegacyFactVideoWorkspaceSurfaces", cleanup, StringComparison.Ordinal);
+        Assert.DoesNotContain("retired generic Dashboard/Projects/Production/Media/Asset Review workspace", cleanup, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build150_IsCurrentBuildAndVersionManifestMatches()
+    {
+        var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
+        var version = ReadRepositoryFile("version.json");
+
+        Assert.Contains("CurrentBuildNumber = 150", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.125\"", version, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 150", version, StringComparison.Ordinal);
     }
 
     private static bool RepositoryFileExists(string relativePath) =>
