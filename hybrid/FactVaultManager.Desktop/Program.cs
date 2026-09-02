@@ -34,6 +34,7 @@ public static class Program
             InstalledQuestionLibraryRecoveryV3.Run();
             InstalledProjectConsolidation.Run();
             InstalledCredentialRecovery.Run();
+            InstalledCredentialDeepRecovery.Run();
             InstalledTrackerSettingsRecovery.Run();
             InstalledRenamedTrackerSettingsRecovery.Run();
             InstalledYouTubeOAuthClientIdRecovery.Run();
