@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.121",
-  "build": 146,
+  "latest_version": "1.0.122",
+  "build": 147,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 146 fixes scheduled-quiz counts so future YouTube schedules are not limited to the newest 2,000 history rows.",
-    "Autopilot schedule target and the dashboard Scheduled count now use a dedicated future-schedule database query that does not scan project folders.",
-    "YouTube status refresh preserves a known future schedule when the API temporarily omits publishAt, while still clearing it when YouTube confirms the video is public.",
-    "Directory path changes remain isolated from YouTube scheduling metadata and no recursive path scan was reintroduced."
+    "Build 147 makes the 14-quiz Autopilot target behave as a continuous minimum while the app is open.",
+    "Schedule inventory is checked every minute with a five-second startup check, and the duplicate-start guard is reduced from 20 minutes to two minutes.",
+    "Removes the retired AutopilotRecovery YouTube state as a schedule-production gate so stale Recovering or Needs setup state cannot block top-ups indefinitely.",
+    "Autopilot now shows when it is waiting for current production or a short retry guard instead of only saying quizzes are queued."
   ]
 }
