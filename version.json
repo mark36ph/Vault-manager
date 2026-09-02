@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.122",
-  "build": 147,
+  "latest_version": "1.0.123",
+  "build": 148,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 147 makes the 14-quiz Autopilot target behave as a continuous minimum while the app is open.",
-    "Schedule inventory is checked every minute with a five-second startup check, and the duplicate-start guard is reduced from 20 minutes to two minutes.",
-    "Removes the retired AutopilotRecovery YouTube state as a schedule-production gate so stale Recovering or Needs setup state cannot block top-ups indefinitely.",
-    "Autopilot now shows when it is waiting for current production or a short retry guard instead of only saying quizzes are queued."
+    "Build 148 removes retired generic fact-creation data code that is no longer part of the quiz-only Factburst workflow.",
+    "Removes old generic project compatibility types where the current quiz application no longer depends on them.",
+    "Keeps active quiz project folders, Resolve export, installed-data migration, credential recovery and publishing safeguards unchanged.",
+    "This is a code cleanup release; quiz creation, scheduling, uploads and Autopilot behavior are intentionally unchanged."
   ]
 }
