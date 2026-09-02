@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.127",
-  "build": 153,
+  "latest_version": "1.0.128",
+  "build": 154,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 153 preserves installed settings and API credentials during application updates.",
-    "Existing settings.json and factvault.db are protected from bootstrap migration replacement, including installations with an empty database.",
-    "Build 152 settings recovery and Build 147 scheduling and autopilot behavior remain intact."
+    "Build 154 expands API credential recovery to scan nested installed application directories for older settings files.",
+    "This covers legacy Velopack version directories and other nested locations under the FactVaultManager LocalAppData tree.",
+    "Build 153 settings preservation and Build 147 scheduling and autopilot behavior remain intact."
   ]
 }
