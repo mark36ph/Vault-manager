@@ -1,11 +1,12 @@
 {
-  "latest_version": "1.0.124",
-  "build": 149,
-  "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
+  "latest_version": "1.0.125",
+  "build": 150,
+  "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
+  "sha256": "",
   "release_notes": [
-    "Build 149 removes the retired Pixabay and Pexels compatibility providers from the quiz-only desktop app.",
-    "API & Connections no longer advertises or tests stock-image provider credentials that Factburst no longer uses.",
-    "Active OpenAI, YouTube, Facebook, Instagram and website connections remain unchanged.",
-    "Legacy stock-provider settings remain migration-compatible until the old hidden XAML shell is removed in the next cleanup build."
+    "Build 150 removes the retired Dashboard, Projects, Production, Media Library and Asset Review shell from the desktop app.",
+    "Startup no longer refreshes the retired project and media workspace before the current Factburst interface is shown.",
+    "Quiz, Library, publishing, analytics, website administration and Settings continue to use the current Factburst workspace.",
+    "The retired workspace hiding shim is no longer needed now that those legacy surfaces are absent from the shell."
   ]
 }
