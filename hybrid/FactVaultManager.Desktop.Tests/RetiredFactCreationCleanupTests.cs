@@ -11,6 +11,20 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
+    public void Build148_RemovesRetiredProjectWorkflowHooksFromShellCodeBehind()
+    {
+        var shell = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.xaml.cs");
+        Assert.DoesNotContain("_projectsWorkflowInitialized", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("InitializeProjectsWorkflow(", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("RefreshProjects(", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyProjectsFilter(", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("RenderProjects(", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("ApplyProjectProductionMetadata(", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("CurrentProjectOnScreenText(", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("CurrentProjectVisualPlan(", shell, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Build148_KeepsQuizOnlyCompatibilityCleanupUntilLegacyXamlIsRemoved()
     {
         var cleanup = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.QuizOnlyCleanup.cs");
