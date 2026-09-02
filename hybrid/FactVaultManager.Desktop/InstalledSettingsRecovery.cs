@@ -27,7 +27,7 @@ public static class InstalledSettingsRecovery
             if (source is null)
                 return;
 
-            var changed = CopyMissingSettings(destination, source);
+            var changed = CopyMissingSettings(destination, source.Document);
             if (!changed)
                 return;
 
@@ -52,14 +52,12 @@ public static class InstalledSettingsRecovery
     {
         var changed = false;
 
-        // General preferences are intentionally non-secret and safe to restore.
         changed |= CopyIfMissing(source, destination, "general", "projects_folder");
         changed |= CopyIfMissing(source, destination, "general", "nas_archive_folder");
         changed |= CopyIfMissing(source, destination, "general", "archive_after_upload");
         changed |= CopyIfMissing(source, destination, "general", "theme");
         changed |= CopyIfMissing(source, destination, "general", "check_updates");
 
-        // These values are connection metadata, not credentials.
         changed |= CopyIfMissing(source, destination, "youtube", "oauth_client_id");
         changed |= CopyIfMissing(source, destination, "youtube", "approved_channel_id");
         changed |= CopyIfMissing(source, destination, "youtube", "approved_channel_name");
@@ -164,16 +162,18 @@ public static class InstalledSettingsRecovery
         var migrationMarker = Path.Combine(appDataRoot, "installed-data-migration-v2.json");
         if (File.Exists(migrationMarker))
         {
+            string? sourceData = null;
             try
             {
                 var node = JsonNode.Parse(File.ReadAllText(migrationMarker)) as JsonObject;
-                var sourceData = node?["source_data"]?.GetValue<string>()?.Trim() ?? "";
-                if (sourceData.Length > 0)
-                    yield return Path.Combine(sourceData, "settings.json");
+                sourceData = node?["source_data"]?.GetValue<string>()?.Trim();
             }
             catch (JsonException)
             {
             }
+
+            if (!string.IsNullOrWhiteSpace(sourceData))
+                yield return Path.Combine(sourceData, "settings.json");
         }
 
         foreach (var start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
