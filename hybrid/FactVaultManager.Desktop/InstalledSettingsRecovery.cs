@@ -20,24 +20,7 @@ public static class InstalledSettingsRecovery
 
         try
         {
-            Directory.CreateDirectory(appDataRoot);
-            var destinationPath = Path.Combine(appDataRoot, "data", "settings.json");
-            var destination = ReadObject(destinationPath);
-            var source = FindBestSource(appDataRoot, destinationPath);
-            if (source is null)
-                return;
-
-            var changed = CopyMissingSettings(destination, source.Document);
-            if (!changed)
-                return;
-
-            Directory.CreateDirectory(Path.GetDirectoryName(destinationPath)!);
-            var temporary = destinationPath + ".settings-recovery.tmp";
-            File.WriteAllText(
-                temporary,
-                destination.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-            File.Move(temporary, destinationPath, overwrite: true);
-            WriteMarker(appDataRoot, source.Path);
+            _ = Run(appDataRoot, CandidatePaths(appDataRoot));
         }
         catch (Exception error) when (
             error is IOException or UnauthorizedAccessException or JsonException or
@@ -46,6 +29,28 @@ public static class InstalledSettingsRecovery
             // Recovery must never prevent the desktop app from starting.
             Debug.WriteLine($"Installed settings recovery could not complete: {error}");
         }
+    }
+
+    internal static bool Run(string appDataRoot, IEnumerable<string> sourceSettingsPaths)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(appDataRoot);
+        ArgumentNullException.ThrowIfNull(sourceSettingsPaths);
+
+        appDataRoot = Path.GetFullPath(appDataRoot);
+        Directory.CreateDirectory(appDataRoot);
+        var destinationPath = Path.Combine(appDataRoot, "data", "settings.json");
+        var destination = ReadObject(destinationPath);
+        var source = FindBestSource(destinationPath, sourceSettingsPaths);
+        if (source is null)
+            return false;
+
+        var changed = CopyMissingSettings(destination, source.Document);
+        if (!changed)
+            return false;
+
+        AppSettingsDocumentStore.Save(destinationPath, destination);
+        WriteMarker(appDataRoot, source.Path);
+        return true;
     }
 
     private static bool CopyMissingSettings(JsonObject destination, JsonObject source)
@@ -115,9 +120,9 @@ public static class InstalledSettingsRecovery
         }
     }
 
-    private static SourceSettings? FindBestSource(string appDataRoot, string destinationPath)
+    private static SourceSettings? FindBestSource(string destinationPath, IEnumerable<string> candidatePaths)
     {
-        foreach (var candidate in CandidatePaths(appDataRoot))
+        foreach (var candidate in candidatePaths)
         {
             try
             {
