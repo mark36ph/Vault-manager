@@ -72,6 +72,34 @@ public sealed class InstalledCredentialRecoveryTests
     }
 
     [Fact]
+    public void RecoversMissingCredentialsFromLegacyDatabaseSettings()
+    {
+        using var sandbox = new TemporaryDirectory();
+        var appDataRoot = Path.Combine(sandbox.Path, "installed");
+        var destinationSettings = Path.Combine(appDataRoot, "data", "settings.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationSettings)!);
+        File.WriteAllText(destinationSettings, """{ "ai": { "api_key": "" } }""");
+
+        var legacyDatabase = Path.Combine(appDataRoot, "old-version", "data", "factvault.db");
+        Directory.CreateDirectory(Path.GetDirectoryName(legacyDatabase)!);
+        File.WriteAllText(legacyDatabase, "");
+        DatabaseSettingsStore.SaveJson(
+            legacyDatabase,
+            DatabaseSettingsStore.MainSettingsKey,
+            """{ "ai": { "api_key": "legacy-db-openai" } }""");
+
+        var result = InstalledCredentialRecovery.Run(
+            appDataRoot,
+            Array.Empty<string>(),
+            [DatabaseSettingsStore.LoadJson(legacyDatabase, DatabaseSettingsStore.MainSettingsKey) is { } json
+                ? JsonNode.Parse(json)!.AsObject()
+                : throw new InvalidOperationException("Legacy database settings were not stored.")]);
+
+        Assert.Equal(1, result.RecoveredCount);
+        AssertCredential(ReadObject(destinationSettings), "ai", "api_key", "legacy-db-openai");
+    }
+
+    [Fact]
     public void PreservesValidInstalledCredentialWhileRecoveringMissingOnes()
     {
         using var sandbox = new TemporaryDirectory();
