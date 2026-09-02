@@ -61,6 +61,7 @@ public partial class MainShellWindow
         };
         _autopilotScheduleTargetTimer.Tick += async (_, _) => await EvaluateAutomaticScheduleFillAsync();
         _autopilotScheduleTargetTimer.Start();
+        UpdateScheduleTargetStatus();
     }
 
     private static void AutopilotScheduleTargetButton_Loaded(object sender, RoutedEventArgs e)
@@ -193,8 +194,8 @@ public partial class MainShellWindow
         }
 
         var preferences = AutopilotSchedulePreferencesStore.Load(window._data.SettingsPath);
-        var history = window._data.GetQuizHistory(2_000);
         var now = DateTimeOffset.Now;
+        var history = window._data.GetFutureScheduledYouTubeQuizHistory(now);
         var scheduled = AutopilotScheduleTargetPlanner.ScheduledQuizCount(history, now);
         var missing = AutopilotScheduleTargetPlanner.MissingScheduledQuizzes(history, preferences.TargetDays, now);
         var count = AutopilotScheduleTargetPlanner.BatchSizeForMissingDays(missing);
@@ -237,8 +238,8 @@ public partial class MainShellWindow
         if (_autopilotScheduleFillStarting) return;
 
         var preferences = AutopilotSchedulePreferencesStore.Load(_data.SettingsPath);
-        var history = _data.GetQuizHistory(2_000);
         var now = DateTimeOffset.Now;
+        var history = _data.GetFutureScheduledYouTubeQuizHistory(now);
         var scheduled = AutopilotScheduleTargetPlanner.ScheduledQuizCount(history, now);
         var missing = AutopilotScheduleTargetPlanner.MissingScheduledQuizzes(history, preferences.TargetDays, now);
         var productionBusy = _quizBatchAutomationRunning || _quizBatchRenderRunning ||
@@ -356,14 +357,18 @@ public partial class MainShellWindow
 
     private void UpdateScheduleTargetStatus()
     {
-        if (_autopilotScheduleTargetStatusText is null) return;
         try
         {
             var preferences = AutopilotSchedulePreferencesStore.Load(_data.SettingsPath);
-            var history = _data.GetQuizHistory(2_000);
             var now = DateTimeOffset.Now;
+            var history = _data.GetFutureScheduledYouTubeQuizHistory(now);
             var scheduled = AutopilotScheduleTargetPlanner.ScheduledQuizCount(history, now);
             var missing = AutopilotScheduleTargetPlanner.MissingScheduledQuizzes(history, preferences.TargetDays, now);
+
+            if (_autopilotScheduledCountText is not null)
+                _autopilotScheduledCountText.Text = scheduled.ToString("N0");
+
+            if (_autopilotScheduleTargetStatusText is null) return;
             if (!preferences.AutoFillEnabled)
             {
                 _autopilotScheduleTargetStatusText.Text = missing == 0

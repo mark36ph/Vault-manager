@@ -59,15 +59,22 @@ public partial class MainShellWindow
                     accessToken,
                     linked.Select(item => item.VideoId!));
 
+                var now = DateTimeOffset.Now;
                 foreach (var item in linked)
                 {
                     if (!states.TryGetValue(item.VideoId!, out var state))
                         continue;
 
+                    var scheduledFor = YouTubeScheduleIntegrity.ResolveScheduledFor(
+                        item.History.YouTubeScheduledFor,
+                        state.PrivacyStatus,
+                        state.PublishAt,
+                        now);
+
                     _data.UpdateQuizHistoryYouTubeUploadState(
                         item.History.Id,
                         state.PrivacyStatus,
-                        state.PublishAt);
+                        scheduledFor);
                 }
             }
         }
