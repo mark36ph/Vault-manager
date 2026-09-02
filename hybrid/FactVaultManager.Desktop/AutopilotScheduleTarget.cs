@@ -14,6 +14,7 @@ public sealed class AutopilotSchedulePreferences
 public static class AutopilotScheduleTargetPlanner
 {
     public static readonly int[] AllowedTargets = [7, 14, 21, 30];
+    public static readonly TimeSpan AutomaticFillRetryGuard = TimeSpan.FromMinutes(2);
 
     public static int NormalizeTargetDays(int value) =>
         AllowedTargets.Contains(value) ? value : 14;
@@ -65,9 +66,20 @@ public static class AutopilotScheduleTargetPlanner
         ArgumentNullException.ThrowIfNull(preferences);
         if (!preferences.AutoFillEnabled || productionBusy || missingCount <= 0)
             return false;
-        if (preferences.LastAutomaticFillUtc is { } last && utcNow - last < TimeSpan.FromMinutes(20))
+        if (preferences.LastAutomaticFillUtc is { } last && utcNow - last < AutomaticFillRetryGuard)
             return false;
         return true;
+    }
+
+    public static TimeSpan AutomaticFillRetryRemaining(
+        AutopilotSchedulePreferences preferences,
+        DateTime utcNow)
+    {
+        ArgumentNullException.ThrowIfNull(preferences);
+        if (preferences.LastAutomaticFillUtc is not { } last)
+            return TimeSpan.Zero;
+        var remaining = AutomaticFillRetryGuard - (utcNow - last);
+        return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
     }
 }
 
