@@ -31,6 +31,12 @@ public partial class MainShellWindow : Window
     public MainShellWindow()
     {
         InitializeComponent();
+
+        // Installed releases can use a different LocalAppData root from the development
+        // checkout. Recover both encrypted credentials and non-secret preferences before
+        // the settings workflow reads the destination document.
+        InstalledCredentialRecovery.Run();
+        InstalledSettingsRecovery.Run();
         LoadBootstrapSettingsInputs();
 
         Loaded += (_, _) =>

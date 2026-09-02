@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.125",
-  "build": 150,
+  "latest_version": "1.0.126",
+  "build": 151,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 150 removes the retired Dashboard, Projects, Production, Media Library and Asset Review shell from the desktop app.",
-    "Startup no longer refreshes the retired project and media workspace before the current Factburst interface is shown.",
-    "Quiz, Library, publishing, analytics, website administration and Settings continue to use the current Factburst workspace.",
-    "The retired workspace hiding shim is no longer needed now that those legacy surfaces are absent from the shell."
+    "Build 151 restores installed-app settings before the desktop settings UI loads.",
+    "Existing encrypted API credentials are recovered from the prior settings location without exposing their values.",
+    "The previously configured project folder and other non-secret preferences are restored when the installed data root is missing them.",
+    "Build 147 scheduling and autopilot behavior remains intact; this build is a settings-preservation fix rather than another workspace cleanup."
   ]
 }
