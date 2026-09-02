@@ -88,17 +88,20 @@ public sealed class AutopilotScheduleTargetTests
     }
 
     [Fact]
-    public void ShouldAutoFill_UsesTwentyMinuteDuplicateStartGuard()
+    public void ShouldAutoFill_UsesShortDuplicateStartGuardThenRetriesPromptly()
     {
         var now = new DateTime(2026, 9, 1, 10, 0, 0, DateTimeKind.Utc);
         var preferences = new AutopilotSchedulePreferences
         {
             AutoFillEnabled = true,
-            LastAutomaticFillUtc = now.AddMinutes(-10),
+            LastAutomaticFillUtc = now.AddMinutes(-1),
         };
         Assert.False(AutopilotScheduleTargetPlanner.ShouldAutoFill(preferences, 4, false, now));
-        preferences.LastAutomaticFillUtc = now.AddMinutes(-21);
+        Assert.True(AutopilotScheduleTargetPlanner.AutomaticFillRetryRemaining(preferences, now) > TimeSpan.Zero);
+
+        preferences.LastAutomaticFillUtc = now.AddMinutes(-3);
         Assert.True(AutopilotScheduleTargetPlanner.ShouldAutoFill(preferences, 4, false, now));
+        Assert.Equal(TimeSpan.Zero, AutopilotScheduleTargetPlanner.AutomaticFillRetryRemaining(preferences, now));
     }
 
     [Fact]
@@ -123,7 +126,7 @@ public sealed class AutopilotScheduleTargetTests
     }
 
     [Fact]
-    public void Build125Source_UsesScheduledQuizInventoryAndReliableContinuousChecks()
+    public void Build147Source_UsesScheduledQuizInventoryAndPromptContinuousChecks()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotScheduleTarget.cs");
         Assert.Contains("AUTOPILOT ON", source, StringComparison.Ordinal);
@@ -132,11 +135,12 @@ public sealed class AutopilotScheduleTargetTests
         Assert.Contains(" quizzes scheduled", source, StringComparison.Ordinal);
         Assert.Contains("MissingScheduledQuizzes", source, StringComparison.Ordinal);
         Assert.Contains("ScheduledQuizCount", source, StringComparison.Ordinal);
+        Assert.Contains("GetFutureScheduledYouTubeQuizHistory", source, StringComparison.Ordinal);
         Assert.Contains("Fill schedule now", source, StringComparison.Ordinal);
         Assert.Contains("Generate + Schedule Quiz Batch", source, StringComparison.Ordinal);
         Assert.Contains("AutopilotBatchCountRequest.TryConsume", source, StringComparison.Ordinal);
-        Assert.Contains("Interval = TimeSpan.FromMinutes(5)", source, StringComparison.Ordinal);
-        Assert.Contains("Task.Delay(TimeSpan.FromSeconds(15))", source, StringComparison.Ordinal);
+        Assert.Contains("Interval = TimeSpan.FromMinutes(1)", source, StringComparison.Ordinal);
+        Assert.Contains("Task.Delay(TimeSpan.FromSeconds(5))", source, StringComparison.Ordinal);
         Assert.Contains("Dispatcher.BeginInvoke(", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Loaded += async", source, StringComparison.Ordinal);
         Assert.Contains("ApprovedYouTubeChannelId", source, StringComparison.Ordinal);
@@ -144,10 +148,21 @@ public sealed class AutopilotScheduleTargetTests
         Assert.Contains("_fullAutopilotTimer?.Stop()", source, StringComparison.Ordinal);
         Assert.Contains("_fullAutopilotTimer?.Start()", source, StringComparison.Ordinal);
         Assert.Contains("await RunFullAutopilotAsync()", source, StringComparison.Ordinal);
+        Assert.Contains("retry within a minute", source, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
-    public void Build125Source_DoesNotBurnRetryCooldownWhenProductionFailsToStart()
+    public void Build147Source_DoesNotLetRetiredRecoveryStateBlockScheduleTopup()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotScheduleTarget.cs");
+
+        Assert.DoesNotContain("AutopilotRecoveryStateStore.Load", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("youtubeHealth?.State", source, StringComparison.Ordinal);
+        Assert.Contains("trusted publishing preflight", source, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Build147Source_DoesNotBurnRetryCooldownWhenProductionFailsToStart()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotScheduleTarget.cs");
         var raise = source.IndexOf("_quizAutopilotPrimaryButton.RaiseEvent", StringComparison.Ordinal);
