@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.123",
-  "build": 148,
+  "latest_version": "1.0.124",
+  "build": 149,
   "download_url": "https://github.com/mark36ph/Vault-manager/releases/latest",
   "release_notes": [
-    "Build 148 removes retired generic fact-creation data code that is no longer part of the quiz-only Factburst workflow.",
-    "Removes old generic project compatibility types where the current quiz application no longer depends on them.",
-    "Keeps active quiz project folders, Resolve export, installed-data migration, credential recovery and publishing safeguards unchanged.",
-    "This is a code cleanup release; quiz creation, scheduling, uploads and Autopilot behavior are intentionally unchanged."
+    "Build 149 removes the retired Pixabay and Pexels compatibility providers from the quiz-only desktop app.",
+    "API & Connections no longer advertises or tests stock-image provider credentials that Factburst no longer uses.",
+    "Active OpenAI, YouTube, Facebook, Instagram and website connections remain unchanged.",
+    "Legacy stock-provider settings remain migration-compatible until the old hidden XAML shell is removed in the next cleanup build."
   ]
 }

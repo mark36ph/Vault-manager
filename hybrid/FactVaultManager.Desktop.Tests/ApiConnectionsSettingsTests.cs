@@ -3,37 +3,43 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class ApiConnectionsSettingsTests
 {
     [Fact]
-    public void Build141_ConsolidatesExternalCredentialsIntoOneSettingsPage()
+    public void Build149_ExternalCredentialsPageIsQuizOnly()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.ApiConnectionsSettings.cs");
 
         Assert.Contains("API & Connections", source, StringComparison.Ordinal);
         Assert.Contains("OpenAiKeyPasswordBox", source, StringComparison.Ordinal);
-        Assert.Contains("PixabayKeyPasswordBox", source, StringComparison.Ordinal);
-        Assert.Contains("PexelsKeyPasswordBox", source, StringComparison.Ordinal);
         Assert.Contains("YouTubeApiKeyPasswordBox", source, StringComparison.Ordinal);
         Assert.Contains("_settingsYouTubeClientId", source, StringComparison.Ordinal);
         Assert.Contains("_settingsYouTubeClientSecret", source, StringComparison.Ordinal);
         Assert.Contains("_settingsFacebookPageAccessToken", source, StringComparison.Ordinal);
         Assert.Contains("_settingsInstagramAccessToken", source, StringComparison.Ordinal);
-        Assert.Contains("new[] { \"ai\", \"youtube\", \"facebook\", \"instagram\" }", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("PixabayKeyPasswordBox", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("PexelsKeyPasswordBox", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Image providers", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Build141_ProvidesLiveReadOnlyChecksForEveryExternalCredential()
+    public void Build149_ProvidesLiveReadOnlyChecksOnlyForActiveConnections()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.ApiConnectionsSettings.cs");
 
         Assert.Contains("Test all connections", source, StringComparison.Ordinal);
         Assert.Contains("TestOpenAiConnectionAsync", source, StringComparison.Ordinal);
-        Assert.Contains("TestPixabayConnectionAsync", source, StringComparison.Ordinal);
-        Assert.Contains("TestPexelsConnectionAsync", source, StringComparison.Ordinal);
         Assert.Contains("TestYouTubeApiConnectionAsync", source, StringComparison.Ordinal);
         Assert.Contains("TestYouTubeOAuthConnectionAsync", source, StringComparison.Ordinal);
         Assert.Contains("TestFacebookConnectionAsync", source, StringComparison.Ordinal);
         Assert.Contains("TestInstagramConnectionAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("TestPixabayConnectionAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("TestPexelsConnectionAsync", source, StringComparison.Ordinal);
         Assert.Contains("HttpCompletionOption.ResponseHeadersRead", source, StringComparison.Ordinal);
         Assert.Contains("They do not upload, publish, delete or modify content", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build149_RemovesRetiredStockProviderCompatibilityTypes()
+    {
+        Assert.False(RepositoryFileExists("hybrid/FactVaultManager.Desktop/RetiredStockProviderCompatibility.cs"));
     }
 
     [Fact]
@@ -65,6 +71,18 @@ public sealed class ApiConnectionsSettingsTests
 
         Assert.Contains("InitializeSettingsWorkflow();", source, StringComparison.Ordinal);
         Assert.Contains("InitializeApiConnectionsSettings();", source, StringComparison.Ordinal);
+    }
+
+    private static bool RepositoryFileExists(string relativePath)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            var candidate = Path.Combine(directory.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            if (File.Exists(candidate)) return true;
+            directory = directory.Parent;
+        }
+        return false;
     }
 
     private static string ReadRepositoryFile(string relativePath)
