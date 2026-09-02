@@ -44,7 +44,7 @@ public partial class MainShellWindow : Window
     {
         var settings = _data.LoadSettings();
         ProjectsFolderTextBox.Text = settings.ProjectsFolder;
-        CheckUpdatesCheckBox.IsChecked = settings.CheckUpdatesOnLaunch;
+        CheckUpdatesCheckBox.IsChecked = settings.CheckUpdates;
         OpenAiKeyPasswordBox.Password = settings.OpenAiKey;
         OpenAiModelTextBox.Text = settings.OpenAiModel;
         PexelsKeyPasswordBox.Password = settings.PexelsKey;
@@ -56,44 +56,56 @@ public partial class MainShellWindow : Window
         FrameRateTextBox.Text = settings.FrameRate.ToString(CultureInfo.InvariantCulture);
     }
 
+    private string GetBuildVersionLabel() => $"Build {CurrentBuildNumber}";
+
     private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            HeaderStatusText.Text = "Checking for C# app updates...";
-            var result = await _updates.CheckAsync();
+            HeaderStatusText.Text = "Checking for updates...";
 
-            if (!result.HasUpdate)
+            if (!_updates.IsInstalled)
             {
+                const string developmentMessage =
+                    "This is the development build, so the in-app updater is not active yet.\n\n" +
+                    "Check for Updates will become fully active after you install the first Factburst Quiz Manager release build.";
+                HeaderStatusText.Text = "Updates: development build";
                 MessageBox.Show(
-                    result.Message,
-                    $"FactVaultManager {GetBuildVersionLabel()}",
+                    this,
+                    developmentMessage,
+                    "Factburst Quiz Manager Updates",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
-                HeaderStatusText.Text = $"Factburst Quiz Manager • {GetBuildVersionLabel()} • Quizzes • Library • Uploads • Analytics • Website management";
                 return;
             }
 
-            var prompt = $"{result.Message}\n\nInstall v{result.Manifest?.LatestVersion} now?";
-            if (MessageBox.Show(prompt, "Update available", MessageBoxButton.YesNo, MessageBoxImage.Information) != MessageBoxResult.Yes)
-                return;
-
-            HeaderStatusText.Text = $"Updating to v{result.Manifest?.LatestVersion}...";
-            var install = await _updates.InstallAsync(result.Manifest!);
-            if (!install.Success)
+            var update = await _updates.CheckAsync();
+            if (update is null)
             {
-                MessageBox.Show(install.Message, "Update failed", MessageBoxButton.OK, MessageBoxImage.Error);
-                HeaderStatusText.Text = "Update failed";
+                var message = $"Factburst Quiz Manager {_updates.CurrentVersion} is up to date.";
+                HeaderStatusText.Text = message;
+                MessageBox.Show(
+                    this,
+                    message,
+                    "Factburst Quiz Manager Updates",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
                 return;
             }
 
-            MessageBox.Show(install.Message, "Update ready", MessageBoxButton.OK, MessageBoxImage.Information);
-            Application.Current.Shutdown();
+            HeaderStatusText.Text = "Update found. Downloading...";
+            await _updates.InstallAsync(update, percent => Dispatcher.Invoke(() =>
+                HeaderStatusText.Text = $"Downloading update... {percent}%"));
         }
-        catch (Exception ex)
+        catch (Exception error)
         {
-            MessageBox.Show(ex.Message, "Update failed", MessageBoxButton.OK, MessageBoxImage.Error);
-            HeaderStatusText.Text = "Update failed";
+            HeaderStatusText.Text = $"Update failed: {error.Message}";
+            MessageBox.Show(
+                this,
+                error.Message,
+                "Update Failed",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
     }
 }
