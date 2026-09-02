@@ -25,7 +25,11 @@ public static class Program
         try
         {
             VelopackApp.Build().Run();
-            InstalledDataMigration.Run();
+            var appDataRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "FactVaultManager");
+            if (InstalledDataMigrationGuard.ShouldRun(appDataRoot))
+                InstalledDataMigration.Run();
             InstalledLibraryRecoveryV2.Run();
             InstalledQuestionLibraryRecoveryV3.Run();
             InstalledProjectConsolidation.Run();
