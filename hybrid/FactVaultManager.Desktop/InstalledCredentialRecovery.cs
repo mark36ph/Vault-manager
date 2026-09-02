@@ -41,11 +41,39 @@ public static class InstalledCredentialRecovery
         appDataRoot = Path.GetFullPath(appDataRoot);
         Directory.CreateDirectory(appDataRoot);
         var destinationSettings = Path.Combine(appDataRoot, "data", "settings.json");
+        var sourceDocuments = LoadSourceSettings(destinationSettings, sourceSettingsPaths);
+        return RunCore(appDataRoot, destinationSettings, sourceDocuments);
+    }
+
+    internal static InstalledCredentialRecoveryResult Run(
+        string appDataRoot,
+        IEnumerable<string> sourceSettingsPaths,
+        IEnumerable<JsonObject> sourceSettingsDocuments)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(appDataRoot);
+        ArgumentNullException.ThrowIfNull(sourceSettingsPaths);
+        ArgumentNullException.ThrowIfNull(sourceSettingsDocuments);
+        appDataRoot = Path.GetFullPath(appDataRoot);
+        Directory.CreateDirectory(appDataRoot);
+        var destinationSettings = Path.Combine(appDataRoot, "data", "settings.json");
+        var sourceDocuments = LoadSourceSettings(destinationSettings, sourceSettingsPaths).ToList();
+        foreach (var document in sourceSettingsDocuments)
+        {
+            if (document is not null)
+                sourceDocuments.Add(document);
+        }
+        return RunCore(appDataRoot, destinationSettings, sourceDocuments);
+    }
+
+    private static InstalledCredentialRecoveryResult RunCore(
+        string appDataRoot,
+        string destinationSettings,
+        IReadOnlyList<JsonObject> sources)
+    {
         var markerPath = Path.Combine(appDataRoot, RecoveryMarkerName);
         var destination = ReadSettingsOrEmpty(destinationSettings);
         var recoveredBefore = ReadRecoveredKeys(markerPath);
         var recoveredAfter = new HashSet<string>(recoveredBefore, StringComparer.OrdinalIgnoreCase);
-        var sources = LoadSourceSettings(destinationSettings, sourceSettingsPaths);
         var settingsChanged = false;
         var recoveredCount = 0;
         var clearedInvalidCount = 0;
