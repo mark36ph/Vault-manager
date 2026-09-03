@@ -1,0 +1,56 @@
+name: One-time quiz STA responsiveness fix
+on:
+  push:
+    paths:
+      - '.github/workflows/one-time-quiz-sta-fix.yml'
+      - 'hybrid/FactVaultManager.Desktop/MainShellWindow.QuizBatchRender.cs'
+      - 'hybrid/FactVaultManager.Desktop/NativeQuizVideoBuilder.cs'
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: contains(github.event.head_commit.message, 'One-time quiz STA') == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch batch rendering and builder STA guard
+        shell: python
+        run: |
+          from pathlib import Path
+
+          batch = Path('hybrid/FactVaultManager.Desktop/MainShellWindow.QuizBatchRender.cs')
+          s = batch.read_text()
+          old = '''            var rendered = await Dispatcher.InvokeAsync(() => new NativeQuizVideoBuilder().BuildAndExport(\n                exportQuestions,\n                options,\n                stagingRoot,\n                narrationByQuestion));\n            await Dispatcher.InvokeAsync(() => new QuizThemedCardRenderer().OverwriteCards(\n                rendered.ProjectFolder,\n                exportQuestions,\n                options,\n                narrationByQuestion,\n                visual));'''
+          new = '''            var rendered = await QuizRenderStaRunner.RunAsync(() => new NativeQuizVideoBuilder().BuildAndExport(\n                exportQuestions,\n                options,\n                stagingRoot,\n                narrationByQuestion));\n            await QuizRenderStaRunner.RunAsync(() => new QuizThemedCardRenderer().OverwriteCards(\n                rendered.ProjectFolder,\n                exportQuestions,\n                options,\n                narrationByQuestion,\n                visual));'''
+          if old not in s:
+              raise SystemExit('initial STA block not found')
+          s = s.replace(old, new, 1)
+
+          old = '''            var result = await Dispatcher.InvokeAsync(() => QuizVisualExportRewriter.ReExport(\n                augmented,\n                exportQuestions,\n                options));'''
+          new = '''            var result = await QuizRenderStaRunner.RunAsync(() => QuizVisualExportRewriter.ReExport(\n                augmented,\n                exportQuestions,\n                options));'''
+          if old not in s:
+              raise SystemExit('visual re-export block not found')
+          s = s.replace(old, new, 1)
+
+          old = '''            var thumbnailPath = await Dispatcher.InvokeAsync(() => new QuizThumbnailRenderer().Write('''
+          new = '''            var thumbnailPath = await QuizRenderStaRunner.RunAsync(() => new QuizThumbnailRenderer().Write('''
+          if old not in s:
+              raise SystemExit('thumbnail block not found')
+          s = s.replace(old, new, 1)
+          batch.write_text(s)
+
+          builder = Path('hybrid/FactVaultManager.Desktop/NativeQuizVideoBuilder.cs')
+          s = builder.read_text()
+          old = '''        if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())\n        {\n            return dispatcher.Invoke(() => BuildAndExport(\n                questions,\n                options,\n                projectsRoot,\n                narrationByQuestion));\n        }'''
+          new = '''        if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)\n            throw new InvalidOperationException("Quiz cards must be rendered on an STA thread.");'''
+          if old not in s:
+              raise SystemExit('builder STA guard not found')
+          builder.write_text(s.replace(old, new, 1))
+      - name: Commit fix
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add hybrid/FactVaultManager.Desktop/MainShellWindow.QuizBatchRender.cs hybrid/FactVaultManager.Desktop/NativeQuizVideoBuilder.cs
+          git diff --cached --quiet || git commit -m 'One-time quiz STA responsiveness fix'
+          git push
