@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.130",
-  "build": 156,
+  "latest_version": "1.0.131",
+  "build": 157,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 156 can restore API credentials from a database backup without replacing the installed FactVault database.",
-    "Copy the backup database into the installed data folder; factvault-*.db backups are detected automatically and only the desktop-app-settings credentials are imported.",
-    "Build 155 legacy SQLite recovery, Build 154 nested settings recovery, and Build 153 installed-data preservation remain intact."
+    "Build 157 also recovers the Website Link Tracker API key and YouTube OAuth desktop client ID from factvault-*.db backups.",
+    "The live installed database is never replaced; only missing configuration values are restored.",
+    "Build 156 database credential recovery remains intact."
   ]
 }
