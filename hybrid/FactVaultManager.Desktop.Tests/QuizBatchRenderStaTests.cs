@@ -20,6 +20,14 @@ public sealed class QuizBatchRenderStaTests
             source,
             StringComparison.Ordinal);
         Assert.Contains(
+            "await Dispatcher.InvokeAsync(() => QuizVisualExportRewriter.ReExport(",
+            source,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "return QuizVisualExportRewriter.ReExport(augmented, exportQuestions, options);",
+            source,
+            StringComparison.Ordinal);
+        Assert.Contains(
             "await Dispatcher.InvokeAsync(() => new QuizThumbnailRenderer().Write(",
             source,
             StringComparison.Ordinal);
