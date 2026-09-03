@@ -5,6 +5,7 @@
   "sha256": "",
   "release_notes": [
     "Build 161 restores the complete quiz card renderer after a release-build regression and keeps the Build 160 STA threading fix in the batch pipeline.",
+    "Build 161 also corrects the desktop build label so the application reports Build 161.",
     "Build 160 fixes Quiz Release Automation STA failures by keeping WPF quiz card and thumbnail rendering on the desktop UI dispatcher.",
     "Build 159 corrected the desktop build number shown in the application to match the released build metadata.",
     "Build 157 configuration backup recovery and Build 156 database credential recovery remain intact."
