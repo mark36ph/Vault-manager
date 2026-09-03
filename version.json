@@ -5,6 +5,7 @@
   "sha256": "",
   "release_notes": [
     "Build 161 fixes Quiz Release Automation by keeping the Native quiz card build on the desktop WPF dispatcher instead of Task.Run.",
+    "Build 161 includes a regression test that prevents the quiz card build from being moved back to a worker thread.",
     "Build 161 restores the complete quiz card renderer after the previous release-build regression.",
     "Build 161 keeps quiz thumbnail rendering on the desktop UI dispatcher while leaving FFmpeg and file work off-thread.",
     "Build 159 corrected the desktop build number shown in the application to match the released build metadata.",
