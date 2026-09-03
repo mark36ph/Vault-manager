@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.132",
-  "build": 158,
+  "latest_version": "1.0.133",
+  "build": 159,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 158 fixes Quiz Release Automation card rendering by dispatching WPF quiz card builds to the desktop UI thread.",
-    "Batch rendering can continue using background work for the surrounding export pipeline while WPF card creation runs on the required UI thread.",
+    "Build 159 corrects the desktop build number shown in the application so it matches the released build metadata.",
+    "Build 158 quiz card rendering thread fix remains included: WPF quiz card builds are dispatched to the desktop UI thread.",
     "Build 157 configuration backup recovery and Build 156 database credential recovery remain intact."
   ]
 }
