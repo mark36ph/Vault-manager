@@ -1,10 +1,11 @@
 {
-  "latest_version": "1.0.139",
+  "latest_version": "1.0.140",
   "build": 161,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
   "sha256": "",
   "release_notes": [
     "Build 161 fixes Quiz Release Automation freezing by moving WPF card, visual re-export and thumbnail rendering to a dedicated STA worker thread instead of the desktop UI dispatcher.",
+    "Build 161 fixes the STA runner release-build compile issue and includes a dedicated void-work overload for WPF rendering actions.",
     "Build 161 keeps audio timeline augmentation, FFmpeg work and file publishing off the UI thread.",
     "Build 161 requires Native quiz card rendering to run on an STA thread, preventing worker-thread WPF failures.",
     "Build 161 restores the complete quiz card renderer after the previous release-build regression.",
