@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.131",
-  "build": 157,
+  "latest_version": "1.0.132",
+  "build": 158,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 157 also recovers the Website Link Tracker API key and YouTube OAuth desktop client ID from factvault-*.db backups.",
-    "The live installed database is never replaced; only missing configuration values are restored.",
-    "Build 156 database credential recovery remains intact."
+    "Build 158 fixes Quiz Release Automation card rendering by dispatching WPF quiz card builds to the desktop UI thread.",
+    "Batch rendering can continue using background work for the surrounding export pipeline while WPF card creation runs on the required UI thread.",
+    "Build 157 configuration backup recovery and Build 156 database credential recovery remain intact."
   ]
 }
