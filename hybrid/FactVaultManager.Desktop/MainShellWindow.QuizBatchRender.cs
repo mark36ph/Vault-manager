@@ -382,7 +382,7 @@ public partial class MainShellWindow
             }
 
             progress($"Quiz {batchNumber}/{batchTotal}: rendering cards...");
-            var rendered = await Task.Run(() => new NativeQuizVideoBuilder().BuildAndExport(
+            var rendered = await Dispatcher.InvokeAsync(() => new NativeQuizVideoBuilder().BuildAndExport(
                 exportQuestions,
                 options,
                 stagingRoot,
