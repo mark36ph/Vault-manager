@@ -393,19 +393,24 @@ public partial class MainShellWindow
                 options,
                 narrationByQuestion,
                 visual));
-            var result = await Task.Run(() =>
-            {
-                var augmented = QuizAudioTimelineAugmenter.ApplyAndReExport(
-                    rendered,
-                    exportQuestions,
-                    options,
-                    new QuizAudioAssets(
-                        countdownTick,
-                        revealChime,
-                        backgroundMusic,
-                        narrate ? selectedVoice : ""));
-                return QuizVisualExportRewriter.ReExport(augmented, exportQuestions, options);
-            });
+
+            // Audio timeline augmentation is CPU/file/FFmpeg work and can stay off the UI thread.
+            var augmented = await Task.Run(() => QuizAudioTimelineAugmenter.ApplyAndReExport(
+                rendered,
+                exportQuestions,
+                options,
+                new QuizAudioAssets(
+                    countdownTick,
+                    revealChime,
+                    backgroundMusic,
+                    narrate ? selectedVoice : "")));
+
+            // Visual re-export can regenerate WPF cards (for example the YouTube outro and
+            // countdown/visual variations), so it must execute on the desktop STA dispatcher.
+            var result = await Dispatcher.InvokeAsync(() => QuizVisualExportRewriter.ReExport(
+                augmented,
+                exportQuestions,
+                options));
 
             progress($"Quiz {batchNumber}/{batchTotal}: creating thumbnail and metadata...");
             var renderedProjectFolder = result.ProjectFolder;
