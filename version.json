@@ -1,13 +1,14 @@
 {
-  "latest_version": "1.0.137",
+  "latest_version": "1.0.138",
   "build": 161,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 161 fixes Quiz Release Automation by keeping the Native quiz card build on the desktop WPF dispatcher instead of Task.Run.",
-    "Build 161 includes a regression test that prevents the quiz card build from being moved back to a worker thread.",
+    "Build 161 fixes the remaining Quiz Release Automation STA failure by keeping the visual re-export on the desktop WPF dispatcher.",
+    "Build 161 keeps audio timeline augmentation, FFmpeg work and file publishing off the UI thread.",
+    "Build 161 includes regression coverage preventing the visual re-export from being moved back to Task.Run.",
     "Build 161 restores the complete quiz card renderer after the previous release-build regression.",
-    "Build 161 keeps quiz thumbnail rendering on the desktop UI dispatcher while leaving FFmpeg and file work off-thread.",
+    "Build 161 keeps quiz thumbnail rendering on the desktop UI dispatcher.",
     "Build 159 corrected the desktop build number shown in the application to match the released build metadata.",
     "Build 157 configuration backup recovery and Build 156 database credential recovery remain intact."
   ]
