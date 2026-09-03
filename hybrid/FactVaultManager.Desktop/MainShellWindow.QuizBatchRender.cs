@@ -382,20 +382,20 @@ public partial class MainShellWindow
             }
 
             progress($"Quiz {batchNumber}/{batchTotal}: rendering cards...");
+            var rendered = await Task.Run(() => new NativeQuizVideoBuilder().BuildAndExport(
+                exportQuestions,
+                options,
+                stagingRoot,
+                narrationByQuestion));
+            await Dispatcher.InvokeAsync(() => new QuizThemedCardRenderer().OverwriteCards(
+                rendered.ProjectFolder,
+                exportQuestions,
+                options,
+                narrationByQuestion,
+                visual));
             var result = await Task.Run(() =>
             {
-                var rendered = new NativeQuizVideoBuilder().BuildAndExport(
-                    exportQuestions,
-                    options,
-                    stagingRoot,
-                    narrationByQuestion);
-                new QuizThemedCardRenderer().OverwriteCards(
-                    rendered.ProjectFolder,
-                    exportQuestions,
-                    options,
-                    narrationByQuestion,
-                    visual);
-                rendered = QuizAudioTimelineAugmenter.ApplyAndReExport(
+                var augmented = QuizAudioTimelineAugmenter.ApplyAndReExport(
                     rendered,
                     exportQuestions,
                     options,
@@ -404,24 +404,20 @@ public partial class MainShellWindow
                         revealChime,
                         backgroundMusic,
                         narrate ? selectedVoice : ""));
-                return QuizVisualExportRewriter.ReExport(rendered, exportQuestions, options);
+                return QuizVisualExportRewriter.ReExport(augmented, exportQuestions, options);
             });
 
             progress($"Quiz {batchNumber}/{batchTotal}: creating thumbnail and metadata...");
             var renderedProjectFolder = result.ProjectFolder;
-            var thumbnailPath = await Task.Run(() =>
-            {
-                var path = new QuizThumbnailRenderer().Write(
-                    renderedProjectFolder,
-                    publishing,
-                    exportQuestions,
-                    thumbnail,
-                    visual,
-                    logoPath,
-                    vertical);
-                QuizPublishMetadataFiles.Write(renderedProjectFolder, publishing);
-                return path;
-            });
+            var thumbnailPath = await Dispatcher.InvokeAsync(() => new QuizThumbnailRenderer().Write(
+                renderedProjectFolder,
+                publishing,
+                exportQuestions,
+                thumbnail,
+                visual,
+                logoPath,
+                vertical));
+            await Task.Run(() => QuizPublishMetadataFiles.Write(renderedProjectFolder, publishing));
 
             progress($"Quiz {batchNumber}/{batchTotal}: rendering final MP4 with FFmpeg...");
             var stagedThumbnailPath = thumbnailPath;
