@@ -382,12 +382,12 @@ public partial class MainShellWindow
             }
 
             progress($"Quiz {batchNumber}/{batchTotal}: rendering cards...");
-            var rendered = await Dispatcher.InvokeAsync(() => new NativeQuizVideoBuilder().BuildAndExport(
+            var rendered = await QuizRenderStaRunner.RunAsync(() => new NativeQuizVideoBuilder().BuildAndExport(
                 exportQuestions,
                 options,
                 stagingRoot,
                 narrationByQuestion));
-            await Dispatcher.InvokeAsync(() => new QuizThemedCardRenderer().OverwriteCards(
+            await QuizRenderStaRunner.RunAsync(() => new QuizThemedCardRenderer().OverwriteCards(
                 rendered.ProjectFolder,
                 exportQuestions,
                 options,
@@ -407,14 +407,14 @@ public partial class MainShellWindow
 
             // Visual re-export can regenerate WPF cards (for example the YouTube outro and
             // countdown/visual variations), so it must execute on the desktop STA dispatcher.
-            var result = await Dispatcher.InvokeAsync(() => QuizVisualExportRewriter.ReExport(
+            var result = await QuizRenderStaRunner.RunAsync(() => QuizVisualExportRewriter.ReExport(
                 augmented,
                 exportQuestions,
                 options));
 
             progress($"Quiz {batchNumber}/{batchTotal}: creating thumbnail and metadata...");
             var renderedProjectFolder = result.ProjectFolder;
-            var thumbnailPath = await Dispatcher.InvokeAsync(() => new QuizThumbnailRenderer().Write(
+            var thumbnailPath = await QuizRenderStaRunner.RunAsync(() => new QuizThumbnailRenderer().Write(
                 renderedProjectFolder,
                 publishing,
                 exportQuestions,

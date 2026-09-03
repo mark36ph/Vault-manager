@@ -68,14 +68,8 @@ public sealed class NativeQuizVideoBuilder
         if (string.IsNullOrWhiteSpace(projectsRoot))
             throw new InvalidOperationException("Set the Projects Folder in Settings before creating a quiz video.");
 
-        if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
-        {
-            return dispatcher.Invoke(() => BuildAndExport(
-                questions,
-                options,
-                projectsRoot,
-                narrationByQuestion));
-        }
+        if (Thread.CurrentThread.GetApartmentState() != ApartmentState.STA)
+            throw new InvalidOperationException("Quiz cards must be rendered on an STA thread.");
 
         narrationByQuestion ??= new Dictionary<int, QuizNarrationAsset>();
         ValidateNarrationAssets(questions, narrationByQuestion);
