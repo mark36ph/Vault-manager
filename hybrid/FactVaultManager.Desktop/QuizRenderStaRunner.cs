@@ -29,4 +29,36 @@ internal static class QuizRenderStaRunner
         thread.Start();
         return completion.Task;
     }
+
+    public static Task RunAsync(Action work)
+    {
+        ArgumentNullException.ThrowIfNull(work);
+
+        if (Thread.CurrentThread.GetApartmentState() == ApartmentState.STA)
+        {
+            work();
+            return Task.CompletedTask;
+        }
+
+        var completion = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                work();
+                completion.SetResult(null);
+            }
+            catch (Exception error)
+            {
+                completion.SetException(error);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "FactVaultManager Quiz Render STA",
+        };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        return completion.Task;
+    }
 }
