@@ -67,8 +67,15 @@ public sealed class NativeQuizVideoBuilder
             throw new ArgumentException("A quiz cannot contain the same question more than once.", nameof(questions));
         if (string.IsNullOrWhiteSpace(projectsRoot))
             throw new InvalidOperationException("Set the Projects Folder in Settings before creating a quiz video.");
+
         if (Application.Current?.Dispatcher is { } dispatcher && !dispatcher.CheckAccess())
-            throw new InvalidOperationException("Quiz cards must be rendered on the desktop UI thread.");
+        {
+            return dispatcher.Invoke(() => BuildAndExport(
+                questions,
+                options,
+                projectsRoot,
+                narrationByQuestion));
+        }
 
         narrationByQuestion ??= new Dictionary<int, QuizNarrationAsset>();
         ValidateNarrationAssets(questions, narrationByQuestion);
