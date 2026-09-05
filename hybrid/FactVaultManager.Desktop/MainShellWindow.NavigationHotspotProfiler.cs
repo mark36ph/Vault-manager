@@ -8,43 +8,29 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    private bool _navigationHotspotProfilerRegistered;
-
     private static bool RegisterNavigationHotspotProfilerUi()
     {
+        // Register against the diagnostic action button itself. The Performance
+        // Diagnostics page is created lazily, so a MainShellWindow Loaded timer can
+        // expire before the page exists. The button Loaded event is deterministic.
         EventManager.RegisterClassHandler(
-            typeof(MainShellWindow),
+            typeof(Button),
             FrameworkElement.LoadedEvent,
-            new RoutedEventHandler(MainShellWindowNavigationHotspotProfiler_Loaded),
+            new RoutedEventHandler(MainShellWindowNavigationHotspotProfiler_ButtonLoaded),
             handledEventsToo: true);
         return true;
     }
 
     private static readonly bool NavigationHotspotProfilerUiRegistered = RegisterNavigationHotspotProfilerUi();
 
-    private static void MainShellWindowNavigationHotspotProfiler_Loaded(object sender, RoutedEventArgs e)
+    private static void MainShellWindowNavigationHotspotProfiler_ButtonLoaded(object sender, RoutedEventArgs e)
     {
-        if (sender is MainShellWindow window)
-            window.RegisterNavigationHotspotProfiler();
-    }
-
-    private void RegisterNavigationHotspotProfiler()
-    {
-        if (_navigationHotspotProfilerRegistered)
+        if (sender is not Button button ||
+            !string.Equals(button.Content?.ToString(), "Run full performance profile", StringComparison.Ordinal))
             return;
 
-        _navigationHotspotProfilerRegistered = true;
-        var attempts = 0;
-        var timer = new DispatcherTimer(DispatcherPriority.ContextIdle, Dispatcher)
-        {
-            Interval = TimeSpan.FromMilliseconds(250),
-        };
-        timer.Tick += (_, _) =>
-        {
-            if (TryAddNavigationHotspotProfilerButton() || ++attempts >= 20)
-                timer.Stop();
-        };
-        timer.Start();
+        if (Window.GetWindow(button) is MainShellWindow window)
+            window.TryAddNavigationHotspotProfilerButton();
     }
 
     private bool TryAddNavigationHotspotProfilerButton()
