@@ -61,13 +61,23 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build169_IsCurrentBuildAndVersionManifestMatches()
+    public void Build170_InstagramApprovalIsExplicitAndNotStartedAsStartupAutopilot()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
+        var approval = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.InstagramPromoApproval.cs");
+        Assert.Contains("CurrentBuildNumber = 170", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("InitializeInstagramPromoApprovalUi();", buildInfo, StringComparison.Ordinal);
+        Assert.DoesNotContain("InitializeInstagramPromoFollowup();", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("Approve Page for Instagram Autopilot", approval, StringComparison.Ordinal);
+        Assert.Contains("ApprovedFacebookPageId", approval, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build170_VersionManifestMatches()
+    {
         var version = ReadRepositoryFile("version.json");
-        Assert.Contains("CurrentBuildNumber = 169", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("\"build\": 169", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.148\"", version, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 170", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.149\"", version, StringComparison.Ordinal);
     }
 
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
