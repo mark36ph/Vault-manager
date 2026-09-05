@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.149",
-  "build": 170,
+  "latest_version": "1.0.150",
+  "build": 171,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 170 fixes the Instagram Autopilot approval flow and prevents the setup warning from appearing as a publication failure.",
-    "Build 170 adds a one-time Facebook Page approval action for Instagram Autopilot and keeps existing credentials and project data intact.",
-    "Build 170 keeps Instagram Autopilot deferred until its destination has been explicitly approved."
+    "Build 171 improves startup responsiveness by yielding between quiz, Autopilot, website, and maintenance initialization phases.",
+    "Build 171 keeps non-essential startup work from running as one large UI burst after the window appears.",
+    "Build 171 preserves the Instagram Autopilot approval flow and existing credentials and project data."
   ]
 }
