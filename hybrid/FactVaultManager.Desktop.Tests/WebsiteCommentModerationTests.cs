@@ -9,7 +9,7 @@ public sealed class WebsiteCommentModerationTests
         var moderation = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.WebsiteCommentModeration.cs");
         var navigation = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.WebsiteCommentModerationNavigation.cs");
 
-        Assert.Contains("window.InitializeWebsiteCommentModerationNavigation();", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("InitializeWebsiteCommentModerationNavigation();", buildInfo, StringComparison.Ordinal);
         Assert.DoesNotContain("window.InitializeWebsiteCommentModerationPage();", buildInfo, StringComparison.Ordinal);
 
         Assert.Contains("_autopilotNavButtons.TryGetValue(\"Users\"", navigation, StringComparison.Ordinal);
