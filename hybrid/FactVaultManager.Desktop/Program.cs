@@ -53,7 +53,6 @@ public static class Program
             application.DispatcherUnhandledException += Application_DispatcherUnhandledException;
             var mainWindow = new MainShellWindow();
             mainWindow.PrepareFactburstFirstPaint();
-            mainWindow.InitializeActivationPerformance();
             mainWindow.InitializeQuizHeaderActionsForApp();
             mainWindow.InitializeQuizWorkspaceNavigationForApp();
             mainWindow.InitializeFactburstTrackerForApp();
