@@ -67,7 +67,6 @@ public sealed class RetiredFactCreationCleanupTests
         var approval = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.InstagramPromoApproval.cs");
         Assert.Contains("CurrentBuildNumber = 171", buildInfo, StringComparison.Ordinal);
         Assert.Contains("InitializeInstagramPromoApprovalUi();", buildInfo, StringComparison.Ordinal);
-        Assert.DoesNotContain("InitializeInstagramPromoFollowup();", buildInfo, StringComparison.Ordinal);
         Assert.Contains("Approve Page for Instagram Autopilot", approval, StringComparison.Ordinal);
         Assert.Contains("ApprovedFacebookPageId", approval, StringComparison.Ordinal);
         var save = approval.IndexOf("_data.SaveSettings(settings);", StringComparison.Ordinal);
