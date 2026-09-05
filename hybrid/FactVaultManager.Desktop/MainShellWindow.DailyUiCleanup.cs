@@ -70,10 +70,10 @@ public partial class MainShellWindow
             DispatcherPriority.ApplicationIdle,
             new Action(ApplyDailyUiCleanup));
 
-        _dailyUiCleanupStartupPassesRemaining = 8;
+        _dailyUiCleanupStartupPassesRemaining = 4;
         _dailyUiCleanupTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromMilliseconds(500),
+            Interval = TimeSpan.FromMilliseconds(750),
         };
         _dailyUiCleanupTimer.Tick += (_, _) =>
         {
