@@ -131,18 +131,6 @@ internal static class PerformanceDiagnostics
         }
     }
 
-    private static bool StartupProfileRequested()
-    {
-        try
-        {
-            return File.Exists(StartupProfileRequestPath);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
     private sealed class Scope : IDisposable
     {
         private readonly string _operation;
