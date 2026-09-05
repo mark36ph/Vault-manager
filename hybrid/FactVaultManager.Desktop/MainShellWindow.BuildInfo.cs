@@ -23,7 +23,6 @@ public partial class MainShellWindow
         if (sender is MainShellWindow window)
         {
             window.Title = $"Factburst Quiz Manager • Build {CurrentBuildNumber}";
-            window.InitializeFactburstVisualBaseline();
             window.InitializeSettingsWorkflow();
             window.InitializeApiConnectionsSettings();
             window.InitializeApiConnectionsWebsite();
