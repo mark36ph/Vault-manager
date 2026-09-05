@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.158",
-  "build": 179,
-  "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
+  "latest_version": "1.0.159",
+  "build": 180,
+  "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 179 caches the indexed navigation buttons so switching between menus no longer walks the entire WPF visual tree on every click.",
-    "Build 179 keeps the real Instagram Business Login connection flow instead of sending the user to Instagram setup documentation.",
-    "Build 179 keeps the deferred startup phases, reduced cleanup passes, and inactive Autopilot timer improvements."
+    "Build 180 adds detailed startup and navigation performance diagnostics so slow menu switches can be traced to the exact initializer.",
+    "Build 180 keeps cached navigation buttons to avoid repeated full WPF visual-tree scans.",
+    "Build 180 keeps the deferred startup phases, reduced cleanup passes, and real Instagram Business Login flow."
   ]
 }
