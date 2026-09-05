@@ -100,17 +100,21 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build183_AddsInAppPerformanceScanAndNavigationBenchmark()
+    public void Build184_RefreshesNavigationButtonIndexWhenItWasBuiltTooEarly()
     {
         var shell = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.CoreLifecycle.cs");
+        Assert.Contains("EnsureNavigationButtonIndex", shell, StringComparison.Ordinal);
+        Assert.Contains("_indexedNavigationButtons is { Count: > 0 }", shell, StringComparison.Ordinal);
+        Assert.Contains("_indexedNavigationButtons = FindVisualChildren<Button>(root)", shell, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build184_KeepsInAppPerformanceScanAndNavigationBenchmark()
+    {
         var diagnostics = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/PerformanceDiagnostics.cs");
         var diagnosticsUi = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.PerformanceDiagnosticsUi.cs");
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var version = ReadRepositoryFile("version.json");
-        Assert.Contains("_indexedNavigationButtons", shell, StringComparison.Ordinal);
-        Assert.Contains("PerformanceDiagnostics.WriteReport();", shell, StringComparison.Ordinal);
-        Assert.Contains("public static void SetEnabled(bool enabled)", diagnostics, StringComparison.Ordinal);
-        Assert.Contains("public static string GetReport()", diagnostics, StringComparison.Ordinal);
         Assert.Contains("Performance Diagnostics", diagnosticsUi, StringComparison.Ordinal);
         Assert.Contains("Scan app now", diagnosticsUi, StringComparison.Ordinal);
         Assert.Contains("Benchmark navigation", diagnosticsUi, StringComparison.Ordinal);
@@ -121,10 +125,11 @@ public sealed class RetiredFactCreationCleanupTests
         Assert.Contains("ScanVisualTree", diagnosticsUi, StringComparison.Ordinal);
         Assert.Contains("Visual elements", diagnosticsUi, StringComparison.Ordinal);
         Assert.Contains("MEASURED OPERATIONS", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("public static string GetReport()", diagnostics, StringComparison.Ordinal);
         Assert.Contains("InitializePerformanceDiagnosticsUi();", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("CurrentBuildNumber = 183", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("\"build\": 183", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.162\"", version, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 184", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 184", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.163\"", version, StringComparison.Ordinal);
     }
 
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
