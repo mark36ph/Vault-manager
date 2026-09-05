@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Microsoft.Data.Sqlite;
 
 namespace FactVaultManager.Desktop;
 
@@ -92,7 +93,23 @@ public static class InstalledCredentialRecovery
             { SetCredential(destination, spec, LocalSecretProtector.Protect(clear)); settingsChanged = true; recoveredCount++; recoveredAfter.Add(spec.Name); continue; }
             if (wasInvalid) { SetCredential(destination, spec, ""); settingsChanged = true; clearedInvalidCount++; }
         }
-        if (settingsChanged) { BackupDestinationSettings(destinationSettings, appDataRoot); AppSettingsDocumentStore.Save(destinationSettings, destination); }
+        if (settingsChanged)
+        {
+            BackupDestinationSettings(destinationSettings, appDataRoot);
+            try
+            {
+                AppSettingsDocumentStore.Save(destinationSettings, destination);
+            }
+            catch (SqliteException error)
+            {
+                // Recovery must never replace or destroy an installed database merely because
+                // an older/corrupt database cannot accept the compatibility mirror update.
+                Debug.WriteLine($"Could not persist recovered settings to FactVault database: {error.Message}");
+                DatabaseSettingsStore.TryWriteCompatibilityMirror(
+                    destinationSettings,
+                    destination.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+            }
+        }
         if (!recoveredAfter.SetEquals(recoveredBefore)) WriteRecoveryMarker(markerPath, recoveredAfter);
         return new InstalledCredentialRecoveryResult(recoveredCount, clearedInvalidCount, settingsChanged);
     }
