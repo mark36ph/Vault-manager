@@ -6,7 +6,7 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    public const int CurrentBuildNumber = 170;
+    public const int CurrentBuildNumber = 171;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
     private bool _deferredShellInitializationScheduled;
@@ -42,7 +42,20 @@ public partial class MainShellWindow
         }
     }
 
+    private void QueueDeferredShellPhase(Action phase)
+    {
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.ApplicationIdle,
+            phase);
+    }
+
     private void InitializeDeferredShellFeatures()
+    {
+        InitializeDeferredQuizPhase();
+        QueueDeferredShellPhase(InitializeDeferredAutopilotPhase);
+    }
+
+    private void InitializeDeferredQuizPhase()
     {
         FinalizeApiConnectionsYouTubeButton();
         InitializeFinalVideoLabelSync();
@@ -57,12 +70,21 @@ public partial class MainShellWindow
         InitializeYouTubeGrowthAnalyticsUiReliably();
         InitializeYouTubeGrowthRecommendationGuard();
         InitializeYouTubeFirstCommentAutopilot();
+    }
+
+    private void InitializeDeferredAutopilotPhase()
+    {
         InitializeFullAutopilot();
         InitializeAutopilotFirstUi();
         InitializeAutopilotMasterUi();
         InitializeAutopilotNeedsYouTaskQueue();
         InitializeAutopilotNeedsYouAlignedQueue();
         InitializeAutopilotGuidedNeedsYou();
+        QueueDeferredShellPhase(InitializeDeferredWebsitePhase);
+    }
+
+    private void InitializeDeferredWebsitePhase()
+    {
         InitializeWebsiteManagerPage();
         InitializeWebsiteYouTubeScheduleSync();
         InitializeWebsiteVisibilityControls();
@@ -79,7 +101,13 @@ public partial class MainShellWindow
         InitializeWebsiteSeoAuditPage();
         InitializeWebsiteSeoAutoFixButton();
         InitializeLogoQuizPromoArtworkRepair();
+        QueueDeferredShellPhase(InitializeDeferredHistoryAndMaintenancePhase);
+    }
+
+    private void InitializeDeferredHistoryAndMaintenancePhase()
+    {
         InitializeAutopilotNeedsYouCountSync();
+        InitializeInstagramPromoFollowup();
         InitializeAutopilotNeedsYouVisualStability();
         InitializeAutopilotShellActivationFix();
         InitializeAutopilotScheduleTarget();
