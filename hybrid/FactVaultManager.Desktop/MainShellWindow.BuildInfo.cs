@@ -6,7 +6,7 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    public const int CurrentBuildNumber = 169;
+    public const int CurrentBuildNumber = 170;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
     private bool _deferredShellInitializationScheduled;
@@ -30,6 +30,7 @@ public partial class MainShellWindow
             window.InitializeApiConnectionsSettings();
             window.InitializeApiConnectionsWebsite();
             window.InitializeQuizOnlyCleanup();
+            window.InitializeInstagramPromoApprovalUi();
 
             if (!window._deferredShellInitializationScheduled)
             {
@@ -79,7 +80,6 @@ public partial class MainShellWindow
         InitializeWebsiteSeoAutoFixButton();
         InitializeLogoQuizPromoArtworkRepair();
         InitializeAutopilotNeedsYouCountSync();
-        InitializeInstagramPromoFollowup();
         InitializeAutopilotNeedsYouVisualStability();
         InitializeAutopilotShellActivationFix();
         InitializeAutopilotScheduleTarget();
