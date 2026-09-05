@@ -1,8 +1,6 @@
-using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Threading;
 
 namespace FactVaultManager.Desktop;
 
@@ -11,16 +9,26 @@ public partial class MainShellWindow
     private bool _performanceDiagnosticsRecommendationsAttached;
     private bool _performanceDiagnosticsUpdatingResults;
 
-    [ModuleInitializer]
+    [System.Runtime.CompilerServices.ModuleInitializer]
     internal static void InitializePerformanceRecommendations()
     {
-        EventManager.RegisterClassHandler(typeof(MainShellWindow), FrameworkElement.LoadedEvent, new RoutedEventHandler(OnPerformanceDiagnosticsWindowLoaded));
+        // The Performance Diagnostics page is created lazily. Attach when its
+        // results TextBox is actually loaded instead of relying on main-window load.
+        EventManager.RegisterClassHandler(
+            typeof(TextBox),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler(OnPerformanceDiagnosticsResultsLoaded),
+            handledEventsToo: true);
     }
 
-    private static void OnPerformanceDiagnosticsWindowLoaded(object sender, RoutedEventArgs e)
+    private static void OnPerformanceDiagnosticsResultsLoaded(object sender, RoutedEventArgs e)
     {
-        if (sender is MainShellWindow window)
-            window.Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(window.AttachPerformanceDiagnosticsRecommendations));
+        if (sender is TextBox textBox &&
+            textBox.Text.StartsWith("No performance profile has been run yet.", StringComparison.Ordinal) &&
+            Window.GetWindow(textBox) is MainShellWindow window)
+        {
+            window.AttachPerformanceDiagnosticsRecommendations();
+        }
     }
 
     private void AttachPerformanceDiagnosticsRecommendations()
