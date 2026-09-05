@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.168",
-  "build": 189,
+  "latest_version": "1.0.169",
+  "build": 190,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 189 improves navigation performance by removing repeated full visual-tree label scans during navigation.",
-    "Performance Diagnostics remains available for measuring navigation, memory, allocations, and garbage collection behavior.",
-    "Includes the diagnostics tidiness fix so the desktop test suite can build cleanly."
+    "Build 190 adds per-section navigation hotspot profiling to identify the page causing remaining navigation freezes.",
+    "Build 190 includes the navigation performance improvements from Build 189.",
+    "Performance Diagnostics remains available for measuring navigation, memory, allocations, and garbage collection behavior."
   ]
 }
