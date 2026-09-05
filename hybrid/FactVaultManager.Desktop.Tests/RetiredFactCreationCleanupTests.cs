@@ -124,7 +124,7 @@ public sealed class RetiredFactCreationCleanupTests
         while (directory is not null)
         {
             var candidate = Path.Combine(directory.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar));
-            if (File.Exists(candidate)) return File.ReadAllText(candidate) is not null ? candidate : null;
+            if (File.Exists(candidate)) return candidate;
             directory = directory.Parent;
         }
         return null;
