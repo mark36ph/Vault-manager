@@ -1,7 +1,8 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Text.Json.Nodes;
 
 namespace FactVaultManager.Desktop;
 
@@ -47,8 +48,6 @@ public partial class MainShellWindow
     private static async void InstagramBusinessLoginButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button button || !string.Equals(button.Content?.ToString(), "Connect Instagram", StringComparison.Ordinal))
-            return;
-        if (button.DataContext is not null && button.DataContext is not MainShellWindow)
             return;
 
         e.Handled = true;
@@ -113,15 +112,8 @@ public partial class MainShellWindow
             ? DateTimeOffset.UtcNow.AddSeconds(result.ExpiresInSeconds).ToString("O")
             : "";
         _data.SaveSettingsDocument(document);
-
-        foreach (var passwordBox in FindVisualChildren<PasswordBox>(this))
-        {
-            if (passwordBox.Password.Length == 0)
-            {
-                passwordBox.Password = result.AccessToken;
-                break;
-            }
-        }
+        if (_settingsInstagramAccessToken is not null)
+            _settingsInstagramAccessToken.Password = result.AccessToken;
     }
 
     private void SetInstagramConnectionStatus(string text)
