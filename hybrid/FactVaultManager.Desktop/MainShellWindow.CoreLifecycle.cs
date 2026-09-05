@@ -32,7 +32,7 @@ public partial class MainShellWindow
         MainTabs.Padding = new Thickness(0);
         MainTabs.BorderThickness = new Thickness(0);
         MainTabs.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-        MainTabs.VerticalContentContentAlignment = VerticalAlignment.Stretch;
+        MainTabs.VerticalContentAlignment = VerticalAlignment.Stretch;
 
         if (FindResource("HiddenPageTabStyle") is Style hiddenPageStyle)
         {
@@ -64,6 +64,12 @@ public partial class MainShellWindow
         MeasureActivation("Startup.InitializeQuizWorkspaceNavigation", InitializeQuizWorkspaceNavigation);
         MeasureActivation("Startup.ApplyNavigationSections", ApplyNavigationSections);
         Dispatcher.BeginInvoke(new Action(() => MeasureActivation("Startup.InitializeSettingsWorkflow", InitializeSettingsWorkflow)));
+    }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        PerformanceDiagnostics.WriteReport();
+        base.OnClosed(e);
     }
 
     private static void MeasureActivation(string operation, Action action)
