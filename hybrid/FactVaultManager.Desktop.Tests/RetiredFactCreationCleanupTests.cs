@@ -169,9 +169,9 @@ public sealed class RetiredFactCreationCleanupTests
         Assert.Contains("ClearStartupProfileRequest", diagnostics, StringComparison.Ordinal);
         Assert.Contains("GetSlowOperationReport", diagnostics, StringComparison.Ordinal);
         Assert.Contains("ClearStartupProfileRequest();", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("CurrentBuildNumber = 187", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("\"build\": 187", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.166\"", version, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 188", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 188", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.167\"", version, StringComparison.Ordinal);
     }
 
     [Fact]
