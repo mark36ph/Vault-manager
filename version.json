@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.144",
-  "build": 165,
+  "latest_version": "1.0.145",
+  "build": 166,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 165 hardens installed startup recovery so a damaged optional legacy backup cannot prevent Factburst Quiz Manager from opening.",
-    "Build 165 removes duplicate credential recovery from the shell constructor so installed credentials are recovered once before the desktop UI starts.",
-    "Build 165 preserves API credentials, settings and existing project data while improving startup resilience."
+    "Build 166 fixes publication-state test argument ordering and hardens archive diagnostics null handling.",
+    "Build 166 keeps the desktop build number synchronized with the release manifest for the 1.0.145 update.",
+    "Build 166 preserves existing API credentials, settings and project data while improving update reliability."
   ]
 }
