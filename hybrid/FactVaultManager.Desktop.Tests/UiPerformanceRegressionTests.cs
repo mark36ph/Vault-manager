@@ -7,8 +7,8 @@ public sealed class UiPerformanceRegressionTests
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.DailyUiCleanup.cs");
 
-        Assert.Contains("_dailyUiCleanupStartupPassesRemaining = 8", source, StringComparison.Ordinal);
-        Assert.Contains("TimeSpan.FromMilliseconds(500)", source, StringComparison.Ordinal);
+        Assert.Contains("_dailyUiCleanupStartupPassesRemaining = 4", source, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromMilliseconds(750)", source, StringComparison.Ordinal);
         Assert.Contains("_dailyUiCleanupTimer?.Stop();", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Interval = TimeSpan.FromSeconds(1)", source, StringComparison.Ordinal);
     }
