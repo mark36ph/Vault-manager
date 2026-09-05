@@ -21,7 +21,6 @@ public sealed class InstalledCredentialBackupRecoveryTests
         File.WriteAllText(destinationDatabase, "not-replaced");
 
         var backupDatabase = Path.Combine(dataDirectory, "factvault-2026-09-02-005255.db");
-        File.WriteAllText(backupDatabase, "");
         DatabaseSettingsStore.SaveJson(
             backupDatabase,
             DatabaseSettingsStore.MainSettingsKey,
@@ -53,7 +52,6 @@ public sealed class InstalledCredentialBackupRecoveryTests
         File.WriteAllText(destinationSettings, """{ "ai": { "api_key": "" } }""");
 
         var backupDatabase = Path.Combine(dataDirectory, "credential-recovery-backup.db");
-        File.WriteAllText(backupDatabase, "");
         DatabaseSettingsStore.SaveJson(
             backupDatabase,
             DatabaseSettingsStore.MainSettingsKey,
