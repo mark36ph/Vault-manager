@@ -28,7 +28,7 @@ public sealed class PublicationStateTests
     public void QuizAndPromo_PublicationsStayIndependentOnSamePlatform()
     {
         using var fixture = new PublicationFixture();
-        fixture.Store.RecordPublished(12, PublicationPlatform.YouTube, PublicationContentKind.Quiz, "full-video", "https://www.youtube.com/watch?v=full-video", "public");
+        fixture.Store.RecordPublished(12, PublicationPlatform.YouTube, PublicationContentKind.Quiz, "full-video", "https://www.youtube.com/watch?v=full-video", visibility: "public");
         fixture.Store.RecordUploaded(12, PublicationPlatform.YouTube, PublicationContentKind.Promo, "promo-short", "https://www.youtube.com/shorts/promo-short", "private");
         var rows = fixture.Store.List(12);
         Assert.Equal(2, rows.Count);
