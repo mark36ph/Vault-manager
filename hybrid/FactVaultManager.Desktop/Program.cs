@@ -28,19 +28,23 @@ public static class Program
             var appDataRoot = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "FactVaultManager");
-            if (InstalledDataMigrationGuard.ShouldRun(appDataRoot))
-                InstalledDataMigration.Run();
-            InstalledLibraryRecoveryV2.Run();
-            InstalledQuestionLibraryRecoveryV3.Run();
-            InstalledProjectConsolidation.Run();
-            InstalledCredentialRecovery.Run();
-            InstalledCredentialDeepRecovery.Run();
-            InstalledCredentialBackupRecovery.Run();
-            InstalledConfigurationBackupRecovery.Run();
-            InstalledTrackerSettingsRecovery.Run();
-            InstalledRenamedTrackerSettingsRecovery.Run();
-            InstalledYouTubeOAuthClientIdRecovery.Run();
-            InstalledYouTubeAccountIdentityRecovery.Run();
+
+            RunStartupRecovery("data migration", () =>
+            {
+                if (InstalledDataMigrationGuard.ShouldRun(appDataRoot))
+                    InstalledDataMigration.Run();
+            });
+            RunStartupRecovery("library recovery", InstalledLibraryRecoveryV2.Run);
+            RunStartupRecovery("question library recovery", InstalledQuestionLibraryRecoveryV3.Run);
+            RunStartupRecovery("project consolidation", InstalledProjectConsolidation.Run);
+            RunStartupRecovery("credential recovery", InstalledCredentialRecovery.Run);
+            RunStartupRecovery("deep credential recovery", InstalledCredentialDeepRecovery.Run);
+            RunStartupRecovery("credential backup recovery", InstalledCredentialBackupRecovery.Run);
+            RunStartupRecovery("configuration backup recovery", InstalledConfigurationBackupRecovery.Run);
+            RunStartupRecovery("tracker settings recovery", InstalledTrackerSettingsRecovery.Run);
+            RunStartupRecovery("renamed tracker settings recovery", InstalledRenamedTrackerSettingsRecovery.Run);
+            RunStartupRecovery("YouTube OAuth client recovery", InstalledYouTubeOAuthClientIdRecovery.Run);
+            RunStartupRecovery("YouTube account identity recovery", InstalledYouTubeAccountIdentityRecovery.Run);
 
             var application = new Application();
             AppInteractionPolish.Initialize();
@@ -58,6 +62,21 @@ public static class Program
         catch (Exception error)
         {
             ShowFatalError("FactVaultManager could not start.", error);
+        }
+    }
+
+    private static void RunStartupRecovery(string name, Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception error)
+        {
+            // Recovery is deliberately best-effort: a damaged optional backup or legacy
+            // data file must never prevent the desktop application from opening. The
+            // exception is still recorded so the underlying recovery issue can be fixed.
+            WriteCrashLog($"Startup recovery warning: {name}", error);
         }
     }
 
