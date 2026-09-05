@@ -25,6 +25,7 @@ public partial class MainShellWindow
     {
         if (sender is MainShellWindow window)
         {
+            using var perf = PerformanceDiagnostics.Measure("Startup.Loaded");
             window.Title = $"Factburst Quiz Manager • Build {CurrentBuildNumber}";
             window.InitializeSettingsWorkflow();
             window.InitializeApiConnectionsSettings();
@@ -51,12 +52,14 @@ public partial class MainShellWindow
 
     private void InitializeDeferredShellFeatures()
     {
+        using var perf = PerformanceDiagnostics.Measure("Startup.DeferredShellFeatures");
         InitializeDeferredQuizPhase();
         QueueDeferredShellPhase(InitializeDeferredAutopilotPhase);
     }
 
     private void InitializeDeferredQuizPhase()
     {
+        using var perf = PerformanceDiagnostics.Measure("Startup.DeferredQuizPhase");
         FinalizeApiConnectionsYouTubeButton();
         InitializeFinalVideoLabelSync();
         InitializeQuizBatchButtonSync();
@@ -74,6 +77,7 @@ public partial class MainShellWindow
 
     private void InitializeDeferredAutopilotPhase()
     {
+        using var perf = PerformanceDiagnostics.Measure("Startup.DeferredAutopilotPhase");
         InitializeFullAutopilot();
         InitializeAutopilotFirstUi();
         InitializeAutopilotMasterUi();
@@ -85,6 +89,7 @@ public partial class MainShellWindow
 
     private void InitializeDeferredWebsitePhase()
     {
+        using var perf = PerformanceDiagnostics.Measure("Startup.DeferredWebsitePhase");
         InitializeWebsiteManagerPage();
         InitializeWebsiteYouTubeScheduleSync();
         InitializeWebsiteVisibilityControls();
@@ -106,6 +111,7 @@ public partial class MainShellWindow
 
     private void InitializeDeferredHistoryAndMaintenancePhase()
     {
+        using var perf = PerformanceDiagnostics.Measure("Startup.DeferredHistoryAndMaintenancePhase");
         InitializeAutopilotNeedsYouCountSync();
         InitializeInstagramPromoFollowup();
         InitializeAutopilotNeedsYouVisualStability();
