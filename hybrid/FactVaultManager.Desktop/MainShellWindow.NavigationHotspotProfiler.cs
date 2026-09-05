@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -8,29 +7,9 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    private static bool RegisterNavigationHotspotProfilerUi()
+    internal void EnsureNavigationHotspotProfilerButton()
     {
-        // Register against the diagnostic action button itself. The Performance
-        // Diagnostics page is created lazily, so a MainShellWindow Loaded timer can
-        // expire before the page exists. The button Loaded event is deterministic.
-        EventManager.RegisterClassHandler(
-            typeof(Button),
-            FrameworkElement.LoadedEvent,
-            new RoutedEventHandler(MainShellWindowNavigationHotspotProfiler_ButtonLoaded),
-            handledEventsToo: true);
-        return true;
-    }
-
-    private static readonly bool NavigationHotspotProfilerUiRegistered = RegisterNavigationHotspotProfilerUi();
-
-    private static void MainShellWindowNavigationHotspotProfiler_ButtonLoaded(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button button ||
-            !string.Equals(button.Content?.ToString(), "Run full performance profile", StringComparison.Ordinal))
-            return;
-
-        if (Window.GetWindow(button) is MainShellWindow window)
-            window.TryAddNavigationHotspotProfilerButton();
+        TryAddNavigationHotspotProfilerButton();
     }
 
     private bool TryAddNavigationHotspotProfilerButton()
