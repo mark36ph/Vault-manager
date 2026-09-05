@@ -1,12 +1,11 @@
 {
-  "latest_version": "1.0.157",
-  "build": 178,
+  "latest_version": "1.0.158",
+  "build": 179,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 178 delivers the real Instagram Business Login connection flow instead of sending the user to Instagram setup documentation.",
-    "Build 178 opens Instagram sign-in, handles the local OAuth callback, exchanges the authorization code for a long-lived access token, and saves it securely.",
-    "Build 178 keeps the existing Facebook Page approval flow and validates the connected Instagram account before Autopilot uses it.",
-    "Build 178 keeps the deferred startup phases, reduced cleanup passes, and inactive Autopilot timer improvements."
+    "Build 179 caches the indexed navigation buttons so switching between menus no longer walks the entire WPF visual tree on every click.",
+    "Build 179 keeps the real Instagram Business Login connection flow instead of sending the user to Instagram setup documentation.",
+    "Build 179 keeps the deferred startup phases, reduced cleanup passes, and inactive Autopilot timer improvements."
   ]
 }
