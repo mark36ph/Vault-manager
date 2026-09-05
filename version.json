@@ -7,6 +7,7 @@
     "Build 162 makes the approved Factburst Quiz Manager light management UI the centralized desktop visual baseline: light shell, clean navigation, white cards, restrained borders and consistent typography.",
     "Build 162 updates the batch-render regression test to validate the dedicated STA rendering runner used by the current release pipeline.",
     "Build 162 fixes credential recovery tests so their backup fixtures are created as valid SQLite databases while the installed database remains untouched.",
+    "Build 162 is ready for the Windows release pipeline after the CI compile/test fixes.",
     "Build 161 fixes Quiz Release Automation freezing by moving WPF card, visual re-export and thumbnail rendering to a dedicated STA worker thread instead of the desktop UI dispatcher.",
     "Build 161 keeps audio timeline augmentation, FFmpeg work and file publishing off the UI thread.",
     "Build 157 configuration backup recovery and Build 156 database credential recovery remain intact."
