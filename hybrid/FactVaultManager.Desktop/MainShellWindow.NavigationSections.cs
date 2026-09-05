@@ -14,16 +14,6 @@ public partial class MainShellWindow
         if (_navigationSectionsApplied || Content is not DependencyObject root)
             return;
 
-        var dashboard = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), "0", StringComparison.Ordinal));
-        var projects = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), "1", StringComparison.Ordinal));
-        var production = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), "2", StringComparison.Ordinal));
-        var media = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), "3", StringComparison.Ordinal));
-        var assetReview = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), "4", StringComparison.Ordinal));
         var settings = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), "5", StringComparison.Ordinal));
         var quizzes = FindVisualChildren<Button>(root)
@@ -43,10 +33,9 @@ public partial class MainShellWindow
         var instagramManager = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _instagramManagerTabIndex.ToString(), StringComparison.Ordinal));
 
-        if (dashboard?.Parent is not StackPanel navigation ||
-            projects is null || production is null || media is null ||
-            settings is null || quizzes is null || questions is null || quizHistory is null || quizNotes is null || uploadManager is null ||
-            youtubeAnalytics is null || facebookAnalytics is null || instagramManager is null)
+        if (settings is null || quizzes is null || questions is null || quizHistory is null || quizNotes is null ||
+            uploadManager is null || youtubeAnalytics is null || facebookAnalytics is null || instagramManager is null ||
+            quizzes.Parent is not StackPanel navigation)
         {
             return;
         }
@@ -63,7 +52,6 @@ public partial class MainShellWindow
         navigation.Children.Add(youtubeAnalytics);
         navigation.Children.Add(facebookAnalytics);
         navigation.Children.Add(instagramManager);
-
         navigation.Children.Add(NavigationSpacer());
         navigation.Children.Add(settings);
 
