@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.153",
-  "build": 174,
+  "latest_version": "1.0.154",
+  "build": 175,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 174 reduces startup cleanup passes so the desktop shell settles with less background UI work.",
-    "Build 174 keeps the deferred quiz, Autopilot, website, and maintenance initialization phases intact.",
-    "Build 174 preserves the Instagram Autopilot approval flow and existing credentials and project data.",
-    "Build 174 keeps API credentials protected and the installed app build synchronized with the updater manifest."
+    "Build 175 reduces startup cleanup passes so the desktop shell settles with less background UI work.",
+    "Build 175 keeps the deferred quiz, Autopilot, website, and maintenance initialization phases intact.",
+    "Build 175 preserves the Instagram Autopilot approval flow and existing credentials and project data.",
+    "Build 175 keeps API credentials protected and the installed app build synchronized with the updater manifest."
   ]
 }
