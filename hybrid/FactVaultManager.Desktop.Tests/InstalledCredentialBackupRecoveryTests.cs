@@ -19,7 +19,11 @@ public sealed class InstalledCredentialBackupRecoveryTests
             """{ "general": { "theme": "dark" }, "ai": { "api_key": "" } }""");
 
         var destinationDatabase = Path.Combine(dataDirectory, "factvault.db");
-        File.WriteAllText(destinationDatabase, "not-replaced");
+        CreateDatabase(destinationDatabase);
+        DatabaseSettingsStore.SaveJson(
+            destinationDatabase,
+            "installed-sentinel",
+            "\"keep-this-database\"");
 
         var backupDatabase = Path.Combine(dataDirectory, "factvault-2026-09-02-005255.db");
         CreateDatabase(backupDatabase);
@@ -32,7 +36,7 @@ public sealed class InstalledCredentialBackupRecoveryTests
 
         Assert.Equal(1, result.RecoveredCount);
         Assert.True(result.SettingsChanged);
-        Assert.Equal("not-replaced", File.ReadAllText(destinationDatabase));
+        Assert.Equal("\"keep-this-database\"", DatabaseSettingsStore.LoadJson(destinationDatabase, "installed-sentinel"));
 
         var migrated = ReadObject(destinationSettings);
         Assert.Equal("dark", migrated["general"]!["theme"]!.GetValue<string>());
