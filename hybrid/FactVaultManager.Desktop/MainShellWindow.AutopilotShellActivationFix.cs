@@ -146,6 +146,9 @@ public partial class MainShellWindow
 
     private void AutopilotShellActivationTimer_Tick(object? sender, EventArgs e)
     {
+        if (!IsActive)
+            return;
+
         TryActivateAutopilotShellAfterNavigationRebuild();
         if (_autopilotShellActivationFixApplied)
             _autopilotShellActivationTimer?.Stop();
@@ -238,15 +241,17 @@ public partial class MainShellWindow
 
     private void AutopilotTopBarGuardTimer_Tick(object? sender, EventArgs e)
     {
-        if (Content is DependencyObject root)
-            HideLegacyProductionTopBarAction(root);
+        if (!IsActive || Content is not DependencyObject root)
+            return;
+
+        HideLegacyProductionTopBarAction(root);
     }
 
     private void EnsureAutopilotNavigationGuard()
     {
         _autopilotNavigationGuardTimer ??= new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromSeconds(2),
+            Interval = TimeSpan.FromSeconds(5),
         };
         _autopilotNavigationGuardTimer.Tick -= AutopilotNavigationGuardTimer_Tick;
         _autopilotNavigationGuardTimer.Tick += AutopilotNavigationGuardTimer_Tick;
