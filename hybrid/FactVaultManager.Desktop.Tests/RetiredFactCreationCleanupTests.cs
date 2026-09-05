@@ -53,11 +53,11 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build176_InstagramApprovalIsExplicitAndNotStartedAsStartupAutopilot()
+    public void Build177_InstagramApprovalIsExplicitAndNotStartedAsStartupAutopilot()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var approval = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.InstagramPromoApproval.cs");
-        Assert.Contains("CurrentBuildNumber = 176", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 177", buildInfo, StringComparison.Ordinal);
         Assert.Contains("InitializeInstagramPromoApprovalUi();", buildInfo, StringComparison.Ordinal);
         Assert.Contains("Approve Page for Instagram Autopilot", approval, StringComparison.Ordinal);
         Assert.Contains("ApprovedFacebookPageId", approval, StringComparison.Ordinal);
@@ -68,7 +68,7 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build176_DeferredStartupIsSplitIntoYieldingPhases()
+    public void Build177_DeferredStartupIsSplitIntoYieldingPhases()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         Assert.Contains("QueueDeferredShellPhase(InitializeDeferredAutopilotPhase);", buildInfo, StringComparison.Ordinal);
@@ -81,15 +81,15 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build176_VersionManifestMatches()
+    public void Build177_VersionManifestMatches()
     {
         var version = ReadRepositoryFile("version.json");
-        Assert.Contains("\"build\": 176", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.155\"", version, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 177", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.156\"", version, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Build176_ReducesDailyCleanupStartupPasses()
+    public void Build177_ReducesDailyCleanupStartupPasses()
     {
         var cleanup = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.DailyUiCleanup.cs");
         Assert.Contains("_dailyUiCleanupStartupPassesRemaining = 4", cleanup, StringComparison.Ordinal);
@@ -99,7 +99,7 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build176_InstagramBusinessLoginHasRealOAuthFlow()
+    public void Build177_InstagramBusinessLoginHasRealOAuthFlow()
     {
         var service = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/InstagramBusinessLoginService.cs");
         var ui = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.InstagramBusinessLogin.cs");
