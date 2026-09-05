@@ -23,19 +23,30 @@ public partial class MainShellWindow
 
     private static void MainShellWindowBuildInfo_Loaded(object sender, RoutedEventArgs e)
     {
-        if (sender is not MainShellWindow window || window._deferredShellInitializationScheduled)
-            return;
+        if (sender is MainShellWindow window)
+        {
+            window.Title = $"Factburst Quiz Manager • Build {CurrentBuildNumber}";
+            window.InitializeSettingsWorkflow();
+            window.InitializeApiConnectionsSettings();
+            window.InitializeApiConnectionsWebsite();
+            window.InitializeQuizOnlyCleanup();
+            window.InitializeInstagramPromoApprovalUi();
 
-        window._deferredShellInitializationScheduled = true;
-        window.Title = $"Factburst Quiz Manager • Build {CurrentBuildNumber}";
-        window.InitializeSettingsWorkflow();
-        window.InitializeApiConnectionsSettings();
-        window.InitializeApiConnectionsWebsite();
-        window.InitializeQuizOnlyCleanup();
-        window.InitializeInstagramPromoApprovalUi();
-        window.Dispatcher.BeginInvoke(
+            if (!window._deferredShellInitializationScheduled)
+            {
+                window._deferredShellInitializationScheduled = true;
+                window.Dispatcher.BeginInvoke(
+                    DispatcherPriority.ApplicationIdle,
+                    new Action(window.InitializeDeferredShellFeatures));
+            }
+        }
+    }
+
+    private void QueueDeferredShellPhase(Action phase)
+    {
+        Dispatcher.BeginInvoke(
             DispatcherPriority.ApplicationIdle,
-            new Action(window.InitializeDeferredShellFeatures));
+            phase);
     }
 
     private void InitializeDeferredShellFeatures()
@@ -74,15 +85,22 @@ public partial class MainShellWindow
 
     private void InitializeDeferredWebsitePhase()
     {
-        InitializeWebsiteNavigation();
-        InitializeWebsiteSettings();
-        InitializeWebsitePages();
-        InitializeWebsiteContent();
-        InitializeWebsiteSeo();
-        InitializeWebsiteAnalytics();
-        InitializeWebsiteUsers();
-        InitializeWebsiteComments();
-        InitializeWebsiteAdvanced();
+        InitializeWebsiteManagerPage();
+        InitializeWebsiteYouTubeScheduleSync();
+        InitializeWebsiteVisibilityControls();
+        InitializeWebsiteUsersPage();
+        InitializeWebsiteAnalyticsPage();
+        InitializeWebsiteUserProvisioningControls();
+        InitializeWebsiteUsersFriendsPanel();
+        InitializeWebsiteMaintenancePlacement();
+        InitializeWebsiteAdministrationEnhancements();
+        InitializeWebsiteNavigationDivider();
+        InitializeWebsiteAdsSettings();
+        InitializeWebsiteSettingsShortcut();
+        InitializeWebsiteCommentModerationNavigation();
+        InitializeWebsiteSeoAuditPage();
+        InitializeWebsiteSeoAutoFixButton();
+        InitializeLogoQuizPromoArtworkRepair();
         QueueDeferredShellPhase(InitializeDeferredHistoryAndMaintenancePhase);
     }
 
@@ -93,21 +111,15 @@ public partial class MainShellWindow
         InitializeAutopilotNeedsYouVisualStability();
         InitializeAutopilotShellActivationFix();
         InitializeAutopilotScheduleTarget();
-        InitializeQuizHistory();
-        InitializeQuizLifecycle();
-        InitializeLibraryStatusFixes();
-        InitializeStartupSafeCleanup();
-        InitializeCreateAdvancedCleanup();
-        InitializeDatabaseBackupRecovery();
-    }
-
-    private void QueueDeferredShellPhase(Action phase)
-    {
-        Dispatcher.BeginInvoke(
-            DispatcherPriority.ApplicationIdle,
-            new Action(() =>
-            {
-                phase();
-            }));
+        InitializeQuizHistoryBulkArchiveUi();
+        InitializeQuizHistoryGroupedBulkArchiveUi();
+        InitializeQuizHistoryUiCleanup();
+        InitializeQuizContentLifecycleUi();
+        InitializeLibraryPublicationStatusUi();
+        InitializeLibraryPlatformStatusFix();
+        InitializeLibraryPlatformSymbolFix();
+        InitializeStartupSafeUiCleanup();
+        InitializeCreateAdvancedUiCleanup();
+        InitializeDatabaseBackupAndRecovery();
     }
 }
