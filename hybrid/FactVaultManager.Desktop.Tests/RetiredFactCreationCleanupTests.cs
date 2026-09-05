@@ -61,11 +61,11 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build173_InstagramApprovalIsExplicitAndNotStartedAsStartupAutopilot()
+    public void Build174_InstagramApprovalIsExplicitAndNotStartedAsStartupAutopilot()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var approval = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.InstagramPromoApproval.cs");
-        Assert.Contains("CurrentBuildNumber = 173", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 174", buildInfo, StringComparison.Ordinal);
         Assert.Contains("InitializeInstagramPromoApprovalUi();", buildInfo, StringComparison.Ordinal);
         Assert.Contains("Approve Page for Instagram Autopilot", approval, StringComparison.Ordinal);
         Assert.Contains("ApprovedFacebookPageId", approval, StringComparison.Ordinal);
@@ -76,7 +76,7 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build173_DeferredStartupIsSplitIntoYieldingPhases()
+    public void Build174_DeferredStartupIsSplitIntoYieldingPhases()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         Assert.Contains("QueueDeferredShellPhase(InitializeDeferredAutopilotPhase);", buildInfo, StringComparison.Ordinal);
@@ -89,7 +89,7 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build173_VersionManifestMatches()
+    public void Build174_VersionManifestMatches()
     {
         var version = ReadRepositoryFile("version.json");
         Assert.Contains("\"build\": 173", version, StringComparison.Ordinal);
