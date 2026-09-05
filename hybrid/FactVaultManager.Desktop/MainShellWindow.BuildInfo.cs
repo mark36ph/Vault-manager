@@ -6,7 +6,7 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    public const int CurrentBuildNumber = 181;
+    public const int CurrentBuildNumber = 182;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
     private bool _deferredShellInitializationScheduled;
@@ -46,9 +46,7 @@ public partial class MainShellWindow
 
     private void QueueDeferredShellPhase(Action phase)
     {
-        Dispatcher.BeginInvoke(
-            DispatcherPriority.ApplicationIdle,
-            phase);
+        Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, phase);
     }
 
     private void InitializeDeferredShellFeatures()
