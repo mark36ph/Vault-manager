@@ -1,4 +1,6 @@
+using System;
 using System.Windows;
+using System.Windows.Threading;
 
 namespace FactVaultManager.Desktop;
 
@@ -7,6 +9,7 @@ public partial class MainShellWindow
     public const int CurrentBuildNumber = 166;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
+    private bool _deferredShellInitializationScheduled;
 
     private static bool RegisterBuildInfoUi()
     {
@@ -27,56 +30,68 @@ public partial class MainShellWindow
             window.InitializeApiConnectionsSettings();
             window.InitializeApiConnectionsWebsite();
             window.InitializeQuizOnlyCleanup();
-            window.FinalizeApiConnectionsYouTubeButton();
-            window.InitializeFinalVideoLabelSync();
-            window.InitializeQuizBatchButtonSync();
-            window.InitializeQuizYouTubePackagingMenuSync();
-            window.InitializeYouTubeUploadPackageUi();
-            window.InitializeUploadManagerYouTubeStatusSync();
-            window.InitializeUnifiedPublicationStateUi();
-            window.InitializeScheduledPromoPublishingBatchForApp();
-            window.InitializeScheduledRelatedVideoGuideForApp();
-            window.InitializeScheduledWebsitePublishingLayoutSafeForApp();
-            window.InitializeYouTubeGrowthAnalyticsUiReliably();
-            window.InitializeYouTubeGrowthRecommendationGuard();
-            window.InitializeYouTubeFirstCommentAutopilot();
-            window.InitializeFullAutopilot();
-            window.InitializeAutopilotFirstUi();
-            window.InitializeAutopilotMasterUi();
-            window.InitializeAutopilotNeedsYouTaskQueue();
-            window.InitializeAutopilotNeedsYouAlignedQueue();
-            window.InitializeAutopilotGuidedNeedsYou();
-            window.InitializeWebsiteManagerPage();
-            window.InitializeWebsiteYouTubeScheduleSync();
-            window.InitializeWebsiteVisibilityControls();
-            window.InitializeWebsiteUsersPage();
-            window.InitializeWebsiteAnalyticsPage();
-            window.InitializeWebsiteUserProvisioningControls();
-            window.InitializeWebsiteUsersFriendsPanel();
-            window.InitializeWebsiteMaintenancePlacement();
-            window.InitializeWebsiteAdministrationEnhancements();
-            window.InitializeWebsiteNavigationDivider();
-            window.InitializeWebsiteAdsSettings();
-            window.InitializeWebsiteSettingsShortcut();
-            window.InitializeWebsiteCommentModerationNavigation();
-            window.InitializeWebsiteSeoAuditPage();
-            window.InitializeWebsiteSeoAutoFixButton();
-            window.InitializeLogoQuizPromoArtworkRepair();
-            window.InitializeAutopilotNeedsYouCountSync();
-            window.InitializeInstagramPromoFollowup();
-            window.InitializeAutopilotNeedsYouVisualStability();
-            window.InitializeAutopilotShellActivationFix();
-            window.InitializeAutopilotScheduleTarget();
-            window.InitializeQuizHistoryBulkArchiveUi();
-            window.InitializeQuizHistoryGroupedBulkArchiveUi();
-            window.InitializeQuizHistoryUiCleanup();
-            window.InitializeQuizContentLifecycleUi();
-            window.InitializeLibraryPublicationStatusUi();
-            window.InitializeLibraryPlatformStatusFix();
-            window.InitializeLibraryPlatformSymbolFix();
-            window.InitializeStartupSafeUiCleanup();
-            window.InitializeCreateAdvancedUiCleanup();
-            window.InitializeDatabaseBackupAndRecovery();
+
+            if (!window._deferredShellInitializationScheduled)
+            {
+                window._deferredShellInitializationScheduled = true;
+                window.Dispatcher.BeginInvoke(
+                    DispatcherPriority.ApplicationIdle,
+                    new Action(window.InitializeDeferredShellFeatures));
+            }
         }
+    }
+
+    private void InitializeDeferredShellFeatures()
+    {
+        FinalizeApiConnectionsYouTubeButton();
+        InitializeFinalVideoLabelSync();
+        InitializeQuizBatchButtonSync();
+        InitializeQuizYouTubePackagingMenuSync();
+        InitializeYouTubeUploadPackageUi();
+        InitializeUploadManagerYouTubeStatusSync();
+        InitializeUnifiedPublicationStateUi();
+        InitializeScheduledPromoPublishingBatchForApp();
+        InitializeScheduledRelatedVideoGuideForApp();
+        InitializeScheduledWebsitePublishingLayoutSafeForApp();
+        InitializeYouTubeGrowthAnalyticsUiReliably();
+        InitializeYouTubeGrowthRecommendationGuard();
+        InitializeYouTubeFirstCommentAutopilot();
+        InitializeFullAutopilot();
+        InitializeAutopilotFirstUi();
+        InitializeAutopilotMasterUi();
+        InitializeAutopilotNeedsYouTaskQueue();
+        InitializeAutopilotNeedsYouAlignedQueue();
+        InitializeAutopilotGuidedNeedsYou();
+        InitializeWebsiteManagerPage();
+        InitializeWebsiteYouTubeScheduleSync();
+        InitializeWebsiteVisibilityControls();
+        InitializeWebsiteUsersPage();
+        InitializeWebsiteAnalyticsPage();
+        InitializeWebsiteUserProvisioningControls();
+        InitializeWebsiteUsersFriendsPanel();
+        InitializeWebsiteMaintenancePlacement();
+        InitializeWebsiteAdministrationEnhancements();
+        InitializeWebsiteNavigationDivider();
+        InitializeWebsiteAdsSettings();
+        InitializeWebsiteSettingsShortcut();
+        InitializeWebsiteCommentModerationNavigation();
+        InitializeWebsiteSeoAuditPage();
+        InitializeWebsiteSeoAutoFixButton();
+        InitializeLogoQuizPromoArtworkRepair();
+        InitializeAutopilotNeedsYouCountSync();
+        InitializeInstagramPromoFollowup();
+        InitializeAutopilotNeedsYouVisualStability();
+        InitializeAutopilotShellActivationFix();
+        InitializeAutopilotScheduleTarget();
+        InitializeQuizHistoryBulkArchiveUi();
+        InitializeQuizHistoryGroupedBulkArchiveUi();
+        InitializeQuizHistoryUiCleanup();
+        InitializeQuizContentLifecycleUi();
+        InitializeLibraryPublicationStatusUi();
+        InitializeLibraryPlatformStatusFix();
+        InitializeLibraryPlatformSymbolFix();
+        InitializeStartupSafeUiCleanup();
+        InitializeCreateAdvancedUiCleanup();
+        InitializeDatabaseBackupAndRecovery();
     }
 }
