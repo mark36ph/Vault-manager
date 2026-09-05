@@ -8,8 +8,8 @@ public sealed class PublicationStateTests
     public void Reconcile_CombinesLegacyQuizHistoryAndDetailedJournal()
     {
         using var fixture = new PublicationFixture();
-        var scheduled = DateTimeOffset.UtcNow.AddDays(2).ToString("O");
-        fixture.InsertQuizHistory(7, youtubePublished: true, youtubeUrl: "https://www.youtube.com/watch?v=abc123", youtubePrivacy: "private", youtubeScheduledFor: scheduled, facebookPublished: true, facebookUrl: "https://www.facebook.com/reel/456");
+        var scheduled = DateTimeOffset.UtcNow.AddDays(2);
+        fixture.InsertQuizHistory(7, youtubePublished: true, youtubeUrl: "https://www.youtube.com/watch?v=abc123", youtubePrivacy: "private", youtubeScheduledFor: scheduled.ToString("O"), facebookPublished: true, facebookUrl: "https://www.facebook.com/reel/456");
         fixture.InsertJournal(7, PublicationPlatform.YouTube, "abc123", "https://www.youtube.com/watch?v=abc123", SocialUploadJournalStatus.Complete, SocialUploadJournalStep.Verification, "Verification temporarily failed");
         fixture.Store.Reconcile(7);
         var rows = fixture.Store.List(7);
@@ -86,10 +86,7 @@ public sealed class PublicationStateTests
         {
             using var connection = Open();
             using var command = connection.CreateCommand();
-            command.CommandText = """
-                INSERT INTO quiz_history(id, published_on_youtube, youtube_url, youtube_upload_date, youtube_privacy, youtube_scheduled_for, published_on_facebook, facebook_url, facebook_upload_date, facebook_scheduled_for, published_on_instagram, instagram_url, instagram_upload_date)
-                VALUES($id, $youtubePublished, $youtubeUrl, '2026-08-31', $youtubePrivacy, $youtubeScheduledFor, $facebookPublished, $facebookUrl, '2026-08-31', '', 0, '', '');
-                """;
+            command.CommandText = """INSERT INTO quiz_history(id, published_on_youtube, youtube_url, youtube_upload_date, youtube_privacy, youtube_scheduled_for, published_on_facebook, facebook_url, facebook_upload_date, facebook_scheduled_for, published_on_instagram, instagram_url, instagram_upload_date) VALUES($id, $youtubePublished, $youtubeUrl, '2026-08-31', $youtubePrivacy, $youtubeScheduledFor, $facebookPublished, $facebookUrl, '2026-08-31', '', 0, '', '');""";
             command.Parameters.AddWithValue("$id", id); command.Parameters.AddWithValue("$youtubePublished", youtubePublished ? 1 : 0); command.Parameters.AddWithValue("$youtubeUrl", youtubeUrl); command.Parameters.AddWithValue("$youtubePrivacy", youtubePrivacy); command.Parameters.AddWithValue("$youtubeScheduledFor", youtubeScheduledFor); command.Parameters.AddWithValue("$facebookPublished", facebookPublished ? 1 : 0); command.Parameters.AddWithValue("$facebookUrl", facebookUrl); command.ExecuteNonQuery();
         }
         public void InsertJournal(int historyId, string platform, string remoteId, string remoteUrl, string uploadStatus, string failedStep, string lastError)
