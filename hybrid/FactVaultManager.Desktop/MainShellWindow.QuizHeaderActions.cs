@@ -12,6 +12,7 @@ public partial class MainShellWindow
     private Button? _quizHeaderPublishButton;
     private Button? _quizHeaderReopenButton;
     private bool _quizHeaderActionsInitialized;
+    private bool _finalVideoRenderLabelsApplied;
 
     public void InitializeQuizHeaderActionsForApp()
     {
@@ -28,7 +29,6 @@ public partial class MainShellWindow
         MainTabs.SelectionChanged += (_, _) =>
         {
             UpdateQuizHeaderButtons();
-            ApplyQuizFinalRenderLabels();
         };
     }
 
@@ -62,8 +62,6 @@ public partial class MainShellWindow
         _quizHeaderResolveButton.Click += OpenLatestQuizInResolve_Click;
         headerActions.Children.Add(_quizHeaderResolveButton);
 
-        // Kept for backwards compatibility with existing handlers, but Quiz History now exposes
-        // these actions in its local More menu instead of duplicating them in the global header.
         _quizHeaderPublishButton = new Button
         {
             Content = "Open Publish",
@@ -96,7 +94,6 @@ public partial class MainShellWindow
     private void UpdateQuizHeaderButtons()
     {
         InitializeQuizHeaderButtons();
-        ApplyQuizFinalRenderLabels();
         if (_quizHeaderProductionButton is null || _quizHeaderResolveButton is null ||
             _quizHeaderPublishButton is null || _quizHeaderReopenButton is null)
         {
@@ -112,8 +109,6 @@ public partial class MainShellWindow
             ? Visibility.Collapsed
             : Visibility.Visible;
 
-        // Manual render / Resolve access lives under Create > Finish > Manual settings & render.
-        // Keeping it out of the global header leaves Refresh and Updates as the only daily shell actions.
         _quizHeaderResolveButton.Visibility = Visibility.Collapsed;
         _quizHeaderPublishButton.Visibility = Visibility.Collapsed;
         _quizHeaderReopenButton.Visibility = Visibility.Collapsed;
@@ -128,8 +123,10 @@ public partial class MainShellWindow
 
     private void ApplyQuizFinalRenderLabels()
     {
-        if (Content is not DependencyObject root)
+        if (_finalVideoRenderLabelsApplied || Content is not DependencyObject root)
             return;
+
+        var foundTarget = false;
 
         foreach (var button in FindVisualChildren<Button>(root))
         {
@@ -143,6 +140,7 @@ public partial class MainShellWindow
 
             button.Content = "Render Final Video";
             button.ToolTip = "Create the finished YouTube-ready MP4 directly in Content Vault Manager. A Resolve/FCPXML package is also kept for optional advanced editing.";
+            foundTarget = true;
         }
 
         foreach (var text in FindVisualChildren<TextBlock>(root))
@@ -150,6 +148,7 @@ public partial class MainShellWindow
             if (string.Equals(text.Text, "Resolve export", StringComparison.OrdinalIgnoreCase))
             {
                 text.Text = "Final video";
+                foundTarget = true;
             }
             else if (string.Equals(
                          text.Text,
@@ -157,6 +156,7 @@ public partial class MainShellWindow
                          StringComparison.Ordinal))
             {
                 text.Text = "Configure final video format, quiz branding, presentation, narration, sound effects, and background music.";
+                foundTarget = true;
             }
             else if (string.Equals(
                          text.Text,
@@ -164,8 +164,12 @@ public partial class MainShellWindow
                          StringComparison.Ordinal))
             {
                 text.Text = "Pick random questions from your reusable bank, set the timing, and create finished quiz videos.";
+                foundTarget = true;
             }
         }
+
+        if (foundTarget)
+            _finalVideoRenderLabelsApplied = true;
     }
 
     private void OpenLatestQuizInResolve_Click(object sender, RoutedEventArgs e)
