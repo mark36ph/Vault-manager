@@ -14,6 +14,7 @@ public partial class MainShellWindow
 
     protected override void OnInitialized(EventArgs e)
     {
+        using var perf = PerformanceDiagnostics.Measure("Window.OnInitialized");
         WindowStyle = WindowStyle.SingleBorderWindow;
         ResizeMode = ResizeMode.CanResize;
         ShowInTaskbar = true;
@@ -24,6 +25,7 @@ public partial class MainShellWindow
 
     protected override void OnContentRendered(EventArgs e)
     {
+        using var perf = PerformanceDiagnostics.Measure("Window.OnContentRendered");
         base.OnContentRendered(e);
 
         MainTabs.Margin = new Thickness(0);
@@ -44,6 +46,7 @@ public partial class MainShellWindow
 
     protected override void OnActivated(EventArgs e)
     {
+        using var perf = PerformanceDiagnostics.Measure("Window.OnActivated");
         base.OnActivated(e);
         ApplyProductBranding();
         InitializeQuizWorkflow();
@@ -64,6 +67,7 @@ public partial class MainShellWindow
 
     private void ApplyProductBranding()
     {
+        using var perf = PerformanceDiagnostics.Measure("Navigation.ApplyProductBranding");
         if (_productBrandApplied)
             return;
 
@@ -80,6 +84,7 @@ public partial class MainShellWindow
 
     private void Navigate_Click(object sender, RoutedEventArgs e)
     {
+        using var perf = PerformanceDiagnostics.Measure("Navigation.Navigate_Click");
         if (sender is Button button && int.TryParse(button.Tag?.ToString(), out var index))
         {
             MainTabs.SelectedIndex = index;
@@ -89,11 +94,13 @@ public partial class MainShellWindow
 
     private void ApplyNavigationSelection(int selectedIndex)
     {
+        using var perf = PerformanceDiagnostics.Measure("Navigation.ApplyNavigationSelection");
         if (Content is not DependencyObject root)
             return;
 
         if (_indexedNavigationButtons is null)
         {
+            using var scanPerf = PerformanceDiagnostics.Measure("Navigation.BuildButtonIndex");
             _indexedNavigationButtons = FindVisualChildren<Button>(root)
                 .Where(button => int.TryParse(button.Tag?.ToString(), out _))
                 .ToList();
