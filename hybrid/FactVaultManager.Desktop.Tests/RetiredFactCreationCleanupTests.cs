@@ -61,11 +61,11 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build170_InstagramApprovalIsExplicitAndNotStartedAsStartupAutopilot()
+    public void Build171_InstagramApprovalIsExplicitAndNotStartedAsStartupAutopilot()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var approval = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.InstagramPromoApproval.cs");
-        Assert.Contains("CurrentBuildNumber = 170", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 171", buildInfo, StringComparison.Ordinal);
         Assert.Contains("InitializeInstagramPromoApprovalUi();", buildInfo, StringComparison.Ordinal);
         Assert.DoesNotContain("InitializeInstagramPromoFollowup();", buildInfo, StringComparison.Ordinal);
         Assert.Contains("Approve Page for Instagram Autopilot", approval, StringComparison.Ordinal);
@@ -73,11 +73,24 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build170_VersionManifestMatches()
+    public void Build171_DeferredStartupIsSplitIntoYieldingPhases()
+    {
+        var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
+        Assert.Contains("QueueDeferredShellPhase(InitializeDeferredAutopilotPhase);", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("QueueDeferredShellPhase(InitializeDeferredWebsitePhase);", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("QueueDeferredShellPhase(InitializeDeferredHistoryAndMaintenancePhase);", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("private void InitializeDeferredQuizPhase()", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("private void InitializeDeferredAutopilotPhase()", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("private void InitializeDeferredWebsitePhase()", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("private void InitializeDeferredHistoryAndMaintenancePhase()", buildInfo, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build171_VersionManifestMatches()
     {
         var version = ReadRepositoryFile("version.json");
-        Assert.Contains("\"build\": 170", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.149\"", version, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 171", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.150\"", version, StringComparison.Ordinal);
     }
 
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
