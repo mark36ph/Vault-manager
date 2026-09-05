@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Net;
-using System.Net.Http.Json;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -85,22 +84,22 @@ public static class InstagramBusinessLoginService
         var request = await ReadHttpRequestAsync(stream, timeout.Token);
         var target = request.Split(' ', StringSplitOptions.RemoveEmptyEntries).ElementAtOrDefault(1) ?? "/";
         var uri = new Uri(new Uri(RedirectUri), target);
-        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
-        var error = query["error"];
+        var query = ParseQuery(uri.Query);
+        var error = query.GetValueOrDefault("error");
         if (!string.IsNullOrWhiteSpace(error))
         {
             await WriteResponseAsync(stream, "Instagram authorization was cancelled or rejected.", timeout.Token);
             throw new InvalidOperationException($"Instagram authorization failed: {error}.");
         }
 
-        var state = query["state"] ?? "";
+        var state = query.GetValueOrDefault("state") ?? "";
         if (!string.Equals(state, expectedState, StringComparison.Ordinal))
         {
             await WriteResponseAsync(stream, "The Instagram authorization could not be verified. You can close this window.", timeout.Token);
             throw new InvalidOperationException("Instagram authorization state validation failed. Start Connect Instagram again.");
         }
 
-        var code = query["code"] ?? "";
+        var code = query.GetValueOrDefault("code") ?? "";
         if (code.Length == 0)
         {
             await WriteResponseAsync(stream, "No Instagram authorization code was returned. You can close this window.", timeout.Token);
@@ -109,6 +108,19 @@ public static class InstagramBusinessLoginService
 
         await WriteResponseAsync(stream, "Instagram connected successfully. You can close this window and return to Factburst Quiz Manager.", timeout.Token);
         return new InstagramCallback(code);
+    }
+
+    private static Dictionary<string, string> ParseQuery(string query)
+    {
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var part in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var separator = part.IndexOf('=');
+            var key = separator >= 0 ? part[..separator] : part;
+            var value = separator >= 0 ? part[(separator + 1)..] : "";
+            values[Uri.UnescapeDataString(key.Replace('+', ' '))] = Uri.UnescapeDataString(value.Replace('+', ' '));
+        }
+        return values;
     }
 
     private static async Task<string> ReadHttpRequestAsync(NetworkStream stream, CancellationToken cancellationToken)
