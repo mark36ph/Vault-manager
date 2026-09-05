@@ -1,12 +1,12 @@
 {
-  "latest_version": "1.0.155",
-  "build": 176,
+  "latest_version": "1.0.156",
+  "build": 177,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 176 replaces the Instagram documentation-only setup link with a real Instagram Business Login connection flow.",
-    "Build 176 exchanges the Instagram authorization code for a long-lived access token and saves the token with the existing local protection mechanism.",
-    "Build 176 validates the connected Instagram account before handing control back to Autopilot and keeps the existing Facebook Page approval flow intact.",
-    "Build 176 keeps the deferred startup phases and reduced cleanup passes from the previous performance builds."
+    "Build 177 fixes the Instagram reconnect regression test so the desktop build and manifest stay synchronized.",
+    "Build 177 keeps the real Instagram Business Login connection flow, long-lived token exchange, and account validation.",
+    "Build 177 preserves the existing Facebook Page approval flow and local credential protection.",
+    "Build 177 keeps the deferred startup phases and reduced cleanup passes from the previous performance builds."
   ]
 }
