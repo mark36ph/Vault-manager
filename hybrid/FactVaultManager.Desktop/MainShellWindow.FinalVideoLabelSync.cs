@@ -18,17 +18,9 @@ public partial class MainShellWindow
         _finalVideoLabelSyncStarted = true;
 
         // Export can be opened through the sidebar, the Continue button, or the
-        // top-right Render Final Video action. Some of those paths replace the
-        // ContentControl content before WPF has materialized its visual children,
-        // so applying the labels only once can miss the newly-visible Export card.
-        // Keep a lightweight visibility/layout hook so the final-video wording is
-        // applied after the page has actually entered the visual tree.
-        LayoutUpdated += (_, _) =>
-        {
-            if (string.Equals(_quizWorkspaceSelectedPage, "export", StringComparison.OrdinalIgnoreCase))
-                QueueFinalVideoLabelApply();
-        };
-
+        // top-right Render Final Video action. Apply labels after the Export page
+        // is materialized, but never hook LayoutUpdated: that event can fire many
+        // times while a large WPF page is measuring and rendering.
         var attempts = 0;
         var timer = new DispatcherTimer(DispatcherPriority.ContextIdle, Dispatcher)
         {
