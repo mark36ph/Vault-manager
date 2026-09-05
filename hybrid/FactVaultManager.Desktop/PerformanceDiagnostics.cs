@@ -111,6 +111,32 @@ internal static class PerformanceDiagnostics
         return builder.ToString();
     }
 
+    public static string GetSlowOperationReport(double minimumMaxMilliseconds)
+    {
+        var rows = Stats
+            .Select(pair => new
+            {
+                Operation = pair.Key,
+                pair.Value.Count,
+                TotalMs = pair.Value.TotalMs,
+                MaxMs = pair.Value.MaxMs,
+                AverageMs = pair.Value.AverageMs
+            })
+            .Where(row => row.MaxMs >= minimumMaxMilliseconds)
+            .OrderByDescending(row => row.MaxMs)
+            .ToList();
+
+        if (rows.Count == 0)
+            return "No measured operation reached the threshold.\r\n";
+
+        var builder = new StringBuilder();
+        builder.AppendLine("Operation | Calls | Avg ms | Max ms");
+        builder.AppendLine("--- | ---: | ---: | ---:");
+        foreach (var row in rows)
+            builder.AppendLine($"{row.Operation} | {row.Count} | {row.AverageMs:F1} | {row.MaxMs:F1}");
+        return builder.ToString();
+    }
+
     public static string? WriteReport()
     {
         if (!Enabled)
