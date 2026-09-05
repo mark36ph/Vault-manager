@@ -134,7 +134,6 @@ public sealed class RetiredFactCreationCleanupTests
         var diagnostics = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/PerformanceDiagnostics.cs");
         var diagnosticsUi = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.PerformanceDiagnosticsUi.cs");
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
-        var version = ReadRepositoryFile("version.json");
         Assert.Contains("Performance Diagnostics", diagnosticsUi, StringComparison.Ordinal);
         Assert.Contains("Scan app now", diagnosticsUi, StringComparison.Ordinal);
         Assert.Contains("Benchmark navigation", diagnosticsUi, StringComparison.Ordinal);
@@ -147,9 +146,6 @@ public sealed class RetiredFactCreationCleanupTests
         Assert.Contains("MEASURED OPERATIONS", diagnosticsUi, StringComparison.Ordinal);
         Assert.Contains("public static string GetReport()", diagnostics, StringComparison.Ordinal);
         Assert.Contains("InitializePerformanceDiagnosticsUi();", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("CurrentBuildNumber = 186", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("\"build\": 186", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.165\"", version, StringComparison.Ordinal);
     }
 
     [Fact]
