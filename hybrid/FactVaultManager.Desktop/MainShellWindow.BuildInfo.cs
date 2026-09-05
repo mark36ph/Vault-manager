@@ -6,7 +6,7 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    public const int CurrentBuildNumber = 186;
+    public const int CurrentBuildNumber = 187;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
     private bool _deferredShellInitializationScheduled;
@@ -33,6 +33,7 @@ public partial class MainShellWindow
             window.InitializeQuizOnlyCleanup();
             window.InitializeInstagramPromoApprovalUi();
             window.InitializePerformanceDiagnosticsUi();
+            PerformanceDiagnostics.ClearStartupProfileRequest();
 
             if (!window._deferredShellInitializationScheduled)
             {
