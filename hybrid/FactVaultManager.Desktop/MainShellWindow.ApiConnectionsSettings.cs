@@ -30,7 +30,7 @@ public partial class MainShellWindow
 
         _apiConnectionsSettingsInitialized = true;
 
-        foreach (var key in new[] { "ai", "images", "youtube", "facebook", "instagram" })
+        foreach (var key in new[] { "ai", "youtube", "facebook", "instagram" })
         {
             if (_settingsNavButtons.TryGetValue(key, out var oldButton))
                 oldButton.Visibility = Visibility.Collapsed;
