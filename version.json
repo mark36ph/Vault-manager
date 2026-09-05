@@ -8,6 +8,7 @@
     "Run full performance profile now stress-tests navigation for 10 cycles and reports average, P95, maximum, and slow samples.",
     "The profiler measures quiz database refresh time, memory growth, managed allocations, and garbage collections.",
     "Performance Diagnostics can arm a clean next-startup profile so startup timings are captured from process launch.",
-    "Includes actionable diagnostic recommendations to identify what should be fixed first."
+    "Includes actionable diagnostic recommendations to identify what should be fixed first.",
+    "Release packaging trigger refreshed after the test-fix correction; release remains 1.0.167."
   ]
 }
