@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.164",
-  "build": 185,
+  "latest_version": "1.0.165",
+  "build": 186,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 185 fixes navigation benchmarking by discovering navigation buttons directly from the live visual tree at benchmark time.",
-    "The benchmark no longer depends on a navigation cache that may have been created before the UI was fully initialized.",
-    "Build 185 keeps the in-app performance scan and real navigation benchmark."
+    "Build 186 fixes navigation benchmarking when the sidebar is hidden while Settings is open.",
+    "The benchmark now reads the actual buttons from PrimaryNavigationPanel and does not require them to be visible.",
+    "Build 186 keeps the in-app performance scan and real navigation benchmark."
   ]
 }
