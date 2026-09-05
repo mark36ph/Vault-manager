@@ -137,20 +137,6 @@ public partial class MainShellWindow
         }
         return null;
     }
-
-    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject parent) where T : DependencyObject
-    {
-        if (parent is null)
-            yield break;
-        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, index);
-            if (child is T match)
-                yield return match;
-            foreach (var nested in FindVisualChildren<T>(child))
-                yield return nested;
-        }
-    }
 }
 
 internal sealed record InstagramBusinessLoginConfiguration(string AppId, string AppSecret);
