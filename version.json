@@ -1,13 +1,13 @@
 {
-  "latest_version": "1.0.141",
-  "build": 162,
+  "latest_version": "1.0.142",
+  "build": 163,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 162 makes the approved Factburst Quiz Manager light management UI the centralized desktop visual baseline: light shell, clean navigation, white cards, restrained borders and consistent typography.",
-    "Build 162 updates the batch-render regression test to validate the dedicated STA rendering runner used by the current release pipeline.",
-    "Build 162 fixes credential recovery tests so their backup fixtures are created as valid SQLite databases while the installed database remains untouched.",
-    "Build 162 is CI-clean and ready for the Windows release pipeline.",
+    "Build 163 adopts the approved Factburst Quiz Manager light management UI as the centralized desktop visual baseline: light shell, clean navigation, white cards, restrained borders and consistent typography.",
+    "Build 163 keeps API credentials and settings persistence untouched while applying the visual baseline during shell construction.",
+    "Build 163 updates the batch-render regression test to validate the dedicated STA rendering runner used by the current release pipeline.",
+    "Build 163 fixes credential recovery test fixtures so valid SQLite databases are used and installed database state is verified as preserved.",
     "Build 161 fixes Quiz Release Automation freezing by moving WPF card, visual re-export and thumbnail rendering to a dedicated STA worker thread instead of the desktop UI dispatcher.",
     "Build 161 keeps audio timeline augmentation, FFmpeg work and file publishing off the UI thread.",
     "Build 157 configuration backup recovery and Build 156 database credential recovery remain intact."
