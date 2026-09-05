@@ -98,6 +98,18 @@ public sealed class RetiredFactCreationCleanupTests
         Assert.DoesNotContain("Interval = TimeSpan.FromMilliseconds(500)", cleanup, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Build176_InstagramBusinessLoginHasRealOAuthFlow()
+    {
+        var service = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/InstagramBusinessLoginService.cs");
+        var ui = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.InstagramBusinessLogin.cs");
+        Assert.Contains("https://www.instagram.com/oauth/authorize", service, StringComparison.Ordinal);
+        Assert.Contains("authorization_code", service, StringComparison.Ordinal);
+        Assert.Contains("ig_exchange_token", service, StringComparison.Ordinal);
+        Assert.Contains("Waiting for Instagram sign-in", ui, StringComparison.Ordinal);
+        Assert.Contains("Connect Instagram", ui, StringComparison.Ordinal);
+    }
+
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
 
     private static string ReadRepositoryFile(string relativePath)
