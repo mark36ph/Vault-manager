@@ -3,12 +3,12 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class QuizBatchRenderStaTests
 {
     [Fact]
-    public void BatchRender_BuildsNativeQuizVideoOnDesktopDispatcher()
+    public void BatchRender_BuildsNativeQuizVideoOnDedicatedStaRunner()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.QuizBatchRender.cs");
 
         Assert.Contains(
-            "var rendered = await Dispatcher.InvokeAsync(() => new NativeQuizVideoBuilder().BuildAndExport(",
+            "var rendered = await QuizRenderStaRunner.RunAsync(() => new NativeQuizVideoBuilder().BuildAndExport(",
             source,
             StringComparison.Ordinal);
         Assert.DoesNotContain(
@@ -16,11 +16,11 @@ public sealed class QuizBatchRenderStaTests
             source,
             StringComparison.Ordinal);
         Assert.Contains(
-            "await Dispatcher.InvokeAsync(() => new QuizThemedCardRenderer().OverwriteCards(",
+            "await QuizRenderStaRunner.RunAsync(() => new QuizThemedCardRenderer().OverwriteCards(",
             source,
             StringComparison.Ordinal);
         Assert.Contains(
-            "await Dispatcher.InvokeAsync(() => QuizVisualExportRewriter.ReExport(",
+            "var result = await QuizRenderStaRunner.RunAsync(() => QuizVisualExportRewriter.ReExport(",
             source,
             StringComparison.Ordinal);
         Assert.DoesNotContain(
@@ -28,7 +28,7 @@ public sealed class QuizBatchRenderStaTests
             source,
             StringComparison.Ordinal);
         Assert.Contains(
-            "await Dispatcher.InvokeAsync(() => new QuizThumbnailRenderer().Write(",
+            "var thumbnailPath = await QuizRenderStaRunner.RunAsync(() => new QuizThumbnailRenderer().Write(",
             source,
             StringComparison.Ordinal);
     }
