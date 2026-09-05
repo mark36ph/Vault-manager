@@ -152,6 +152,32 @@ public sealed class RetiredFactCreationCleanupTests
         Assert.Contains("\"latest_version\": \"1.0.165\"", version, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Build187_AddsFullPerformanceProfileAndNextStartupProfiling()
+    {
+        var diagnostics = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/PerformanceDiagnostics.cs");
+        var diagnosticsUi = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.PerformanceDiagnosticsUi.cs");
+        var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
+        var version = ReadRepositoryFile("version.json");
+
+        Assert.Contains("Run full performance profile", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("Profile next startup", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("RunFullPerformanceProfileAsync", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("navigationCycles = 10", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("Percentile(sortedNavigation, 0.95)", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("RefreshQuizBank();", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("GC.CollectionCount(2)", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("GetSlowOperationReport(50)", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("RequestStartupProfile", diagnostics, StringComparison.Ordinal);
+        Assert.Contains("StartupProfileRequested", diagnostics, StringComparison.Ordinal);
+        Assert.Contains("ClearStartupProfileRequest", diagnostics, StringComparison.Ordinal);
+        Assert.Contains("GetSlowOperationReport", diagnostics, StringComparison.Ordinal);
+        Assert.Contains("ClearStartupProfileRequest();", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 187", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 187", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.166\"", version, StringComparison.Ordinal);
+    }
+
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
 
     private static string ReadRepositoryFile(string relativePath)
