@@ -31,6 +31,7 @@ public partial class MainShellWindow : Window
     public MainShellWindow()
     {
         InitializeComponent();
+        InitializeFactburstVisualBaseline();
 
         // Installed releases can use a different LocalAppData root from the development
         // checkout. Recover both encrypted credentials and non-secret preferences before
