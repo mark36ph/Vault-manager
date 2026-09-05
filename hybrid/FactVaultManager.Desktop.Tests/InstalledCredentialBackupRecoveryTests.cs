@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using Microsoft.Data.Sqlite;
 
 namespace FactVaultManager.Desktop.Tests;
 
@@ -21,6 +22,7 @@ public sealed class InstalledCredentialBackupRecoveryTests
         File.WriteAllText(destinationDatabase, "not-replaced");
 
         var backupDatabase = Path.Combine(dataDirectory, "factvault-2026-09-02-005255.db");
+        CreateDatabase(backupDatabase);
         DatabaseSettingsStore.SaveJson(
             backupDatabase,
             DatabaseSettingsStore.MainSettingsKey,
@@ -52,6 +54,7 @@ public sealed class InstalledCredentialBackupRecoveryTests
         File.WriteAllText(destinationSettings, """{ "ai": { "api_key": "" } }""");
 
         var backupDatabase = Path.Combine(dataDirectory, "credential-recovery-backup.db");
+        CreateDatabase(backupDatabase);
         DatabaseSettingsStore.SaveJson(
             backupDatabase,
             DatabaseSettingsStore.MainSettingsKey,
@@ -63,6 +66,15 @@ public sealed class InstalledCredentialBackupRecoveryTests
         var second = InstalledCredentialBackupRecovery.Run(appDataRoot);
         Assert.Equal(0, second.RecoveredCount);
         Assert.False(second.SettingsChanged);
+    }
+
+    private static void CreateDatabase(string path)
+    {
+        using var connection = new SqliteConnection($"Data Source={path}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "CREATE TABLE app_settings (setting_key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at_utc TEXT NOT NULL);";
+        command.ExecuteNonQuery();
     }
 
     private static JsonObject ReadObject(string path) =>
