@@ -61,12 +61,12 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build166_IsCurrentBuildAndVersionManifestMatches()
+    public void Build167_IsCurrentBuildAndVersionManifestMatches()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var version = ReadRepositoryFile("version.json");
-        Assert.Contains("CurrentBuildNumber = 166", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("\"build\": 166", version, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 167", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 167", version, StringComparison.Ordinal);
     }
 
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
