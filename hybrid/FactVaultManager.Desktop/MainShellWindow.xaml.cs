@@ -33,10 +33,11 @@ public partial class MainShellWindow : Window
         InitializeComponent();
         InitializeFactburstVisualBaseline();
 
-        // Installed releases can use a different LocalAppData root from the development
-        // checkout. Recover both encrypted credentials and non-secret preferences before
-        // the settings workflow reads the destination document.
-        InstalledCredentialRecovery.Run();
+        // Program.Main performs installed credential recovery before constructing the
+        // shell. Do not run it a second time here: duplicate recovery could re-read
+        // stale legacy files after the first pass has already selected the active store.
+        // Non-secret settings recovery remains here because the shell needs those values
+        // before building its runtime Settings page.
         InstalledSettingsRecovery.Run();
         LoadBootstrapSettingsInputs();
 
