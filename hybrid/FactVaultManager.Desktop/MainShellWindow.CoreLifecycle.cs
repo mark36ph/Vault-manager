@@ -111,15 +111,8 @@ public partial class MainShellWindow
         if (Content is not DependencyObject root)
             return;
 
-        if (_indexedNavigationButtons is null)
-        {
-            using var scanPerf = PerformanceDiagnostics.Measure("Navigation.BuildButtonIndex");
-            _indexedNavigationButtons = FindVisualChildren<Button>(root)
-                .Where(button => int.TryParse(button.Tag?.ToString(), out _))
-                .ToList();
-        }
-
-        foreach (var button in _indexedNavigationButtons)
+        EnsureNavigationButtonIndex(root);
+        foreach (var button in _indexedNavigationButtons!)
         {
             if (!button.IsVisible || !int.TryParse(button.Tag?.ToString(), out var index))
                 continue;
@@ -130,6 +123,17 @@ public partial class MainShellWindow
             button.BorderThickness = new Thickness(3, 0, 0, 0);
             button.FontWeight = isSelected ? FontWeights.SemiBold : FontWeights.Normal;
         }
+    }
+
+    private void EnsureNavigationButtonIndex(DependencyObject root)
+    {
+        if (_indexedNavigationButtons is { Count: > 0 })
+            return;
+
+        using var scanPerf = PerformanceDiagnostics.Measure("Navigation.BuildButtonIndex");
+        _indexedNavigationButtons = FindVisualChildren<Button>(root)
+            .Where(button => int.TryParse(button.Tag?.ToString(), out _))
+            .ToList();
     }
 
     private static void Detach(FrameworkElement element)
