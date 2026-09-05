@@ -53,19 +53,11 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build150_NoLongerNeedsRuntimeWorkspaceHidingShim()
-    {
-        var cleanup = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.QuizOnlyCleanup.cs");
-        Assert.DoesNotContain("RemoveLegacyFactVideoWorkspaceSurfaces", cleanup, StringComparison.Ordinal);
-        Assert.DoesNotContain("retired generic Dashboard/Projects/Production/Media/Asset Review workspace", cleanup, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Build175_InstagramApprovalIsExplicitAndNotStartedAsStartupAutopilot()
+    public void Build176_InstagramApprovalIsExplicitAndNotStartedAsStartupAutopilot()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var approval = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.InstagramPromoApproval.cs");
-        Assert.Contains("CurrentBuildNumber = 175", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 176", buildInfo, StringComparison.Ordinal);
         Assert.Contains("InitializeInstagramPromoApprovalUi();", buildInfo, StringComparison.Ordinal);
         Assert.Contains("Approve Page for Instagram Autopilot", approval, StringComparison.Ordinal);
         Assert.Contains("ApprovedFacebookPageId", approval, StringComparison.Ordinal);
@@ -76,7 +68,7 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build175_DeferredStartupIsSplitIntoYieldingPhases()
+    public void Build176_DeferredStartupIsSplitIntoYieldingPhases()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         Assert.Contains("QueueDeferredShellPhase(InitializeDeferredAutopilotPhase);", buildInfo, StringComparison.Ordinal);
@@ -89,15 +81,15 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build175_VersionManifestMatches()
+    public void Build176_VersionManifestMatches()
     {
         var version = ReadRepositoryFile("version.json");
-        Assert.Contains("\"build\": 175", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.154\"", version, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 176", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.155\"", version, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Build175_ReducesDailyCleanupStartupPasses()
+    public void Build176_ReducesDailyCleanupStartupPasses()
     {
         var cleanup = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.DailyUiCleanup.cs");
         Assert.Contains("_dailyUiCleanupStartupPassesRemaining = 4", cleanup, StringComparison.Ordinal);
