@@ -1,11 +1,12 @@
 {
-  "latest_version": "1.0.151",
-  "build": 172,
+  "latest_version": "1.0.152",
+  "build": 173,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 172 reduces inactive Autopilot UI timer work so switching back to the app stays more responsive.",
-    "Build 172 keeps navigation and top-bar guard scans paused while the window is inactive.",
-    "Build 172 preserves the Instagram Autopilot approval flow and existing credentials and project data."
+    "Build 173 reduces inactive Autopilot UI timer work so switching back to the app stays more responsive.",
+    "Build 173 keeps navigation and top-bar guard scans paused while the window is inactive.",
+    "Build 173 preserves the Instagram Autopilot approval flow and existing credentials and project data.",
+    "Build 173 corrects the release version and desktop build number so the updater and installed app report the same release."
   ]
 }
