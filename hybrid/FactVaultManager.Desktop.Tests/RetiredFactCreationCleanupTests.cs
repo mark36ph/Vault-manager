@@ -149,7 +149,7 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build187_AddsFullPerformanceProfileAndNextStartupProfiling()
+    public void Build189_AddsFullPerformanceProfileAndNextStartupProfiling()
     {
         var diagnostics = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/PerformanceDiagnostics.cs");
         var diagnosticsUi = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.PerformanceDiagnosticsUi.cs");
@@ -169,13 +169,13 @@ public sealed class RetiredFactCreationCleanupTests
         Assert.Contains("ClearStartupProfileRequest", diagnostics, StringComparison.Ordinal);
         Assert.Contains("GetSlowOperationReport", diagnostics, StringComparison.Ordinal);
         Assert.Contains("ClearStartupProfileRequest();", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("CurrentBuildNumber = 188", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("\"build\": 188", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.167\"", version, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 189", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 189", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.168\"", version, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Build187_UpdaterUsesGitHubStableFeedAndLatestSetupAsset()
+    public void Build189_UpdaterUsesGitHubStableFeedAndLatestSetupAsset()
     {
         var updater = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/AppUpdateService.cs");
         Assert.Contains("new GithubSource(RepositoryUrl, accessToken: null, prerelease: false)", updater, StringComparison.Ordinal);
