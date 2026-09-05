@@ -192,7 +192,7 @@ public partial class MainShellWindow
         var buttons = GetCurrentNavigationButtons();
         if (buttons.Count == 0)
         {
-            _performanceDiagnosticsStatus!.Text = "No navigation buttons were available for benchmarking. The live UI scan also found no tagged navigation buttons.";
+            _performanceDiagnosticsStatus!.Text = "No navigation buttons were available for benchmarking. The navigation panel has not produced any tagged buttons yet.";
             return;
         }
 
@@ -203,7 +203,6 @@ public partial class MainShellWindow
 
         try
         {
-            // Warm up lazy page initialization before taking the measured pass.
             foreach (var button in buttons)
                 await NavigateAndWaitAsync(button);
 
@@ -264,15 +263,31 @@ public partial class MainShellWindow
 
     private List<Button> GetCurrentNavigationButtons()
     {
+        // The real navigation buttons are owned by the named navigation panel. The
+        // sidebar can be hidden while Settings is open, so IsVisible must not be used
+        // as a discovery filter. Hidden controls can still raise their Click events.
+        ApplyNavigationSections();
+
+        var panelButtons = PrimaryNavigationPanel.Children
+            .OfType<Button>()
+            .Where(button => int.TryParse(button.Tag?.ToString(), out _))
+            .OrderBy(button => int.Parse(button.Tag!.ToString()!))
+            .ToList();
+
+        if (panelButtons.Count > 0)
+        {
+            _indexedNavigationButtons = panelButtons;
+            return panelButtons;
+        }
+
         if (Content is not DependencyObject root)
             return new List<Button>();
 
         var buttons = FindVisualChildren<Button>(root)
-            .Where(button => button.IsVisible && int.TryParse(button.Tag?.ToString(), out _))
+            .Where(button => int.TryParse(button.Tag?.ToString(), out _))
             .OrderBy(button => int.Parse(button.Tag!.ToString()!))
             .ToList();
 
-        // Keep the normal navigation cache synchronized with the live visual tree.
         _indexedNavigationButtons = buttons;
         return buttons;
     }
