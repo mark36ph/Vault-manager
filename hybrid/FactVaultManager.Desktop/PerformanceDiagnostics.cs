@@ -10,10 +10,12 @@ internal static class PerformanceDiagnostics
     private static readonly ConcurrentDictionary<string, OperationStats> Stats = new(StringComparer.Ordinal);
     private static readonly object FileLock = new();
 
-    public static bool Enabled { get; } = string.Equals(
+    public static bool Enabled { get; private set; } = string.Equals(
         Environment.GetEnvironmentVariable("FACTBURST_PERF_DIAGNOSTICS"),
         "1",
         StringComparison.Ordinal);
+
+    public static void SetEnabled(bool enabled) => Enabled = enabled;
 
     public static IDisposable Measure(string operation)
     {
@@ -41,7 +43,7 @@ internal static class PerformanceDiagnostics
                 pair.Value.Count,
                 TotalMs = pair.Value.TotalMs,
                 MaxMs = pair.Value.MaxMs,
-                AverageMs = pair.Value.Count == 0 ? 0 : pair.Value.TotalMs / pair.Value.Count
+                AverageMs = pair.Value.AverageMs
             })
             .OrderByDescending(row => row.TotalMs)
             .ToList();
@@ -59,10 +61,10 @@ internal static class PerformanceDiagnostics
         return builder.ToString();
     }
 
-    public static void WriteReport()
+    public static string? WriteReport()
     {
         if (!Enabled)
-            return;
+            return null;
 
         try
         {
@@ -74,10 +76,12 @@ internal static class PerformanceDiagnostics
             var path = Path.Combine(directory, $"ui-performance-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
             lock (FileLock)
                 File.WriteAllText(path, GetReport());
+            return path;
         }
         catch
         {
             // Diagnostics must never interfere with application shutdown.
+            return null;
         }
     }
 
@@ -105,9 +109,10 @@ internal static class PerformanceDiagnostics
         private double _totalMs;
         private double _maxMs;
 
-        public int Count => Volatile.Read(ref _count);
+        public int Count => Math.Min(Volatile.Read(ref _count), MaxSamplesPerOperation);
         public double TotalMs => Volatile.Read(ref _totalMs);
         public double MaxMs => Volatile.Read(ref _maxMs);
+        public double AverageMs => Count == 0 ? 0 : TotalMs / Count;
 
         public void Record(double milliseconds)
         {
@@ -115,12 +120,11 @@ internal static class PerformanceDiagnostics
             if (count > MaxSamplesPerOperation)
                 return;
 
-            Interlocked.Exchange(ref _totalMs, TotalMs + milliseconds);
-            while (true)
+            lock (this)
             {
-                var current = MaxMs;
-                if (milliseconds <= current || Interlocked.CompareExchange(ref _maxMs, milliseconds, current) == current)
-                    break;
+                _totalMs += milliseconds;
+                if (milliseconds > _maxMs)
+                    _maxMs = milliseconds;
             }
         }
     }
