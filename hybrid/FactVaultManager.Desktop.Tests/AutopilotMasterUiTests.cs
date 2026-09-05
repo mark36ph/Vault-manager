@@ -55,7 +55,7 @@ public sealed class AutopilotMasterUiTests
 
         Assert.Contains("CurrentBuildNumber =", source, StringComparison.Ordinal);
         Assert.Contains("InitializeAutopilotMasterUi();", source, StringComparison.Ordinal);
-        Assert.Contains("InitializeInstagramPromoFollowup();", source, StringComparison.Ordinal);
+        Assert.Contains("InitializeInstagramPromoApprovalUi();", source, StringComparison.Ordinal);
         Assert.Contains("InitializeLibraryPublicationStatusUi();", source, StringComparison.Ordinal);
         Assert.Contains("InitializeLibraryPlatformStatusFix();", source, StringComparison.Ordinal);
         Assert.Contains("InitializeLibraryPlatformSymbolFix();", source, StringComparison.Ordinal);
