@@ -32,7 +32,7 @@ public partial class MainShellWindow
         MainTabs.Padding = new Thickness(0);
         MainTabs.BorderThickness = new Thickness(0);
         MainTabs.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-        MainTabs.VerticalContentAlignment = VerticalAlignment.Stretch;
+        MainTabs.VerticalContentContentAlignment = VerticalAlignment.Stretch;
 
         if (FindResource("HiddenPageTabStyle") is Style hiddenPageStyle)
         {
@@ -40,7 +40,8 @@ public partial class MainShellWindow
                 tab.Style = hiddenPageStyle;
         }
 
-        InitializeQuizQuestionViewer();
+        using (PerformanceDiagnostics.Measure("Navigation.InitializeQuizQuestionViewer"))
+            InitializeQuizQuestionViewer();
         ApplyNavigationSelection(MainTabs.SelectedIndex);
     }
 
@@ -48,21 +49,27 @@ public partial class MainShellWindow
     {
         using var perf = PerformanceDiagnostics.Measure("Window.OnActivated");
         base.OnActivated(e);
-        ApplyProductBranding();
-        InitializeQuizWorkflow();
-        InitializeQuizQuestionBankPage();
-        InitializeQuizHistoryPage();
-        InitializeQuizNotesPage();
-        InitializeUploadManagerPage();
-        InitializeYouTubeAnalyticsPage();
-        InitializeFacebookAnalyticsPage();
-        InitializeInstagramManagerPage();
-        InitializeQuizDraftEditor();
-        InitializeQuizRotationWorkflow();
-        InitializeQuizExportWorkflow();
-        InitializeQuizWorkspaceNavigation();
-        ApplyNavigationSections();
-        Dispatcher.BeginInvoke(new Action(InitializeSettingsWorkflow));
+        MeasureActivation("Navigation.ApplyProductBranding", ApplyProductBranding);
+        MeasureActivation("Startup.InitializeQuizWorkflow", InitializeQuizWorkflow);
+        MeasureActivation("Startup.InitializeQuizQuestionBankPage", InitializeQuizQuestionBankPage);
+        MeasureActivation("Startup.InitializeQuizHistoryPage", InitializeQuizHistoryPage);
+        MeasureActivation("Startup.InitializeQuizNotesPage", InitializeQuizNotesPage);
+        MeasureActivation("Startup.InitializeUploadManagerPage", InitializeUploadManagerPage);
+        MeasureActivation("Startup.InitializeYouTubeAnalyticsPage", InitializeYouTubeAnalyticsPage);
+        MeasureActivation("Startup.InitializeFacebookAnalyticsPage", InitializeFacebookAnalyticsPage);
+        MeasureActivation("Startup.InitializeInstagramManagerPage", InitializeInstagramManagerPage);
+        MeasureActivation("Startup.InitializeQuizDraftEditor", InitializeQuizDraftEditor);
+        MeasureActivation("Startup.InitializeQuizRotationWorkflow", InitializeQuizRotationWorkflow);
+        MeasureActivation("Startup.InitializeQuizExportWorkflow", InitializeQuizExportWorkflow);
+        MeasureActivation("Startup.InitializeQuizWorkspaceNavigation", InitializeQuizWorkspaceNavigation);
+        MeasureActivation("Startup.ApplyNavigationSections", ApplyNavigationSections);
+        Dispatcher.BeginInvoke(new Action(() => MeasureActivation("Startup.InitializeSettingsWorkflow", InitializeSettingsWorkflow)));
+    }
+
+    private static void MeasureActivation(string operation, Action action)
+    {
+        using var perf = PerformanceDiagnostics.Measure(operation);
+        action();
     }
 
     private void ApplyProductBranding()
