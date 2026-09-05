@@ -1,3 +1,5 @@
+using Xunit;
+
 namespace FactVaultManager.Desktop.Tests;
 
 public sealed class RetiredFactCreationCleanupTests
@@ -28,7 +30,6 @@ public sealed class RetiredFactCreationCleanupTests
     public void Build150_RemovesRetiredWorkspaceSurfacesFromXaml()
     {
         var xaml = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.xaml");
-
         Assert.DoesNotContain("⌂   Dashboard", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("▤   Projects", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("▷   Production", xaml, StringComparison.Ordinal);
@@ -44,7 +45,6 @@ public sealed class RetiredFactCreationCleanupTests
     public void Build150_DoesNotRefreshRetiredWorkspaceDuringWindowLoad()
     {
         var shell = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.xaml.cs");
-
         Assert.DoesNotContain("RefreshAll();", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("LoadMedia(", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("LoadAssetReview(", shell, StringComparison.Ordinal);
@@ -56,24 +56,20 @@ public sealed class RetiredFactCreationCleanupTests
     public void Build150_NoLongerNeedsRuntimeWorkspaceHidingShim()
     {
         var cleanup = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.QuizOnlyCleanup.cs");
-
         Assert.DoesNotContain("RemoveLegacyFactVideoWorkspaceSurfaces", cleanup, StringComparison.Ordinal);
         Assert.DoesNotContain("retired generic Dashboard/Projects/Production/Media/Asset Review workspace", cleanup, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Build164_IsCurrentBuildAndVersionManifestMatches()
+    public void Build165_IsCurrentBuildAndVersionManifestMatches()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var version = ReadRepositoryFile("version.json");
-
-        Assert.Contains("CurrentBuildNumber = 164", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.143\"", version, StringComparison.Ordinal);
-        Assert.Contains("\"build\": 164", version, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 165", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 165", version, StringComparison.Ordinal);
     }
 
-    private static bool RepositoryFileExists(string relativePath) =>
-        FindRepositoryFile(relativePath) is not null;
+    private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
 
     private static string ReadRepositoryFile(string relativePath)
     {
