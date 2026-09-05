@@ -61,11 +61,11 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build174_InstagramApprovalIsExplicitAndNotStartedAsStartupAutopilot()
+    public void Build175_InstagramApprovalIsExplicitAndNotStartedAsStartupAutopilot()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var approval = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.InstagramPromoApproval.cs");
-        Assert.Contains("CurrentBuildNumber = 174", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 175", buildInfo, StringComparison.Ordinal);
         Assert.Contains("InitializeInstagramPromoApprovalUi();", buildInfo, StringComparison.Ordinal);
         Assert.Contains("Approve Page for Instagram Autopilot", approval, StringComparison.Ordinal);
         Assert.Contains("ApprovedFacebookPageId", approval, StringComparison.Ordinal);
@@ -76,7 +76,7 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build174_DeferredStartupIsSplitIntoYieldingPhases()
+    public void Build175_DeferredStartupIsSplitIntoYieldingPhases()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         Assert.Contains("QueueDeferredShellPhase(InitializeDeferredAutopilotPhase);", buildInfo, StringComparison.Ordinal);
@@ -89,11 +89,21 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build174_VersionManifestMatches()
+    public void Build175_VersionManifestMatches()
     {
         var version = ReadRepositoryFile("version.json");
-        Assert.Contains("\"build\": 174", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.153\"", version, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 175", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.154\"", version, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build175_ReducesDailyCleanupStartupPasses()
+    {
+        var cleanup = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.DailyUiCleanup.cs");
+        Assert.Contains("_dailyUiCleanupStartupPassesRemaining = 4", cleanup, StringComparison.Ordinal);
+        Assert.Contains("Interval = TimeSpan.FromMilliseconds(750)", cleanup, StringComparison.Ordinal);
+        Assert.DoesNotContain("_dailyUiCleanupStartupPassesRemaining = 8", cleanup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Interval = TimeSpan.FromMilliseconds(500)", cleanup, StringComparison.Ordinal);
     }
 
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
