@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.146",
-  "build": 167,
+  "latest_version": "1.0.147",
+  "build": 168,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactburstQuizManagerSetup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 167 improves startup responsiveness by deferring noncritical shell initialization until the first UI paint.",
-    "Build 167 ships the startup performance improvements and keeps the desktop build number synchronized with the 1.0.146 release manifest.",
-    "Build 167 preserves existing API credentials, settings and project data while improving update reliability."
+    "Build 168 improves startup smoothness by moving optional legacy recovery work off the initial UI startup path.",
+    "Build 168 keeps the existing deferred shell initialization so the main window can become responsive sooner.",
+    "Build 168 preserves existing API credentials, settings and project data while improving startup and update reliability."
   ]
 }
