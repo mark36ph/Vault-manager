@@ -55,7 +55,6 @@ public sealed class RetiredFactCreationCleanupTests
     [Fact]
     public void Build181_InstagramApprovalIsExplicitAndNotStartedAsStartupAutopilot()
     {
-        var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var approval = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.InstagramPromoApproval.cs");
         Assert.Contains("Approve Page for Instagram Autopilot", approval, StringComparison.Ordinal);
         Assert.Contains("ApprovedFacebookPageId", approval, StringComparison.Ordinal);
@@ -101,7 +100,7 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build182_AddsInAppPerformanceScanAndKeepsDiagnostics()
+    public void Build183_AddsInAppPerformanceScanAndNavigationBenchmark()
     {
         var shell = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.CoreLifecycle.cs");
         var diagnostics = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/PerformanceDiagnostics.cs");
@@ -114,13 +113,18 @@ public sealed class RetiredFactCreationCleanupTests
         Assert.Contains("public static string GetReport()", diagnostics, StringComparison.Ordinal);
         Assert.Contains("Performance Diagnostics", diagnosticsUi, StringComparison.Ordinal);
         Assert.Contains("Scan app now", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("Benchmark navigation", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("BenchmarkNavigationAsync", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("NavigateAndWaitAsync", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("SLOW", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("100 ms", diagnosticsUi, StringComparison.Ordinal);
         Assert.Contains("ScanVisualTree", diagnosticsUi, StringComparison.Ordinal);
         Assert.Contains("Visual elements", diagnosticsUi, StringComparison.Ordinal);
         Assert.Contains("MEASURED OPERATIONS", diagnosticsUi, StringComparison.Ordinal);
         Assert.Contains("InitializePerformanceDiagnosticsUi();", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("CurrentBuildNumber = 182", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("\"build\": 182", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.161\"", version, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 183", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 183", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.162\"", version, StringComparison.Ordinal);
     }
 
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
