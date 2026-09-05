@@ -1,11 +1,12 @@
 {
-  "latest_version": "1.0.165",
-  "build": 186,
+  "latest_version": "1.0.166",
+  "build": 187,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 186 fixes navigation benchmarking when the sidebar is hidden while Settings is open.",
-    "The benchmark now reads the actual buttons from PrimaryNavigationPanel and does not require them to be visible.",
-    "Build 186 keeps the in-app performance scan and real navigation benchmark."
+    "Build 187 adds a full in-app performance profile for diagnosing slow app behavior.",
+    "The profiler stress-tests navigation for 10 cycles and reports average, P95, maximum, and slow samples.",
+    "The profiler measures quiz database refresh time, memory growth, managed allocations, and garbage collections.",
+    "Performance Diagnostics can arm a clean next-startup profile so startup timings are captured from process launch."
   ]
 }
