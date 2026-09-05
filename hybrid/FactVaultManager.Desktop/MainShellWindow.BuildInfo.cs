@@ -6,7 +6,7 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    public const int CurrentBuildNumber = 172;
+    public const int CurrentBuildNumber = 173;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
     private bool _deferredShellInitializationScheduled;
@@ -23,30 +23,19 @@ public partial class MainShellWindow
 
     private static void MainShellWindowBuildInfo_Loaded(object sender, RoutedEventArgs e)
     {
-        if (sender is MainShellWindow window)
-        {
-            window.Title = $"Factburst Quiz Manager • Build {CurrentBuildNumber}";
-            window.InitializeSettingsWorkflow();
-            window.InitializeApiConnectionsSettings();
-            window.InitializeApiConnectionsWebsite();
-            window.InitializeQuizOnlyCleanup();
-            window.InitializeInstagramPromoApprovalUi();
+        if (sender is not MainShellWindow window || window._deferredShellInitializationScheduled)
+            return;
 
-            if (!window._deferredShellInitializationScheduled)
-            {
-                window._deferredShellInitializationScheduled = true;
-                window.Dispatcher.BeginInvoke(
-                    DispatcherPriority.ApplicationIdle,
-                    new Action(window.InitializeDeferredShellFeatures));
-            }
-        }
-    }
-
-    private void QueueDeferredShellPhase(Action phase)
-    {
-        Dispatcher.BeginInvoke(
+        window._deferredShellInitializationScheduled = true;
+        window.Title = $"Factburst Quiz Manager • Build {CurrentBuildNumber}";
+        window.InitializeSettingsWorkflow();
+        window.InitializeApiConnectionsSettings();
+        window.InitializeApiConnectionsWebsite();
+        window.InitializeQuizOnlyCleanup();
+        window.InitializeInstagramPromoApprovalUi();
+        window.Dispatcher.BeginInvoke(
             DispatcherPriority.ApplicationIdle,
-            phase);
+            new Action(window.InitializeDeferredShellFeatures));
     }
 
     private void InitializeDeferredShellFeatures()
@@ -85,22 +74,15 @@ public partial class MainShellWindow
 
     private void InitializeDeferredWebsitePhase()
     {
-        InitializeWebsiteManagerPage();
-        InitializeWebsiteYouTubeScheduleSync();
-        InitializeWebsiteVisibilityControls();
-        InitializeWebsiteUsersPage();
-        InitializeWebsiteAnalyticsPage();
-        InitializeWebsiteUserProvisioningControls();
-        InitializeWebsiteUsersFriendsPanel();
-        InitializeWebsiteMaintenancePlacement();
-        InitializeWebsiteAdministrationEnhancements();
-        InitializeWebsiteNavigationDivider();
-        InitializeWebsiteAdsSettings();
-        InitializeWebsiteSettingsShortcut();
-        InitializeWebsiteCommentModerationNavigation();
-        InitializeWebsiteSeoAuditPage();
-        InitializeWebsiteSeoAutoFixButton();
-        InitializeLogoQuizPromoArtworkRepair();
+        InitializeWebsiteNavigation();
+        InitializeWebsiteSettings();
+        InitializeWebsitePages();
+        InitializeWebsiteContent();
+        InitializeWebsiteSeo();
+        InitializeWebsiteAnalytics();
+        InitializeWebsiteUsers();
+        InitializeWebsiteComments();
+        InitializeWebsiteAdvanced();
         QueueDeferredShellPhase(InitializeDeferredHistoryAndMaintenancePhase);
     }
 
@@ -111,15 +93,21 @@ public partial class MainShellWindow
         InitializeAutopilotNeedsYouVisualStability();
         InitializeAutopilotShellActivationFix();
         InitializeAutopilotScheduleTarget();
-        InitializeQuizHistoryBulkArchiveUi();
-        InitializeQuizHistoryGroupedBulkArchiveUi();
-        InitializeQuizHistoryUiCleanup();
-        InitializeQuizContentLifecycleUi();
-        InitializeLibraryPublicationStatusUi();
-        InitializeLibraryPlatformStatusFix();
-        InitializeLibraryPlatformSymbolFix();
-        InitializeStartupSafeUiCleanup();
-        InitializeCreateAdvancedUiCleanup();
-        InitializeDatabaseBackupAndRecovery();
+        InitializeQuizHistory();
+        InitializeQuizLifecycle();
+        InitializeLibraryStatusFixes();
+        InitializeStartupSafeCleanup();
+        InitializeCreateAdvancedCleanup();
+        InitializeDatabaseBackupRecovery();
+    }
+
+    private void QueueDeferredShellPhase(Action phase)
+    {
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.ApplicationIdle,
+            new Action(() =>
+            {
+                phase();
+            }));
     }
 }
