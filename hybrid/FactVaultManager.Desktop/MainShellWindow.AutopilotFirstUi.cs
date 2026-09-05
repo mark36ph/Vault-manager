@@ -119,7 +119,7 @@ public partial class MainShellWindow
 
         _autopilotNavigationGuardTimer ??= new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromSeconds(2),
+            Interval = TimeSpan.FromSeconds(5),
         };
         _autopilotNavigationGuardTimer.Tick -= AutopilotNavigationGuardTimer_Tick;
         _autopilotNavigationGuardTimer.Tick += AutopilotNavigationGuardTimer_Tick;
@@ -132,6 +132,9 @@ public partial class MainShellWindow
 
     private void AutopilotNavigationGuardTimer_Tick(object? sender, EventArgs e)
     {
+        if (!IsActive)
+            return;
+
         CompactLegacyNavigation();
     }
 
@@ -145,7 +148,8 @@ public partial class MainShellWindow
         timer.Tick += (_, _) =>
         {
             timer.Stop();
-            EnsureAutopilotFirstUi();
+            if (IsActive)
+                EnsureAutopilotFirstUi();
         };
         timer.Start();
     }
