@@ -3,7 +3,7 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class InstagramBusinessLoginTests
 {
     [Fact]
-    public void Build176_InstagramConnectionUsesBusinessLoginAndLocalCallback()
+    public void Build178_InstagramConnectionUsesBusinessLoginAndLocalCallback()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/InstagramBusinessLoginService.cs");
         var ui = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.InstagramBusinessLogin.cs");
@@ -21,7 +21,7 @@ public sealed class InstagramBusinessLoginTests
     }
 
     [Fact]
-    public void Build176_InstagramConnectDoesNotUseTheDocumentationLinkAsTheAction()
+    public void Build178_InstagramConnectDoesNotUseTheDocumentationLinkAsTheAction()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.ApiConnectionsSettings.cs");
         var ui = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.InstagramBusinessLogin.cs");
