@@ -53,11 +53,11 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build180_InstagramApprovalIsExplicitAndNotStartedAsStartupAutopilot()
+    public void Build181_InstagramApprovalIsExplicitAndNotStartedAsStartupAutopilot()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var approval = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.InstagramPromoApproval.cs");
-        Assert.Contains("CurrentBuildNumber = 180", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 181", buildInfo, StringComparison.Ordinal);
         Assert.Contains("InitializeInstagramPromoApprovalUi();", buildInfo, StringComparison.Ordinal);
         Assert.Contains("Approve Page for Instagram Autopilot", approval, StringComparison.Ordinal);
         Assert.Contains("ApprovedFacebookPageId", approval, StringComparison.Ordinal);
@@ -68,7 +68,7 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build180_DeferredStartupIsSplitIntoYieldingPhases()
+    public void Build181_DeferredStartupIsSplitIntoYieldingPhases()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         Assert.Contains("QueueDeferredShellPhase(InitializeDeferredAutopilotPhase);", buildInfo, StringComparison.Ordinal);
@@ -81,15 +81,15 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build180_VersionManifestMatches()
+    public void Build181_VersionManifestMatches()
     {
         var version = ReadRepositoryFile("version.json");
-        Assert.Contains("\"build\": 180", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.159\"", version, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 181", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.160\"", version, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Build180_ReducesDailyCleanupStartupPasses()
+    public void Build181_ReducesDailyCleanupStartupPasses()
     {
         var cleanup = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.DailyUiCleanup.cs");
         Assert.Contains("_dailyUiCleanupStartupPassesRemaining = 4", cleanup, StringComparison.Ordinal);
@@ -99,7 +99,7 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build180_InstagramBusinessLoginHasRealOAuthFlow()
+    public void Build181_InstagramBusinessLoginHasRealOAuthFlow()
     {
         var service = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/InstagramBusinessLoginService.cs");
         var ui = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.InstagramBusinessLogin.cs");
@@ -111,10 +111,12 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build180_CachesNavigationButtonsAndAddsDetailedPerformanceDiagnostics()
+    public void Build181_CachesNavigationButtonsAndAddsDetailedPerformanceDiagnostics()
     {
         var shell = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.CoreLifecycle.cs");
         var diagnostics = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/PerformanceDiagnostics.cs");
+        var diagnosticsUi = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.PerformanceDiagnosticsUi.cs");
+        var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         Assert.Contains("_indexedNavigationButtons", shell, StringComparison.Ordinal);
         Assert.Contains("if (_indexedNavigationButtons is null)", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("var buttons = FindVisualChildren<Button>(root)", shell, StringComparison.Ordinal);
@@ -122,6 +124,11 @@ public sealed class RetiredFactCreationCleanupTests
         Assert.Contains("Startup.InitializeQuizHistoryPage", shell, StringComparison.Ordinal);
         Assert.Contains("PerformanceDiagnostics.WriteReport();", shell, StringComparison.Ordinal);
         Assert.Contains("public static void SetEnabled(bool enabled)", diagnostics, StringComparison.Ordinal);
+        Assert.Contains("Performance Diagnostics", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("Enable diagnostics", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("Write report now", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("Open diagnostics folder", diagnosticsUi, StringComparison.Ordinal);
+        Assert.Contains("InitializePerformanceDiagnosticsUi();", buildInfo, StringComparison.Ordinal);
     }
 
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
