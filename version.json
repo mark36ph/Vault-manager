@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.161",
-  "build": 182,
+  "latest_version": "1.0.162",
+  "build": 183,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 182 adds Scan app now to Performance Diagnostics.",
-    "Build 182 scans the live WPF visual tree and shows UI element counts and measured startup/navigation timings directly in the app.",
-    "Build 182 keeps the cached navigation buttons and deferred startup performance improvements."
+    "Build 183 adds an in-app navigation benchmark to Performance Diagnostics.",
+    "The benchmark warms up each navigation section, measures the real click-and-dispatch path, and restores the original section.",
+    "Results show every section, timing, and a SLOW flag for navigation taking 100 ms or more."
   ]
 }
