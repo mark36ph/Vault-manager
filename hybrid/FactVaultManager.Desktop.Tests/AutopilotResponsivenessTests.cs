@@ -6,19 +6,9 @@ public sealed class AutopilotResponsivenessTests
     public void QuizAutopilot_MediaPersistenceRunsOffDispatcherAndIsThrottled()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.QuizAutopilot.cs");
-
-        Assert.Contains(
-            "QuizAutopilotMediaPersistencePollInterval = TimeSpan.FromSeconds(1)",
-            source,
-            StringComparison.Ordinal);
-        Assert.Contains(
-            "await Task.Run(() => TryPersistNewQuizProjectQuestionMedia(existingIds, persistedIds, questionBank));",
-            source,
-            StringComparison.Ordinal);
-        Assert.Contains(
-            "await Task.Delay(QuizAutopilotMediaPersistencePollInterval);",
-            source,
-            StringComparison.Ordinal);
+        Assert.Contains("QuizAutopilotMediaPersistencePollInterval = TimeSpan.FromSeconds(1)", source, StringComparison.Ordinal);
+        Assert.Contains("await Task.Run(() => TryPersistNewQuizProjectQuestionMedia(existingIds, persistedIds, questionBank));", source, StringComparison.Ordinal);
+        Assert.Contains("await Task.Delay(QuizAutopilotMediaPersistencePollInterval);", source, StringComparison.Ordinal);
         Assert.DoesNotContain("await Task.Delay(150);", source, StringComparison.Ordinal);
     }
 
@@ -26,47 +16,32 @@ public sealed class AutopilotResponsivenessTests
     public void QuizAutopilot_LoadsQuestionBankOnceAndDoesNotRecopyCompletedProjects()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.QuizAutopilot.cs");
-
-        Assert.Contains(
-            "var questionBank = await Task.Run(LoadQuizAutopilotQuestionBank);",
-            source,
-            StringComparison.Ordinal);
+        Assert.Contains("var questionBank = await Task.Run(LoadQuizAutopilotQuestionBank);", source, StringComparison.Ordinal);
         Assert.Contains("!persistedIds.Contains(history.Id)", source, StringComparison.Ordinal);
         Assert.Contains("persistedIds.Add(history.Id);", source, StringComparison.Ordinal);
-        Assert.Contains(
-            "var created = await Task.Run(() => _data.GetQuizHistory(2_000)",
-            source,
-            StringComparison.Ordinal);
+        Assert.Contains("var created = await Task.Run(() => _data.GetQuizHistory(2_000)", source, StringComparison.Ordinal);
     }
 
     [Fact]
     public void AutopilotNeedsYouRefresh_RunsFileReadsOffDispatcherAndPreventsOverlap()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
-
-        Assert.Contains(
-            "Interlocked.CompareExchange(ref _autopilotNeedsYouCountSyncBusy, 1, 0)",
-            source,
-            StringComparison.Ordinal);
+        Assert.Contains("Interlocked.CompareExchange(ref _autopilotNeedsYouCountSyncBusy, 1, 0)", source, StringComparison.Ordinal);
         Assert.Contains("var grouped = await Task.Run(() =>", source, StringComparison.Ordinal);
         Assert.Contains("FactburstFullAutopilotStateStore.Load(settingsPath)", source, StringComparison.Ordinal);
         Assert.Contains("YouTubeGrowthSnapshotStore.Load(growthStorePath)", source, StringComparison.Ordinal);
-        Assert.Contains(
-            "Interlocked.Exchange(ref _autopilotNeedsYouCountSyncBusy, 0);",
-            source,
-            StringComparison.Ordinal);
+        Assert.Contains("Interlocked.Exchange(ref _autopilotNeedsYouCountSyncBusy, 0);", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Build136_RetiresObsoleteAutomaticRecoveryPasses()
+    public void StartupRecovery_IsBestEffortAndUsesCurrentRecoverySet()
     {
-        var build = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var program = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/Program.cs");
-
-        Assert.DoesNotContain("InitializeAutopilotRecoverySupervisor();", build, StringComparison.Ordinal);
         Assert.DoesNotContain("InstalledDatabaseRecovery.Run();", program, StringComparison.Ordinal);
-        Assert.Contains("InstalledLibraryRecoveryV2.Run();", program, StringComparison.Ordinal);
-        Assert.Contains("InstalledQuestionLibraryRecoveryV3.Run();", program, StringComparison.Ordinal);
+        Assert.Contains("RunStartupRecovery(\"library recovery\", InstalledLibraryRecoveryV2.Run);", program, StringComparison.Ordinal);
+        Assert.Contains("RunStartupRecovery(\"question library recovery\", InstalledQuestionLibraryRecoveryV3.Run);", program, StringComparison.Ordinal);
+        Assert.Contains("RunStartupRecovery(\"credential recovery\", InstalledCredentialRecovery.Run);", program, StringComparison.Ordinal);
+        Assert.Contains("private static void RunStartupRecovery(string name, Action action)", program, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -74,7 +49,6 @@ public sealed class AutopilotResponsivenessTests
     {
         var countSync = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotNeedsYouCountSync.cs");
         var alignedQueue = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/AutopilotNeedsYouAlignedQueue.cs");
-
         Assert.DoesNotContain("private void SyncAutopilotNeedsYouCount()", countSync, StringComparison.Ordinal);
         Assert.Contains("await SyncAutopilotNeedsYouCountAsync();", alignedQueue, StringComparison.Ordinal);
     }
@@ -83,7 +57,6 @@ public sealed class AutopilotResponsivenessTests
     public void Build138_ProjectFolderReadinessDoesNotRunRecursiveRecoveryDuringRefresh()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.ScheduledReleaseReadiness.cs");
-
         Assert.DoesNotContain("_data.RecoverQuizHistoryProjectFolders();", source, StringComparison.Ordinal);
         Assert.Contains("var local = await Task.Run(() =>", source, StringComparison.Ordinal);
         Assert.Contains("var histories = _data.GetQuizHistory(2_000);", source, StringComparison.Ordinal);
@@ -101,7 +74,6 @@ public sealed class AutopilotResponsivenessTests
             if (File.Exists(candidate)) return File.ReadAllText(candidate);
             directory = directory.Parent;
         }
-
         throw new FileNotFoundException(relativePath);
     }
 }
