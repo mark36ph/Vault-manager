@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.159",
-  "build": 180,
+  "latest_version": "1.0.160",
+  "build": 181,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 180 adds detailed startup and navigation performance diagnostics so slow menu switches can be traced to the exact initializer.",
-    "Build 180 keeps cached navigation buttons to avoid repeated full WPF visual-tree scans.",
-    "Build 180 keeps the deferred startup phases, reduced cleanup passes, and real Instagram Business Login flow."
+    "Build 181 adds an in-app Performance Diagnostics page under Settings.",
+    "Build 181 lets you enable diagnostics, write a report immediately, and open the diagnostics folder without setting a Windows environment variable.",
+    "Build 181 keeps the cached navigation buttons and deferred startup performance improvements."
   ]
 }
