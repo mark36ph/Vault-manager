@@ -21,6 +21,21 @@ public sealed class NavigationHotspotProfilerTests
         Assert.Contains("Samples100", profiler, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Build191_AttachesDiagnosticsActionsWhenLazyPagesLoad()
+    {
+        var profiler = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.NavigationHotspotProfiler.cs");
+        var recommendations = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/PerformanceDiagnosticsRecommendations.cs");
+
+        Assert.Contains("typeof(Button)", profiler, StringComparison.Ordinal);
+        Assert.Contains("MainShellWindowNavigationHotspotProfiler_ButtonLoaded", profiler, StringComparison.Ordinal);
+        Assert.DoesNotContain("DispatcherTimer", profiler, StringComparison.Ordinal);
+        Assert.DoesNotContain("attempts >= 20", profiler, StringComparison.Ordinal);
+        Assert.Contains("typeof(TextBox)", recommendations, StringComparison.Ordinal);
+        Assert.Contains("OnPerformanceDiagnosticsResultsLoaded", recommendations, StringComparison.Ordinal);
+        Assert.DoesNotContain("OnPerformanceDiagnosticsWindowLoaded", recommendations, StringComparison.Ordinal);
+    }
+
     private static string ReadRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
