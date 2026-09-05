@@ -189,17 +189,10 @@ public partial class MainShellWindow
             return;
         }
 
-        if (_indexedNavigationButtons is null)
-            ApplyNavigationSelection(MainTabs.SelectedIndex);
-
-        var buttons = _indexedNavigationButtons?
-            .Where(button => button.IsVisible && int.TryParse(button.Tag?.ToString(), out _))
-            .OrderBy(button => int.Parse(button.Tag!.ToString()!))
-            .ToList();
-
-        if (buttons is null || buttons.Count == 0)
+        var buttons = GetCurrentNavigationButtons();
+        if (buttons.Count == 0)
         {
-            _performanceDiagnosticsStatus!.Text = "No navigation buttons were available for benchmarking.";
+            _performanceDiagnosticsStatus!.Text = "No navigation buttons were available for benchmarking. The live UI scan also found no tagged navigation buttons.";
             return;
         }
 
@@ -267,6 +260,21 @@ public partial class MainShellWindow
         _performanceDiagnosticsStatus.Text = ordered.Count == 0
             ? "Navigation benchmark completed without measurable sections."
             : $"Navigation benchmark complete. Slowest section: {ordered[0].Name} at {ordered[0].Ms:F1} ms.";
+    }
+
+    private List<Button> GetCurrentNavigationButtons()
+    {
+        if (Content is not DependencyObject root)
+            return new List<Button>();
+
+        var buttons = FindVisualChildren<Button>(root)
+            .Where(button => button.IsVisible && int.TryParse(button.Tag?.ToString(), out _))
+            .OrderBy(button => int.Parse(button.Tag!.ToString()!))
+            .ToList();
+
+        // Keep the normal navigation cache synchronized with the live visual tree.
+        _indexedNavigationButtons = buttons;
+        return buttons;
     }
 
     private async Task NavigateAndWaitAsync(Button button)
