@@ -9,13 +9,63 @@ internal static class PerformanceDiagnostics
     private const int MaxSamplesPerOperation = 200;
     private static readonly ConcurrentDictionary<string, OperationStats> Stats = new(StringComparer.Ordinal);
     private static readonly object FileLock = new();
+    private static readonly string DiagnosticsDirectory = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "FactburstQuizManager",
+        "Diagnostics");
+    private static readonly string StartupProfileRequestPath = Path.Combine(
+        DiagnosticsDirectory,
+        "profile-next-startup.request");
 
     public static bool Enabled { get; private set; } = string.Equals(
         Environment.GetEnvironmentVariable("FACTBURST_PERF_DIAGNOSTICS"),
         "1",
-        StringComparison.Ordinal);
+        StringComparison.Ordinal) || StartupProfileRequested();
 
     public static void SetEnabled(bool enabled) => Enabled = enabled;
+
+    public static void RequestStartupProfile()
+    {
+        try
+        {
+            Directory.CreateDirectory(DiagnosticsDirectory);
+            File.WriteAllText(StartupProfileRequestPath, DateTime.Now.ToString("O"));
+        }
+        catch
+        {
+            // A diagnostics request must never interfere with the application.
+        }
+    }
+
+    public static bool StartupProfileRequested()
+    {
+        try
+        {
+            return File.Exists(StartupProfileRequestPath);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static void ClearStartupProfileRequest()
+    {
+        try
+        {
+            if (File.Exists(StartupProfileRequestPath))
+                File.Delete(StartupProfileRequestPath);
+        }
+        catch
+        {
+            // Diagnostics must never interfere with application startup.
+        }
+    }
+
+    public static void Reset()
+    {
+        Stats.Clear();
+    }
 
     public static IDisposable Measure(string operation)
     {
@@ -68,12 +118,8 @@ internal static class PerformanceDiagnostics
 
         try
         {
-            var directory = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "FactburstQuizManager",
-                "Diagnostics");
-            Directory.CreateDirectory(directory);
-            var path = Path.Combine(directory, $"ui-performance-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
+            Directory.CreateDirectory(DiagnosticsDirectory);
+            var path = Path.Combine(DiagnosticsDirectory, $"ui-performance-{DateTime.Now:yyyyMMdd-HHmmss}.txt");
             lock (FileLock)
                 File.WriteAllText(path, GetReport());
             return path;
@@ -82,6 +128,18 @@ internal static class PerformanceDiagnostics
         {
             // Diagnostics must never interfere with application shutdown.
             return null;
+        }
+    }
+
+    private static bool StartupProfileRequested()
+    {
+        try
+        {
+            return File.Exists(StartupProfileRequestPath);
+        }
+        catch
+        {
+            return false;
         }
     }
 
