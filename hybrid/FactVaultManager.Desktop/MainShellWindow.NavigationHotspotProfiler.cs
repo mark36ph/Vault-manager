@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -8,6 +9,24 @@ namespace FactVaultManager.Desktop;
 public partial class MainShellWindow
 {
     private bool _navigationHotspotProfilerRegistered;
+
+    private static bool RegisterNavigationHotspotProfilerUi()
+    {
+        EventManager.RegisterClassHandler(
+            typeof(MainShellWindow),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler(MainShellWindowNavigationHotspotProfiler_Loaded),
+            handledEventsToo: true);
+        return true;
+    }
+
+    private static readonly bool NavigationHotspotProfilerUiRegistered = RegisterNavigationHotspotProfilerUi();
+
+    private static void MainShellWindowNavigationHotspotProfiler_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is MainShellWindow window)
+            window.RegisterNavigationHotspotProfiler();
+    }
 
     private void RegisterNavigationHotspotProfiler()
     {
