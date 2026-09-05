@@ -6,11 +6,18 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    private static readonly Brush FactburstWindowBrush = new SolidColorBrush(Color.FromRgb(243, 243, 243));
-    private static readonly Brush FactburstPaneBrush = new SolidColorBrush(Color.FromRgb(247, 247, 247));
-    private static readonly Brush FactburstTextBrush = new SolidColorBrush(Color.FromRgb(31, 31, 31));
-    private static readonly Brush FactburstMutedBrush = new SolidColorBrush(Color.FromRgb(102, 112, 133));
-    private static readonly Brush FactburstBorderBrush = new SolidColorBrush(Color.FromRgb(225, 225, 225));
+    private static readonly Brush FactburstWindowBrush = CreateBrush(243, 243, 243);
+    private static readonly Brush FactburstPaneBrush = CreateBrush(247, 247, 247);
+    private static readonly Brush FactburstTextBrush = CreateBrush(31, 31, 31);
+    private static readonly Brush FactburstMutedBrush = CreateBrush(102, 112, 133);
+    private static readonly Brush FactburstBorderBrush = CreateBrush(225, 225, 225);
+
+    private static Brush CreateBrush(byte red, byte green, byte blue)
+    {
+        var brush = new SolidColorBrush(Color.FromRgb(red, green, blue));
+        brush.Freeze();
+        return brush;
+    }
 
     private void InitializeFactburstVisualBaseline()
     {
