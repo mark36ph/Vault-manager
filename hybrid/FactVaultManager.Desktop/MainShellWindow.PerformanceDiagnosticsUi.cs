@@ -37,7 +37,7 @@ public partial class MainShellWindow
     {
         var page = SettingsPageStack(
             "Performance Diagnostics",
-            "Scan the current app UI and show performance measurements directly in the app. Diagnostics stay off until you enable them.");
+            "Scan the current app UI and benchmark real navigation work directly in the app. Diagnostics stay off until you enable them.");
 
         var controls = SettingsSection("Diagnostics");
         page.Children.Add(controls);
@@ -72,6 +72,16 @@ public partial class MainShellWindow
         };
         scanButton.Click += (_, _) => ScanPerformanceDiagnostics();
         stack.Children.Add(scanButton);
+
+        var benchmarkButton = new Button
+        {
+            Content = "Benchmark navigation",
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, 8, 0, 0),
+            MinWidth = 170,
+        };
+        benchmarkButton.Click += async (_, _) => await BenchmarkNavigationAsync();
+        stack.Children.Add(benchmarkButton);
 
         var reportButton = new Button
         {
@@ -125,7 +135,7 @@ public partial class MainShellWindow
         page.Children.Add(info);
         ((StackPanel)info.Child).Children.Add(new TextBlock
         {
-            Text = "Enable diagnostics, use the app normally, and switch between menus several times. Scan app now shows the current visual-tree size plus the measured startup/navigation timings. The results are shown here without leaving the app.",
+            Text = "Enable diagnostics, then use Benchmark navigation to cycle through every navigation section twice. The first pass warms up lazy page initialization; the second pass measures the warmed navigation path and waits for the UI dispatcher between sections. Results show the slowest sections so we can target the real bottleneck.",
             Foreground = SettingsMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 6, 0, 0),
@@ -171,6 +181,106 @@ public partial class MainShellWindow
         _performanceDiagnosticsStatus!.Text = $"Scan complete in {stopwatch.Elapsed.TotalMilliseconds:F1} ms. Results are shown below.";
     }
 
+    private async Task BenchmarkNavigationAsync()
+    {
+        if (!PerformanceDiagnostics.Enabled)
+        {
+            _performanceDiagnosticsStatus!.Text = "Enable diagnostics first, then run the navigation benchmark.";
+            return;
+        }
+
+        if (_indexedNavigationButtons is null)
+            ApplyNavigationSelection(MainTabs.SelectedIndex);
+
+        var buttons = _indexedNavigationButtons?
+            .Where(button => button.IsVisible && int.TryParse(button.Tag?.ToString(), out _))
+            .OrderBy(button => int.Parse(button.Tag!.ToString()!))
+            .ToList();
+
+        if (buttons is null || buttons.Count == 0)
+        {
+            _performanceDiagnosticsStatus!.Text = "No navigation buttons were available for benchmarking.";
+            return;
+        }
+
+        var originalIndex = MainTabs.SelectedIndex;
+        var rows = new List<(int Index, string Name, double Ms)>();
+        _performanceDiagnosticsStatus!.Text = $"Benchmarking {buttons.Count} navigation sections...";
+        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
+
+        try
+        {
+            // Warm up lazy page initialization before taking the measured pass.
+            foreach (var button in buttons)
+                await NavigateAndWaitAsync(button);
+
+            foreach (var button in buttons)
+            {
+                if (!int.TryParse(button.Tag?.ToString(), out var index))
+                    continue;
+
+                var name = GetNavigationBenchmarkName(button, index);
+                var stopwatch = Stopwatch.StartNew();
+                await NavigateAndWaitAsync(button);
+                stopwatch.Stop();
+                rows.Add((index, name, stopwatch.Elapsed.TotalMilliseconds));
+            }
+        }
+        finally
+        {
+            if (originalIndex >= 0)
+            {
+                MainTabs.SelectedIndex = originalIndex;
+                ApplyNavigationSelection(originalIndex);
+                await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
+            }
+        }
+
+        var ordered = rows.OrderByDescending(row => row.Ms).ToList();
+        var slowCount = ordered.Count(row => row.Ms >= 100);
+        var builder = new System.Text.StringBuilder();
+        builder.AppendLine("FACTBURST NAVIGATION BENCHMARK");
+        builder.AppendLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        builder.AppendLine($"Sections tested : {ordered.Count}");
+        builder.AppendLine("Warm-up passes   : 1");
+        builder.AppendLine("Measured passes  : 1");
+        builder.AppendLine();
+        builder.AppendLine("NAVIGATION RESULTS (slowest first)");
+        builder.AppendLine("Section | Index | Time ms | Status");
+        builder.AppendLine("--- | ---: | ---: | ---");
+
+        foreach (var row in ordered)
+            builder.AppendLine($"{row.Name} | {row.Index} | {row.Ms:F1} | {(row.Ms >= 100 ? "SLOW" : "OK")}");
+
+        if (ordered.Count > 0)
+        {
+            var slowest = ordered[0];
+            builder.AppendLine();
+            builder.AppendLine($"SLOWEST: {slowest.Name} — {slowest.Ms:F1} ms");
+            builder.AppendLine($"Sections >= 100 ms: {slowCount}");
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("MEASURED OPERATIONS");
+        builder.Append(PerformanceDiagnostics.GetReport());
+        _performanceDiagnosticsResults!.Text = builder.ToString();
+        _performanceDiagnosticsStatus.Text = ordered.Count == 0
+            ? "Navigation benchmark completed without measurable sections."
+            : $"Navigation benchmark complete. Slowest section: {ordered[0].Name} at {ordered[0].Ms:F1} ms.";
+    }
+
+    private async Task NavigateAndWaitAsync(Button button)
+    {
+        button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
+    }
+
+    private static string GetNavigationBenchmarkName(Button button, int index)
+    {
+        var text = button.Content?.ToString()?.Trim();
+        return string.IsNullOrWhiteSpace(text) ? $"Section {index}" : text.Replace("\r", " ").Replace("\n", " ");
+    }
+
     private static void ScanVisualTree(
         DependencyObject node,
         ref int visualElements,
@@ -205,7 +315,7 @@ public partial class MainShellWindow
             ? "Disable diagnostics"
             : "Enable diagnostics";
         _performanceDiagnosticsStatus.Text = PerformanceDiagnostics.Enabled
-            ? "Performance diagnostics are ON. Run Scan app now after reproducing the slowdown."
+            ? "Performance diagnostics are ON. Run Scan app now or Benchmark navigation."
             : "Performance diagnostics are OFF.";
     }
 
