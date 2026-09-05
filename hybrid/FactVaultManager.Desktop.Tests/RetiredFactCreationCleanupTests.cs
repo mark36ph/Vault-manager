@@ -70,6 +70,10 @@ public sealed class RetiredFactCreationCleanupTests
         Assert.DoesNotContain("InitializeInstagramPromoFollowup();", buildInfo, StringComparison.Ordinal);
         Assert.Contains("Approve Page for Instagram Autopilot", approval, StringComparison.Ordinal);
         Assert.Contains("ApprovedFacebookPageId", approval, StringComparison.Ordinal);
+        var save = approval.IndexOf("_data.SaveSettings(settings);", StringComparison.Ordinal);
+        var start = approval.IndexOf("InitializeInstagramPromoFollowup();", save, StringComparison.Ordinal);
+        Assert.True(save >= 0);
+        Assert.True(start > save);
     }
 
     [Fact]
