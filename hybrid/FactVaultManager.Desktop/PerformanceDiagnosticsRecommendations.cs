@@ -28,6 +28,7 @@ public partial class MainShellWindow
             Window.GetWindow(textBox) is MainShellWindow window)
         {
             window.AttachPerformanceDiagnosticsRecommendations();
+            window.EnsureNavigationHotspotProfilerButton();
         }
     }
 
