@@ -13,6 +13,8 @@ public static class Program
         "logs",
         "startup-crash.log");
 
+    private static readonly List<(string Name, Action Action)> DeferredStartupRecovery = new();
+
     [STAThread]
     public static void Main()
     {
@@ -57,6 +59,14 @@ public static class Program
             mainWindow.InitializeScheduledReleaseReadinessForApp();
             mainWindow.InitializeScheduledPromoBatchForApp();
             mainWindow.InitializePromoRelatedVideoChecklistForApp();
+
+            if (DeferredStartupRecovery.Count > 0)
+            {
+                mainWindow.Dispatcher.BeginInvoke(
+                    DispatcherPriority.Background,
+                    new Action(() => _ = RunDeferredStartupRecoveryAsync()));
+            }
+
             application.Run(mainWindow);
         }
         catch (Exception error)
@@ -66,6 +76,27 @@ public static class Program
     }
 
     private static void RunStartupRecovery(string name, Action action)
+    {
+        if (string.Equals(name, "data migration", StringComparison.Ordinal))
+        {
+            RunRecoveryNow(name, action);
+            return;
+        }
+
+        DeferredStartupRecovery.Add((name, action));
+    }
+
+    private static async Task RunDeferredStartupRecoveryAsync()
+    {
+        foreach (var recovery in DeferredStartupRecovery)
+        {
+            await Task.Run(() => RunRecoveryNow(recovery.Name, recovery.Action));
+        }
+
+        DeferredStartupRecovery.Clear();
+    }
+
+    private static void RunRecoveryNow(string name, Action action)
     {
         try
         {
