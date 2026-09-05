@@ -174,6 +174,18 @@ public sealed class RetiredFactCreationCleanupTests
         Assert.Contains("\"latest_version\": \"1.0.166\"", version, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Build187_UpdaterUsesGitHubStableFeedAndLatestSetupAsset()
+    {
+        var updater = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/AppUpdateService.cs");
+        Assert.Contains("new GithubSource(RepositoryUrl, accessToken: null, prerelease: false)", updater, StringComparison.Ordinal);
+        Assert.Contains("public const string StableSetupDownloadUrl = RepositoryUrl + \"/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe\";", updater, StringComparison.Ordinal);
+        Assert.Contains("return await _manager.CheckForUpdatesAsync();", updater, StringComparison.Ordinal);
+        Assert.Contains("return $\"Factburst Quiz Manager {CurrentVersion} is up to date.\";", updater, StringComparison.Ordinal);
+        Assert.DoesNotContain("1.0.166", updater, StringComparison.Ordinal);
+        Assert.DoesNotContain("1.0.167", updater, StringComparison.Ordinal);
+    }
+
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
 
     private static string ReadRepositoryFile(string relativePath)
