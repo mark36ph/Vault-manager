@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.162",
-  "build": 183,
+  "latest_version": "1.0.163",
+  "build": 184,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 183 adds an in-app navigation benchmark to Performance Diagnostics.",
-    "The benchmark warms up each navigation section, measures the real click-and-dispatch path, and restores the original section.",
-    "Results show every section, timing, and a SLOW flag for navigation taking 100 ms or more."
+    "Build 184 fixes navigation benchmarking when the navigation button index was created before the buttons were available.",
+    "The navigation button cache now refreshes automatically when it is empty, so the benchmark can discover all available navigation sections.",
+    "Build 184 keeps the in-app performance scan and real navigation benchmark."
   ]
 }
