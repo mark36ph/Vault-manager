@@ -10,6 +10,7 @@ public partial class MainShellWindow
     private static readonly Brush NavSelectedBorder = new SolidColorBrush(Color.FromRgb(15, 108, 189));
     private static readonly Brush NavTransparent = Brushes.Transparent;
     private bool _productBrandApplied;
+    private List<Button>? _indexedNavigationButtons;
 
     protected override void OnInitialized(EventArgs e)
     {
@@ -91,9 +92,16 @@ public partial class MainShellWindow
         if (Content is not DependencyObject root)
             return;
 
-        foreach (var button in FindVisualChildren<Button>(root))
+        if (_indexedNavigationButtons is null)
         {
-            if (!int.TryParse(button.Tag?.ToString(), out var index))
+            _indexedNavigationButtons = FindVisualChildren<Button>(root)
+                .Where(button => int.TryParse(button.Tag?.ToString(), out _))
+                .ToList();
+        }
+
+        foreach (var button in _indexedNavigationButtons)
+        {
+            if (!button.IsVisible || !int.TryParse(button.Tag?.ToString(), out var index))
                 continue;
 
             var isSelected = index == selectedIndex;
