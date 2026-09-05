@@ -39,9 +39,6 @@ internal static class PerformanceDiagnosticsTidiness
 
     private static bool Tidy(MainShellWindow window)
     {
-        if (window._performanceDiagnosticsResults is null)
-            return false;
-
         var actionLabels = new[]
         {
             "Scan app now",
@@ -100,14 +97,29 @@ internal static class PerformanceDiagnosticsTidiness
             button.Padding = new Thickness(12, 5, 12, 5);
         }
 
-        window._performanceDiagnosticsResults.MinHeight = 360;
-        window._performanceDiagnosticsResults.Margin = new Thickness(0, 4, 0, 0);
-        window._performanceDiagnosticsResults.Padding = new Thickness(10);
+        var results = FindVisualChildren<TextBox>(window)
+            .FirstOrDefault(textBox => textBox.IsReadOnly &&
+                                       textBox.AcceptsReturn &&
+                                       string.Equals(textBox.FontFamily?.Source, "Consolas", StringComparison.OrdinalIgnoreCase));
 
-        if (window._performanceDiagnosticsStatus is not null)
+        if (results is not null)
         {
-            window._performanceDiagnosticsStatus.Margin = new Thickness(0, 2, 0, 8);
-            window._performanceDiagnosticsStatus.MaxWidth = 900;
+            results.MinHeight = 360;
+            results.Margin = new Thickness(0, 4, 0, 0);
+            results.Padding = new Thickness(10);
+        }
+
+        var status = FindVisualChildren<TextBlock>(window)
+            .FirstOrDefault(textBlock =>
+                textBlock.Text.StartsWith("Performance diagnostics", StringComparison.OrdinalIgnoreCase) ||
+                textBlock.Text.StartsWith("Full profile", StringComparison.OrdinalIgnoreCase) ||
+                textBlock.Text.StartsWith("Scan complete", StringComparison.OrdinalIgnoreCase) ||
+                textBlock.Text.StartsWith("Navigation benchmark", StringComparison.OrdinalIgnoreCase));
+
+        if (status is not null)
+        {
+            status.Margin = new Thickness(0, 2, 0, 8);
+            status.MaxWidth = 900;
         }
 
         return true;
