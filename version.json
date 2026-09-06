@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.173",
-  "build": 194,
+  "latest_version": "1.0.174",
+  "build": 195,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 194 defers expensive Quiz Preview construction until the Preview page is selected.",
-    "Build 194 removes unnecessary Preview page construction from initial Quiz Workspace setup.",
+    "Build 195 removes the duplicate Quiz Preview render on first Preview selection.",
+    "Build 195 keeps the expensive Preview construction lazy until the Preview page is opened.",
     "Performance Diagnostics continues to measure navigation, memory, allocations, and garbage collection behavior."
   ]
 }
