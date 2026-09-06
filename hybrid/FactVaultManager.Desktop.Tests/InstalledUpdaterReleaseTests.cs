@@ -13,6 +13,16 @@ public sealed class InstalledUpdaterReleaseTests
     }
 
     [Fact]
+    public void InstalledUpdater_HasStableManifestFallback()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/AppUpdateService.cs");
+        Assert.Contains("LatestVersionManifestUrl", source, StringComparison.Ordinal);
+        Assert.Contains("InstallLatestSetupIfNewerAsync", source, StringComparison.Ordinal);
+        Assert.Contains("DownloadAndLaunchInstallerAsync", source, StringComparison.Ordinal);
+        Assert.Contains("Version.TryParse(CurrentVersion", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ReleaseWorkflow_PublishesVersionJsonChangesFromMain()
     {
         var source = ReadRepositoryFile(".github/workflows/release-hybrid.yml");
@@ -55,6 +65,7 @@ public sealed class InstalledUpdaterReleaseTests
 
         Assert.Contains("window._updates.IsInstalled", source, StringComparison.Ordinal);
         Assert.Contains("BootstrapInstallAsync", source, StringComparison.Ordinal);
+        Assert.Contains("InstallLatestSetupIfNewerAsync", source, StringComparison.Ordinal);
         Assert.Contains("Application.Current?.Shutdown()", source, StringComparison.Ordinal);
         Assert.DoesNotContain("current signed Factburst", source, StringComparison.OrdinalIgnoreCase);
     }
