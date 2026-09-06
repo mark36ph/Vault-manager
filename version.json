@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.0.187",
-  "build": 207,
+  "latest_version": "1.0.188",
+  "build": 208,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 207 fixes the navigation hotspot profiler so it measures only the current Factburst sidebar instead of hidden legacy navigation anchors.",
-    "The performance report now covers Autopilot, Create, Performance, Library, Analytics, Users, Comments, SEO, Website and Settings, matching the pages shown in the current shell."
+    "Build 208 adds Edit account to the Users section so administrators can change a user's username, email address and password from Factburst Quiz Manager.",
+    "Email changes clear verification and password changes sign out existing website sessions. Password updates use the site's existing secure PBKDF2-HMAC password scheme without exposing the password to the desktop tracker API."
   ]
 }
