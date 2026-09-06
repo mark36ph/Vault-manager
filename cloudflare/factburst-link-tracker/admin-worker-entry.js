@@ -2,6 +2,7 @@ import trackerWorker from "./worker.js";
 import { handleSiteUserAdmin } from "./site-user-admin.js";
 import { handleSiteUserFriendsAdmin } from "./site-user-friends-admin.js";
 import { handleSiteUserProvisionAdmin } from "./site-user-provision-admin.js";
+import { handleSiteUserEditTokenAdmin } from "./site-user-edit-token-admin.js";
 import { handleSiteAdAdmin } from "./site-ad-admin.js";
 import { handleSiteAccessAdmin } from "./site-access-admin.js";
 import { handleSiteQuestionReportAdmin } from "./site-question-report-admin.js";
@@ -37,6 +38,9 @@ export default {
 
         const friendsResponse = await handleSiteUserFriendsAdmin(request, env, url);
         if (friendsResponse) return friendsResponse;
+
+        const editTokenResponse = await handleSiteUserEditTokenAdmin(request, env, url);
+        if (editTokenResponse) return editTokenResponse;
 
         const provisionResponse = await handleSiteUserProvisionAdmin(request, env, url);
         if (provisionResponse) return provisionResponse;
