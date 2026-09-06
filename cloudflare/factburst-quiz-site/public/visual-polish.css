@@ -268,7 +268,7 @@
   }
 }
 
-/* Mobile header: a stable two-row layout with four fixed nav tabs and notification slot. */
+/* Mobile header: one compact, swipeable navigation row so links never wrap. */
 @media (max-width: 700px) {
   .site-header {
     display: grid !important;
@@ -308,39 +308,49 @@
     order: initial !important;
     width: 100% !important;
     min-width: 0;
-    display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) 42px;
+    display: flex !important;
     align-items: center;
-    gap: 4px !important;
-    padding-top: 7px;
+    gap: 5px !important;
+    padding: 7px 1px 1px;
     border-top: 1px solid rgba(170, 192, 224, .09);
-    overflow: visible !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    justify-content: flex-start !important;
   }
 
+  .top-nav::-webkit-scrollbar { display: none; }
+
   .top-nav a {
-    min-width: 0;
-    min-height: 36px;
+    flex: 0 0 auto;
+    min-width: 72px;
+    min-height: 44px;
     display: flex !important;
     align-items: center;
     justify-content: center;
-    padding: 7px 5px !important;
+    padding: 8px 10px !important;
     border: 1px solid transparent;
-    border-radius: 9px;
+    border-radius: 10px;
     font-size: 12px !important;
     line-height: 1;
     white-space: nowrap;
+    scroll-snap-align: start;
   }
 
   .top-nav a[aria-current="page"] {
-    border-color: rgba(53, 199, 255, .16);
-    background: rgba(53, 199, 255, .085);
+    border-color: rgba(53, 199, 255, .18);
+    background: rgba(53, 199, 255, .09);
   }
 
   .notification-slot {
     position: static !important;
-    width: 42px !important;
-    min-width: 42px !important;
-    height: 36px !important;
+    flex: 0 0 44px;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
     transform: none !important;
     display: flex !important;
     align-items: center;
@@ -350,18 +360,18 @@
   .notification-slot:empty { visibility: hidden; }
 
   .notification-slot .notification-button-header {
-    width: 42px !important;
-    min-width: 42px !important;
-    min-height: 36px !important;
-    height: 36px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    height: 44px !important;
     padding: 0 !important;
-    border-radius: 9px !important;
+    border-radius: 10px !important;
   }
 
   .notification-slot .notification-button-label { display: none !important; }
 
   .account-trigger {
-    min-height: 36px;
+    min-height: 40px;
     max-width: 145px;
     padding: 7px 10px;
     overflow: hidden;
@@ -415,9 +425,8 @@
   .brand-mark img { max-width: 126px !important; }
   .brand > span:last-child { font-size: 14px !important; }
 
-  .top-nav a { font-size: 11px !important; padding-inline: 3px !important; }
-  .top-nav a[href="/leaderboard.html"] { font-size: 0 !important; }
-  .top-nav a[href="/leaderboard.html"]::after { content: "Ranks"; font-size: 11px; }
+  .top-nav { gap: 4px !important; }
+  .top-nav a { min-width: 68px; font-size: 11px !important; padding-inline: 8px !important; }
 
   .profile-hero { padding: 18px !important; }
   .profile-identity { align-items: flex-start; }
