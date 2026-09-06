@@ -48,10 +48,24 @@
         <button id="new-quiz" class="button button-primary" type="button">+ New quiz</button>
       </div>
       <div id="app-status" class="admin-status" role="status" aria-live="polite"></div>
+
+      <section class="admin-stats" aria-label="Quiz statistics">
+        <article class="admin-stat-card"><span>Quizzes</span><strong id="stat-total">0</strong></article>
+        <article class="admin-stat-card"><span>Published</span><strong id="stat-published">0</strong></article>
+        <article class="admin-stat-card"><span>Drafts</span><strong id="stat-drafts">0</strong></article>
+        <article class="admin-stat-card"><span>Questions</span><strong id="stat-questions">0</strong></article>
+        <article class="admin-stat-card"><span>Quiz plays</span><strong id="stat-attempts">0</strong></article>
+      </section>
+
       <section class="admin-panel">
         <div class="admin-panel-heading">
           <div><p class="eyebrow">Library</p><h2>All quizzes</h2></div>
           <button id="refresh-quizzes" class="button button-secondary" type="button">Refresh</button>
+        </div>
+        <div class="admin-list-controls">
+          <label>Search<input id="admin-search" type="search" placeholder="Search quizzes…" autocomplete="off"></label>
+          <label>Status<select id="admin-status-filter"><option value="">All statuses</option><option value="published">Published</option><option value="draft">Draft</option></select></label>
+          <label>Category<select id="admin-category-filter"><option value="">All categories</option></select></label>
         </div>
         <div id="quiz-list" class="admin-quiz-list"></div>
         <div id="quiz-list-empty" class="admin-empty hidden"><h3>No quizzes yet</h3><p>Create the first website quiz from this page.</p></div>
@@ -81,6 +95,6 @@
     </section>
   </main>
   <script src="/admin-auth.js?v=1"></script>
-  <script src="/admin.js?v=2"></script>
+  <script src="/admin.js?v=3"></script>
 </body>
 </html>
