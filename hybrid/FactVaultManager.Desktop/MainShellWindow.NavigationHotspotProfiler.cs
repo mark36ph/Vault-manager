@@ -45,25 +45,22 @@ public partial class MainShellWindow
             return;
         }
 
-        var buttons = GetCurrentNavigationButtons();
+        var buttons = GetCurrentFactburstNavigationButtons();
         if (buttons.Count == 0)
         {
-            _performanceDiagnosticsStatus!.Text = "The navigation hotspot profile could not run because no tagged navigation buttons are available.";
+            _performanceDiagnosticsStatus!.Text = "The navigation hotspot profile could not run because the current Factburst sidebar is not ready yet.";
             return;
         }
 
         const int cycles = 10;
         var originalIndex = MainTabs.SelectedIndex;
         var samples = buttons.ToDictionary(button => button, _ => new List<double>());
-        _performanceDiagnosticsStatus!.Text = $"Profiling {buttons.Count} navigation sections for {cycles} cycles...";
+        _performanceDiagnosticsStatus!.Text = $"Profiling {buttons.Count} current Factburst sections for {cycles} cycles...";
         await WaitForStableLayoutAsync();
 
         try
         {
-            // Prime each section before recording measurements. The stable-layout wait is
-            // deliberately stronger than DispatcherPriority.Render: WPF documents Loaded
-            // as occurring after layout and render have finished, while ContextIdle lets
-            // already-queued background UI work drain before the stopwatch starts.
+            // Prime each current Factburst section before recording measurements.
             foreach (var button in buttons)
                 await NavigateAndWaitForStableLayoutAsync(button);
 
@@ -88,13 +85,12 @@ public partial class MainShellWindow
             }
         }
 
-        var rows = buttons.Select(button =>
+        var rows = buttons.Select((button, position) =>
         {
-            var index = int.TryParse(button.Tag?.ToString(), out var parsed) ? parsed : 0;
             var values = samples[button];
             var sorted = values.OrderBy(value => value).ToList();
             return new NavigationHotspotRow(
-                GetNavigationBenchmarkName(button, index), index, values.Average(),
+                GetNavigationBenchmarkName(button, position), position, values.Average(),
                 Percentile(sorted, 0.95), values.Max(),
                 values.Count(value => value >= 50), values.Count(value => value >= 100));
         }).OrderByDescending(row => row.MaxMs).ToList();
@@ -103,12 +99,13 @@ public partial class MainShellWindow
         builder.AppendLine("FACTBURST NAVIGATION HOTSPOT PROFILE");
         builder.AppendLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         builder.AppendLine($"Sections           : {buttons.Count}");
+        builder.AppendLine("Navigation set     : current Factburst sidebar only");
         builder.AppendLine("Warm-up passes     : 1 per section");
         builder.AppendLine($"Measured cycles    : {cycles}");
         builder.AppendLine($"Measured samples   : {buttons.Count * cycles}");
         builder.AppendLine();
         builder.AppendLine("NAVIGATION HOTSPOTS (slowest maximum first)");
-        builder.AppendLine("Section | Index | Avg ms | P95 ms | Max ms | >=50 | >=100 | Status");
+        builder.AppendLine("Section | Position | Avg ms | P95 ms | Max ms | >=50 | >=100 | Status");
         builder.AppendLine("--- | ---: | ---: | ---: | ---: | ---: | ---: | ---");
         foreach (var row in rows)
         {
@@ -136,8 +133,37 @@ public partial class MainShellWindow
         builder.Append(PerformanceDiagnostics.GetReport());
         _performanceDiagnosticsResults!.Text = builder.ToString();
         _performanceDiagnosticsStatus.Text = rows.Count == 0
-            ? "Navigation hotspot profile completed without measurable sections."
+            ? "Navigation hotspot profile completed without measurable current Factburst sections."
             : $"Navigation hotspot profile complete. Hotspot: {rows[0].Name} at {rows[0].MaxMs:F1} ms maximum.";
+    }
+
+    private List<Button> GetCurrentFactburstNavigationButtons()
+    {
+        // Profile only the navigation the user actually sees. The old numeric-tagged
+        // buttons in PrimaryNavigationPanel are hidden bootstrap/legacy anchors and
+        // must never be treated as current navigation hotspots.
+        const string[] orderedKeys =
+        [
+            "Autopilot",
+            "Create",
+            "Performance",
+            "Library",
+            "Web Analytics",
+            "Users",
+            "Comments",
+            "SEO",
+            "Website",
+            "Settings",
+        ];
+
+        var buttons = new List<Button>(orderedKeys.Length);
+        foreach (var key in orderedKeys)
+        {
+            if (_autopilotNavButtons.TryGetValue(key, out var button))
+                buttons.Add(button);
+        }
+
+        return buttons;
     }
 
     private async Task NavigateAndWaitForStableLayoutAsync(Button button)
@@ -148,9 +174,8 @@ public partial class MainShellWindow
 
     private async Task WaitForStableLayoutAsync()
     {
-        // Render priority is the same priority used by WPF rendering, so a callback at
-        // Render can run before the queued layout/render work we actually want to measure.
-        // Loaded is defined by WPF as occurring after layout and render have finished.
+        // Loaded runs after layout/render completion for the queued UI work, while
+        // ContextIdle allows already-queued lower-priority UI work to drain.
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
     }
