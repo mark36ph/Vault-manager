@@ -5,6 +5,7 @@ const CLEAN_PAGE_ASSETS = new Map([
   ["/leaderboard", "/leaderboard.html"],
   ["/terms", "/terms.html"],
   ["/privacy", "/privacy.html"],
+  ["/admin", "/admin.html"],
 ]);
 
 const LEGACY_PAGE_PATHS = new Map([
@@ -13,6 +14,7 @@ const LEGACY_PAGE_PATHS = new Map([
   ["/leaderboard.html", "/leaderboard"],
   ["/terms.html", "/terms"],
   ["/privacy.html", "/privacy"],
+  ["/admin.html", "/admin"],
 ]);
 
 export function seoAssetPath(pathname) {
