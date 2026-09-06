@@ -11,7 +11,6 @@
   gap: 1.75rem;
 }
 
-/* Put the useful profile overview first and account maintenance later. */
 .profile-hero { order: 10; }
 .profile-stat-grid { order: 20; }
 #profile-engagement { order: 30; }
@@ -41,6 +40,34 @@
 
 .profile-hero .eyebrow {
   margin-bottom: .35rem;
+}
+
+.profile-role {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  margin: 0 0 .45rem;
+  padding: .28rem .62rem;
+  border: 1px solid rgba(53, 199, 255, .25);
+  border-radius: 999px;
+  background: rgba(53, 199, 255, .10);
+  color: #dff7ff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  line-height: 1.1;
+}
+
+.profile-role[data-role="admin"] {
+  border-color: rgba(255, 184, 77, .30);
+  background: rgba(255, 184, 77, .12);
+  color: #fff1c2;
+}
+
+.profile-role[data-role="mod"] {
+  border-color: rgba(91, 214, 125, .28);
+  background: rgba(91, 214, 125, .10);
+  color: #d9ffd9;
 }
 
 .profile-actions {
@@ -89,7 +116,6 @@
   font-size: clamp(1.55rem, 3vw, 2rem);
 }
 
-/* Progress should feel like a dashboard section, not a second page of tiles. */
 #profile-engagement .engagement-grid {
   gap: 0;
   margin: .25rem 0 1.5rem;
@@ -158,7 +184,6 @@
   gap: .85rem;
 }
 
-/* Account settings should be quieter than gameplay/social content. */
 #email-change-panel {
   background: rgba(9, 20, 67, .82);
   border-color: rgba(145, 164, 226, .22);
@@ -186,7 +211,6 @@
   padding: 1.15rem 1.25rem;
 }
 
-/* Give injected competition/live sections clearer visual separation. */
 #friends-leaderboard-panel,
 #live-match-panel {
   box-shadow: none;
