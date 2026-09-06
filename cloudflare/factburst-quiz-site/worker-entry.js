@@ -84,6 +84,15 @@ export default {
       if (engagementResponse) return engagementResponse;
     }
 
+    if (url.pathname === "/api/account/claim-score" && request.method === "POST") {
+      if (!env.DB) return quizWorker.fetch(request, env, context);
+      const schemaFailure = await ensureSchemasSafely(env, url);
+      if (schemaFailure) return schemaFailure;
+      const origin = String(request.headers.get("origin") || "").trim();
+      if (origin !== url.origin) return jsonResponse({ error: "Request origin was not accepted." }, 403);
+      return claimGuestScore(request, env.DB, url);
+    }
+
     const accountRoute = isAccountRoute(url.pathname);
     if (accountRoute) {
       if (!env.DB) return quizWorker.fetch(request, env, context);
@@ -196,6 +205,113 @@ export default {
     return quizWorker.fetch(request, env, context);
   },
 };
+
+async function claimGuestScore(request, db, url) {
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResponse({ error: "Request body must be valid JSON." }, 400);
+  }
+
+  const slug = String(body?.slug || "").trim().toLowerCase();
+  const answers = Array.isArray(body?.answers) ? body.answers.map(normalizeClaimAnswer) : [];
+  if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(slug)) return jsonResponse({ error: "That quiz link is not valid." }, 400);
+  if (answers.length === 0 || answers.some(answer => !answer)) return jsonResponse({ error: "A complete quiz result is required." }, 400);
+
+  const user = await activeSessionUser(request, db);
+  if (!user) return jsonResponse({ error: "Create or log in to an account before saving this score." }, 401);
+
+  const scoringRequest = new Request(url.origin + `/api/quizzes/${encodeURIComponent(slug)}/score`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: url.origin },
+    body: JSON.stringify({ answers }),
+  });
+  const scored = await scoreGuestQuiz(scoringRequest, db, slug);
+  if (!scored.ok) return scored;
+
+  let payload;
+  try {
+    payload = await scored.clone().json();
+  } catch {
+    return jsonResponse({ error: "The score could not be checked." }, 500);
+  }
+
+  const quiz = await db.prepare("SELECT id FROM site_quizzes WHERE slug = ? LIMIT 1").bind(slug).first();
+  if (!quiz) return jsonResponse({ error: "Quiz not found." }, 404);
+
+  const score = Number(payload?.score);
+  const total = Number(payload?.total);
+  if (!Number.isInteger(score) || !Number.isInteger(total) || total <= 0 || score < 0 || score > total) {
+    return jsonResponse({ error: "The score could not be validated." }, 400);
+  }
+
+  const completedAt = new Date().toISOString();
+  await db.prepare(`
+    INSERT INTO site_user_scores
+      (user_id, quiz_id, best_score, total, attempts, first_completed_at, last_completed_at)
+    VALUES (?, ?, ?, ?, 1, ?, ?)
+    ON CONFLICT(user_id, quiz_id) DO UPDATE SET
+      best_score = CASE
+        WHEN site_user_scores.total = excluded.total
+          THEN MAX(site_user_scores.best_score, excluded.best_score)
+        ELSE excluded.best_score
+      END,
+      total = excluded.total,
+      attempts = CASE
+        WHEN site_user_scores.total = excluded.total
+          THEN site_user_scores.attempts + 1
+        ELSE 1
+      END,
+      first_completed_at = CASE
+        WHEN site_user_scores.total = excluded.total
+          THEN site_user_scores.first_completed_at
+        ELSE excluded.first_completed_at
+      END,
+      last_completed_at = excluded.last_completed_at
+  `).bind(user.id, quiz.id, score, total, completedAt, completedAt).run();
+
+  const saved = await db.prepare(`
+    SELECT best_score, total, attempts
+    FROM site_user_scores
+    WHERE user_id = ? AND quiz_id = ? LIMIT 1
+  `).bind(user.id, quiz.id).first();
+
+  return jsonResponse({
+    saved: true,
+    guest: false,
+    score,
+    total,
+    percentage: Number(payload?.percentage || 0),
+    user: {
+      id: Number(user.id),
+      username: String(user.username || ""),
+      email_verified: Boolean(user.email_verified_at),
+    },
+    account_score: saved ? {
+      username: String(user.username || ""),
+      best_score: Number(saved.best_score || 0),
+      total: Number(saved.total || total),
+      attempts: Number(saved.attempts || 0),
+    } : null,
+  });
+}
+
+function normalizeClaimAnswer(value) {
+  const answer = String(value || "").trim().toUpperCase();
+  return /^[A-D]$/.test(answer) ? answer : "";
+}
+
+function jsonResponse(value, status = 200) {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
 
 async function rewriteSeoResponse(response, method) {
   const headers = new Headers(response.headers);
