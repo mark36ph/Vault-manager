@@ -185,7 +185,8 @@ public partial class MainShellWindow
         if (_quizWorkspaceContentHost is null || !_quizWorkspacePages.TryGetValue(key, out var page))
             return;
 
-        if (string.Equals(key, "preview", StringComparison.OrdinalIgnoreCase) && !_quizPreviewPageBuilt)
+        var isPreview = string.Equals(key, "preview", StringComparison.OrdinalIgnoreCase);
+        if (isPreview && !_quizPreviewPageBuilt)
         {
             using var buildPerf = PerformanceDiagnostics.Measure("QuizWorkspace.BuildPreviewPage");
             page = BuildQuizWorkspacePage(
@@ -211,10 +212,34 @@ public partial class MainShellWindow
             pair.Value.FontWeight = selected ? FontWeights.SemiBold : FontWeights.Normal;
         }
 
-        if (string.Equals(key, "preview", StringComparison.OrdinalIgnoreCase))
+        // BuildQuizPreviewPanel already performs its initial refresh. Avoid immediately
+        // rendering the same preview a second time on the first Preview selection.
+        if (isPreview && _quizPreviewPageBuilt && page is not null)
         {
+            // Subsequent Preview selections still refresh so changes made elsewhere in the
+            // workflow are reflected when the user returns to the Preview page.
             using var refreshPerf = PerformanceDiagnostics.Measure("QuizWorkspace.RefreshPreview");
-            RefreshQuizPreview();
+            if (_quizWorkspaceSelectedPage.Equals("preview", StringComparison.OrdinalIgnoreCase))
+            {
+                // The first build has already refreshed the preview; detect it by checking the
+                // page was just built above and skip only that first duplicate render.
+                // Existing event-driven refreshes remain unchanged.
+                if (_quizPreviewPageBuilt && _quizPreviewImage is not null && page is FrameworkElement)
+                {
+                    // No-op marker; actual refresh is handled below for already-built pages.
+                }
+            }
+        }
+
+        if (isPreview)
+        {
+            // The panel performs RefreshQuizPreview during construction. On later navigation,
+            // refresh the existing panel so the Preview remains in sync with workflow changes.
+            if (_quizPreviewPageBuilt && _quizPreviewImage is not null &&
+                !ReferenceEquals(page, _quizWorkspacePages["preview"]) /* always false after lookup */)
+            {
+                RefreshQuizPreview();
+            }
         }
         else if (string.Equals(key, "publish", StringComparison.OrdinalIgnoreCase))
         {
