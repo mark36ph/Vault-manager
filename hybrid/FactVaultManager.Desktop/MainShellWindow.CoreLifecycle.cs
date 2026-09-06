@@ -51,13 +51,12 @@ public partial class MainShellWindow
         base.OnActivated(e);
         MeasureActivation("Navigation.ApplyProductBranding", ApplyProductBranding);
         MeasureActivation("Startup.InitializeQuizWorkflow", InitializeQuizWorkflow);
-        MeasureActivation("Startup.InitializeQuizQuestionBankPage", InitializeQuizQuestionBankPage);
+        // Keep only the pages used by the current Factburst workflow. The old
+        // Question Bank, Upload Manager, Facebook and Instagram manager pages
+        // are no longer part of the product navigation and do not need to be
+        // constructed during activation.
         MeasureActivation("Startup.InitializeQuizHistoryPage", InitializeQuizHistoryPage);
-        MeasureActivation("Startup.InitializeQuizNotesPage", InitializeQuizNotesPage);
-        MeasureActivation("Startup.InitializeUploadManagerPage", InitializeUploadManagerPage);
         MeasureActivation("Startup.InitializeYouTubeAnalyticsPage", InitializeYouTubeAnalyticsPage);
-        MeasureActivation("Startup.InitializeFacebookAnalyticsPage", InitializeFacebookAnalyticsPage);
-        MeasureActivation("Startup.InitializeInstagramManagerPage", InitializeInstagramManagerPage);
         MeasureActivation("Startup.InitializeQuizDraftEditor", InitializeQuizDraftEditor);
         MeasureActivation("Startup.InitializeQuizRotationWorkflow", InitializeQuizRotationWorkflow);
         MeasureActivation("Startup.InitializeQuizExportWorkflow", InitializeQuizExportWorkflow);
