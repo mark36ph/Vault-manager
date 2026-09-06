@@ -219,6 +219,7 @@ async function quizPageMeta(env, url, quizWorker, slug) {
     .filter(item => String(item?.category || "").toLowerCase() === category.toLowerCase())
     .slice(0, 4);
   const image = `${SITE_ORIGIN}/social/quiz/${encodeURIComponent(slug)}.png`;
+  const questionPreview = await loadQuestionPreview(env, url, quizWorker, slug);
 
   return {
     title: `${title} | Factburst Quiz`,
@@ -238,6 +239,7 @@ async function quizPageMeta(env, url, quizWorker, slug) {
       questionCount,
       description,
       publishAt: quiz.publish_at || "",
+      questionPreview,
     },
     related,
     breadcrumbs: [
@@ -247,6 +249,23 @@ async function quizPageMeta(env, url, quizWorker, slug) {
       [title, canonical],
     ],
   };
+}
+
+async function loadQuestionPreview(env, url, quizWorker, slug) {
+  try {
+    const apiUrl = new URL(`/api/quizzes/${encodeURIComponent(slug)}`, url);
+    const response = await quizWorker.fetch(new Request(apiUrl, { method: "GET" }), env);
+    if (!response.ok) return [];
+    const payload = await response.json();
+    const questions = Array.isArray(payload?.quiz?.questions) ? payload.quiz.questions : [];
+    return questions
+      .map(row => String(row?.question || "").trim())
+      .filter(Boolean)
+      .slice(0, 10);
+  } catch (error) {
+    console.error("Could not load question preview for SEO", error);
+    return [];
+  }
 }
 
 async function socialCardResponse(request, env, url, quizWorker, slug) {
@@ -529,6 +548,22 @@ function injectQuizDiscovery(html, meta) {
       </section>
 `;
 
+  const preview = Array.isArray(meta.quiz.questionPreview) && meta.quiz.questionPreview.length
+    ? `
+      <section class="quiz-leaderboard-section seo-question-preview" aria-labelledby="seo-question-preview-title">
+        <div class="section-heading"><div><p class="eyebrow">Challenge preview</p><h2 id="seo-question-preview-title">Questions covered in this quiz</h2></div></div>
+        <div class="quiz-feature">
+          <div>
+            <p>Every question below is part of the live challenge. The answer choices and correct answers stay inside the playable quiz, so this preview gives you a feel for the subject without giving away the result.</p>
+            <ol class="seo-question-list">
+              ${meta.quiz.questionPreview.map(question => `<li>${escapeHtml(question)}</li>`).join("")}
+            </ol>
+          </div>
+        </div>
+      </section>
+`
+    : "";
+
   const related = Array.isArray(meta.related) && meta.related.length
     ? `
       <section class="quiz-leaderboard-section seo-related-quizzes" aria-labelledby="seo-related-title">
@@ -548,7 +583,7 @@ function injectQuizDiscovery(html, meta) {
 
   return html.replace(
     /(\s*<section class="quiz-leaderboard-section" id="quiz-high-scores">)/i,
-    `${about}${related}$1`,
+    `${about}${preview}${related}$1`,
   );
 }
 
