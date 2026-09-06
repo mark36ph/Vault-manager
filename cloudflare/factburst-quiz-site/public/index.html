@@ -30,6 +30,9 @@
     <nav class="top-nav" aria-label="Main navigation">
       <a href="/" aria-current="page">Home</a>
       <a href="/quizzes.html">Quizzes</a>
+      <a href="/about.html">About</a>
+      <a href="/faq.html">FAQ</a>
+      <a href="/contact.html">Contact</a>
       <a href="/leaderboard.html">Leaderboard</a>
       <a href="/profile.html">Profile</a>
       <span class="notification-slot" aria-hidden="true"></span>
@@ -56,70 +59,65 @@
     </section>
 
     <section class="shell section" id="latest">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Latest</p>
-          <h2>Play the newest quiz</h2>
-        </div>
-      </div>
+      <div class="section-heading"><div><p class="eyebrow">Latest</p><h2>Play the newest quiz</h2></div></div>
       <div id="latest-card" class="quiz-feature loading-card" aria-live="polite">
         <span class="sr-only">Loading the latest quiz…</span>
-        <div class="skeleton-feature-copy" aria-hidden="true">
-          <span class="skeleton-pill"></span>
-          <span class="skeleton-line skeleton-line-lg skeleton-w-60"></span>
-          <span class="skeleton-line skeleton-w-90"></span>
-          <span class="skeleton-line skeleton-w-75"></span>
-        </div>
+        <div class="skeleton-feature-copy" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-60"></span><span class="skeleton-line skeleton-w-90"></span><span class="skeleton-line skeleton-w-75"></span></div>
         <span class="skeleton-button" aria-hidden="true"></span>
       </div>
     </section>
 
     <section class="shell section" id="more-quizzes">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">More to play</p>
-          <h2>Recent quizzes</h2>
-        </div>
-      </div>
+      <div class="section-heading"><div><p class="eyebrow">More to play</p><h2>Recent quizzes</h2></div></div>
       <div id="home-more-grid" class="quiz-grid" aria-live="polite">
         <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-75"></span><span class="skeleton-line skeleton-w-90"></span><span class="skeleton-line skeleton-w-60"></span></article>
         <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-60"></span><span class="skeleton-line skeleton-w-90"></span><span class="skeleton-line skeleton-w-75"></span></article>
         <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-75"></span><span class="skeleton-line skeleton-w-75"></span><span class="skeleton-line skeleton-w-45"></span></article>
       </div>
-      <div id="home-more-empty" class="empty-state hidden">
-        <h3>No more quizzes yet</h3>
-        <p>New Factburst quizzes will appear here as they are published.</p>
+      <div id="home-more-empty" class="empty-state hidden"><h3>No more quizzes yet</h3><p>New Factburst quizzes will appear here as they are published.</p></div>
+      <div class="home-more-actions"><a class="button button-secondary" href="/quizzes.html">View all quizzes →</a></div>
+    </section>
+
+    <section class="shell section" aria-labelledby="why-factburst-title">
+      <div class="section-heading"><div><p class="eyebrow">Why Factburst</p><h2 id="why-factburst-title">A quiz should teach you something too</h2></div></div>
+      <div class="quiz-grid">
+        <article class="quiz-card"><h3>Short and focused</h3><p>Factburst challenges are built around a small set of questions so you can test yourself without committing to a long session.</p></article>
+        <article class="quiz-card"><h3>Across many subjects</h3><p>Explore science, history, geography, space, technology, nature, music, film, sports, mathematics and general knowledge.</p></article>
+        <article class="quiz-card"><h3>Learn from mistakes</h3><p>Where explanations are provided, results show the factual reasoning behind answers so a wrong guess can become a useful fact.</p></article>
       </div>
-      <div class="home-more-actions">
-        <a class="button button-secondary" href="/quizzes.html">View all quizzes →</a>
+    </section>
+
+    <section class="shell section" aria-labelledby="how-it-works-title">
+      <div class="section-heading"><div><p class="eyebrow">How it works</p><h2 id="how-it-works-title">Pick a topic, answer, learn, repeat</h2></div></div>
+      <div class="quiz-feature">
+        <div>
+          <p><strong>1. Choose a quiz.</strong> Browse the library or start with the latest challenge.</p>
+          <p><strong>2. Answer each question.</strong> Choose the answer you think is correct before moving on.</p>
+          <p><strong>3. See your result.</strong> Your score shows how many answers you got right and can include explanations for the questions.</p>
+          <p><strong>4. Keep exploring.</strong> Use category and related-quiz links to continue learning through another subject.</p>
+        </div>
+        <a class="button button-secondary" href="/about.html">Learn more about Factburst</a>
       </div>
+    </section>
+
+    <section class="shell section" aria-labelledby="home-faq-title">
+      <div class="section-heading"><div><p class="eyebrow">Need to know</p><h2 id="home-faq-title">Common questions</h2></div></div>
+      <div class="quiz-grid">
+        <article class="quiz-card"><h3>How many questions?</h3><p>Most challenges are ten questions. The quiz page shows the exact count before you play.</p></article>
+        <article class="quiz-card"><h3>Can I report a bad question?</h3><p>Yes. Use the reporting option on a quiz when something looks incorrect or unclear.</p></article>
+        <article class="quiz-card"><h3>Where are the categories?</h3><p>Visit the quiz library to browse categories and find challenges by subject.</p></article>
+      </div>
+      <div class="home-more-actions"><a class="button button-secondary" href="/faq.html">Read the full FAQ →</a></div>
     </section>
   </main>
 
   <footer id="factburst-professional-footer" class="site-footer professional-footer">
     <div class="shell professional-footer-grid">
-      <div class="professional-footer-brand">
-        <a class="professional-footer-brand-link" href="/">Factburst Quiz</a>
-        <p>Fast questions. Factual answers.</p>
-      </div>
-      <nav class="professional-footer-links" aria-label="Explore Factburst">
-        <strong>Explore</strong>
-        <a href="/">Home</a>
-        <a href="/quizzes.html">Quizzes</a>
-        <a href="/leaderboard.html">Leaderboard</a>
-        <a href="/profile.html">Profile</a>
-      </nav>
-      <nav class="professional-footer-links" aria-label="Legal and privacy">
-        <strong>Legal</strong>
-        <a href="/terms.html">Terms of use</a>
-        <a href="/privacy.html">Privacy notice</a>
-        <button type="button" class="footer-link-button" data-cookie-settings>Cookie settings</button>
-      </nav>
+      <div class="professional-footer-brand"><a class="professional-footer-brand-link" href="/">Factburst Quiz</a><p>Fast questions. Factual answers.</p></div>
+      <nav class="professional-footer-links" aria-label="Explore Factburst"><strong>Explore</strong><a href="/">Home</a><a href="/quizzes">Quizzes</a><a href="/about.html">About</a><a href="/faq.html">FAQ</a><a href="/contact.html">Contact</a><a href="/leaderboard.html">Leaderboard</a><a href="/profile.html">Profile</a></nav>
+      <nav class="professional-footer-links" aria-label="Legal and privacy"><strong>Legal</strong><a href="/terms.html">Terms of use</a><a href="/privacy.html">Privacy notice</a><button type="button" class="footer-link-button" data-cookie-settings>Cookie settings</button></nav>
     </div>
-    <div class="shell professional-footer-bottom">
-      <span>© <span data-footer-year>2026</span> Factburst Quiz</span>
-      <span>Quiz content is provided for entertainment and general information.</span>
-    </div>
+    <div class="shell professional-footer-bottom"><span>© <span data-footer-year>2026</span> Factburst Quiz</span><span>Quiz content is provided for entertainment and general information.</span></div>
   </footer>
 
   <script src="/site-status.js"></script>
