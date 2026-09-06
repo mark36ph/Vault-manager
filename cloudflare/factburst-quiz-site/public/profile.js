@@ -63,6 +63,7 @@ async function initialize() {
 function renderProfile(user, history) {
   text("#profile-username", user.username || "Player");
   text("#profile-email", `✓ Verified email: ${user.email || ""}`);
+  renderRole(user);
   text("#profile-rank", history.overall_rank ? `#${history.overall_rank}` : "—");
   text("#profile-score", `${Number(user.total_score || 0)}/${Number(user.total_possible || 0)}`);
   text("#profile-quizzes", String(Number(user.quizzes_completed || 0)));
@@ -81,6 +82,22 @@ function renderProfile(user, history) {
   }
 
   for (const quiz of profileQuizzes) host.append(historyCard(quiz));
+}
+
+function renderRole(user) {
+  const roleElement = document.querySelector("#profile-role");
+  if (!roleElement) return;
+  const role = String(user.role || "").toLowerCase();
+  const isAdmin = user.is_admin === true || role === "admin";
+  const isModerator = role === "mod" || role === "moderator";
+  if (!isAdmin && !isModerator) {
+    roleElement.classList.add("hidden");
+    roleElement.textContent = "";
+    return;
+  }
+  roleElement.textContent = isAdmin ? "ADMIN" : "MOD";
+  roleElement.dataset.role = isAdmin ? "admin" : "mod";
+  roleElement.classList.remove("hidden");
 }
 
 async function refreshFriends() {
