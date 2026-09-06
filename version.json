@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.172",
-  "build": 193,
+  "latest_version": "1.0.173",
+  "build": 194,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 193 adds granular startup and Quiz Workspace performance diagnostics for isolating slow phases.",
-    "Build 193 keeps the Performance Diagnostics hotspot profiler deterministic when the diagnostics page is created.",
+    "Build 194 defers expensive Quiz Preview construction until the Preview page is selected.",
+    "Build 194 removes unnecessary Preview page construction from initial Quiz Workspace setup.",
     "Performance Diagnostics continues to measure navigation, memory, allocations, and garbage collection behavior."
   ]
 }
