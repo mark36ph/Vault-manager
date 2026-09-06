@@ -11,6 +11,7 @@ public partial class MainShellWindow
     private readonly Dictionary<string, Button> _quizWorkspaceNavButtons = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, FrameworkElement> _quizWorkspacePages = new(StringComparer.OrdinalIgnoreCase);
     private string _quizWorkspaceSelectedPage = "builder";
+    private bool _quizPreviewPageBuilt;
 
     public void InitializeQuizWorkspaceNavigationForApp()
     {
@@ -137,30 +138,23 @@ public partial class MainShellWindow
             draftCard,
             draftControlsCard,
             BuildQuizWorkflowContinueButton("preview", "Continue to Preview"));
-        using (PerformanceDiagnostics.Measure("QuizWorkspace.BuildPreviewPage"))
-        {
-            _quizWorkspacePages["preview"] = BuildQuizWorkspacePage(
-                "Preview",
-                "Preview the actual quiz cards, choose a visual theme, position the logo, save presets, and run layout preflight checks.",
-                BuildQuizPreviewPanel(),
-                BuildQuizWorkflowContinueButton("publish", "Continue to Publish"));
-        }
-        using (PerformanceDiagnostics.Measure("QuizWorkspace.BuildPublishPage"))
-        {
-            _quizWorkspacePages["publish"] = BuildQuizWorkspacePage(
-                "Publish",
-                "Manage quiz series and episode numbering, then prepare editable YouTube title, description, hashtags, and pinned-comment metadata.",
-                BuildQuizPublishingPanel(),
-                BuildQuizWorkflowContinueButton("export", "Continue to Export"));
-        }
-        using (PerformanceDiagnostics.Measure("QuizWorkspace.BuildExportPage"))
-        {
-            _quizWorkspacePages["export"] = BuildQuizWorkspacePage(
-                "Export",
-                "For normal production, use Autopilot. Open the settings section only when you want to change voice, branding, effects, music, video format, or use a manual render.",
-                BuildQuizAutopilotPrimaryPanel(),
-                BuildQuizExportSettingsExpander(exportCard));
-        }
+
+        // Preview is intentionally lazy: constructing its controls and initial image was the
+        // most expensive measured workspace operation (~228 ms). Build it only when selected.
+        _quizWorkspacePages["preview"] = BuildQuizWorkspacePage(
+            "Preview",
+            "Preview the actual quiz cards, choose a visual theme, position the logo, save presets, and run layout preflight checks.");
+
+        _quizWorkspacePages["publish"] = BuildQuizWorkspacePage(
+            "Publish",
+            "Manage quiz series and episode numbering, then prepare editable YouTube title, description, hashtags, and pinned-comment metadata.",
+            BuildQuizPublishingPanel(),
+            BuildQuizWorkflowContinueButton("export", "Continue to Export"));
+        _quizWorkspacePages["export"] = BuildQuizWorkspacePage(
+            "Export",
+            "For normal production, use Autopilot. Open the settings section only when you want to change voice, branding, effects, music, video format, or use a manual render.",
+            BuildQuizAutopilotPrimaryPanel(),
+            BuildQuizExportSettingsExpander(exportCard));
 
         SelectQuizWorkspacePage(_quizWorkspaceSelectedPage);
     }
@@ -190,6 +184,18 @@ public partial class MainShellWindow
 
         if (_quizWorkspaceContentHost is null || !_quizWorkspacePages.TryGetValue(key, out var page))
             return;
+
+        if (string.Equals(key, "preview", StringComparison.OrdinalIgnoreCase) && !_quizPreviewPageBuilt)
+        {
+            using var buildPerf = PerformanceDiagnostics.Measure("QuizWorkspace.BuildPreviewPage");
+            page = BuildQuizWorkspacePage(
+                "Preview",
+                "Preview the actual quiz cards, choose a visual theme, position the logo, save presets, and run layout preflight checks.",
+                BuildQuizPreviewPanel(),
+                BuildQuizWorkflowContinueButton("publish", "Continue to Publish"));
+            _quizWorkspacePages["preview"] = page;
+            _quizPreviewPageBuilt = true;
+        }
 
         _quizWorkspaceSelectedPage = key;
         _quizWorkspaceContentHost.Content = page;
