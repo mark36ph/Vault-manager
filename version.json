@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.176",
+  "latest_version": "1.0.177",
   "build": 197,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 197 reverts activation deferral that caused heavier loading lag.",
-    "Build 197 restores the previous activation initialization flow while retaining the Quiz Preview lazy-loading optimization.",
-    "Performance Diagnostics continues to measure navigation, startup, memory, allocations, and garbage collection behavior."
+    "Build 197 fixes installed startup recovery when settings.json exists but factvault.db is missing.",
+    "Build 197 restores the database from the available legacy/source data without overwriting an existing installed database.",
+    "Build 197 retains the previous activation initialization flow and Quiz Preview lazy-loading optimization."
   ]
 }
