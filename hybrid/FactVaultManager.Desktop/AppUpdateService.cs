@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using Velopack;
 using Velopack.Sources;
@@ -124,11 +125,35 @@ public sealed class AppUpdateService
             throw new InvalidOperationException("The downloaded installer was incomplete. Try Updates again in a moment.");
         }
 
-        Process.Start(new ProcessStartInfo(installerPath)
+        if (IsInstalled)
         {
-            UseShellExecute = true,
-        });
+            LaunchInstallerAfterCurrentProcessExits(installerPath);
+        }
+        else
+        {
+            Process.Start(new ProcessStartInfo(installerPath)
+            {
+                UseShellExecute = true,
+            });
+        }
+
         return installerPath;
+    }
+
+    private static void LaunchInstallerAfterCurrentProcessExits(string installerPath)
+    {
+        var escapedPath = installerPath.Replace("'", "''", StringComparison.Ordinal);
+        var currentProcessId = Environment.ProcessId;
+        var script = $"$p = Get-Process -Id {currentProcessId} -ErrorAction SilentlyContinue; if ($null -ne $p) {{ Wait-Process -Id {currentProcessId} }}; Start-Process -FilePath '{escapedPath}'";
+        var encodedCommand = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
+
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "powershell.exe",
+            Arguments = $"-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand {encodedCommand}",
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        });
     }
 
     private static HttpClient CreateHttpClient()
