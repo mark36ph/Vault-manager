@@ -23,133 +23,47 @@
 </head>
 <body data-page="home" data-layout="directory">
   <header class="site-header">
-    <a class="brand" href="/" aria-label="Factburst Quiz home">
-      <span class="brand-mark"><img src="/brand-icon.png?v=2" alt=""></span>
-      <span>Factburst Quiz</span>
-    </a>
+    <a class="brand" href="/" aria-label="Factburst Quiz home"><span class="brand-mark"><img src="/brand-icon.png?v=2" alt=""></span><span>Factburst Quiz</span></a>
     <nav class="top-nav" aria-label="Main navigation">
-      <a href="/">Home</a>
-      <a href="/quizzes" aria-current="page">Quizzes</a>
-      <a href="/leaderboard.html">Leaderboard</a>
-      <a href="/profile.html">Profile</a>
-      <span class="notification-slot" aria-hidden="true"></span>
+      <a href="/">Home</a><a href="/quizzes" aria-current="page">Quizzes</a><a href="/about.html">About</a><a href="/faq.html">FAQ</a><a href="/contact.html">Contact</a><a href="/leaderboard.html">Leaderboard</a><a href="/profile.html">Profile</a><span class="notification-slot" aria-hidden="true"></span>
     </nav>
   </header>
 
   <main class="directory-main">
-    <section class="shell page-intro">
-      <div class="page-intro-copy">
-        <p class="eyebrow">Quiz library</p>
-        <h1>Find your next challenge.</h1>
-        <p class="hero-text">Browse every live Factburst quiz, filter by category, or see which quizzes are scheduled next.</p>
-      </div>
+    <section class="shell page-intro"><div class="page-intro-copy"><p class="eyebrow">Quiz library</p><h1>Find your next challenge.</h1><p class="hero-text">Browse every live Factburst quiz, filter by category, or see which quizzes are scheduled next.</p></div></section>
+
+    <section class="shell section" aria-labelledby="library-guide-title">
+      <div class="section-heading"><div><p class="eyebrow">The Factburst library</p><h2 id="library-guide-title">Choose a subject and test what you know</h2></div></div>
+      <div class="quiz-feature"><div><p>The Factburst library is organised around clear subjects so you can quickly find a challenge that matches your interests. Categories include science, history, geography, space, nature and animals, technology, arts and literature, music, film, logos, sports, entertainment, mathematics and general knowledge.</p><p>Each published quiz has its own page with a title, category, description, question count and a way to continue to related challenges. When a quiz is completed, the result can include factual explanations that help turn a guess into something you remember.</p></div><a class="button button-secondary" href="/about.html">About Factburst</a></div>
     </section>
 
-    <section class="shell section" id="latest">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Latest</p>
-          <h2>Newest quiz</h2>
-        </div>
-      </div>
-      <div id="latest-card" class="quiz-feature loading-card" aria-live="polite">
-        <span class="sr-only">Loading the latest quiz…</span>
-        <div class="skeleton-feature-copy" aria-hidden="true">
-          <span class="skeleton-pill"></span>
-          <span class="skeleton-line skeleton-line-lg skeleton-w-60"></span>
-          <span class="skeleton-line skeleton-w-90"></span>
-          <span class="skeleton-line skeleton-w-75"></span>
-        </div>
-        <span class="skeleton-button" aria-hidden="true"></span>
-      </div>
-    </section>
+    <section class="shell section" id="latest"><div class="section-heading"><div><p class="eyebrow">Latest</p><h2>Newest quiz</h2></div></div><div id="latest-card" class="quiz-feature loading-card" aria-live="polite"><span class="sr-only">Loading the latest quiz…</span><div class="skeleton-feature-copy" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-60"></span><span class="skeleton-line skeleton-w-90"></span><span class="skeleton-line skeleton-w-75"></span></div><span class="skeleton-button" aria-hidden="true"></span></div></section>
 
-    <section class="shell section hidden" id="upcoming">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">Scheduled</p>
-          <h2>Coming up</h2>
-        </div>
-      </div>
-      <div id="upcoming-grid" class="quiz-grid" aria-live="polite"></div>
-    </section>
+    <section class="shell section hidden" id="upcoming"><div class="section-heading"><div><p class="eyebrow">Scheduled</p><h2>Coming up</h2></div></div><div id="upcoming-grid" class="quiz-grid" aria-live="polite"></div></section>
 
     <section class="shell section" id="browse">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">All quizzes</p>
-          <h2>Browse by category</h2>
-        </div>
-        <label class="filter-label">
-          Category
-          <select id="category-filter">
-            <option value="">All categories</option>
-          </select>
-        </label>
-      </div>
+      <div class="section-heading"><div><p class="eyebrow">All quizzes</p><h2>Browse by category</h2></div><label class="filter-label">Category<select id="category-filter"><option value="">All categories</option></select></label></div>
       <nav id="category-shortcuts" class="category-shortcuts" aria-label="Quiz category shortcuts">
-        <a class="category-shortcut" href="/quizzes#browse">All quizzes</a>
-        <a class="category-shortcut" href="/quizzes/science#browse">Science</a>
-        <a class="category-shortcut" href="/quizzes/history#browse">History</a>
-        <a class="category-shortcut" href="/quizzes/geography#browse">Geography</a>
-        <a class="category-shortcut" href="/quizzes/space#browse">Space</a>
-        <a class="category-shortcut" href="/quizzes/nature-animals#browse">Nature &amp; Animals</a>
-        <a class="category-shortcut" href="/quizzes/technology#browse">Technology</a>
-        <a class="category-shortcut" href="/quizzes/arts-literature#browse">Arts &amp; Literature</a>
-        <a class="category-shortcut" href="/quizzes/music#browse">Music</a>
-        <a class="category-shortcut" href="/quizzes/film#browse">Film</a>
-        <a class="category-shortcut" href="/quizzes/logos#browse">Logos</a>
-        <a class="category-shortcut" href="/quizzes/sports#browse">Sports</a>
-        <a class="category-shortcut" href="/quizzes/entertainment#browse">Entertainment</a>
-        <a class="category-shortcut" href="/quizzes/mathematics#browse">Mathematics</a>
-        <a class="category-shortcut" href="/quizzes/general-knowledge#browse">General Knowledge</a>
+        <a class="category-shortcut" href="/quizzes#browse">All quizzes</a><a class="category-shortcut" href="/quizzes/science#browse">Science</a><a class="category-shortcut" href="/quizzes/history#browse">History</a><a class="category-shortcut" href="/quizzes/geography#browse">Geography</a><a class="category-shortcut" href="/quizzes/space#browse">Space</a><a class="category-shortcut" href="/quizzes/nature-animals#browse">Nature &amp; Animals</a><a class="category-shortcut" href="/quizzes/technology#browse">Technology</a><a class="category-shortcut" href="/quizzes/arts-literature#browse">Arts &amp; Literature</a><a class="category-shortcut" href="/quizzes/music#browse">Music</a><a class="category-shortcut" href="/quizzes/film#browse">Film</a><a class="category-shortcut" href="/quizzes/logos#browse">Logos</a><a class="category-shortcut" href="/quizzes/sports#browse">Sports</a><a class="category-shortcut" href="/quizzes/entertainment#browse">Entertainment</a><a class="category-shortcut" href="/quizzes/mathematics#browse">Mathematics</a><a class="category-shortcut" href="/quizzes/general-knowledge#browse">General Knowledge</a>
       </nav>
       <div id="quiz-grid" class="quiz-grid" aria-live="polite">
-        <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-75"></span><span class="skeleton-line skeleton-w-90"></span><span class="skeleton-line skeleton-w-60"></span></article>
-        <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-60"></span><span class="skeleton-line skeleton-w-75"></span><span class="skeleton-line skeleton-w-45"></span></article>
-        <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-75"></span><span class="skeleton-line skeleton-w-90"></span><span class="skeleton-line skeleton-w-75"></span></article>
-        <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-60"></span><span class="skeleton-line skeleton-w-75"></span><span class="skeleton-line skeleton-w-60"></span></article>
-        <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-75"></span><span class="skeleton-line skeleton-w-90"></span><span class="skeleton-line skeleton-w-45"></span></article>
-        <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-60"></span><span class="skeleton-line skeleton-w-75"></span><span class="skeleton-line skeleton-w-60"></span></article>
+        <article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-75"></span><span class="skeleton-line skeleton-w-90"></span><span class="skeleton-line skeleton-w-60"></span></article><article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-60"></span><span class="skeleton-line skeleton-w-75"></span><span class="skeleton-line skeleton-w-45"></span></article><article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-75"></span><span class="skeleton-line skeleton-w-90"></span><span class="skeleton-line skeleton-w-75"></span></article><article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-60"></span><span class="skeleton-line skeleton-w-75"></span><span class="skeleton-line skeleton-w-60"></span></article><article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-75"></span><span class="skeleton-line skeleton-w-90"></span><span class="skeleton-line skeleton-w-45"></span></article><article class="quiz-card skeleton-card" aria-hidden="true"><span class="skeleton-pill"></span><span class="skeleton-line skeleton-line-lg skeleton-w-60"></span><span class="skeleton-line skeleton-w-75"></span><span class="skeleton-line skeleton-w-60"></span></article>
       </div>
-      <div id="empty-state" class="empty-state hidden">
-        <h3>No quizzes live yet</h3>
-        <p>Your scheduled quizzes are ready and will unlock automatically at their release times.</p>
-      </div>
+      <div id="empty-state" class="empty-state hidden"><h3>No quizzes live yet</h3><p>Your scheduled quizzes are ready and will unlock automatically at their release times.</p></div>
     </section>
+
+    <section class="shell section" aria-labelledby="category-guide-title"><div class="section-heading"><div><p class="eyebrow">Explore by subject</p><h2 id="category-guide-title">What can you quiz yourself on?</h2></div></div><div class="quiz-grid">
+      <article class="quiz-card"><h3>Science &amp; nature</h3><p>Explore biology, chemistry, physics, wildlife, ecosystems and the discoveries that explain how the natural world works.</p></article>
+      <article class="quiz-card"><h3>History &amp; geography</h3><p>Test your knowledge of people, places, civilisations, events, countries, capitals, landmarks and the changing world.</p></article>
+      <article class="quiz-card"><h3>Space &amp; technology</h3><p>Challenge yourself on astronomy, spacecraft, computing, inventions, software, devices and modern technology.</p></article>
+      <article class="quiz-card"><h3>Culture &amp; entertainment</h3><p>Try questions about music, film, literature, art, television, sport, games, logos and popular culture.</p></article>
+      <article class="quiz-card"><h3>Mathematics</h3><p>Work through questions involving numbers, arithmetic, geometry, patterns, probability and mathematical reasoning.</p></article>
+      <article class="quiz-card"><h3>General knowledge</h3><p>Take a mixed challenge combining everyday facts with questions from several different subjects.</p></article>
+    </div></section>
   </main>
 
-  <footer id="factburst-professional-footer" class="site-footer professional-footer">
-    <div class="shell professional-footer-grid">
-      <div class="professional-footer-brand">
-        <a class="professional-footer-brand-link" href="/">Factburst Quiz</a>
-        <p>Fast questions. Factual answers.</p>
-      </div>
-      <nav class="professional-footer-links" aria-label="Explore Factburst">
-        <strong>Explore</strong>
-        <a href="/">Home</a>
-        <a href="/quizzes">Quizzes</a>
-        <a href="/leaderboard.html">Leaderboard</a>
-        <a href="/profile.html">Profile</a>
-      </nav>
-      <nav class="professional-footer-links" aria-label="Legal and privacy">
-        <strong>Legal</strong>
-        <a href="/terms.html">Terms of use</a>
-        <a href="/privacy.html">Privacy notice</a>
-        <button type="button" class="footer-link-button" data-cookie-settings>Cookie settings</button>
-      </nav>
-    </div>
-    <div class="shell professional-footer-bottom">
-      <span>© <span data-footer-year>2026</span> Factburst Quiz</span>
-      <span>Quiz content is provided for entertainment and general information.</span>
-    </div>
-  </footer>
+  <footer id="factburst-professional-footer" class="site-footer professional-footer"><div class="shell professional-footer-grid"><div class="professional-footer-brand"><a class="professional-footer-brand-link" href="/">Factburst Quiz</a><p>Fast questions. Factual answers.</p></div><nav class="professional-footer-links" aria-label="Explore Factburst"><strong>Explore</strong><a href="/">Home</a><a href="/quizzes">Quizzes</a><a href="/about.html">About</a><a href="/faq.html">FAQ</a><a href="/contact.html">Contact</a><a href="/leaderboard.html">Leaderboard</a><a href="/profile.html">Profile</a></nav><nav class="professional-footer-links" aria-label="Legal and privacy"><strong>Legal</strong><a href="/terms.html">Terms of use</a><a href="/privacy.html">Privacy notice</a><button type="button" class="footer-link-button" data-cookie-settings>Cookie settings</button></nav></div><div class="shell professional-footer-bottom"><span>© <span data-footer-year>2026</span> Factburst Quiz</span><span>Quiz content is provided for entertainment and general information.</span></div></footer>
 
-  <script src="/site-status.js"></script>
-  <script src="/engagement.js"></script>
-  <script src="/notification-header.js"></script>
-  <script src="/visual-polish.js"></script>
-  <script type="module" src="/app.js"></script>
-  <script type="module" src="/account-ui-v2.js"></script>
+  <script src="/site-status.js"></script><script src="/engagement.js"></script><script src="/notification-header.js"></script><script src="/visual-polish.js"></script><script type="module" src="/app.js"></script><script type="module" src="/account-ui-v2.js"></script>
 </body>
 </html>
