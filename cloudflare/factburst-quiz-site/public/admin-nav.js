@@ -1,13 +1,15 @@
 (() => {
   const ADMIN_LINK = ["Admin", "/admin.html"];
   let adminReady = false;
+  let accountRole = "";
 
   async function checkAdmin() {
     try {
       const response = await fetch("/api/site/status", { credentials: "same-origin", headers: { accept: "application/json" } });
       if (!response.ok) return false;
       const payload = await response.json();
-      return payload?.is_admin === true && String(payload?.role || "").toLowerCase() === "admin";
+      accountRole = String(payload?.role || "").toLowerCase();
+      return payload?.is_admin === true && accountRole === "admin";
     } catch {
       return false;
     }
@@ -25,11 +27,25 @@
     if (slot) nav.insertBefore(link, slot); else nav.append(link);
   }
 
+  function renderProfileRole() {
+    const roleElement = document.querySelector("#profile-role");
+    if (!roleElement || !["admin", "moderator"].includes(accountRole)) return;
+    roleElement.textContent = accountRole === "admin" ? "ADMIN" : "MOD";
+    roleElement.dataset.role = accountRole === "admin" ? "admin" : "mod";
+    roleElement.classList.remove("hidden");
+  }
+
   async function initialize() {
-    adminReady = await checkAdmin();
-    if (!adminReady) return;
-    window.factburstAdmin = true;
+    const isAdmin = await checkAdmin();
+    adminReady = isAdmin;
+    if (isAdmin) window.factburstAdmin = true;
     addDesktopAdminLink();
+    renderProfileRole();
+    if (accountRole === "admin" || accountRole === "moderator") {
+      const observer = new MutationObserver(renderProfileRole);
+      observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class", "data-role"] });
+      window.setTimeout(() => observer.disconnect(), 10000);
+    }
     window.dispatchEvent(new CustomEvent("factburst:admin-nav-ready"));
   }
 
