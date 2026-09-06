@@ -28,11 +28,6 @@ public partial class MainShellWindow
 
         _quizHistoryPageInitialized = true;
         var tab = new TabItem { Content = BuildQuizHistoryPage() };
-        MainTabs.SelectionChanged += async (_, eventArgs) =>
-        {
-            if (ReferenceEquals(eventArgs.OriginalSource, MainTabs) && ReferenceEquals(MainTabs.SelectedItem, tab))
-                await RefreshQuizYouTubeAnalyticsAsync(false);
-        };
         if (FindResource("HiddenPageTabStyle") is Style hiddenStyle)
             tab.Style = hiddenStyle;
         MainTabs.Items.Add(tab);
@@ -104,7 +99,7 @@ public partial class MainShellWindow
 
         _quizHistoryAnalyticsStatusText = new TextBlock
         {
-            Text = "YouTube analytics: waiting",
+            Text = "YouTube analytics: use Refresh to update",
             Foreground = new SolidColorBrush(Color.FromRgb(184, 201, 235)),
             VerticalAlignment = VerticalAlignment.Bottom,
             Margin = new Thickness(0, 0, 14, 8),
@@ -801,441 +796,47 @@ public partial class MainShellWindow
             ElementStyle = questionTextStyle,
             Width = new DataGridLength(1, DataGridLengthUnitType.Star),
         });
+        grid.Columns.Add(new DataGridTextColumn
+        {
+            Header = "Answer",
+            Binding = new Binding(nameof(QuizHistoryQuestion.Answer)),
+            ElementStyle = questionTextStyle,
+            Width = new DataGridLength(220),
+        });
         Grid.SetRow(grid, 1);
         root.Children.Add(grid);
 
-        var close = new Button
-        {
-            Content = "Close",
-            MinWidth = 90,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            IsCancel = true,
-        };
-        close.Click += (_, _) => dialog.Close();
+        var close = new Button { Content = "Close", Width = 90, HorizontalAlignment = HorizontalAlignment.Right, IsCancel = true };
         Grid.SetRow(close, 2);
         root.Children.Add(close);
-        dialog.ShowDialog();
+        return dialog.Content is FrameworkElement element
+            ? element
+            : new Grid();
     }
 
     private void ShowSelectedQuizPublishingMetadata()
     {
         if (_quizHistoryGrid?.SelectedItem is not QuizHistorySummary history)
             return;
-        if (string.IsNullOrWhiteSpace(history.YouTubeTitle))
-        {
-            MessageBox.Show(
-                this,
-                "This is a legacy quiz-history entry and does not have publishing metadata recorded.",
-                "Quiz Publishing",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-            return;
-        }
-
         ShowQuizPublishingMetadata(history);
-    }
-
-    private void ShowQuizPublishingMetadata(QuizHistorySummary history, bool manageComments = false)
-    {
-
-        var dialog = new Window
-        {
-            Title = manageComments
-                ? $"First Comments — {history.SeriesName} {history.EpisodeLabel}"
-                : $"Publishing Metadata — {history.SeriesName} {history.EpisodeLabel}",
-            Owner = this,
-            Width = 760,
-            Height = 680,
-            MinWidth = 620,
-            MinHeight = 520,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = Brushes.White,
-        };
-        var scroll = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
-        var stack = new StackPanel { Margin = new Thickness(18) };
-        scroll.Content = stack;
-        dialog.Content = scroll;
-
-        stack.Children.Add(new TextBlock
-        {
-            Text = $"{history.SeriesName} {history.EpisodeLabel}",
-            FontSize = 22,
-            FontWeight = FontWeights.SemiBold,
-        });
-        stack.Children.Add(new TextBlock
-        {
-            Text = manageComments
-                ? "Post the saved first comment when each platform is ready, then open it to pin manually."
-                : "Publishing metadata saved with this successful quiz export.",
-            Foreground = QuizMutedBrush(),
-            Margin = new Thickness(0, 3, 0, 12),
-        });
-        AddQuizHistoryPublishingField(stack, "YouTube title", history.YouTubeTitle, 58);
-        AddQuizHistoryPublishingField(stack, "Description", history.YouTubeDescription, 180);
-        AddQuizHistoryPublishingField(stack, "Hashtags", history.Hashtags, 58);
-        AddQuizHistoryPublishingField(stack, "First comment", history.PinnedComment, 95);
-
-        var youtubeFirstCommentId = history.YouTubeFirstCommentId;
-        var facebookFirstCommentId = history.FacebookFirstCommentId;
-        var firstCommentStatusHeading = new TextBlock
-        {
-            Text = "First-comment status",
-            FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 12, 0, 4),
-            Visibility = manageComments ? Visibility.Visible : Visibility.Collapsed,
-        };
-        stack.Children.Add(firstCommentStatusHeading);
-        var firstCommentStatus = new TextBlock
-        {
-            Foreground = QuizMutedBrush(),
-            Visibility = manageComments ? Visibility.Visible : Visibility.Collapsed,
-        };
-        void UpdateFirstCommentStatus() => firstCommentStatus.Text =
-            $"YouTube: {(youtubeFirstCommentId.Length > 0 ? "Posted — ready to pin" : "Not posted")}   •   " +
-            $"Facebook: {(facebookFirstCommentId.Length > 0 ? "Posted — ready to pin" : "Not posted")}";
-        UpdateFirstCommentStatus();
-        stack.Children.Add(firstCommentStatus);
-        var pinActions = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Thickness(0, 10, 0, 0),
-            Visibility = manageComments ? Visibility.Visible : Visibility.Collapsed,
-        };
-        var openYouTubeToPin = new Button
-        {
-            Content = "Open YouTube to pin",
-            MinHeight = 34,
-            Padding = new Thickness(12, 0, 12, 0),
-            IsEnabled = youtubeFirstCommentId.Length > 0 && history.YouTubeUrl.Length > 0,
-        };
-        openYouTubeToPin.Click += (_, _) =>
-        {
-            var videoId = YouTubeVideoAnalyticsService.TryGetVideoId(history.YouTubeUrl);
-            if (videoId is not null)
-                Process.Start(new ProcessStartInfo(
-                    YouTubeManagementService.BuildCommentUrl(videoId, youtubeFirstCommentId)) { UseShellExecute = true });
-        };
-        pinActions.Children.Add(openYouTubeToPin);
-        var openFacebookToPin = new Button
-        {
-            Content = "Open Facebook to pin",
-            MinHeight = 34,
-            Padding = new Thickness(12, 0, 12, 0),
-            Margin = new Thickness(8, 0, 0, 0),
-            IsEnabled = facebookFirstCommentId.Length > 0 && history.FacebookUrl.Length > 0,
-        };
-        openFacebookToPin.Click += (_, _) =>
-            Process.Start(new ProcessStartInfo(history.FacebookUrl) { UseShellExecute = true });
-        pinActions.Children.Add(openFacebookToPin);
-        stack.Children.Add(pinActions);
-
-        var postMissingComments = new Button
-        {
-            Content = "Post missing first comments",
-            MinHeight = 36,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Padding = new Thickness(14, 0, 14, 0),
-            Margin = new Thickness(0, 10, 0, 0),
-            IsEnabled = history.PinnedComment.Trim().Length > 0 &&
-                (history.PublishedOnYouTube && !history.YouTubeIsScheduled && youtubeFirstCommentId.Length == 0 ||
-                 history.PublishedOnFacebook && !history.FacebookIsScheduled && facebookFirstCommentId.Length == 0),
-            ToolTip = "Posts the saved first comment only where this quiz is already published and no comment ID is recorded.",
-            Visibility = manageComments ? Visibility.Visible : Visibility.Collapsed,
-        };
-        StyleQuizHistoryButton(postMissingComments, Color.FromRgb(70, 235, 115));
-        postMissingComments.Click += async (_, _) =>
-        {
-            postMissingComments.IsEnabled = false;
-            var posted = new List<string>();
-            var errors = new List<string>();
-
-            if (history.PublishedOnYouTube && !history.YouTubeIsScheduled && youtubeFirstCommentId.Length == 0)
-            {
-                var videoId = YouTubeVideoAnalyticsService.TryGetVideoId(history.YouTubeUrl);
-                if (videoId is null)
-                {
-                    errors.Add("YouTube: the saved video URL does not contain a usable video ID.");
-                }
-                else
-                {
-                    try
-                    {
-                        firstCommentStatus.Text = "Posting the first YouTube comment...";
-                        var token = await GetYouTubeManagementAccessTokenAsync();
-                        youtubeFirstCommentId = await _youtubeManagement.PostTopLevelCommentAsync(
-                            token, videoId, history.PinnedComment);
-                        _data.UpdateQuizHistoryYouTubeFirstComment(history.Id, youtubeFirstCommentId);
-                        posted.Add("YouTube");
-                    }
-                    catch (Exception error)
-                    {
-                        errors.Add("YouTube: " + error.Message);
-                    }
-                }
-            }
-
-            if (history.PublishedOnFacebook && !history.FacebookIsScheduled && facebookFirstCommentId.Length == 0)
-            {
-                var videoId = FacebookReelAnalyticsService.TryGetReelId(history.FacebookUrl);
-                if (videoId is null)
-                {
-                    errors.Add("Facebook: the saved Reel URL does not contain a usable video ID.");
-                }
-                else
-                {
-                    try
-                    {
-                        firstCommentStatus.Text = "Posting the first Facebook comment...";
-                        facebookFirstCommentId = await _facebookComments.PostTopLevelCommentAsync(
-                            FacebookPageToken(), videoId, history.PinnedComment);
-                        _data.UpdateQuizHistoryFacebookFirstComment(history.Id, facebookFirstCommentId);
-                        posted.Add("Facebook");
-                    }
-                    catch (Exception error)
-                    {
-                        errors.Add("Facebook: " + error.Message);
-                    }
-                }
-            }
-
-            UpdateFirstCommentStatus();
-            openYouTubeToPin.IsEnabled = youtubeFirstCommentId.Length > 0 && history.YouTubeUrl.Length > 0;
-            openFacebookToPin.IsEnabled = facebookFirstCommentId.Length > 0 && history.FacebookUrl.Length > 0;
-            postMissingComments.IsEnabled = history.PinnedComment.Trim().Length > 0 &&
-                (history.PublishedOnYouTube && !history.YouTubeIsScheduled && youtubeFirstCommentId.Length == 0 ||
-                 history.PublishedOnFacebook && !history.FacebookIsScheduled && facebookFirstCommentId.Length == 0);
-            RefreshQuizHistory();
-
-            var resultText = posted.Count > 0
-                ? "Posted successfully to " + string.Join(" and ", posted) + "."
-                : "No first comments were posted.";
-            if (errors.Count > 0) resultText += "\n\n" + string.Join("\n", errors);
-            MessageBox.Show(dialog, resultText, "Post First Comments", MessageBoxButton.OK,
-                errors.Count == 0 ? MessageBoxImage.Information : MessageBoxImage.Warning);
-        };
-        stack.Children.Add(postMissingComments);
-
-        var copy = new Button
-        {
-            Content = "Copy all metadata",
-            MinHeight = 34,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Padding = new Thickness(12, 0, 12, 0),
-            Margin = new Thickness(0, 12, 0, 0),
-        };
-        copy.Click += (_, _) =>
-        {
-            Clipboard.SetText(
-                $"TITLE\n{history.YouTubeTitle}\n\nDESCRIPTION\n{history.YouTubeDescription}\n\nHASHTAGS\n{history.Hashtags}\n\nFIRST COMMENT\n{history.PinnedComment}");
-        };
-        stack.Children.Add(copy);
-        dialog.ShowDialog();
-    }
-
-    private static void AddQuizHistoryPublishingField(Panel parent, string label, string value, double height)
-    {
-        parent.Children.Add(new TextBlock
-        {
-            Text = label,
-            FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 8, 0, 4),
-        });
-        parent.Children.Add(new TextBox
-        {
-            Text = value,
-            IsReadOnly = true,
-            AcceptsReturn = true,
-            TextWrapping = TextWrapping.Wrap,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            Height = height,
-        });
     }
 
     private void ShowSelectedQuizYouTubePublication()
     {
         if (_quizHistoryGrid?.SelectedItem is not QuizHistorySummary history)
             return;
-
-        var dialog = new Window
-        {
-            Title = $"YouTube Analytics — {history.SeriesName} {history.EpisodeLabel}",
-            Owner = this,
-            Width = 650,
-            Height = 455,
-            MinWidth = 570,
-            MinHeight = 420,
-            ResizeMode = ResizeMode.CanResize,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Background = Brushes.White,
-        };
-        var root = new Grid { Margin = new Thickness(18) };
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        root.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        dialog.Content = root;
-
-        root.Children.Add(new TextBlock
-        {
-            Text = history.YouTubeTitle.Length > 0 ? history.YouTubeTitle : history.Title,
-            FontSize = 18,
-            FontWeight = FontWeights.SemiBold,
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 0, 0, 14),
-        });
-
-        var published = new CheckBox
-        {
-            Content = "Published on YouTube",
-            IsChecked = history.PublishedOnYouTube,
-            FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 0, 0, 14),
-        };
-        Grid.SetRow(published, 1);
-        root.Children.Add(published);
-
-        var label = new TextBlock
-        {
-            Text = "YouTube video link",
-            FontWeight = FontWeights.SemiBold,
-            Margin = new Thickness(0, 0, 0, 4),
-        };
-        Grid.SetRow(label, 2);
-        root.Children.Add(label);
-
-        var url = new TextBox
-        {
-            Text = history.YouTubeUrl,
-            MinHeight = 34,
-            VerticalContentAlignment = VerticalAlignment.Center,
-        };
-        Grid.SetRow(url, 3);
-        root.Children.Add(url);
-
-        var analytics = new Grid { Margin = new Thickness(0, 16, 0, 0) };
-        analytics.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        analytics.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
-        analytics.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        analytics.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
-        analytics.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-        var viewsPanel = new StackPanel();
-        viewsPanel.Children.Add(new TextBlock { Text = "Views", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 4) });
-        var views = new TextBox
-        {
-            Text = history.YouTubeViews.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            MinHeight = 34,
-            VerticalContentAlignment = VerticalAlignment.Center,
-        };
-        viewsPanel.Children.Add(views);
-        analytics.Children.Add(viewsPanel);
-
-        var likesPanel = new StackPanel();
-        likesPanel.Children.Add(new TextBlock { Text = "Likes", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 4) });
-        var likes = new TextBox
-        {
-            Text = history.YouTubeLikes.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            MinHeight = 34,
-            VerticalContentAlignment = VerticalAlignment.Center,
-        };
-        likesPanel.Children.Add(likes);
-        Grid.SetColumn(likesPanel, 2);
-        analytics.Children.Add(likesPanel);
-
-        var uploadPanel = new StackPanel();
-        uploadPanel.Children.Add(new TextBlock { Text = "Upload date", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 4) });
-        var uploadDate = new DatePicker
-        {
-            SelectedDate = QuizYouTubeAnalytics.ParseUploadDate(history.YouTubeUploadDate),
-            SelectedDateFormat = DatePickerFormat.Short,
-            MinHeight = 34,
-        };
-        uploadPanel.Children.Add(uploadDate);
-        Grid.SetColumn(uploadPanel, 4);
-        analytics.Children.Add(uploadPanel);
-        Grid.SetRow(analytics, 4);
-        root.Children.Add(analytics);
-
-        var hint = new TextBlock
-        {
-            Text = "These figures update automatically from YouTube when an API key is saved. You can still correct them manually.",
-            Foreground = QuizMutedBrush(),
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 10, 0, 0),
-        };
-        Grid.SetRow(hint, 5);
-        root.Children.Add(hint);
-
-        var actions = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Margin = new Thickness(0, 16, 0, 0),
-        };
-        var open = new Button { Content = "Open video", MinWidth = 95 };
-        open.Click += (_, _) =>
-        {
-            try
-            {
-                var videoUrl = QuizYouTubePublication.NormalizeUrl(url.Text);
-                if (videoUrl.Length == 0)
-                    throw new InvalidOperationException("Enter the YouTube video link first.");
-                Process.Start(new ProcessStartInfo(videoUrl) { UseShellExecute = true });
-            }
-            catch (Exception error)
-            {
-                MessageBox.Show(dialog, error.Message, "Open YouTube Video", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        };
-        actions.Children.Add(open);
-        var cancel = new Button { Content = "Cancel", MinWidth = 82, Margin = new Thickness(8, 0, 0, 0), IsCancel = true };
-        actions.Children.Add(cancel);
-        var save = new Button { Content = "Save", MinWidth = 82, Margin = new Thickness(8, 0, 0, 0), IsDefault = true };
-        save.Click += (_, _) =>
-        {
-            try
-            {
-                var viewCount = QuizYouTubeAnalytics.ParseMetric(views.Text, "Views");
-                var likeCount = QuizYouTubeAnalytics.ParseMetric(likes.Text, "Likes");
-                if (!_data.UpdateQuizHistoryYouTubeAnalytics(
-                        history.Id,
-                        published.IsChecked == true,
-                        url.Text,
-                        viewCount,
-                        likeCount,
-                        uploadDate.SelectedDate))
-                    throw new InvalidOperationException("The selected quiz-history entry no longer exists.");
-                dialog.DialogResult = true;
-                RefreshQuizHistory();
-            }
-            catch (Exception error)
-            {
-                MessageBox.Show(dialog, error.Message, "Save YouTube Analytics", MessageBoxButton.OK, MessageBoxImage.Error);
-            }
-        };
-        actions.Children.Add(save);
-        Grid.SetRow(actions, 6);
-        root.Children.Add(actions);
-        dialog.ShowDialog();
+        ShowQuizYouTubePublication(history);
     }
 
     private void OpenSelectedQuizHistoryFolder()
     {
-        if (_quizHistoryGrid?.SelectedItem is not QuizHistorySummary history || string.IsNullOrWhiteSpace(history.ProjectFolder))
+        if (_quizHistoryGrid?.SelectedItem is not QuizHistorySummary history)
             return;
-        try
+        if (string.IsNullOrWhiteSpace(history.ProjectFolder) || !Directory.Exists(history.ProjectFolder))
         {
-            if (!Directory.Exists(history.ProjectFolder))
-                throw new DirectoryNotFoundException("The recorded quiz export folder no longer exists.");
-            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{history.ProjectFolder}\"") { UseShellExecute = true });
+            MessageBox.Show(this, "The recorded project folder does not exist.", "Quiz History", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
         }
-        catch (Exception error)
-        {
-            MessageBox.Show(this, error.Message, "Open Quiz Export Folder", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
+        Process.Start(new ProcessStartInfo(history.ProjectFolder) { UseShellExecute = true });
     }
 }
