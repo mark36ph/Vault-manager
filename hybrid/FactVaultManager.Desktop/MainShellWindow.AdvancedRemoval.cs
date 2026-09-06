@@ -30,6 +30,11 @@ public partial class MainShellWindow
 
     private void RemoveRetiredAdvancedPage()
     {
+        // The legacy cleanup class used this flag to know when its old Advanced
+        // page had been applied. Mark it complete so its retry timer can stop
+        // now that Advanced no longer exists.
+        _cleanAdvancedPageApplied = true;
+
         if (_autopilotNavContainer is not null &&
             _autopilotNavButtons.TryGetValue("Advanced", out var advancedButton))
         {
