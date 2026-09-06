@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="googlebot" content="noindex,nofollow,noarchive">
+  <meta name="theme-color" content="#060a12">
+  <title>Quiz Admin | Factburst Quiz</title>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="preload" href="/brand-icon.png?v=2" as="image">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/site-shell.css?v=1">
+  <link rel="stylesheet" href="/visual-polish.css?v=1">
+  <link rel="stylesheet" href="/admin.css?v=1">
+</head>
+<body data-page="admin">
+  <main class="admin-shell">
+    <header class="admin-header">
+      <a class="admin-brand" href="/" aria-label="Factburst Quiz home"><span class="admin-brand-mark"><img src="/brand-icon.png?v=2" alt=""></span><span>Factburst Quiz</span></a>
+      <div class="admin-header-actions">
+        <a class="button button-secondary" href="/quizzes">View site</a>
+        <button id="sign-out" class="button button-ghost hidden" type="button">Sign out</button>
+      </div>
+    </header>
+
+    <section id="login-panel" class="admin-panel admin-login" aria-labelledby="admin-login-title">
+      <p class="eyebrow">Private admin</p>
+      <h1 id="admin-login-title">Manage your quizzes anywhere.</h1>
+      <p>Enter the website publishing key to manage quizzes from your phone, tablet or computer. The key is kept only in this browser tab.</p>
+      <form id="login-form" class="admin-form">
+        <label for="admin-key">Website publishing key</label>
+        <input id="admin-key" name="admin-key" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+        <button class="button button-primary" type="submit">Open quiz admin</button>
+      </form>
+      <p id="login-status" class="admin-status" role="status" aria-live="polite"></p>
+      <p class="admin-security-note">Your key is sent only to the Factburst site API over HTTPS. It is not included in the page source.</p>
+    </section>
+
+    <section id="admin-app" class="hidden" aria-label="Quiz administration">
+      <div class="admin-page-heading">
+        <div>
+          <p class="eyebrow">Quiz control</p>
+          <h1>Website quizzes</h1>
+          <p>Create, edit, schedule, publish or unpublish quizzes without needing your PC.</p>
+        </div>
+        <button id="new-quiz" class="button button-primary" type="button">+ New quiz</button>
+      </div>
+
+      <div id="app-status" class="admin-status" role="status" aria-live="polite"></div>
+
+      <section class="admin-panel">
+        <div class="admin-panel-heading">
+          <div><p class="eyebrow">Library</p><h2>All quizzes</h2></div>
+          <button id="refresh-quizzes" class="button button-secondary" type="button">Refresh</button>
+        </div>
+        <div id="quiz-list" class="admin-quiz-list"></div>
+        <div id="quiz-list-empty" class="admin-empty hidden">
+          <h3>No quizzes yet</h3>
+          <p>Create the first website quiz from this page.</p>
+        </div>
+      </section>
+
+      <section id="editor-panel" class="admin-panel hidden" aria-labelledby="editor-title">
+        <div class="admin-panel-heading editor-heading">
+          <div><p class="eyebrow">Editor</p><h2 id="editor-title">New quiz</h2></div>
+          <button id="close-editor" class="button button-ghost" type="button">Close</button>
+        </div>
+
+        <form id="quiz-form" class="admin-form">
+          <div class="admin-field-grid">
+            <label>Title<input id="quiz-title" name="title" required maxlength="160"></label>
+            <label>URL slug<input id="quiz-slug" name="slug" required maxlength="80" pattern="[a-z0-9][a-z0-9-]{0,79}" autocapitalize="none" spellcheck="false"><small>Lowercase letters, numbers and hyphens.</small></label>
+            <label>Category<input id="quiz-category" name="category" list="category-options" required maxlength="80"></label>
+            <label>Status<select id="quiz-status" name="status"><option value="draft">Draft</option><option value="published">Published</option></select></label>
+            <label>Publish date &amp; time<input id="quiz-publish-at" name="publish_at" type="datetime-local"><small>Leave blank for immediate publishing when status is Published.</small></label>
+            <label>YouTube URL<input id="quiz-youtube" name="youtube_url" type="url" placeholder="https://www.youtube.com/watch?v=..."><small>Optional for the website editor. Existing app publishing rules still apply.</small></label>
+          </div>
+          <datalist id="category-options">
+            <option value="Science"><option value="History"><option value="Geography"><option value="Space"><option value="Nature &amp; Animals"><option value="Technology"><option value="Arts &amp; Literature"><option value="Music"><option value="Film"><option value="Logos"><option value="Sports"><option value="Entertainment"><option value="Mathematics"><option value="General Knowledge">
+          </datalist>
+
+          <label>Description<textarea id="quiz-description" name="description" rows="4" maxlength="800" placeholder="Describe what this quiz covers and what players can expect."></textarea></label>
+
+          <div class="question-toolbar">
+            <div><p class="eyebrow">Questions</p><h3 id="question-count">0 questions</h3></div>
+            <button id="add-question" class="button button-secondary" type="button">+ Add question</button>
+          </div>
+          <div id="questions-editor" class="questions-editor"></div>
+
+          <div class="editor-actions">
+            <button id="save-quiz" class="button button-primary" type="submit">Save quiz</button>
+            <button id="cancel-edit" class="button button-secondary" type="button">Cancel</button>
+          </div>
+          <p id="save-status" class="admin-status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+    </section>
+  </main>
+  <script src="/admin.js?v=1"></script>
+</body>
+</html>
