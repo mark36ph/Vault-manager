@@ -6,7 +6,7 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    public const int CurrentBuildNumber = 203;
+    public const int CurrentBuildNumber = 204;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
     private bool _deferredShellInitializationScheduled;
@@ -98,42 +98,3 @@ public partial class MainShellWindow
     private void InitializeDeferredWebsitePhase()
     {
         using var perf = PerformanceDiagnostics.Measure("Startup.DeferredWebsitePhase");
-        InitializeWebsiteManagerPage();
-        InitializeWebsiteYouTubeScheduleSync();
-        InitializeWebsiteVisibilityControls();
-        InitializeWebsiteUsersPage();
-        InitializeWebsiteAnalyticsPage();
-        InitializeWebsiteUserProvisioningControls();
-        InitializeWebsiteUsersFriendsPanel();
-        InitializeWebsiteMaintenancePlacement();
-        InitializeWebsiteAdministrationEnhancements();
-        InitializeWebsiteNavigationDivider();
-        InitializeWebsiteAdsSettings();
-        InitializeWebsiteSettingsShortcut();
-        InitializeWebsiteCommentModerationNavigation();
-        InitializeWebsiteSeoAuditPage();
-        InitializeWebsiteSeoAutoFixButton();
-        InitializeLogoQuizPromoArtworkRepair();
-        QueueDeferredShellPhase(InitializeDeferredHistoryAndMaintenancePhase);
-    }
-
-    private void InitializeDeferredHistoryAndMaintenancePhase()
-    {
-        using var perf = PerformanceDiagnostics.Measure("Startup.DeferredHistoryAndMaintenancePhase");
-        InitializeAutopilotNeedsYouCountSync();
-        InitializeInstagramPromoFollowup();
-        InitializeAutopilotNeedsYouVisualStability();
-        InitializeAutopilotShellActivationFix();
-        InitializeAutopilotScheduleTarget();
-        InitializeQuizHistoryBulkArchiveUi();
-        InitializeQuizHistoryGroupedBulkArchiveUi();
-        InitializeQuizHistoryUiCleanup();
-        InitializeQuizContentLifecycleUi();
-        InitializeLibraryPublicationStatusUi();
-        InitializeLibraryPlatformStatusFix();
-        InitializeLibraryPlatformSymbolFix();
-        InitializeStartupSafeUiCleanup();
-        InitializeCreateAdvancedUiCleanup();
-        InitializeDatabaseBackupAndRecovery();
-    }
-}
