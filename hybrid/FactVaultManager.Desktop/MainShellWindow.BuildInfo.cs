@@ -6,7 +6,7 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    public const int CurrentBuildNumber = 200;
+    public const int CurrentBuildNumber = 201;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
     private bool _deferredShellInitializationScheduled;
@@ -87,7 +87,6 @@ public partial class MainShellWindow
     private void InitializeDeferredAutopilotPhase()
     {
         using var perf = PerformanceDiagnostics.Measure("Startup.DeferredAutopilotPhase");
-        InitializeFullAutopilot();
         InitializeAutopilotFirstUi();
         InitializeAutopilotMasterUi();
         InitializeAutopilotNeedsYouTaskQueue();
