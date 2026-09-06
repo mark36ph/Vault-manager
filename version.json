@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.177",
-  "build": 197,
+  "latest_version": "1.0.178",
+  "build": 198,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 197 fixes installed startup recovery when settings.json exists but factvault.db is missing.",
-    "Build 197 restores the database from the available legacy/source data without overwriting an existing installed database.",
-    "Build 197 retains the previous activation initialization flow and Quiz Preview lazy-loading optimization."
+    "Build 198 fixes the in-app Updates button for installed builds that cannot use stale Velopack update metadata.",
+    "Build 198 checks the current GitHub version manifest and falls back to the stable Windows installer when a newer release is available.",
+    "Build 198 keeps existing settings, API keys, and database files untouched during the update path."
   ]
 }
