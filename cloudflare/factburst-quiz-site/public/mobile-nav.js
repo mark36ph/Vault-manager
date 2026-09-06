@@ -1,12 +1,20 @@
 (() => {
   const MOBILE_QUERY = "(max-width: 700px)";
+  const NAV_ITEMS = [
+    ["Home", "/"],
+    ["Quizzes", "/quizzes"],
+    ["About", "/about.html"],
+    ["FAQ", "/faq.html"],
+    ["Contact", "/contact.html"],
+    ["Leaderboard", "/leaderboard.html"],
+    ["Profile", "/profile.html"],
+  ];
   let initialized = false;
 
   function apply() {
+    if (!window.matchMedia(MOBILE_QUERY).matches) return;
     const nav = document.querySelector(".top-nav");
     if (!nav || initialized) return;
-    const links = Array.from(nav.querySelectorAll(":scope > a"));
-    if (!links.length) return;
     const header = nav.closest(".site-header");
     if (!header) return;
     initialized = true;
@@ -25,10 +33,15 @@
 
     const panelLinks = document.createElement("div");
     panelLinks.className = "mobile-nav-menu-links";
-    for (const link of links) {
-      const clone = link.cloneNode(true);
-      clone.classList.add("mobile-nav-link");
-      panelLinks.append(clone);
+    const currentPath = location.pathname.replace(/\/+$/, "") || "/";
+    const activePath = currentPath === "/quiz.html" || currentPath.startsWith("/quiz/") || currentPath.startsWith("/quizzes/") ? "/quizzes" : currentPath;
+    for (const [label, href] of NAV_ITEMS) {
+      const link = document.createElement("a");
+      link.href = href;
+      link.textContent = label;
+      link.className = "mobile-nav-link";
+      if (href === activePath || (href === "/" && activePath === "/index.html")) link.setAttribute("aria-current", "page");
+      panelLinks.append(link);
     }
     panel.append(panelLinks);
 
@@ -39,7 +52,7 @@
     notificationProxy.className = "mobile-nav-notification";
     notificationProxy.textContent = "🔔  Notifications";
     notificationProxy.addEventListener("click", () => {
-      const original = nav.querySelector("#notification-button");
+      const original = document.querySelector("#notification-button");
       if (original) original.click();
     });
     actions.append(notificationProxy);
@@ -66,7 +79,8 @@
       panel.hidden = true;
     }
 
-    button.addEventListener("click", () => {
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
       const open = button.getAttribute("aria-expanded") === "true";
       button.setAttribute("aria-expanded", String(!open));
       button.classList.toggle("is-open", !open);
@@ -99,14 +113,14 @@
         .mobile-nav-toggle.is-open .mobile-nav-toggle-icon span:nth-child(1){transform:translateY(5px) rotate(45deg)}
         .mobile-nav-toggle.is-open .mobile-nav-toggle-icon span:nth-child(2){opacity:0}
         .mobile-nav-toggle.is-open .mobile-nav-toggle-icon span:nth-child(3){transform:translateY(-5px) rotate(-45deg)}
-        .mobile-nav-menu{margin-top:7px;padding:8px;border:1px solid rgba(170,192,224,.15);border-radius:14px;background:rgba(8,14,24,.98);box-shadow:0 18px 48px rgba(0,0,0,.34)}
+        .mobile-nav-menu{display:block;margin-top:7px;padding:8px;border:1px solid rgba(170,192,224,.15);border-radius:14px;background:rgba(8,14,24,.98);box-shadow:0 18px 48px rgba(0,0,0,.34)}
         .mobile-nav-menu[hidden]{display:none!important}
         .mobile-nav-menu-links{display:grid;gap:3px}
-        .mobile-nav-link{display:flex;align-items:center;min-height:44px;padding:10px 12px;border-radius:9px;color:var(--muted,#9ba9bd);text-decoration:none;font-size:14px;font-weight:700}
-        .mobile-nav-link:hover,.mobile-nav-link:focus-visible{background:rgba(255,255,255,.045);color:#fff}
-        .mobile-nav-link[aria-current="page"]{background:rgba(53,199,255,.09);color:#fff}
+        .mobile-nav-link{display:flex!important;align-items:center;min-height:44px;padding:10px 12px;border-radius:9px;color:var(--muted,#9ba9bd)!important;text-decoration:none;font-size:14px;font-weight:700;background:transparent}
+        .mobile-nav-link:hover,.mobile-nav-link:focus-visible{background:rgba(255,255,255,.045);color:#fff!important}
+        .mobile-nav-link[aria-current="page"]{background:rgba(53,199,255,.09);color:#fff!important}
         .mobile-nav-menu-actions{margin-top:7px;padding-top:7px;border-top:1px solid rgba(170,192,224,.09)}
-        .mobile-nav-notification{width:100%;min-height:42px;justify-content:flex-start;padding:9px 12px;border:0;border-radius:9px;background:transparent;color:var(--muted,#9ba9bd);font:inherit;font-size:14px;font-weight:700;text-align:left;cursor:pointer}
+        .mobile-nav-notification{display:flex;width:100%;min-height:42px;align-items:center;justify-content:flex-start;padding:9px 12px;border:0;border-radius:9px;background:transparent;color:var(--muted,#9ba9bd);font:inherit;font-size:14px;font-weight:700;text-align:left;cursor:pointer}
         .mobile-nav-notification:hover{background:rgba(255,255,255,.045);color:#fff}
         .desktop-navigation-source{display:none!important}
       }
