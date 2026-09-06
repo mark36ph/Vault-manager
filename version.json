@@ -1,11 +1,10 @@
 {
-  "latest_version": "1.0.183",
-  "build": 203,
+  "latest_version": "1.0.184",
+  "build": 204,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 203 removes the Quiz Notes page from the desktop shell to reduce unnecessary WPF UI layout work.",
-    "Build 203 keeps existing Quiz Notes settings data for backwards compatibility but no longer creates the notes page or navigation button.",
-    "Build 203 keeps Upload Manager and YouTube Manager navigation anchored directly after Quiz History."
+    "Build 204 stops Quiz History from fetching YouTube analytics automatically every time the page is opened.",
+    "Quiz History analytics can still be updated with the existing Refresh button, keeping navigation responsive while preserving the feature."
   ]
 }
