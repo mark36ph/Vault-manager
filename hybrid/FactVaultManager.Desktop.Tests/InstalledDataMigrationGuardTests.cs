@@ -22,7 +22,7 @@ public sealed class InstalledDataMigrationGuardTests
     }
 
     [Fact]
-    public void BlocksMigrationWhenInstalledSettingsAlreadyExist()
+    public void AllowsMigrationWhenInstalledDatabaseIsMissingEvenIfSettingsExist()
     {
         using var sandbox = new TemporaryDirectory();
         var appDataRoot = Path.Combine(sandbox.Path, "installed");
@@ -30,7 +30,7 @@ public sealed class InstalledDataMigrationGuardTests
         Directory.CreateDirectory(data);
         File.WriteAllText(Path.Combine(data, "settings.json"), "{\"ai\":{\"api_key\":\"protected-placeholder\"}}");
 
-        Assert.False(InstalledDataMigrationGuard.ShouldRun(appDataRoot));
+        Assert.True(InstalledDataMigrationGuard.ShouldRun(appDataRoot));
     }
 
     [Fact]
