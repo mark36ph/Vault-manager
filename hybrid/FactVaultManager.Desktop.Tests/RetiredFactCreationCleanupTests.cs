@@ -161,13 +161,23 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build199_MatchesCurrentVersionAndBuildNumber()
+    public void Build200_UpdatesInstallerAfterCurrentProcessExits()
+    {
+        var updater = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/AppUpdateService.cs");
+        Assert.Contains("LaunchInstallerAfterCurrentProcessExits", updater, StringComparison.Ordinal);
+        Assert.Contains("Wait-Process", updater, StringComparison.Ordinal);
+        Assert.Contains("Environment.ProcessId", updater, StringComparison.Ordinal);
+        Assert.Contains("Encoding.Unicode.GetBytes", updater, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Build200_MatchesCurrentVersionAndBuildNumber()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var version = ReadRepositoryFile("version.json");
-        Assert.Contains("CurrentBuildNumber = 199", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("\"build\": 199", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.179\"", version, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 200", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 200", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.180\"", version, StringComparison.Ordinal);
     }
 
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
@@ -184,9 +194,11 @@ public sealed class RetiredFactCreationCleanupTests
         while (directory is not null)
         {
             var candidate = Path.Combine(directory.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar));
-            if (File.Exists(candidate)) return candidate;
+            if (File.Exists(candidate))
+                return candidate;
             directory = directory.Parent;
         }
+
         return null;
     }
 }
