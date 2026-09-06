@@ -28,6 +28,17 @@ public sealed class NavigationPerformanceDiagnosticsTests
         Assert.DoesNotContain("var quizNotes =", navigation, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Build204_QuizHistoryNavigationDoesNotFetchYouTubeAnalytics()
+    {
+        var historyPage = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.QuizHistoryPage.cs");
+
+        Assert.Contains("YouTube analytics: use Refresh to update", historyPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("MainTabs.SelectionChanged +=", historyPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("await RefreshQuizYouTubeAnalyticsAsync(false)", historyPage, StringComparison.Ordinal);
+        Assert.Contains("await RefreshQuizYouTubeAnalyticsAsync(true)", historyPage, StringComparison.Ordinal);
+    }
+
     private static string ReadRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
