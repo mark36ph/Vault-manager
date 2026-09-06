@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.0.186",
-  "build": 206,
+  "latest_version": "1.0.187",
+  "build": 207,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 206 removes the retired Advanced navigation page and stops constructing unused Question Bank, Upload Manager, Facebook, Instagram and Release Readiness pages during startup.",
-    "The main shell keeps the active Create, Library, analytics, Performance, website and Settings workflows while reducing hidden WPF page trees that were contributing to navigation and layout stalls."
+    "Build 207 fixes the navigation hotspot profiler so it measures only the current Factburst sidebar instead of hidden legacy navigation anchors.",
+    "The performance report now covers Autopilot, Create, Performance, Library, Analytics, Users, Comments, SEO, Website and Settings, matching the pages shown in the current shell."
   ]
 }
