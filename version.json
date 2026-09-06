@@ -1,12 +1,11 @@
 {
-  "latest_version": "1.0.171",
-  "build": 192,
+  "latest_version": "1.0.172",
+  "build": 193,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 192 makes the Performance Diagnostics hotspot profiler registration deterministic when the diagnostics page is created.",
-    "Build 192 removes the previous button-loaded registration approach that could still miss the lazily created diagnostics page.",
-    "Build 192 keeps the profiler registration off the normal startup path and only attaches it when Performance Diagnostics results are loaded.",
+    "Build 193 adds granular startup and Quiz Workspace performance diagnostics for isolating slow phases.",
+    "Build 193 keeps the Performance Diagnostics hotspot profiler deterministic when the diagnostics page is created.",
     "Performance Diagnostics continues to measure navigation, memory, allocations, and garbage collection behavior."
   ]
 }
