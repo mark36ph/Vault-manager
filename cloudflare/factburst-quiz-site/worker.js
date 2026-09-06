@@ -84,17 +84,27 @@ async function getLaunchQuizSlug(db, now) {
 }
 
 async function listQuizzes(db, url) {
-  const requestedLimit = Number.parseInt(url.searchParams.get("limit") || "24", 10);
-  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 24;
+  const requestedLimit = Number.parseInt(url.searchParams.get("limit") || "12", 10);
+  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 50) : 12;
+  const requestedPage = Number.parseInt(url.searchParams.get("page") || "1", 10);
+  const page = Number.isFinite(requestedPage) ? Math.max(requestedPage, 1) : 1;
+  const offset = (page - 1) * limit;
   const category = (url.searchParams.get("category") || "").trim();
+  const search = (url.searchParams.get("search") || "").trim();
   const now = new Date().toISOString();
   const launchSlug = await getLaunchQuizSlug(db, now);
-  const statement = category
-    ? db.prepare(`SELECT q.id, q.slug, q.title, q.category, q.description, q.youtube_url, q.publish_at, COUNT(sq.id) AS question_count, COUNT(sa.id) AS attempts FROM site_quizzes q LEFT JOIN site_questions sq ON sq.quiz_id = q.id LEFT JOIN site_attempts sa ON sa.quiz_id = q.id WHERE q.status = 'published' AND lower(q.category) = lower(?) GROUP BY q.id ORDER BY COALESCE(q.publish_at, q.created_at) DESC, q.id DESC LIMIT ?`).bind(category, limit)
-    : db.prepare(`SELECT q.id, q.slug, q.title, q.category, q.description, q.youtube_url, q.publish_at, COUNT(DISTINCT sq.id) AS question_count, COUNT(DISTINCT sa.id) AS attempts FROM site_quizzes q LEFT JOIN site_questions sq ON sq.quiz_id = q.id LEFT JOIN site_attempts sa ON sa.quiz_id = q.id WHERE q.status = 'published' GROUP BY q.id ORDER BY COALESCE(q.publish_at, q.created_at) DESC, q.id DESC LIMIT ?`).bind(limit);
+  const where = ["q.status = 'published'"];
+  const binds = [];
+  if (category) { where.push("lower(q.category) = lower(?)"); binds.push(category); }
+  if (search) { where.push("(lower(q.title) LIKE lower(?) OR lower(q.description) LIKE lower(?) OR lower(q.category) LIKE lower(?))"); const term = `%${search}%`; binds.push(term, term, term); }
+  const whereSql = where.join(" AND ");
+  const countResult = await db.prepare(`SELECT COUNT(*) AS total FROM site_quizzes q WHERE ${whereSql}`).bind(...binds).first();
+  const total = Number(countResult?.total || 0);
+  const statement = db.prepare(`SELECT q.id, q.slug, q.title, q.category, q.description, q.youtube_url, q.publish_at, COUNT(DISTINCT sq.id) AS question_count, COUNT(DISTINCT sa.id) AS attempts FROM site_quizzes q LEFT JOIN site_questions sq ON sq.quiz_id = q.id LEFT JOIN site_attempts sa ON sa.quiz_id = q.id WHERE ${whereSql} GROUP BY q.id ORDER BY COALESCE(q.publish_at, q.created_at) DESC, q.id DESC LIMIT ? OFFSET ?`).bind(...binds, limit, offset);
   const result = await statement.all();
   const quizzes = (result.results || []).map(quiz => launchSlug && quiz.slug === launchSlug ? { ...quiz, publish_at: now, launch_quiz: true } : quiz);
-  return json({ quizzes });
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  return json({ quizzes, page, page_size: limit, total, total_pages: totalPages, has_more: page < totalPages, has_previous: page > 1 });
 }
 
 async function latestQuiz(db) {
@@ -220,8 +230,24 @@ async function verifyAdminSession(request, env) {
 
 async function listAdminQuizzes(request, env) {
   const auth = await requireAdmin(request, env); if (!auth.ok) return auth.response;
-  const result = await env.DB.prepare(`SELECT q.slug, q.title, q.category, q.description, q.youtube_url, q.publish_at, q.status, q.created_at, q.updated_at, COUNT(sq.id) AS question_count FROM site_quizzes q LEFT JOIN site_questions sq ON sq.quiz_id = q.id GROUP BY q.id ORDER BY COALESCE(q.publish_at, q.created_at) DESC, q.id DESC`).all();
-  return json({ quizzes: result.results || [] });
+  const result = await env.DB.prepare(`SELECT q.slug, q.title, q.category, q.description, q.youtube_url, q.publish_at, q.status, q.created_at, q.updated_at, COUNT(sq.id) AS question_count, COUNT(DISTINCT sa.id) AS attempts FROM site_quizzes q LEFT JOIN site_questions sq ON sq.quiz_id = q.id LEFT JOIN site_attempts sa ON sa.quiz_id = q.id GROUP BY q.id ORDER BY COALESCE(q.publish_at, q.created_at) DESC, q.id DESC`).all();
+  const [totals, published, drafts, questions, attempts] = await Promise.all([
+    env.DB.prepare("SELECT COUNT(*) AS value FROM site_quizzes").first(),
+    env.DB.prepare("SELECT COUNT(*) AS value FROM site_quizzes WHERE status = 'published'").first(),
+    env.DB.prepare("SELECT COUNT(*) AS value FROM site_quizzes WHERE status = 'draft'").first(),
+    env.DB.prepare("SELECT COUNT(*) AS value FROM site_questions").first(),
+    env.DB.prepare("SELECT COUNT(*) AS value FROM site_attempts").first(),
+  ]);
+  return json({
+    quizzes: result.results || [],
+    stats: {
+      total_quizzes: Number(totals?.value || 0),
+      published: Number(published?.value || 0),
+      drafts: Number(drafts?.value || 0),
+      questions: Number(questions?.value || 0),
+      attempts: Number(attempts?.value || 0),
+    },
+  });
 }
 
 async function getAdminQuiz(request, env, slug) {
