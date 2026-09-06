@@ -27,12 +27,21 @@ public partial class MainShellWindow
         {
             using var perf = PerformanceDiagnostics.Measure("Startup.Loaded");
             window.Title = $"Factburst Quiz Manager • Build {CurrentBuildNumber}";
-            window.InitializeSettingsWorkflow();
-            window.InitializeApiConnectionsSettings();
-            window.InitializeApiConnectionsWebsite();
-            window.InitializeQuizOnlyCleanup();
-            window.InitializeInstagramPromoApprovalUi();
-            window.InitializePerformanceDiagnosticsUi();
+
+            using (PerformanceDiagnostics.Measure("Startup.Loaded.SettingsWorkflow"))
+                window.InitializeSettingsWorkflow();
+            using (PerformanceDiagnostics.Measure("Startup.Loaded.ApiConnections"))
+            {
+                window.InitializeApiConnectionsSettings();
+                window.InitializeApiConnectionsWebsite();
+            }
+            using (PerformanceDiagnostics.Measure("Startup.Loaded.QuizCleanup"))
+                window.InitializeQuizOnlyCleanup();
+            using (PerformanceDiagnostics.Measure("Startup.Loaded.InstagramPromo"))
+                window.InitializeInstagramPromoApprovalUi();
+            using (PerformanceDiagnostics.Measure("Startup.Loaded.PerformanceDiagnosticsUi"))
+                window.InitializePerformanceDiagnosticsUi();
+
             PerformanceDiagnostics.ClearStartupProfileRequest();
 
             if (!window._deferredShellInitializationScheduled)
