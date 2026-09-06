@@ -22,8 +22,6 @@ public partial class MainShellWindow
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _quizQuestionBankTabIndex.ToString(), StringComparison.Ordinal));
         var quizHistory = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _quizHistoryTabIndex.ToString(), StringComparison.Ordinal));
-        var quizNotes = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _quizNotesTabIndex.ToString(), StringComparison.Ordinal));
         var uploadManager = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _uploadManagerTabIndex.ToString(), StringComparison.Ordinal));
         var youtubeAnalytics = FindVisualChildren<Button>(root)
@@ -33,7 +31,7 @@ public partial class MainShellWindow
         var instagramManager = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _instagramManagerTabIndex.ToString(), StringComparison.Ordinal));
 
-        if (settings is null || quizzes is null || questions is null || quizHistory is null || quizNotes is null ||
+        if (settings is null || quizzes is null || questions is null || quizHistory is null ||
             uploadManager is null || youtubeAnalytics is null || facebookAnalytics is null || instagramManager is null ||
             quizzes.Parent is not StackPanel navigation)
         {
@@ -46,7 +44,6 @@ public partial class MainShellWindow
         navigation.Children.Add(quizzes);
         navigation.Children.Add(questions);
         navigation.Children.Add(quizHistory);
-        navigation.Children.Add(quizNotes);
         navigation.Children.Add(NavigationSpacer());
         navigation.Children.Add(uploadManager);
         navigation.Children.Add(youtubeAnalytics);
