@@ -24,10 +24,6 @@ public partial class MainShellWindow
 
         _autopilotMasterUiInitialized = true;
 
-        // BuildInfo initializes this method from the window's Loaded route. Registering
-        // another Loaded handler here is too late and can leave the real Autopilot page
-        // without its ON/OFF controls. Queue the work directly and retry until the home
-        // header exists instead.
         Dispatcher.BeginInvoke(
             DispatcherPriority.ApplicationIdle,
             new Action(EnsureAutopilotMasterUi));
@@ -114,15 +110,16 @@ public partial class MainShellWindow
         outer.Children.Add(_autopilotMasterHintText);
 
         healthCard.Child = outer;
-        RefreshAutopilotMasterUiState();
 
+        // Autopilot is intentionally an opt-in feature. Even if an older build left the
+        // persisted preference enabled, every new application session starts with it off.
         var preferences = AutopilotSchedulePreferencesStore.Load(_data.SettingsPath);
         if (preferences.AutoFillEnabled)
         {
-            Dispatcher.BeginInvoke(
-                DispatcherPriority.Background,
-                new Action(async () => await EvaluateAutomaticScheduleFillAsync()));
+            preferences.AutoFillEnabled = false;
+            AutopilotSchedulePreferencesStore.Save(_data.SettingsPath, preferences);
         }
+        RefreshAutopilotMasterUiState();
     }
 
     private void RetryAutopilotMasterUi()
@@ -157,14 +154,15 @@ public partial class MainShellWindow
             AutopilotSchedulePreferencesStore.Save(_data.SettingsPath, preferences);
         }
 
+        if (enabled)
+            InitializeFullAutopilot();
+
         ApplyAutopilotMasterState(enabled);
         RefreshAutopilotMasterUiState();
         UpdateScheduleTargetStatus();
 
         if (enabled)
         {
-            // ON means automatic. Evaluate the schedule immediately; the startup check
-            // and five-minute supervisor continue maintaining it afterwards.
             await EvaluateAutomaticScheduleFillAsync();
             await RunFullAutopilotAsync();
         }
