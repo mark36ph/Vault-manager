@@ -56,19 +56,23 @@ public partial class MainShellWindow
         var originalIndex = MainTabs.SelectedIndex;
         var samples = buttons.ToDictionary(button => button, _ => new List<double>());
         _performanceDiagnosticsStatus!.Text = $"Profiling {buttons.Count} navigation sections for {cycles} cycles...";
-        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
+        await WaitForStableLayoutAsync();
 
         try
         {
+            // Prime each section before recording measurements. The stable-layout wait is
+            // deliberately stronger than DispatcherPriority.Render: WPF documents Loaded
+            // as occurring after layout and render have finished, while ContextIdle lets
+            // already-queued background UI work drain before the stopwatch starts.
             foreach (var button in buttons)
-                await NavigateAndWaitAsync(button);
+                await NavigateAndWaitForStableLayoutAsync(button);
 
             for (var cycle = 0; cycle < cycles; cycle++)
             {
                 foreach (var button in buttons)
                 {
                     var stopwatch = Stopwatch.StartNew();
-                    await NavigateAndWaitAsync(button);
+                    await NavigateAndWaitForStableLayoutAsync(button);
                     stopwatch.Stop();
                     samples[button].Add(stopwatch.Elapsed.TotalMilliseconds);
                 }
@@ -80,7 +84,7 @@ public partial class MainShellWindow
             {
                 MainTabs.SelectedIndex = originalIndex;
                 ApplyNavigationSelection(originalIndex);
-                await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Render);
+                await WaitForStableLayoutAsync();
             }
         }
 
@@ -134,6 +138,21 @@ public partial class MainShellWindow
         _performanceDiagnosticsStatus.Text = rows.Count == 0
             ? "Navigation hotspot profile completed without measurable sections."
             : $"Navigation hotspot profile complete. Hotspot: {rows[0].Name} at {rows[0].MaxMs:F1} ms maximum.";
+    }
+
+    private async Task NavigateAndWaitForStableLayoutAsync(Button button)
+    {
+        button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+        await WaitForStableLayoutAsync();
+    }
+
+    private async Task WaitForStableLayoutAsync()
+    {
+        // Render priority is the same priority used by WPF rendering, so a callback at
+        // Render can run before the queued layout/render work we actually want to measure.
+        // Loaded is defined by WPF as occurring after layout and render have finished.
+        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
+        await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
     }
 
     private sealed record NavigationHotspotRow(string Name, int Index, double AverageMs, double P95Ms, double MaxMs, int Samples50, int Samples100);
