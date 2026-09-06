@@ -6,9 +6,26 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
+    private static readonly bool WebsiteUserEditingHandlerRegistered = RegisterWebsiteUserEditingHandler();
     private DispatcherTimer? _websiteUserEditingTimer;
     private Button? _websiteUserEditButton;
     private bool _websiteUserEditingSelectionHooked;
+
+    private static bool RegisterWebsiteUserEditingHandler()
+    {
+        EventManager.RegisterClassHandler(
+            typeof(MainShellWindow),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler(MainShellWindowWebsiteUserEditing_Loaded),
+            handledEventsToo: true);
+        return true;
+    }
+
+    private static void MainShellWindowWebsiteUserEditing_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is MainShellWindow window)
+            window.InitializeWebsiteUserEditingControls();
+    }
 
     private void InitializeWebsiteUserEditingControls()
     {
