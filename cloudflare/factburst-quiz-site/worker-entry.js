@@ -137,9 +137,8 @@ export default {
       const schemaFailure = await ensureSchemasSafely(env, url);
       if (schemaFailure) return schemaFailure;
 
-      const statusBlocked = await enforceActiveSession(request, env.DB);
-      if (statusBlocked) return statusBlocked;
-
+      // Scoring must work for visitors as well as signed-in users. Only require
+      // an active session when we are going to save the score to an account.
       const currentUser = await activeSessionUser(request, env.DB);
       if (!currentUser?.email_verified_at) {
         return scoreGuestQuiz(request, env.DB, scoreMatch[1].toLowerCase());
