@@ -27,11 +27,7 @@
 
   const writePending = (slug, answers) => {
     try {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
-        slug,
-        answers,
-        created_at: Date.now(),
-      }));
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ slug, answers, created_at: Date.now() }));
     } catch {
       // Session storage is optional; the normal guest result still works.
     }
@@ -50,9 +46,7 @@
       const match = new URL(url, location.origin).pathname.match(/^\/api\/quizzes\/([a-z0-9][a-z0-9-]{0,79})\/score$/i);
       if (method === "POST" && match && response.ok && init?.body) {
         const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
-        if (Array.isArray(body?.answers) && body.answers.length > 0) {
-          writePending(match[1].toLowerCase(), body.answers);
-        }
+        if (Array.isArray(body?.answers) && body.answers.length > 0) writePending(match[1].toLowerCase(), body.answers);
       }
     } catch {
       // Never interfere with normal quiz scoring.
@@ -78,15 +72,14 @@
     const text = document.createElement("span");
     text.textContent = copy;
     note.append(strong, text);
-    if (actionLabel) {
-      const action = document.createElement("button");
-      action.type = "button";
-      action.className = "account-inline-action";
-      action.textContent = actionLabel;
-      note.append(action);
-      return action;
-    }
-    return null;
+    if (!actionLabel) return null;
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "account-inline-action";
+    action.dataset.guestScoreClaim = "true";
+    action.textContent = actionLabel;
+    note.append(action);
+    return action;
   };
 
   const openSignup = () => {
@@ -118,7 +111,6 @@
       setNote(note, "Score ready to save.", "Your result is still available, but this save request has expired. Please finish another quiz or sign up before leaving this page.");
       return;
     }
-
     action.disabled = true;
     action.textContent = "Saving score…";
     try {
@@ -141,19 +133,19 @@
       action.disabled = false;
       action.textContent = "Save this score to my account";
       setNote(note, "Account created, but the score was not saved yet.", error.message || "Please try again.", action.textContent);
-      note.querySelector("button")?.addEventListener("click", () => claimPending(note, note.querySelector("button")), { once: true });
+      const retry = note.querySelector("button");
+      retry?.addEventListener("click", () => claimPending(note, retry), { once: true });
     }
   };
 
   const enhance = () => {
     const results = document.querySelector(RESULT_SELECTOR);
     if (!results || results.classList.contains("hidden")) return;
-    if (results.dataset.guestClaimEnhanced === "true") return;
-
     const pending = readPending();
     if (!pending || pending.slug !== quizSlug()) return;
+    const existing = results.querySelector("[data-guest-score-claim='true']");
+    if (existing) return;
 
-    results.dataset.guestClaimEnhanced = "true";
     let note = results.querySelector(".result-account-note");
     if (!note) {
       note = document.createElement("div");
@@ -177,16 +169,15 @@
         action.textContent = "Create account & save score";
         return;
       }
-
       try {
-        const user = await waitForAccount();
-        action.textContent = user?.email_verified ? "Saving score…" : "Saving score…";
+        await waitForAccount();
         await claimPending(note, action);
       } catch (error) {
         action.disabled = false;
         action.textContent = "Create account & save score";
         setNote(note, "Your score is still safe on this page.", error.message || "Finish creating your account, then try again.", action.textContent);
-        note.querySelector("button")?.addEventListener("click", () => openSignup(), { once: true });
+        const retry = note.querySelector("button");
+        retry?.addEventListener("click", () => openSignup(), { once: true });
       }
     }, { once: true });
   };
@@ -194,6 +185,6 @@
   const results = document.querySelector(RESULT_SELECTOR);
   if (!results) return;
   const observer = new MutationObserver(enhance);
-  observer.observe(results, { attributes: true, attributeFilter: ["class"] });
+  observer.observe(results, { attributes: true, attributeFilter: ["class"], childList: true, subtree: true });
   enhance();
 })();
