@@ -10,6 +10,15 @@
     ["/terms.html", "/terms"],
     ["/privacy.html", "/privacy"],
   ]);
+  const MAIN_NAV_ITEMS = [
+    ["Home", "/"],
+    ["Quizzes", "/quizzes"],
+    ["About", "/about.html"],
+    ["FAQ", "/faq.html"],
+    ["Contact", "/contact.html"],
+    ["Leaderboard", "/leaderboard.html"],
+    ["Profile", "/profile.html"],
+  ];
 
   let memoryConsent = "";
 
@@ -47,6 +56,29 @@
     link.href = `${cleanPath}${target.search}${target.hash}`;
   }
 
+  function renderMainNavigation(nav) {
+    if (!nav) return;
+    const currentPath = location.pathname.replace(/\/+$/, "") || "/";
+    const activePath = currentPath === "/quiz.html" || currentPath.startsWith("/quiz/") || currentPath.startsWith("/quizzes/")
+      ? "/quizzes"
+      : cleanPublicPath(currentPath);
+
+    const fragment = document.createDocumentFragment();
+    for (const [label, href] of MAIN_NAV_ITEMS) {
+      const link = document.createElement("a");
+      link.href = href;
+      link.textContent = label;
+      if (cleanPublicPath(href) === activePath) link.setAttribute("aria-current", "page");
+      fragment.append(link);
+    }
+
+    const slot = document.createElement("span");
+    slot.className = "notification-slot";
+    slot.setAttribute("aria-hidden", "true");
+    fragment.append(slot);
+    nav.replaceChildren(fragment);
+  }
+
   function prepareNavigation() {
     const cleanLocation = CLEAN_PAGE_PATHS.get(location.pathname);
     if (cleanLocation) {
@@ -56,18 +88,7 @@
 
     const nav = document.querySelector(".top-nav");
     if (!nav) return false;
-
-    const currentPath = location.pathname.replace(/\/+$/, "") || "/";
-    const activePath = currentPath === "/quiz.html" || currentPath.startsWith("/quiz/") || currentPath.startsWith("/quizzes/")
-      ? "/quizzes"
-      : cleanPublicPath(currentPath);
-
-    for (const link of nav.querySelectorAll("a[href]")) {
-      link.removeAttribute("aria-current");
-      let linkPath = new URL(link.href, location.origin).pathname.replace(/\/+$/, "") || "/";
-      linkPath = cleanPublicPath(linkPath);
-      if (linkPath === activePath) link.setAttribute("aria-current", "page");
-    }
+    renderMainNavigation(nav);
 
     const profilePlay = document.querySelector('.profile-actions a[href="/#browse"]');
     if (profilePlay) profilePlay.href = "/quizzes";
@@ -98,6 +119,60 @@
     if (button.parentElement !== slot) slot.replaceChildren(button);
     if (panel) panel.classList.add("notification-panel-header");
     return true;
+  }
+
+  async function addQuizContentPreview() {
+    if (!document.querySelector("#quiz-player")) return;
+    if (document.querySelector("#quiz-question-preview")) return;
+
+    const match = location.pathname.match(/^\/quiz\/([a-z0-9][a-z0-9-]{0,79})$/i);
+    if (!match) return;
+
+    try {
+      const response = await fetch(`/api/quizzes/${encodeURIComponent(match[1].toLowerCase())}`, {
+        headers: { accept: "application/json" },
+      });
+      if (!response.ok) return;
+      const payload = await response.json();
+      const questions = Array.isArray(payload?.questions) ? payload.questions : [];
+      if (!questions.length) return;
+
+      const section = document.createElement("section");
+      section.id = "quiz-question-preview";
+      section.className = "quiz-leaderboard-section quiz-question-preview";
+      section.setAttribute("aria-labelledby", "quiz-question-preview-title");
+
+      const heading = document.createElement("div");
+      heading.className = "section-heading";
+      heading.innerHTML = '<div><p class="eyebrow">Quiz preview</p><h2 id="quiz-question-preview-title">Questions you will face</h2></div>';
+      section.append(heading);
+
+      const intro = document.createElement("p");
+      intro.className = "profile-help";
+      intro.textContent = `This challenge contains ${questions.length} questions. Here are a few examples of the topics and question styles in the quiz — the answers are kept hidden until you play.`;
+      section.append(intro);
+
+      const previewGrid = document.createElement("div");
+      previewGrid.className = "quiz-grid";
+      for (const [index, item] of questions.slice(0, 3).entries()) {
+        const card = document.createElement("article");
+        card.className = "quiz-card";
+        const number = document.createElement("span");
+        number.className = "category-pill";
+        number.textContent = `Question ${index + 1}`;
+        const question = document.createElement("h3");
+        question.textContent = String(item?.question || "").trim();
+        card.append(number, question);
+        previewGrid.append(card);
+      }
+      section.append(previewGrid);
+
+      const results = document.querySelector("#quiz-results");
+      const anchor = document.querySelector("#quiz-high-scores") || results;
+      if (anchor?.parentNode) anchor.parentNode.insertBefore(section, anchor);
+    } catch (error) {
+      console.warn("Could not load quiz content preview", error);
+    }
   }
 
   function readConsent() {
@@ -201,6 +276,7 @@
     bindStaticFooter();
     buildCookieBanner();
     showCookieBanner();
+    addQuizContentPreview();
 
     window.factburstCookieConsent = {
       get: readConsent,
