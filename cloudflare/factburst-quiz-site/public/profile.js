@@ -58,6 +58,33 @@ async function initialize() {
   renderFriends(friends);
   loading.classList.add("hidden");
   content.classList.remove("hidden");
+  loadProfileRole();
+}
+
+async function loadProfileRole() {
+  const roleElement = document.querySelector("#profile-role");
+  if (!roleElement) return;
+  try {
+    const response = await fetch("/api/site/status", {
+      credentials: "same-origin",
+      headers: { accept: "application/json" },
+    });
+    if (!response.ok) return;
+    const payload = await response.json();
+    const role = String(payload?.role || "").toLowerCase();
+    const isAdmin = payload?.is_admin === true || role === "admin";
+    const isModerator = role === "mod" || role === "moderator";
+    if (!isAdmin && !isModerator) {
+      roleElement.classList.add("hidden");
+      roleElement.textContent = "";
+      return;
+    }
+    roleElement.textContent = isAdmin ? "ADMIN" : "MOD";
+    roleElement.dataset.role = isAdmin ? "admin" : "mod";
+    roleElement.classList.remove("hidden");
+  } catch {
+    // Role display is optional and must never prevent the profile from loading.
+  }
 }
 
 function renderProfile(user, history) {
