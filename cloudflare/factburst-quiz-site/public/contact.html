@@ -11,38 +11,77 @@
   <link rel="stylesheet" href="/website-media.css">
   <link rel="stylesheet" href="/professional-redesign.css">
   <link rel="stylesheet" href="/site-shell.css?v=1">
+  <style>
+    .contact-topic-card {
+      width: 100%;
+      border: 0;
+      text-align: left;
+      font: inherit;
+      color: inherit;
+      cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .contact-topic-card:hover,
+    .contact-topic-card:focus-visible {
+      transform: translateY(-2px);
+    }
+    .contact-topic-card:focus-visible {
+      outline: 3px solid currentColor;
+      outline-offset: 3px;
+    }
+    #contact-form-section[hidden] { display: none; }
+  </style>
 </head>
 <body data-page="contact">
-  <header class="site-header"><a class="brand" href="/" aria-label="Factburst Quiz home"><span class="brand-mark"><img src="/brand-icon.png?v=2" alt=""></span><span>Factburst Quiz</span></a><nav class="top-nav" aria-label="Main navigation"><a href="/">Home</a><a href="/quizzes">Quizzes</a><a href="/about.html">About</a><a href="/contact.html" aria-current="page">Contact</a><a href="/faq.html">FAQ</a><a href="/leaderboard.html">Leaderboard</a><a href="/profile.html">Profile</a></nav></header>
+  <header class="site-header"><a class="brand" href="/" aria-label="Factburst Quiz home"><span class="brand-mark"><img src="/brand-icon.png?v=2" alt=""></span><span>Factburst Quiz</span></a><nav class="top-nav" aria-label="Main navigation"><a href="/">Home</a><a href="/quizzes">Quizzes</a><a href="/about.html">About</a><a href="/contact.html" aria-current="page">Contact</a></nav></header>
   <main>
-    <section class="shell page-intro"><div class="page-intro-copy"><p class="eyebrow">Get in touch</p><h1>Contact Factburst Quiz</h1><p class="hero-text">Found a problem or have feedback about the quiz experience? Choose a topic below and send us the details.</p></div></section>
+    <section class="shell page-intro"><div class="page-intro-copy"><p class="eyebrow">Get in touch</p><h1>Contact Factburst Quiz</h1><p class="hero-text">Found a problem or have feedback about the quiz experience? We want to hear about it.</p></div></section>
 
-    <section class="shell section" aria-labelledby="contact-form-title">
+    <section class="shell section" aria-label="Contact options">
+      <div class="quiz-grid">
+        <button class="quiz-card contact-topic-card" type="button" data-contact-topic="quiz-problem">
+          <h2>Report a quiz problem</h2>
+          <p>The fastest way to flag a question that looks incorrect or unclear is to use the reporting option on the quiz itself. Include the question number and explain what you think needs checking.</p>
+        </button>
+        <button class="quiz-card contact-topic-card" type="button" data-contact-topic="website-issue">
+          <h2>Website or account issue</h2>
+          <p>If a page is not working as expected, note the page address, what you were trying to do and what happened. Useful details help us reproduce and fix the problem.</p>
+        </button>
+        <button class="quiz-card contact-topic-card" type="button" data-contact-topic="feedback">
+          <h2>General feedback</h2>
+          <p>Suggestions about categories, quiz difficulty, navigation or accessibility are welcome. Factburst is intended to become more useful as the library and player experience improve.</p>
+        </button>
+      </div>
+    </section>
+
+    <section id="contact-form-section" class="shell section" hidden aria-labelledby="contact-form-title">
       <div class="quiz-feature">
         <div>
           <p class="eyebrow">Send a message</p>
-          <h2 id="contact-form-title">What would you like to contact us about?</h2>
-          <p>Choose the closest option and tell us what happened. For a quiz correction, include the quiz name and question number where possible.</p>
+          <h2 id="contact-form-title">Tell us more</h2>
+          <p>Choose what you want to tell us about, then leave your comment or report below.</p>
         </div>
       </div>
 
-      <form id="contact-form" class="contact-form" style="margin-top:1.5rem;" novalidate>
+      <form id="contact-form" class="contact-form" style="margin-top:1.5rem;">
         <div class="form-field">
-          <label for="contact-topic">Topic</label>
+          <label for="contact-topic">What is your message about?</label>
           <select id="contact-topic" name="topic" required>
             <option value="quiz-problem">Report a quiz problem</option>
-            <option value="question-correction">Question correction</option>
+            <option value="question-correction">Correct a quiz question</option>
+            <option value="quiz-feedback">Comment about a quiz</option>
             <option value="website-issue">Website issue</option>
             <option value="account-issue">Account issue</option>
-            <option value="feedback">General feedback</option>
+            <option value="feedback">General feedback or suggestion</option>
             <option value="accessibility">Accessibility feedback</option>
+            <option value="other">Something else</option>
           </select>
         </div>
 
-        <div id="contact-quiz-fields">
+        <div id="contact-quiz-fields" hidden>
           <div class="form-field">
-            <label for="contact-quiz">Quiz name or URL</label>
-            <input id="contact-quiz" name="quiz" type="text" maxlength="200" placeholder="e.g. World Geography Quiz">
+            <label for="contact-quiz">Quiz name, URL or question number</label>
+            <input id="contact-quiz" name="quiz" type="text" maxlength="200" placeholder="e.g. World Geography Quiz — Question 4">
           </div>
         </div>
 
@@ -57,12 +96,12 @@
         </div>
 
         <div class="form-field">
-          <label for="contact-message">Message</label>
-          <textarea id="contact-message" name="message" rows="7" maxlength="5000" placeholder="Tell us what you would like us to know…" required></textarea>
+          <label for="contact-message">Your comment or message</label>
+          <textarea id="contact-message" name="message" rows="7" maxlength="5000" placeholder="Tell us what happened, what you would like changed, or leave your feedback…" required></textarea>
         </div>
 
         <button class="button button-primary" type="submit">Open email to send</button>
-        <p id="contact-status" class="profile-help" aria-live="polite">Submitting opens your email app with the message prepared.</p>
+        <p id="contact-status" class="profile-help" aria-live="polite">Your message will be prepared in your email app.</p>
       </form>
     </section>
 
