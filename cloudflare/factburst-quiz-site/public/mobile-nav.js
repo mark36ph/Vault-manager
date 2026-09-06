@@ -10,6 +10,24 @@
     ["Profile", "/profile.html"],
   ];
   let initialized = false;
+  let panelLinks = null;
+
+  function renderLinks() {
+    if (!panelLinks) return;
+    const currentPath = location.pathname.replace(/\/+$/, "") || "/";
+    const activePath = currentPath === "/quiz.html" || currentPath.startsWith("/quiz/") || currentPath.startsWith("/quizzes/") ? "/quizzes" : currentPath;
+    panelLinks.replaceChildren();
+    const items = window.factburstAdmin === true ? [...NAV_ITEMS, ["Admin", "/admin.html"]] : NAV_ITEMS;
+    for (const [label, href] of items) {
+      const link = document.createElement("a");
+      link.href = href;
+      link.textContent = label;
+      link.className = "mobile-nav-link";
+      if (href === activePath || (href === "/" && activePath === "/index.html")) link.setAttribute("aria-current", "page");
+      if (href === "/admin.html") link.dataset.adminNav = "1";
+      panelLinks.append(link);
+    }
+  }
 
   function apply() {
     if (!window.matchMedia(MOBILE_QUERY).matches) return;
@@ -31,18 +49,9 @@
     panel.className = "mobile-nav-menu";
     panel.hidden = true;
 
-    const panelLinks = document.createElement("div");
+    panelLinks = document.createElement("div");
     panelLinks.className = "mobile-nav-menu-links";
-    const currentPath = location.pathname.replace(/\/+$/, "") || "/";
-    const activePath = currentPath === "/quiz.html" || currentPath.startsWith("/quiz/") || currentPath.startsWith("/quizzes/") ? "/quizzes" : currentPath;
-    for (const [label, href] of NAV_ITEMS) {
-      const link = document.createElement("a");
-      link.href = href;
-      link.textContent = label;
-      link.className = "mobile-nav-link";
-      if (href === activePath || (href === "/" && activePath === "/index.html")) link.setAttribute("aria-current", "page");
-      panelLinks.append(link);
-    }
+    renderLinks();
     panel.append(panelLinks);
 
     const actions = document.createElement("div");
@@ -119,6 +128,7 @@
         .mobile-nav-link{display:flex!important;align-items:center;min-height:44px;padding:10px 12px;border-radius:9px;color:var(--muted,#9ba9bd)!important;text-decoration:none;font-size:14px;font-weight:700;background:transparent}
         .mobile-nav-link:hover,.mobile-nav-link:focus-visible{background:rgba(255,255,255,.045);color:#fff!important}
         .mobile-nav-link[aria-current="page"]{background:rgba(53,199,255,.09);color:#fff!important}
+        .mobile-nav-link[data-admin-nav]{color:#fff1c2!important}
         .mobile-nav-menu-actions{margin-top:7px;padding-top:7px;border-top:1px solid rgba(170,192,224,.09)}
         .mobile-nav-notification{display:flex;width:100%;min-height:42px;align-items:center;justify-content:flex-start;padding:9px 12px;border:0;border-radius:9px;background:transparent;color:var(--muted,#9ba9bd);font:inherit;font-size:14px;font-weight:700;text-align:left;cursor:pointer}
         .mobile-nav-notification:hover{background:rgba(255,255,255,.045);color:#fff}
@@ -132,6 +142,8 @@
       @media (prefers-reduced-motion:reduce){.mobile-nav-toggle-icon span{transition:none}}
     `;
     document.head.append(style);
+
+    window.addEventListener("factburst:admin-nav-ready", renderLinks);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", apply, { once: true });
