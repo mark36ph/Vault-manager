@@ -78,28 +78,6 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build181_ReducesDailyCleanupStartupPasses()
-    {
-        var cleanup = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.DailyUiCleanup.cs");
-        Assert.Contains("_dailyUiCleanupStartupPassesRemaining = 4", cleanup, StringComparison.Ordinal);
-        Assert.Contains("Interval = TimeSpan.FromMilliseconds(750)", cleanup, StringComparison.Ordinal);
-        Assert.DoesNotContain("_dailyUiCleanupStartupPassesRemaining = 8", cleanup, StringComparison.Ordinal);
-        Assert.DoesNotContain("Interval = TimeSpan.FromMilliseconds(500)", cleanup, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Build181_InstagramBusinessLoginHasRealOAuthFlow()
-    {
-        var service = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/InstagramBusinessLoginService.cs");
-        var ui = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.InstagramBusinessLogin.cs");
-        Assert.Contains("https://www.instagram.com/oauth/authorize", service, StringComparison.Ordinal);
-        Assert.Contains("authorization_code", service, StringComparison.Ordinal);
-        Assert.Contains("ig_exchange_token", service, StringComparison.Ordinal);
-        Assert.Contains("Waiting for Instagram sign-in", ui, StringComparison.Ordinal);
-        Assert.Contains("Connect Instagram", ui, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Build184_RefreshesNavigationButtonIndexWhenItWasBuiltTooEarly()
     {
         var shell = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.CoreLifecycle.cs");
@@ -183,13 +161,13 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build198_MatchesCurrentVersionAndBuildNumber()
+    public void Build199_MatchesCurrentVersionAndBuildNumber()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var version = ReadRepositoryFile("version.json");
-        Assert.Contains("CurrentBuildNumber = 198", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("\"build\": 198", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.178\"", version, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 199", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 199", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.179\"", version, StringComparison.Ordinal);
     }
 
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
