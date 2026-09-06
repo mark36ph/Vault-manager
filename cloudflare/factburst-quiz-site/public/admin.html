@@ -28,14 +28,14 @@
     <section id="login-panel" class="admin-panel admin-login" aria-labelledby="admin-login-title">
       <p class="eyebrow">Private admin</p>
       <h1 id="admin-login-title">Manage your quizzes anywhere.</h1>
-      <p>Administrator access is restricted to Factburst accounts with the <strong>admin</strong> role. Sign in to your administrator account first, then enter the website publishing key.</p>
+      <p>Administrator access is protected with Google Authenticator. After setup, this device can stay trusted for 7 days.</p>
       <form id="login-form" class="admin-form">
-        <label for="admin-key">Website publishing key</label>
-        <input id="admin-key" name="admin-key" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+        <label for="admin-key">Google Authenticator code</label>
+        <input id="admin-key" name="admin-key" type="text" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" required placeholder="123456">
         <button class="button button-primary" type="submit">Open quiz admin</button>
       </form>
       <p id="login-status" class="admin-status" role="status" aria-live="polite"></p>
-      <p class="admin-security-note">Your administrator role is checked against your active Factburst account session. The publishing key is an additional server-side check and is kept only in this browser tab.</p>
+      <p class="admin-security-note">The publishing key remains a Cloudflare secret. It is only needed once to set up Google Authenticator.</p>
     </section>
 
     <section id="admin-app" class="hidden" aria-label="Quiz administration">
@@ -47,27 +47,20 @@
         </div>
         <button id="new-quiz" class="button button-primary" type="button">+ New quiz</button>
       </div>
-
       <div id="app-status" class="admin-status" role="status" aria-live="polite"></div>
-
       <section class="admin-panel">
         <div class="admin-panel-heading">
           <div><p class="eyebrow">Library</p><h2>All quizzes</h2></div>
           <button id="refresh-quizzes" class="button button-secondary" type="button">Refresh</button>
         </div>
         <div id="quiz-list" class="admin-quiz-list"></div>
-        <div id="quiz-list-empty" class="admin-empty hidden">
-          <h3>No quizzes yet</h3>
-          <p>Create the first website quiz from this page.</p>
-        </div>
+        <div id="quiz-list-empty" class="admin-empty hidden"><h3>No quizzes yet</h3><p>Create the first website quiz from this page.</p></div>
       </section>
-
       <section id="editor-panel" class="admin-panel hidden" aria-labelledby="editor-title">
         <div class="admin-panel-heading editor-heading">
           <div><p class="eyebrow">Editor</p><h2 id="editor-title">New quiz</h2></div>
           <button id="close-editor" class="button button-ghost" type="button">Close</button>
         </div>
-
         <form id="quiz-form" class="admin-form">
           <div class="admin-field-grid">
             <label>Title<input id="quiz-title" name="title" required maxlength="160"></label>
@@ -77,27 +70,17 @@
             <label>Publish date &amp; time<input id="quiz-publish-at" name="publish_at" type="datetime-local"><small>Leave blank for immediate publishing when status is Published.</small></label>
             <label>YouTube URL<input id="quiz-youtube" name="youtube_url" type="url" placeholder="https://www.youtube.com/watch?v=..."><small>Optional for the website editor. Existing app publishing rules still apply.</small></label>
           </div>
-          <datalist id="category-options">
-            <option value="Science"><option value="History"><option value="Geography"><option value="Space"><option value="Nature &amp; Animals"><option value="Technology"><option value="Arts &amp; Literature"><option value="Music"><option value="Film"><option value="Logos"><option value="Sports"><option value="Entertainment"><option value="Mathematics"><option value="General Knowledge">
-          </datalist>
-
+          <datalist id="category-options"><option value="Science"><option value="History"><option value="Geography"><option value="Space"><option value="Nature &amp; Animals"><option value="Technology"><option value="Arts &amp; Literature"><option value="Music"><option value="Film"><option value="Logos"><option value="Sports"><option value="Entertainment"><option value="Mathematics"><option value="General Knowledge"></datalist>
           <label>Description<textarea id="quiz-description" name="description" rows="4" maxlength="800" placeholder="Describe what this quiz covers and what players can expect."></textarea></label>
-
-          <div class="question-toolbar">
-            <div><p class="eyebrow">Questions</p><h3 id="question-count">0 questions</h3></div>
-            <button id="add-question" class="button button-secondary" type="button">+ Add question</button>
-          </div>
+          <div class="question-toolbar"><div><p class="eyebrow">Questions</p><h3 id="question-count">0 questions</h3></div><button id="add-question" class="button button-secondary" type="button">+ Add question</button></div>
           <div id="questions-editor" class="questions-editor"></div>
-
-          <div class="editor-actions">
-            <button id="save-quiz" class="button button-primary" type="submit">Save quiz</button>
-            <button id="cancel-edit" class="button button-secondary" type="button">Cancel</button>
-          </div>
+          <div class="editor-actions"><button id="save-quiz" class="button button-primary" type="submit">Save quiz</button><button id="cancel-edit" class="button button-secondary" type="button">Cancel</button></div>
           <p id="save-status" class="admin-status" role="status" aria-live="polite"></p>
         </form>
       </section>
     </section>
   </main>
+  <script src="/admin-auth.js?v=1"></script>
   <script src="/admin.js?v=2"></script>
 </body>
 </html>
