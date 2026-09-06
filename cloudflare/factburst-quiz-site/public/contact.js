@@ -1,40 +1,43 @@
 (() => {
   const form = document.querySelector("#contact-form");
-  const formSection = document.querySelector("#contact-form-section");
   const topic = document.querySelector("#contact-topic");
   const quizFields = document.querySelector("#contact-quiz-fields");
-  const status = document.querySelector("#contact-status");
+  const formSection = document.querySelector("#contact-form-section");
+  const optionsSection = document.querySelector("#contact-options-section");
+  const backButton = document.querySelector("#contact-back");
   const message = document.querySelector("#contact-message");
+  const status = document.querySelector("#contact-status");
 
-  if (!form || !formSection || !topic || !quizFields) return;
+  if (!form || !topic || !quizFields || !formSection) return;
 
   function updateQuizFields() {
-    const needsQuiz = ["quiz-problem", "question-correction", "quiz-feedback"].includes(topic.value);
-    quizFields.hidden = !needsQuiz;
-    const quiz = quizFields.querySelector("input[name=quiz]");
-    if (quiz) quiz.required = needsQuiz;
+    const needsQuiz = ["quiz-problem", "question-correction", "quiz-comment"].includes(topic.value);
+    quizFields.classList.toggle("hidden", !needsQuiz);
+    const quizInput = quizFields.querySelector("input[name='quiz']");
+    if (quizInput) quizInput.required = ["quiz-problem", "question-correction"].includes(topic.value);
   }
 
-  function openContactForm(selectedTopic) {
-    topic.value = selectedTopic;
+  function openForm(selectedTopic) {
+    topic.value = selectedTopic || "feedback";
     updateQuizFields();
-    formSection.hidden = false;
+    formSection.classList.remove("hidden");
     formSection.scrollIntoView({ behavior: "smooth", block: "start" });
     window.setTimeout(() => {
-      if (topic.value === "quiz-problem" || topic.value === "question-correction" || topic.value === "quiz-feedback") {
-        const quiz = document.querySelector("#contact-quiz");
-        if (quiz) quiz.focus({ preventScroll: true });
-      } else if (message) {
-        message.focus({ preventScroll: true });
-      }
+      if (topic) topic.focus({ preventScroll: true });
     }, 250);
   }
 
-  document.querySelectorAll("[data-contact-topic]").forEach(card => {
-    card.addEventListener("click", () => openContactForm(card.dataset.contactTopic));
+  function closeForm() {
+    formSection.classList.add("hidden");
+    if (optionsSection) optionsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  document.querySelectorAll("[data-contact-topic]").forEach(button => {
+    button.addEventListener("click", () => openForm(button.dataset.contactTopic));
   });
 
   topic.addEventListener("change", updateQuizFields);
+  if (backButton) backButton.addEventListener("click", closeForm);
   updateQuizFields();
 
   form.addEventListener("submit", event => {
@@ -51,12 +54,12 @@
     const body = [
       name ? `Name: ${name}` : "",
       email ? `Email: ${email}` : "",
-      quiz ? `Quiz: ${quiz}` : "",
+      quiz ? `Quiz / question: ${quiz}` : "",
       "",
       messageText,
     ].filter(Boolean).join("\n");
 
-    status.textContent = "Opening your email app with the message prepared…";
+    status.textContent = "Opening your email app with the message prepared...";
     const mailto = `mailto:contact@factburstquiz.com?subject=${encodeURIComponent(`Factburst Quiz: ${subject}`)}&body=${encodeURIComponent(body)}`;
     window.location.href = mailto;
   });
