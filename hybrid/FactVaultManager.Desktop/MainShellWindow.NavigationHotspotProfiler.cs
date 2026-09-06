@@ -60,7 +60,6 @@ public partial class MainShellWindow
 
         try
         {
-            // Prime each current Factburst section before recording measurements.
             foreach (var button in buttons)
                 await NavigateAndWaitForStableLayoutAsync(button);
 
@@ -142,7 +141,7 @@ public partial class MainShellWindow
         // Profile only the navigation the user actually sees. The old numeric-tagged
         // buttons in PrimaryNavigationPanel are hidden bootstrap/legacy anchors and
         // must never be treated as current navigation hotspots.
-        const string[] orderedKeys =
+        string[] orderedKeys =
         [
             "Autopilot",
             "Create",
@@ -174,8 +173,6 @@ public partial class MainShellWindow
 
     private async Task WaitForStableLayoutAsync()
     {
-        // Loaded runs after layout/render completion for the queued UI work, while
-        // ContextIdle allows already-queued lower-priority UI work to drain.
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.Loaded);
         await Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ContextIdle);
     }
