@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.0.185",
-  "build": 205,
+  "latest_version": "1.0.186",
+  "build": 206,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 205 makes Quiz History DataGrid row and column virtualization explicit to prevent thousands of history records from being created during navigation.",
-    "Quiz History uses recycling virtualization and content scrolling while keeping the existing history data and controls unchanged."
+    "Build 206 removes the retired Advanced navigation page and stops constructing unused Question Bank, Upload Manager, Facebook, Instagram and Release Readiness pages during startup.",
+    "The main shell keeps the active Create, Library, analytics, Performance, website and Settings workflows while reducing hidden WPF page trees that were contributing to navigation and layout stalls."
   ]
 }
