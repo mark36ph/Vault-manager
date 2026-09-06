@@ -21,6 +21,8 @@ public partial class MainShellWindow
 
     private void InitializeQuizWorkspaceNavigation()
     {
+        using var perf = PerformanceDiagnostics.Measure("QuizWorkspace.Initialize");
+
         if (_quizWorkspaceNavigationInitialized ||
             _quizTabIndex < 0 ||
             _quizTabIndex >= MainTabs.Items.Count ||
@@ -135,21 +137,30 @@ public partial class MainShellWindow
             draftCard,
             draftControlsCard,
             BuildQuizWorkflowContinueButton("preview", "Continue to Preview"));
-        _quizWorkspacePages["preview"] = BuildQuizWorkspacePage(
-            "Preview",
-            "Preview the actual quiz cards, choose a visual theme, position the logo, save presets, and run layout preflight checks.",
-            BuildQuizPreviewPanel(),
-            BuildQuizWorkflowContinueButton("publish", "Continue to Publish"));
-        _quizWorkspacePages["publish"] = BuildQuizWorkspacePage(
-            "Publish",
-            "Manage quiz series and episode numbering, then prepare editable YouTube title, description, hashtags, and pinned-comment metadata.",
-            BuildQuizPublishingPanel(),
-            BuildQuizWorkflowContinueButton("export", "Continue to Export"));
-        _quizWorkspacePages["export"] = BuildQuizWorkspacePage(
-            "Export",
-            "For normal production, use Autopilot. Open the settings section only when you want to change voice, branding, effects, music, video format, or use a manual render.",
-            BuildQuizAutopilotPrimaryPanel(),
-            BuildQuizExportSettingsExpander(exportCard));
+        using (PerformanceDiagnostics.Measure("QuizWorkspace.BuildPreviewPage"))
+        {
+            _quizWorkspacePages["preview"] = BuildQuizWorkspacePage(
+                "Preview",
+                "Preview the actual quiz cards, choose a visual theme, position the logo, save presets, and run layout preflight checks.",
+                BuildQuizPreviewPanel(),
+                BuildQuizWorkflowContinueButton("publish", "Continue to Publish"));
+        }
+        using (PerformanceDiagnostics.Measure("QuizWorkspace.BuildPublishPage"))
+        {
+            _quizWorkspacePages["publish"] = BuildQuizWorkspacePage(
+                "Publish",
+                "Manage quiz series and episode numbering, then prepare editable YouTube title, description, hashtags, and pinned-comment metadata.",
+                BuildQuizPublishingPanel(),
+                BuildQuizWorkflowContinueButton("export", "Continue to Export"));
+        }
+        using (PerformanceDiagnostics.Measure("QuizWorkspace.BuildExportPage"))
+        {
+            _quizWorkspacePages["export"] = BuildQuizWorkspacePage(
+                "Export",
+                "For normal production, use Autopilot. Open the settings section only when you want to change voice, branding, effects, music, video format, or use a manual render.",
+                BuildQuizAutopilotPrimaryPanel(),
+                BuildQuizExportSettingsExpander(exportCard));
+        }
 
         SelectQuizWorkspacePage(_quizWorkspaceSelectedPage);
     }
@@ -175,6 +186,8 @@ public partial class MainShellWindow
 
     private void SelectQuizWorkspacePage(string key)
     {
+        using var perf = PerformanceDiagnostics.Measure($"QuizWorkspace.Navigate.{key}");
+
         if (_quizWorkspaceContentHost is null || !_quizWorkspacePages.TryGetValue(key, out var page))
             return;
 
@@ -193,9 +206,15 @@ public partial class MainShellWindow
         }
 
         if (string.Equals(key, "preview", StringComparison.OrdinalIgnoreCase))
+        {
+            using var refreshPerf = PerformanceDiagnostics.Measure("QuizWorkspace.RefreshPreview");
             RefreshQuizPreview();
+        }
         else if (string.Equals(key, "publish", StringComparison.OrdinalIgnoreCase))
+        {
+            using var refreshPerf = PerformanceDiagnostics.Measure("QuizWorkspace.RefreshPublishing");
             RefreshQuizPublishingPage();
+        }
     }
 
     private FrameworkElement BuildQuizWorkflowContinueButton(string nextPageKey, string label)
