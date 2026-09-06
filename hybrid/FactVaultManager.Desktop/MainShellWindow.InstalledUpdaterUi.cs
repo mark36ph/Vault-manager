@@ -21,19 +21,22 @@ public partial class MainShellWindow
     {
         if (sender is not Button button ||
             !string.Equals(Convert.ToString(button.Content)?.Trim(), "Updates", StringComparison.OrdinalIgnoreCase) ||
-            Window.GetWindow(button) is not MainShellWindow window ||
-            window._updates.IsInstalled)
+            Window.GetWindow(button) is not MainShellWindow window)
         {
             return;
         }
 
         e.Handled = true;
+        var installed = window._updates.IsInstalled;
         var answer = MessageBox.Show(
             window,
-            "This copy is running from the development/source folder rather than the Windows installer.\n\n" +
-            "Install the current Factburst Quiz Manager release now?\n\n" +
-            "After this one-time install, the Updates button will download and apply future versions automatically.",
-            "Install Factburst Quiz Manager",
+            installed
+                ? "Install the latest Factburst Quiz Manager release now?\n\n" +
+                  "This update uses the Windows installer directly so it can repair older in-app update metadata without changing your settings or API keys."
+                : "This copy is running from the development/source folder rather than the Windows installer.\n\n" +
+                  "Install the current Factburst Quiz Manager release now?\n\n" +
+                  "After this one-time install, the Updates button will download and apply future versions automatically.",
+            installed ? "Update Factburst Quiz Manager" : "Install Factburst Quiz Manager",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
         if (answer != MessageBoxResult.Yes)
@@ -42,21 +45,41 @@ public partial class MainShellWindow
         try
         {
             button.IsEnabled = false;
-            window.HeaderStatusText.Text = "Downloading Factburst Quiz Manager installer...";
-            await window._updates.BootstrapInstallAsync(percent => window.Dispatcher.Invoke(() =>
-                window.HeaderStatusText.Text = $"Downloading installer... {percent}%"));
+            window.HeaderStatusText.Text = "Checking latest Factburst Quiz Manager release...";
 
-            window.HeaderStatusText.Text = "Installer started. Closing development copy...";
+            bool started;
+            if (installed)
+            {
+                started = await window._updates.InstallLatestSetupIfNewerAsync(percent => window.Dispatcher.Invoke(() =>
+                    window.HeaderStatusText.Text = $"Downloading installer... {percent}%"));
+
+                if (!started)
+                {
+                    button.IsEnabled = true;
+                    var message = $"Factburst Quiz Manager {window._updates.CurrentVersion} is up to date.";
+                    window.HeaderStatusText.Text = message;
+                    MessageBox.Show(window, message, "Factburst Quiz Manager Updates", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+            }
+            else
+            {
+                window.HeaderStatusText.Text = "Downloading Factburst Quiz Manager installer...";
+                await window._updates.BootstrapInstallAsync(percent => window.Dispatcher.Invoke(() =>
+                    window.HeaderStatusText.Text = $"Downloading installer... {percent}%"));
+            }
+
+            window.HeaderStatusText.Text = "Installer started. Closing current copy...";
             Application.Current?.Shutdown();
         }
         catch (Exception error)
         {
             button.IsEnabled = true;
-            window.HeaderStatusText.Text = $"Install failed: {error.Message}";
+            window.HeaderStatusText.Text = $"Update failed: {error.Message}";
             MessageBox.Show(
                 window,
                 error.Message,
-                "Install Failed",
+                installed ? "Update Failed" : "Install Failed",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
         }
