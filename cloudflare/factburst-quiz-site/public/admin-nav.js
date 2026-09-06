@@ -1,15 +1,16 @@
 (() => {
   const ADMIN_LINK = ["Admin", "/admin.html"];
   let adminReady = false;
-  let accountRole = "";
 
   async function checkAdmin() {
     try {
-      const response = await fetch("/api/site/status", { credentials: "same-origin", headers: { accept: "application/json" } });
+      const response = await fetch("/api/site/status", {
+        credentials: "same-origin",
+        headers: { accept: "application/json" },
+      });
       if (!response.ok) return false;
       const payload = await response.json();
-      accountRole = String(payload?.role || "").toLowerCase();
-      return payload?.is_admin === true && accountRole === "admin";
+      return payload?.is_admin === true && String(payload?.role || "").toLowerCase() === "admin";
     } catch {
       return false;
     }
@@ -27,28 +28,16 @@
     if (slot) nav.insertBefore(link, slot); else nav.append(link);
   }
 
-  function renderProfileRole() {
-    const roleElement = document.querySelector("#profile-role");
-    if (!roleElement || !["admin", "moderator"].includes(accountRole)) return;
-    roleElement.textContent = accountRole === "admin" ? "ADMIN" : "MOD";
-    roleElement.dataset.role = accountRole === "admin" ? "admin" : "mod";
-    roleElement.classList.remove("hidden");
-  }
-
   async function initialize() {
-    const isAdmin = await checkAdmin();
-    adminReady = isAdmin;
-    if (isAdmin) window.factburstAdmin = true;
+    adminReady = await checkAdmin();
+    if (adminReady) window.factburstAdmin = true;
     addDesktopAdminLink();
-    renderProfileRole();
-    if (accountRole === "admin" || accountRole === "moderator") {
-      const observer = new MutationObserver(renderProfileRole);
-      observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class", "data-role"] });
-      window.setTimeout(() => observer.disconnect(), 10000);
-    }
     window.dispatchEvent(new CustomEvent("factburst:admin-nav-ready"));
   }
 
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initialize, { once: true });
-  else initialize();
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initialize, { once: true });
+  } else {
+    initialize();
+  }
 })();
