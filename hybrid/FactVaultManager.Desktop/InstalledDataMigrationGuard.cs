@@ -10,10 +10,10 @@ internal static class InstalledDataMigrationGuard
         if (!Directory.Exists(dataDirectory))
             return true;
 
-        // Once the installed data directory exists, it belongs to the installed copy.
-        // In particular, settings.json can contain credentials even when the SQLite
-        // database has no user records yet. Never let bootstrap migration replace it
-        // with an older source directory.
-        return !Directory.EnumerateFileSystemEntries(dataDirectory).Any();
+        // A partially-created installed data directory (for example settings.json
+        // without factvault.db) must still be allowed to recover the database from
+        // the legacy/source location. A real installed database is the ownership
+        // boundary: never replace it during bootstrap migration.
+        return !File.Exists(Path.Combine(dataDirectory, "factvault.db"));
     }
 }
