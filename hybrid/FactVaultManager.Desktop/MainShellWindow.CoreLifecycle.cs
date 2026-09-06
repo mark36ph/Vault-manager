@@ -61,7 +61,6 @@ public partial class MainShellWindow
         MeasureActivation("Startup.InitializeQuizDraftEditor", InitializeQuizDraftEditor);
         MeasureActivation("Startup.InitializeQuizRotationWorkflow", InitializeQuizRotationWorkflow);
         MeasureActivation("Startup.InitializeQuizExportWorkflow", InitializeQuizExportWorkflow);
-        MeasureActivation("Startup.InitializeQuizWorkspaceNavigation", InitializeQuizWorkspaceNavigation);
         MeasureActivation("Startup.ApplyNavigationSections", ApplyNavigationSections);
         Dispatcher.BeginInvoke(new Action(() => MeasureActivation("Startup.InitializeSettingsWorkflow", InitializeSettingsWorkflow)));
     }
