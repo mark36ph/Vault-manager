@@ -14,6 +14,7 @@
   const next = $("#quiz-next");
   const pageLabel = $("#quiz-page-label");
   const countLabel = $("#quiz-count-label");
+  const latestCard = $("#latest-card");
 
   function quizUrl(slug) {
     return `/quiz/${encodeURIComponent(slug)}`;
@@ -46,6 +47,46 @@
     return card;
   }
 
+  function renderLatest(quiz) {
+    if (!latestCard) return;
+    latestCard.classList.remove("loading-card");
+    if (!quiz) {
+      latestCard.textContent = "No live quizzes yet. New challenges will appear here.";
+      return;
+    }
+    const copy = document.createElement("div");
+    const category = document.createElement("span");
+    category.className = "category-pill";
+    category.textContent = quiz.category || "Quiz";
+    const heading = document.createElement("h3");
+    heading.textContent = quiz.title;
+    const description = document.createElement("p");
+    description.textContent = quiz.description || `${quiz.question_count || 10} questions. See how many you can get right.`;
+    copy.append(category, heading, description);
+    const action = document.createElement("a");
+    action.className = "button button-primary";
+    action.href = quizUrl(quiz.slug);
+    action.textContent = "Play quiz";
+    latestCard.replaceChildren(copy, action);
+  }
+
+  async function loadLatest() {
+    try {
+      const response = await fetch("/api/quizzes/latest", { cache: "no-store" });
+      if (!response.ok) return renderLatest(null);
+      const data = await response.json();
+      renderLatest(data.quiz || null);
+    } catch { renderLatest(null); }
+  }
+
+  function populateCategories() {
+    const categories = ["Science", "History", "Geography", "Space", "Nature & Animals", "Technology", "Arts & Literature", "Music", "Film", "Logos", "Sports", "Entertainment", "Mathematics", "General Knowledge"];
+    for (const value of categories) {
+      if ([...filter.options].some(option => option.value.toLowerCase() === value.toLowerCase())) continue;
+      filter.append(new Option(value, value));
+    }
+  }
+
   function updateUrl() {
     const params = new URLSearchParams();
     if (state.page > 1) params.set("page", String(state.page));
@@ -62,22 +103,6 @@
     state.search = params.get("search") || "";
     if (filter) filter.value = state.category;
     if (search) search.value = state.search;
-  }
-
-  async function loadCategories() {
-    try {
-      const response = await fetch("/api/quizzes?limit=1", { cache: "no-store" });
-      if (!response.ok) return;
-      const data = await response.json();
-      const categories = [...new Set((data.quizzes || []).map(quiz => quiz.category).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-      for (const category of categories) {
-        if ([...filter.options].some(option => option.value.toLowerCase() === String(category).toLowerCase())) continue;
-        const option = document.createElement("option");
-        option.value = category;
-        option.textContent = category;
-        filter.append(option);
-      }
-    } catch {}
   }
 
   async function loadPage() {
@@ -141,6 +166,7 @@
   });
 
   readUrl();
-  loadCategories();
+  populateCategories();
+  loadLatest();
   loadPage();
 })();
