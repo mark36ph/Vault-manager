@@ -5,17 +5,11 @@
   function apply() {
     const nav = document.querySelector(".top-nav");
     if (!nav || initialized) return;
-    initialized = true;
-
     const links = Array.from(nav.querySelectorAll(":scope > a"));
-    if (!links.length) {
-      initialized = false;
-      return;
-    }
-
-    const slot = nav.querySelector(":scope > .notification-slot");
+    if (!links.length) return;
     const header = nav.closest(".site-header");
     if (!header) return;
+    initialized = true;
 
     const button = document.createElement("button");
     button.type = "button";
@@ -40,14 +34,15 @@
 
     const actions = document.createElement("div");
     actions.className = "mobile-nav-menu-actions";
-    if (slot) {
-      const notification = slot.querySelector("button");
-      if (notification) {
-        const notificationClone = notification.cloneNode(true);
-        notificationClone.classList.add("mobile-nav-notification");
-        actions.append(notificationClone);
-      }
-    }
+    const notificationProxy = document.createElement("button");
+    notificationProxy.type = "button";
+    notificationProxy.className = "mobile-nav-notification";
+    notificationProxy.textContent = "🔔  Notifications";
+    notificationProxy.addEventListener("click", () => {
+      const original = nav.querySelector("#notification-button");
+      if (original) original.click();
+    });
+    actions.append(notificationProxy);
     panel.append(actions);
 
     const brand = header.querySelector(":scope > .brand");
@@ -71,28 +66,21 @@
       panel.hidden = true;
     }
 
-    function toggleMenu() {
+    button.addEventListener("click", () => {
       const open = button.getAttribute("aria-expanded") === "true";
       button.setAttribute("aria-expanded", String(!open));
       button.classList.toggle("is-open", !open);
       panel.hidden = open;
-    }
-
-    button.addEventListener("click", toggleMenu);
+    });
     panel.addEventListener("click", (event) => {
       if (event.target.closest("a")) closeMenu();
     });
-
     document.addEventListener("click", (event) => {
       if (!header.contains(event.target)) closeMenu();
     });
-
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape") closeMenu();
     });
-
-    const media = window.matchMedia(MOBILE_QUERY);
-    media.addEventListener?.("change", closeMenu);
 
     const style = document.createElement("style");
     style.textContent = `
@@ -118,7 +106,8 @@
         .mobile-nav-link:hover,.mobile-nav-link:focus-visible{background:rgba(255,255,255,.045);color:#fff}
         .mobile-nav-link[aria-current="page"]{background:rgba(53,199,255,.09);color:#fff}
         .mobile-nav-menu-actions{margin-top:7px;padding-top:7px;border-top:1px solid rgba(170,192,224,.09)}
-        .mobile-nav-notification{width:100%;min-height:42px;justify-content:flex-start!important;padding:9px 12px!important}
+        .mobile-nav-notification{width:100%;min-height:42px;justify-content:flex-start;padding:9px 12px;border:0;border-radius:9px;background:transparent;color:var(--muted,#9ba9bd);font:inherit;font-size:14px;font-weight:700;text-align:left;cursor:pointer}
+        .mobile-nav-notification:hover{background:rgba(255,255,255,.045);color:#fff}
         .desktop-navigation-source{display:none!important}
       }
       @media (max-width:380px){
