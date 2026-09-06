@@ -40,8 +40,8 @@ public partial class MainShellWindow
                 tab.Style = hiddenPageStyle;
         }
 
-        using (PerformanceDiagnostics.Measure("Navigation.InitializeQuizQuestionViewer"))
-            InitializeQuizQuestionViewer();
+        // The standalone Question Bank page is retired. Do not attach its
+        // selection viewer or queue retry work when its grid is absent.
         ApplyNavigationSelection(MainTabs.SelectedIndex);
     }
 
