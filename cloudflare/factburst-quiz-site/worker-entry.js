@@ -18,6 +18,7 @@ import { handleCommentsApi } from "./account-comments.js";
 import { handleCommunityApi } from "./account-community.js";
 import { handleEngagementApi, recordEngagementAttempt } from "./account-engagement.js";
 import { handleVerifiedEmailChangeApi } from "./account-email-change.js";
+import { handleAdminAccountEditApi } from "./account-admin-edit.js";
 import { enforceMaintenanceMode, handleSiteStatusApi } from "./site-controls.js";
 import { handlePublicAdsConfig } from "./site-ads.js";
 import { scoreGuestQuiz } from "./guest-score.js";
@@ -113,6 +114,9 @@ export default {
 
       const verifiedEmailChange = await handleVerifiedEmailChangeApi(request, accountEnv, url);
       if (verifiedEmailChange) return verifiedEmailChange;
+
+      const adminEditResponse = await handleAdminAccountEditApi(request, env, url);
+      if (adminEditResponse) return adminEditResponse;
 
       const authResponse = await handleAuthApi(request, accountEnv, url);
       if (authResponse) return authResponse;
