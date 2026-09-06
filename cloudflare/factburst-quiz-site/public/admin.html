@@ -27,14 +27,14 @@
     <section id="login-panel" class="admin-panel admin-login" aria-labelledby="admin-login-title">
       <p class="eyebrow">Private admin</p>
       <h1 id="admin-login-title">Manage your quizzes anywhere.</h1>
-      <p>Enter the website publishing key to manage quizzes from your phone, tablet or computer. The key is kept only in this browser tab.</p>
+      <p>Administrator access is restricted to Factburst accounts with the <strong>admin</strong> role. Sign in to your administrator account first, then enter the website publishing key.</p>
       <form id="login-form" class="admin-form">
         <label for="admin-key">Website publishing key</label>
         <input id="admin-key" name="admin-key" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" required>
         <button class="button button-primary" type="submit">Open quiz admin</button>
       </form>
       <p id="login-status" class="admin-status" role="status" aria-live="polite"></p>
-      <p class="admin-security-note">Your key is sent only to the Factburst site API over HTTPS. It is not included in the page source.</p>
+      <p class="admin-security-note">Your administrator role is checked against your active Factburst account session. The publishing key is an additional server-side check and is kept only in this browser tab.</p>
     </section>
 
     <section id="admin-app" class="hidden" aria-label="Quiz administration">
@@ -97,6 +97,6 @@
       </section>
     </section>
   </main>
-  <script src="/admin.js?v=1"></script>
+  <script src="/admin.js?v=2"></script>
 </body>
 </html>
