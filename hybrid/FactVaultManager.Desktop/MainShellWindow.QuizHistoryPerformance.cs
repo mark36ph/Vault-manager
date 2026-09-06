@@ -10,9 +10,8 @@ public partial class MainShellWindow
 
     private static bool RegisterQuizHistoryPerformanceHandler()
     {
-        // Configure the DataGrid at Initialized time, before Quiz History assigns its
-        // ItemsSource. Waiting for MainShellWindow.Loaded was too late: WPF could
-        // create/measure a large number of rows before virtualization was enabled.
+        // Configure DataGrids at Initialized time, before any page can assign an
+        // ItemsSource. This ensures virtualization is active before WPF measures rows.
         EventManager.RegisterClassHandler(
             typeof(DataGrid),
             FrameworkElement.InitializedEvent,
@@ -23,15 +22,14 @@ public partial class MainShellWindow
 
     private static void MainShellWindowQuizHistoryPerformance_Initialized(object sender, RoutedEventArgs e)
     {
-        if (sender is DataGrid grid && grid.Columns.Count >= 10)
+        if (sender is DataGrid grid)
             ConfigureQuizHistoryGridPerformance(grid);
     }
 
     private static void ConfigureQuizHistoryGridPerformance(DataGrid grid)
     {
-        // Quiz History can contain hundreds or thousands of records. Enable row and
-        // column virtualization before ItemsSource is assigned so the first layout
-        // only realizes the rows that are actually visible.
+        // Quiz History can contain thousands of records. Configure virtualization
+        // before ItemsSource is assigned so WPF realizes only visible rows.
         grid.EnableRowVirtualization = true;
         grid.EnableColumnVirtualization = true;
         VirtualizingPanel.SetIsVirtualizing(grid, true);
