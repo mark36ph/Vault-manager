@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.182",
-  "build": 202,
+  "latest_version": "1.0.183",
+  "build": 203,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 202 makes navigation hotspot profiling wait until WPF layout and rendering have completed before recording a navigation sample.",
-    "Build 202 prevents DispatcherPriority.Render from being mistaken for a fully settled page render during performance diagnostics.",
-    "Build 202 keeps the performance diagnostics focused on real visible navigation stalls rather than queued layout work from the previous section."
+    "Build 203 removes the Quiz Notes page from the desktop shell to reduce unnecessary WPF UI layout work.",
+    "Build 203 keeps existing Quiz Notes settings data for backwards compatibility but no longer creates the notes page or navigation button.",
+    "Build 203 keeps Upload Manager and YouTube Manager navigation anchored directly after Quiz History."
   ]
 }
