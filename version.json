@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.175",
-  "build": 196,
+  "latest_version": "1.0.176",
+  "build": 197,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 196 defers activation-heavy page initialization until the WPF UI is idle.",
-    "Build 196 keeps window activation lightweight so navigation is not blocked by startup page construction.",
+    "Build 197 reverts activation deferral that caused heavier loading lag.",
+    "Build 197 restores the previous activation initialization flow while retaining the Quiz Preview lazy-loading optimization.",
     "Performance Diagnostics continues to measure navigation, startup, memory, allocations, and garbage collection behavior."
   ]
 }
