@@ -12,102 +12,270 @@
   <link rel="stylesheet" href="/professional-redesign.css">
   <link rel="stylesheet" href="/site-shell.css?v=1">
   <style>
-    .contact-topic-card {
+    .contact-options {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .contact-option {
       width: 100%;
-      border: 0;
+      min-height: 205px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
       text-align: left;
-      font: inherit;
       color: inherit;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg, 20px);
+      background: linear-gradient(145deg, rgba(16, 26, 44, 0.96), rgba(10, 16, 28, 0.98));
       cursor: pointer;
-      transition: transform .18s ease, box-shadow .18s ease;
+      box-shadow: none;
+      font: inherit;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
     }
-    .contact-topic-card:hover,
-    .contact-topic-card:focus-visible {
-      transform: translateY(-2px);
+
+    .contact-option:hover,
+    .contact-option:focus-visible {
+      transform: translateY(-3px);
+      border-color: rgba(53,199,255,0.45);
+      background: linear-gradient(145deg, rgba(19, 31, 52, 0.98), rgba(11, 18, 31, 0.99));
+      box-shadow: 0 14px 38px rgba(0,0,0,0.2);
     }
-    .contact-topic-card:focus-visible {
-      outline: 3px solid currentColor;
-      outline-offset: 3px;
+
+    .contact-option h2 {
+      margin: 12px 0 8px;
+      color: #fff;
+      font-size: 21px;
+      line-height: 1.25;
+      letter-spacing: -0.025em;
     }
-    #contact-form-section[hidden] { display: none; }
+
+    .contact-option p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .contact-option .contact-option-action {
+      margin-top: auto;
+      padding-top: 18px;
+      color: var(--cyan-soft, #73dbff);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .contact-form-wrap {
+      max-width: 760px;
+      margin-inline: auto;
+    }
+
+    .contact-form-card {
+      padding: clamp(24px, 4vw, 38px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl, 26px);
+      background: linear-gradient(145deg, rgba(16, 26, 44, 0.96), rgba(10, 16, 28, 0.98));
+      box-shadow: var(--shadow-soft, 0 10px 30px rgba(0,0,0,0.18));
+    }
+
+    .contact-form-card h2 {
+      margin: 0 0 8px;
+      color: #fff;
+      font-size: clamp(27px, 3.5vw, 40px);
+      line-height: 1.08;
+      letter-spacing: -0.035em;
+    }
+
+    .contact-form-card > p {
+      margin: 0 0 26px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .contact-form {
+      display: grid;
+      gap: 17px;
+    }
+
+    .contact-form .form-field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .contact-form label {
+      color: var(--muted-strong, #c4cedb);
+      font-size: 13px;
+      font-weight: 750;
+    }
+
+    .contact-form input,
+    .contact-form select,
+    .contact-form textarea {
+      width: 100%;
+      padding: 11px 13px;
+      color: #fff;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #0a111e;
+      outline: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.018);
+    }
+
+    .contact-form input,
+    .contact-form select {
+      min-height: 44px;
+    }
+
+    .contact-form textarea {
+      min-height: 150px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .contact-form input:focus,
+    .contact-form select:focus,
+    .contact-form textarea:focus {
+      border-color: rgba(53,199,255,0.58);
+      box-shadow: 0 0 0 3px rgba(53,199,255,0.09);
+    }
+
+    .contact-form-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 4px;
+    }
+
+    .contact-back {
+      color: var(--muted-strong, #c4cedb);
+      border-color: var(--border);
+      background: rgba(255,255,255,0.035);
+    }
+
+    #contact-status {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 850px) {
+      .contact-options { grid-template-columns: 1fr; }
+      .contact-option { min-height: 0; }
+    }
   </style>
 </head>
 <body data-page="contact">
-  <header class="site-header"><a class="brand" href="/" aria-label="Factburst Quiz home"><span class="brand-mark"><img src="/brand-icon.png?v=2" alt=""></span><span>Factburst Quiz</span></a><nav class="top-nav" aria-label="Main navigation"><a href="/">Home</a><a href="/quizzes">Quizzes</a><a href="/about.html">About</a><a href="/contact.html" aria-current="page">Contact</a></nav></header>
-  <main>
-    <section class="shell page-intro"><div class="page-intro-copy"><p class="eyebrow">Get in touch</p><h1>Contact Factburst Quiz</h1><p class="hero-text">Found a problem or have feedback about the quiz experience? We want to hear about it.</p></div></section>
+  <header class="site-header"><a class="brand" href="/" aria-label="Factburst Quiz home"><span class="brand-mark"><img src="/brand-icon.png?v=2" alt=""></span><span>Factburst Quiz</span></a><nav class="top-nav" aria-label="Main navigation"><a href="/">Home</a><a href="/quizzes">Quizzes</a><a href="/about.html">About</a><a href="/contact.html" aria-current="page">Contact</a><a href="/faq.html">FAQ</a><a href="/leaderboard.html">Leaderboard</a><a href="/profile.html">Profile</a></nav></header>
 
-    <section class="shell section" aria-label="Contact options">
-      <div class="quiz-grid">
-        <button class="quiz-card contact-topic-card" type="button" data-contact-topic="quiz-problem">
-          <h2>Report a quiz problem</h2>
-          <p>The fastest way to flag a question that looks incorrect or unclear is to use the reporting option on the quiz itself. Include the question number and explain what you think needs checking.</p>
-        </button>
-        <button class="quiz-card contact-topic-card" type="button" data-contact-topic="website-issue">
-          <h2>Website or account issue</h2>
-          <p>If a page is not working as expected, note the page address, what you were trying to do and what happened. Useful details help us reproduce and fix the problem.</p>
-        </button>
-        <button class="quiz-card contact-topic-card" type="button" data-contact-topic="feedback">
-          <h2>General feedback</h2>
-          <p>Suggestions about categories, quiz difficulty, navigation or accessibility are welcome. Factburst is intended to become more useful as the library and player experience improve.</p>
-        </button>
+  <main>
+    <section class="shell page-intro">
+      <div class="page-intro-copy">
+        <p class="eyebrow">Get in touch</p>
+        <h1>Contact Factburst Quiz</h1>
+        <p class="hero-text">Found a problem or have feedback about the quiz experience? We want to hear about it.</p>
       </div>
     </section>
 
-    <section id="contact-form-section" class="shell section" hidden aria-labelledby="contact-form-title">
-      <div class="quiz-feature">
+    <section id="contact-options-section" class="shell section" aria-labelledby="contact-options-title">
+      <div class="section-heading">
         <div>
           <p class="eyebrow">Send a message</p>
-          <h2 id="contact-form-title">Tell us more</h2>
-          <p>Choose what you want to tell us about, then leave your comment or report below.</p>
+          <h2 id="contact-options-title">What would you like to contact us about?</h2>
         </div>
       </div>
 
-      <form id="contact-form" class="contact-form" style="margin-top:1.5rem;">
-        <div class="form-field">
-          <label for="contact-topic">What is your message about?</label>
-          <select id="contact-topic" name="topic" required>
-            <option value="quiz-problem">Report a quiz problem</option>
-            <option value="question-correction">Correct a quiz question</option>
-            <option value="quiz-feedback">Comment about a quiz</option>
-            <option value="website-issue">Website issue</option>
-            <option value="account-issue">Account issue</option>
-            <option value="feedback">General feedback or suggestion</option>
-            <option value="accessibility">Accessibility feedback</option>
-            <option value="other">Something else</option>
-          </select>
-        </div>
+      <div class="contact-options">
+        <button class="contact-option" type="button" data-contact-topic="quiz-problem">
+          <span class="category-pill">Quiz</span>
+          <h2>Report a quiz problem</h2>
+          <p>Tell us about an incorrect, unclear or broken quiz question. Include the quiz and question number where possible.</p>
+          <span class="contact-option-action">Open contact form →</span>
+        </button>
 
-        <div id="contact-quiz-fields" hidden>
-          <div class="form-field">
-            <label for="contact-quiz">Quiz name, URL or question number</label>
-            <input id="contact-quiz" name="quiz" type="text" maxlength="200" placeholder="e.g. World Geography Quiz — Question 4">
-          </div>
-        </div>
+        <button class="contact-option" type="button" data-contact-topic="website-issue">
+          <span class="category-pill">Website</span>
+          <h2>Website or account issue</h2>
+          <p>Let us know if a page, feature, sign-in or account function is not working as expected.</p>
+          <span class="contact-option-action">Open contact form →</span>
+        </button>
 
-        <div class="form-field">
-          <label for="contact-name">Name</label>
-          <input id="contact-name" name="name" type="text" maxlength="100" autocomplete="name" placeholder="Your name">
-        </div>
-
-        <div class="form-field">
-          <label for="contact-email">Email</label>
-          <input id="contact-email" name="email" type="email" maxlength="200" autocomplete="email" placeholder="you@example.com">
-        </div>
-
-        <div class="form-field">
-          <label for="contact-message">Your comment or message</label>
-          <textarea id="contact-message" name="message" rows="7" maxlength="5000" placeholder="Tell us what happened, what you would like changed, or leave your feedback…" required></textarea>
-        </div>
-
-        <button class="button button-primary" type="submit">Open email to send</button>
-        <p id="contact-status" class="profile-help" aria-live="polite">Your message will be prepared in your email app.</p>
-      </form>
+        <button class="contact-option" type="button" data-contact-topic="feedback">
+          <span class="category-pill">Feedback</span>
+          <h2>General feedback</h2>
+          <p>Share a suggestion, comment about the quiz experience, category ideas or anything you would like us to improve.</p>
+          <span class="contact-option-action">Open contact form →</span>
+        </button>
+      </div>
     </section>
 
-    <section class="shell section"><div class="quiz-feature"><div><h2>Before contacting us</h2><p>You may find an immediate answer in the <a href="/faq.html">Factburst FAQ</a>. For information about data and cookies, see the <a href="/privacy.html">Privacy Notice</a>.</p></div></div></section>
+    <section id="contact-form-section" class="shell section hidden" aria-labelledby="contact-form-title">
+      <div class="contact-form-wrap">
+        <div class="contact-form-card">
+          <p class="eyebrow">Tell us more</p>
+          <h2 id="contact-form-title">Leave a comment or report</h2>
+          <p>Choose what you want to tell us about, then leave your comment or report below.</p>
+
+          <form id="contact-form" class="contact-form">
+            <div class="form-field">
+              <label for="contact-topic">What is your message about?</label>
+              <select id="contact-topic" name="topic" required>
+                <option value="quiz-problem">Report a quiz problem</option>
+                <option value="question-correction">Correct a quiz question</option>
+                <option value="quiz-comment">Comment about a quiz</option>
+                <option value="website-issue">Website issue</option>
+                <option value="account-issue">Account issue</option>
+                <option value="feedback">General feedback or suggestion</option>
+                <option value="accessibility">Accessibility feedback</option>
+                <option value="other">Something else</option>
+              </select>
+            </div>
+
+            <div id="contact-quiz-fields" class="form-field hidden">
+              <label for="contact-quiz">Quiz name, URL or question number</label>
+              <input id="contact-quiz" name="quiz" type="text" maxlength="200" placeholder="e.g. World Geography Quiz — Question 4">
+            </div>
+
+            <div class="form-field">
+              <label for="contact-name">Name <span>(optional)</span></label>
+              <input id="contact-name" name="name" type="text" maxlength="100" autocomplete="name" placeholder="Your name">
+            </div>
+
+            <div class="form-field">
+              <label for="contact-email">Email <span>(optional)</span></label>
+              <input id="contact-email" name="email" type="email" maxlength="200" autocomplete="email" placeholder="you@example.com">
+            </div>
+
+            <div class="form-field">
+              <label for="contact-message">Your comment or message</label>
+              <textarea id="contact-message" name="message" rows="7" maxlength="5000" placeholder="Tell us what happened, what you would like changed, or leave your feedback..." required></textarea>
+            </div>
+
+            <div class="contact-form-actions">
+              <button class="button button-primary" type="submit">Open email to send</button>
+              <button class="button contact-back" id="contact-back" type="button">← Back to options</button>
+            </div>
+            <p id="contact-status" aria-live="polite">Your message will be prepared in your email app.</p>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="shell section">
+      <div class="quiz-feature">
+        <div>
+          <h2>Before contacting us</h2>
+          <p>You may find an immediate answer in the <a href="/faq.html">Factburst FAQ</a>. For information about data and cookies, see the <a href="/privacy.html">Privacy Notice</a>.</p>
+        </div>
+      </div>
+    </section>
   </main>
+
   <footer class="site-footer professional-footer"><div class="shell professional-footer-grid"><div class="professional-footer-brand"><a class="professional-footer-brand-link" href="/">Factburst Quiz</a><p>Fast questions. Factual answers.</p></div><nav class="professional-footer-links" aria-label="Explore"><strong>Explore</strong><a href="/">Home</a><a href="/quizzes">Quizzes</a><a href="/about.html">About</a><a href="/faq.html">FAQ</a><a href="/contact.html">Contact</a><a href="/leaderboard.html">Leaderboard</a><a href="/profile.html">Profile</a></nav><nav class="professional-footer-links" aria-label="Legal"><strong>Legal</strong><a href="/terms.html">Terms of use</a><a href="/privacy.html">Privacy notice</a></nav></div><div class="shell professional-footer-bottom"><span>© <span data-footer-year>2026</span> Factburst Quiz</span><span>Quiz content is provided for entertainment and general information.</span></div></footer>
+
   <script src="/notification-header.js"></script>
   <script src="/contact.js"></script>
 </body>
