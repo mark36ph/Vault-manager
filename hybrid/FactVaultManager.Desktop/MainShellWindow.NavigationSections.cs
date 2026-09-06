@@ -18,21 +18,15 @@ public partial class MainShellWindow
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), "5", StringComparison.Ordinal));
         var quizzes = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _quizTabIndex.ToString(), StringComparison.Ordinal));
-        var questions = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _quizQuestionBankTabIndex.ToString(), StringComparison.Ordinal));
         var quizHistory = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _quizHistoryTabIndex.ToString(), StringComparison.Ordinal));
-        var uploadManager = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _uploadManagerTabIndex.ToString(), StringComparison.Ordinal));
         var youtubeAnalytics = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _youtubeAnalyticsTabIndex.ToString(), StringComparison.Ordinal));
-        var facebookAnalytics = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _facebookAnalyticsTabIndex.ToString(), StringComparison.Ordinal));
-        var instagramManager = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _instagramManagerTabIndex.ToString(), StringComparison.Ordinal));
 
-        if (settings is null || quizzes is null || questions is null || quizHistory is null ||
-            uploadManager is null || youtubeAnalytics is null || facebookAnalytics is null || instagramManager is null ||
+        // Only keep the active production, Library and analytics destinations
+        // in the legacy navigation. Question Bank, Upload Manager, Facebook and
+        // Instagram are retired from the current Factburst shell.
+        if (settings is null || quizzes is null || quizHistory is null || youtubeAnalytics is null ||
             quizzes.Parent is not StackPanel navigation)
         {
             return;
@@ -42,13 +36,9 @@ public partial class MainShellWindow
 
         navigation.Children.Clear();
         navigation.Children.Add(quizzes);
-        navigation.Children.Add(questions);
         navigation.Children.Add(quizHistory);
         navigation.Children.Add(NavigationSpacer());
-        navigation.Children.Add(uploadManager);
         navigation.Children.Add(youtubeAnalytics);
-        navigation.Children.Add(facebookAnalytics);
-        navigation.Children.Add(instagramManager);
         navigation.Children.Add(NavigationSpacer());
         navigation.Children.Add(settings);
 
