@@ -68,7 +68,11 @@ async function handleApi(request, env, url) {
 
   if (url.pathname === "/api/quizzes" && request.method === "GET") return listQuizzes(env.DB, url);
   if (url.pathname === "/api/quizzes/latest" && request.method === "GET") return latestQuiz(env.DB);
+  if (url.pathname === "/api/admin/quizzes" && request.method === "GET") return listAdminQuizzes(request, env);
   if (url.pathname === "/api/admin/quizzes" && request.method === "POST") return upsertQuiz(request, env);
+
+  const adminQuizMatch = url.pathname.match(/^\/api\/admin\/quizzes\/([a-z0-9][a-z0-9-]{0,79})$/i);
+  if (adminQuizMatch && request.method === "GET") return getAdminQuiz(request, env, adminQuizMatch[1].toLowerCase());
 
   const quizMatch = url.pathname.match(/^\/api\/quizzes\/([a-z0-9][a-z0-9-]{0,79})$/i);
   if (quizMatch && request.method === "GET") return getQuiz(env, quizMatch[1].toLowerCase());
@@ -219,6 +223,56 @@ async function latestQuiz(db) {
   return quiz ? json({ quiz }) : json({ quiz: null });
 }
 
+async function requireAdmin(request, env) {
+  if (!env.SITE_ADMIN_KEY) return { response: json({ error: "Website publishing is not enabled yet." }, 503) };
+  const supplied = request.headers.get("authorization") || "";
+  if (supplied !== `Bearer ${env.SITE_ADMIN_KEY}`) return { response: json({ error: "Unauthorized." }, 401) };
+  return { ok: true };
+}
+
+async function listAdminQuizzes(request, env) {
+  const auth = await requireAdmin(request, env);
+  if (!auth.ok) return auth.response;
+  const result = await env.DB.prepare(`
+    SELECT q.slug, q.title, q.category, q.description, q.youtube_url, q.publish_at, q.status,
+           q.created_at, q.updated_at, COUNT(sq.id) AS question_count
+    FROM site_quizzes q
+    LEFT JOIN site_questions sq ON sq.quiz_id = q.id
+    GROUP BY q.id
+    ORDER BY COALESCE(q.publish_at, q.created_at) DESC, q.id DESC
+  `).all();
+  return json({ quizzes: result.results || [] });
+}
+
+async function getAdminQuiz(request, env, slug) {
+  const auth = await requireAdmin(request, env);
+  if (!auth.ok) return auth.response;
+  const quiz = await env.DB.prepare(`
+    SELECT id, slug, title, category, description, youtube_url, publish_at, status, created_at, updated_at
+    FROM site_quizzes WHERE slug = ? LIMIT 1
+  `).bind(slug).first();
+  if (!quiz) return json({ error: "Quiz not found." }, 404);
+
+  const result = await env.DB.prepare(`
+    SELECT position, question, answer_a, answer_b, answer_c, answer_d, correct_answer, explanation, image_key
+    FROM site_questions WHERE quiz_id = ? ORDER BY position ASC
+  `).bind(quiz.id).all();
+
+  return json({
+    quiz: {
+      ...quiz,
+      questions: (result.results || []).map(row => ({
+        position: row.position,
+        question: row.question,
+        answers: [row.answer_a, row.answer_b, row.answer_c, row.answer_d],
+        correct_answer: normalizeAnswer(row.correct_answer),
+        explanation: row.explanation || "",
+        image_key: String(row.image_key || ""),
+      })),
+    },
+  });
+}
+
 async function loadPlayableQuiz(db, slug, now, columns) {
   const quiz = await db.prepare(`
     SELECT ${columns} FROM site_quizzes
@@ -333,9 +387,8 @@ async function scoreQuiz(request, db, slug) {
 }
 
 async function upsertQuiz(request, env) {
-  if (!env.SITE_ADMIN_KEY) return json({ error: "Website publishing is not enabled yet." }, 503);
-  const supplied = request.headers.get("authorization") || "";
-  if (supplied !== `Bearer ${env.SITE_ADMIN_KEY}`) return json({ error: "Unauthorized." }, 401);
+  const auth = await requireAdmin(request, env);
+  if (!auth.ok) return auth.response;
 
   const body = await readJson(request);
   const validation = validateQuizPayload(body);
@@ -372,7 +425,7 @@ async function upsertQuiz(request, env) {
   const imageKeys = await Promise.all(quiz.questions.map((question, index) =>
     question.image_data_url
       ? storeImageDataUrl(env.QUIZ_IMAGES, quiz.slug, index + 1, question.image_data_url)
-      : Promise.resolve(""),
+      : Promise.resolve(question.image_key || ""),
   ));
 
   const statements = [
@@ -418,23 +471,26 @@ function validateQuizPayload(body) {
     const answers = Array.isArray(item.answers) ? item.answers.map(value => String(value || "").trim()) : [];
     const correctAnswer = normalizeAnswer(item.correct_answer);
     const imageDataUrl = normalizeImageDataUrl(item.image_data_url);
+    const imageKey = normalizeImageKey(item.image_key, slug);
     if (!question) return { error: `Question ${index + 1} is blank.` };
     if (answers.length !== 4 || answers.some(answer => !answer) || new Set(answers).size !== 4) {
       return { error: `Question ${index + 1} must have four distinct answers.` };
     }
     if (!correctAnswer) return { error: `Question ${index + 1} needs correct_answer A, B, C or D.` };
     if (imageDataUrl === null) return { error: `Question ${index + 1} has an invalid or oversized website image.` };
+    if (imageKey === null) return { error: `Question ${index + 1} has an invalid existing website image.` };
     normalizedQuestions.push({
       question,
       answers,
       correct_answer: correctAnswer,
       explanation: String(item.explanation || "").trim(),
       image_data_url: imageDataUrl,
+      image_key: imageKey || "",
     });
   }
 
   const status = String(body.status || "draft").trim().toLowerCase();
-  if (!new Set(["draft", "published"]).has(status)) return { error: "Status must be draft or published." };
+  if (!new Set(["draft", "published"]).has(status)) return { error: "Status must be draft or published." }
 
   let publishAt = null;
   if (body.publish_at) {
@@ -489,6 +545,13 @@ function normalizeImageDataUrl(value) {
   if (image.length > MAX_IMAGE_DATA_URL_LENGTH) return null;
   if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(image)) return null;
   return image;
+}
+
+function normalizeImageKey(value, slug) {
+  const key = String(value || "").trim().replace(/^\/+/, "");
+  if (!key) return "";
+  const pattern = new RegExp(`^${IMAGE_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\/q\\d{3}-[a-f0-9]{20}\\.png$`);
+  return pattern.test(key) ? key : null;
 }
 
 function normalizeAnswer(value) {
