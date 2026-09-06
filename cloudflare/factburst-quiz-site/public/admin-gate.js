@@ -1,9 +1,10 @@
 (() => {
   "use strict";
 
-  // The website admin UI is available only to an authenticated Factburst
-  // account whose database role is exactly "admin". Normal users and guests
-  // are sent straight back to the public home page.
+  // Keep the private admin UI hidden until the server confirms that the
+  // current Factburst account has the exact "admin" role.
+  document.documentElement.style.visibility = "hidden";
+
   async function checkAdmin() {
     try {
       const response = await fetch("/api/site/status", {
@@ -22,6 +23,8 @@
         window.location.replace("/");
         return false;
       }
+
+      document.documentElement.style.visibility = "visible";
       return true;
     } catch {
       window.location.replace("/");
