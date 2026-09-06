@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.179",
-  "build": 199,
+  "latest_version": "1.0.180",
+  "build": 200,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 199 runs database recovery synchronously when the installed factvault.db is missing.",
-    "Build 199 allows the robust filesystem database discovery pass to recover the database before the desktop shell opens.",
-    "Build 199 keeps existing settings, API keys, and database backups protected during recovery."
+    "Build 200 fixes the installed updater installer launch race by waiting for the current app process to exit before starting the Windows installer.",
+    "Build 200 keeps database recovery running before the desktop shell opens when factvault.db is missing.",
+    "Build 200 keeps existing settings, API keys, and database backups protected during recovery."
   ]
 }
