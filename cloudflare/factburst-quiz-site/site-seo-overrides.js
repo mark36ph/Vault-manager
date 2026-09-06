@@ -41,7 +41,9 @@ export async function handleSeoRequest(request, env, url, quizWorker) {
     const headers = new Headers(response.headers);
     headers.delete("content-length");
     headers.delete("etag");
-    return new Response(applySeoHtml(await response.text(), seo), {
+    let html = applySeoHtml(await response.text(), seo);
+    html = injectQuizQuestionPreviews(html, quiz);
+    return new Response(html, {
       status: response.status,
       statusText: response.statusText,
       headers,
@@ -116,8 +118,9 @@ async function ensureSeoSchema(db) {
 }
 
 async function loadQuizSeo(db, slug) {
-  return db.prepare(`
+  const quiz = await db.prepare(`
     SELECT
+      q.id,
       q.slug,
       q.title,
       q.category,
@@ -131,6 +134,44 @@ async function loadQuizSeo(db, slug) {
     WHERE q.slug = ?
     LIMIT 1
   `).bind(slug).first();
+  if (!quiz) return null;
+
+  const previewResult = await db.prepare(`
+    SELECT position, question
+    FROM site_questions
+    WHERE quiz_id = ?
+    ORDER BY position ASC
+    LIMIT 3
+  `).bind(quiz.id).all();
+
+  return {
+    ...quiz,
+    question_previews: (previewResult.results || []).map(row => ({
+      position: Number(row.position) || 0,
+      question: compactText(row.question),
+    })).filter(row => row.question),
+  };
+}
+
+function injectQuizQuestionPreviews(html, quiz) {
+  const previews = Array.isArray(quiz?.question_previews)
+    ? quiz.question_previews.filter(item => item?.question).slice(0, 3)
+    : [];
+  if (!previews.length) return html;
+
+  const section = `
+      <section class="quiz-leaderboard-section seo-quiz-previews" aria-labelledby="seo-quiz-previews-title">
+        <div class="section-heading"><div><p class="eyebrow">Sample questions</p><h2 id="seo-quiz-previews-title">A look inside this ${escapeHtml(quiz.category || "quiz")} quiz</h2></div></div>
+        <div class="quiz-feature">
+          <div>
+            ${previews.map(item => `<p><strong>Question ${item.position || ""}:</strong> ${escapeHtml(item.question)}</p>`).join("")}
+            <p>These previews show the style and subject of the challenge without revealing the answers. Start the quiz to see the full set of questions and find out how you score.</p>
+          </div>
+        </div>
+      </section>
+`;
+
+  return html.replace(/(\s*<section class="quiz-leaderboard-section" id="quiz-high-scores">)/i, `${section}$1`);
 }
 
 function replaceMeta(html, attribute, key, value) {
