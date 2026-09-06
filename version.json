@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.181",
-  "build": 201,
+  "latest_version": "1.0.182",
+  "build": 202,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 201 keeps Full Autopilot from starting automatically when the app opens.",
-    "Build 201 makes Autopilot explicitly opt-in and forces the startup state to OFF.",
-    "Build 201 keeps Autopilot available when manually enabled and prepares the performance diagnostics pass."
+    "Build 202 makes navigation hotspot profiling wait until WPF layout and rendering have completed before recording a navigation sample.",
+    "Build 202 prevents DispatcherPriority.Render from being mistaken for a fully settled page render during performance diagnostics.",
+    "Build 202 keeps the performance diagnostics focused on real visible navigation stalls rather than queued layout work from the previous section."
   ]
 }
