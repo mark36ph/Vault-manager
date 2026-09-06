@@ -30,6 +30,6 @@
   function initializeSharedShell() { prepareNavigation(); document.addEventListener("click", cleanLegacyLinkOnClick, true); bindStaticFooter(); buildCookieBanner(); showCookieBanner(); addQuizContentPreview(); window.factburstCookieConsent = { get: readConsent, open: () => showCookieBanner(true), acceptsOptional: () => readConsent() === CONSENT_ACCEPTED }; if (placeNotificationUi()) return; const observer = new MutationObserver(() => { cleanLegacyLinks(); if (!placeNotificationUi()) return; observer.disconnect(); }); observer.observe(document.body, { childList: true, subtree: true }); window.setTimeout(() => observer.disconnect(), 10000); }
   if (document.querySelector(".site-header")) initializeSharedShell(); else if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initializeSharedShell, { once: true }); else initializeSharedShell();
   const mobileNavScript = document.createElement("script"); mobileNavScript.src = "/mobile-nav.js?v=2"; mobileNavScript.defer = true; document.head.append(mobileNavScript);
-  const adminNavScript = document.createElement("script"); adminNavScript.src = "/admin-nav.js?v=1"; adminNavScript.defer = true; document.head.append(adminNavScript);
+  const adminNavScript = document.createElement("script"); adminNavScript.src = "/admin-nav.js?v=2"; adminNavScript.defer = true; document.head.append(adminNavScript);
   window.addEventListener("factburst:admin-nav-ready", () => addAdminLink());
 })();
