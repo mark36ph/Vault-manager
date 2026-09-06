@@ -10,6 +10,7 @@ public partial class MainShellWindow
     private static readonly Brush NavSelectedBorder = new SolidColorBrush(Color.FromRgb(15, 108, 189));
     private static readonly Brush NavTransparent = Brushes.Transparent;
     private bool _productBrandApplied;
+    private bool _deferredActivationInitializationScheduled;
     private List<Button>? _indexedNavigationButtons;
 
     protected override void OnInitialized(EventArgs e)
@@ -50,6 +51,21 @@ public partial class MainShellWindow
         using var perf = PerformanceDiagnostics.Measure("Window.OnActivated");
         base.OnActivated(e);
         MeasureActivation("Navigation.ApplyProductBranding", ApplyProductBranding);
+
+        // Activation must stay lightweight. The remaining initialization can construct
+        // substantial WPF trees and populate data grids, so queue it until the UI is idle.
+        if (_deferredActivationInitializationScheduled)
+            return;
+
+        _deferredActivationInitializationScheduled = true;
+        Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.ApplicationIdle,
+            new Action(InitializeDeferredActivationFeatures));
+    }
+
+    private void InitializeDeferredActivationFeatures()
+    {
+        using var perf = PerformanceDiagnostics.Measure("Startup.DeferredActivationFeatures");
         MeasureActivation("Startup.InitializeQuizWorkflow", InitializeQuizWorkflow);
         MeasureActivation("Startup.InitializeQuizQuestionBankPage", InitializeQuizQuestionBankPage);
         MeasureActivation("Startup.InitializeQuizHistoryPage", InitializeQuizHistoryPage);
@@ -62,7 +78,9 @@ public partial class MainShellWindow
         MeasureActivation("Startup.InitializeQuizRotationWorkflow", InitializeQuizRotationWorkflow);
         MeasureActivation("Startup.InitializeQuizExportWorkflow", InitializeQuizExportWorkflow);
         MeasureActivation("Startup.ApplyNavigationSections", ApplyNavigationSections);
-        Dispatcher.BeginInvoke(new Action(() => MeasureActivation("Startup.InitializeSettingsWorkflow", InitializeSettingsWorkflow)));
+        Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.ApplicationIdle,
+            new Action(() => MeasureActivation("Startup.InitializeSettingsWorkflow", InitializeSettingsWorkflow)));
     }
 
     protected override void OnClosed(EventArgs e)
