@@ -124,7 +124,8 @@ public partial class MainShellWindow
         InitializeInstagramPromoFollowup();
         InitializeAutopilotNeedsYouVisualStability();
         InitializeAutopilotShellActivationFix();
-        InitializeAutopilotScheduleTarget();
+        // Autopilot schedule supervision is opt-in. Do not initialize its timer during startup.
+        // The master switch initializes it only after the user explicitly turns Autopilot on.
         InitializeQuizHistoryBulkArchiveUi();
         InitializeQuizHistoryGroupedBulkArchiveUi();
         InitializeQuizHistoryUiCleanup();
