@@ -207,7 +207,12 @@ export default {
       });
     }
 
-    return quizWorker.fetch(request, env, context);
+    // Clean page routes such as /admin and /admin-preview are mapped to their
+    // deployed .html assets before the request reaches the asset worker.
+    const assetRequest = seoUrl.pathname !== url.pathname
+      ? new Request(seoUrl, request)
+      : request;
+    return quizWorker.fetch(assetRequest, env, context);
   },
 };
 
