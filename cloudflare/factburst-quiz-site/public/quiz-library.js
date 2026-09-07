@@ -55,7 +55,7 @@
     const previousValue = state.category;
     const categories = new Map();
     try {
-      const firstResponse = await fetch(`/api/quizzes?limit=${CATEGORY_PAGE_SIZE}`, { cache: "no-store" });
+      const firstResponse = await fetch(`/api/quizzes?limit=${CATEGORY_PAGE_SIZE}&live_only=1`, { cache: "no-store" });
       if (firstResponse.ok) {
         const first = await firstResponse.json();
         for (const quiz of Array.isArray(first.quizzes) ? first.quizzes : []) {
@@ -65,7 +65,7 @@
         const totalPages = Math.min(Number(first.total_pages || 1), 20);
         if (totalPages > 1) {
           const requests = [];
-          for (let page = 2; page <= totalPages; page++) requests.push(fetch(`/api/quizzes?page=${page}&limit=${CATEGORY_PAGE_SIZE}`, { cache: "no-store" }).then(response => response.ok ? response.json() : null).catch(() => null));
+          for (let page = 2; page <= totalPages; page++) requests.push(fetch(`/api/quizzes?page=${page}&limit=${CATEGORY_PAGE_SIZE}&live_only=1`, { cache: "no-store" }).then(response => response.ok ? response.json() : null).catch(() => null));
           const pages = await Promise.all(requests);
           for (const data of pages) for (const quiz of Array.isArray(data?.quizzes) ? data.quizzes : []) {
             const value = String(quiz.category || "").trim();
@@ -102,7 +102,7 @@
   async function loadPage() {
     grid.setAttribute("aria-busy", "true");
     try {
-      const params = new URLSearchParams({ page: String(state.page), limit: String(PAGE_SIZE) });
+      const params = new URLSearchParams({ page: String(state.page), limit: String(PAGE_SIZE), live_only: "1" });
       if (state.category) params.set("category", state.category);
       if (state.search) params.set("search", state.search);
       const response = await fetch(`/api/quizzes?${params}`, { cache: "no-store" });
