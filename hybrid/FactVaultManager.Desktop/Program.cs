@@ -69,6 +69,7 @@ public static class Program
             mainWindow.InitializeFactburstTrackerForApp();
             mainWindow.InitializeScheduledPromoBatchForApp();
             mainWindow.InitializePromoRelatedVideoChecklistForApp();
+            mainWindow.InitializeDailyQuizAutopilotForApp();
 
             if (DeferredStartupRecovery.Count > 0)
             {
