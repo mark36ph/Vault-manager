@@ -6,7 +6,7 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    public const int CurrentBuildNumber = 213;
+    public const int CurrentBuildNumber = 214;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
     private bool _deferredShellInitializationScheduled;
@@ -48,7 +48,7 @@ public partial class MainShellWindow
             {
                 window._deferredShellInitializationScheduled = true;
                 window.Dispatcher.BeginInvoke(
-                    DispatcherPriority.ApplicationIdle,
+                    DispatcherPriority.Background,
                     new Action(window.InitializeDeferredShellFeatures));
             }
         }
@@ -56,14 +56,13 @@ public partial class MainShellWindow
 
     private void QueueDeferredShellPhase(Action phase)
     {
-        Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, phase);
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, phase);
     }
 
     private void InitializeDeferredShellFeatures()
     {
         using var perf = PerformanceDiagnostics.Measure("Startup.DeferredShellFeatures");
-        InitializeDeferredQuizPhase();
-        QueueDeferredShellPhase(InitializeDeferredAutopilotPhase);
+        QueueDeferredShellPhase(InitializeDeferredQuizPhase);
     }
 
     private void InitializeDeferredQuizPhase()
@@ -82,6 +81,7 @@ public partial class MainShellWindow
         InitializeYouTubeGrowthAnalyticsUiReliably();
         InitializeYouTubeGrowthRecommendationGuard();
         InitializeYouTubeFirstCommentAutopilot();
+        QueueDeferredShellPhase(InitializeDeferredAutopilotPhase);
     }
 
     private void InitializeDeferredAutopilotPhase()
@@ -136,5 +136,8 @@ public partial class MainShellWindow
         InitializeStartupSafeUiCleanup();
         InitializeCreateAdvancedUiCleanup();
         InitializeDatabaseBackupAndRecovery();
+
+        // History is deliberately initialized after the shell has had a chance to paint.
+        QueueDeferredShellPhase(InitializeQuizHistoryPage);
     }
 }
