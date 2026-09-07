@@ -1,0 +1,8 @@
+.daily-challenge-section{padding-top:0}
+.daily-challenge-card{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:24px 26px;border:1px solid rgba(53,199,255,.2);border-radius:16px;background:linear-gradient(135deg,rgba(53,199,255,.09),rgba(255,255,255,.025));box-shadow:0 14px 36px rgba(0,0,0,.14)}
+.daily-challenge-copy{min-width:0}
+.daily-challenge-copy h2{margin:4px 0 6px;font-size:clamp(24px,3vw,32px)}
+.daily-challenge-copy p:last-child{margin:0;color:var(--muted);line-height:1.55}
+.daily-challenge-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;flex-shrink:0}
+.daily-streak-badge{display:inline-flex;align-items:center;min-height:38px;padding:0 12px;border-radius:10px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.12);font-size:13px;font-weight:800;white-space:nowrap}
+@media(max-width:640px){.daily-challenge-card{align-items:flex-start;flex-direction:column;padding:20px}.daily-challenge-actions{width:100%;justify-content:flex-start}.daily-challenge-actions .button{flex:1;text-align:center}}
