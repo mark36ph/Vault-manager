@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.0.194",
-  "build": 214,
+  "latest_version": "1.0.195",
+  "build": 215,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 214 makes deferred startup initialization granular so expensive UI setup yields back to WPF between individual steps, reducing visible freezes and improving startup responsiveness.",
-    "Build 214 upgrades Performance Diagnostics with a clearer dashboard, current-sidebar profiling, quick UI health scans, measurement reset, clipboard copy, and safer long-running actions."
+    "Build 215 prevents Performance Diagnostics from opening startup-warning dialogs when a page is still initializing.",
+    "Navigation diagnostics now skip unready pages, report which sections were skipped, measure only ready sections, and keep the diagnostic window responsive while profiling."
   ]
 }
