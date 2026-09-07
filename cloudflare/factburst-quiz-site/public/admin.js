@@ -296,7 +296,7 @@
       state.page = 1;
       populateCategoryFilter();
       renderList();
-      setStatus(appStatus, `${state.quizzes.length} quiz${state.quizzes.length === 1 ? "" : "zes"} loaded.`, "success");
+      setStatus(appStatus, "");
     } catch (error) {
       if (error.status === 401) return signOut();
       setStatus(appStatus, error.message, "error");
