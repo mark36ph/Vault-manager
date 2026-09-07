@@ -19,6 +19,7 @@ import { handleCommunityApi } from "./account-community.js";
 import { handleEngagementApi, recordEngagementAttempt } from "./account-engagement.js";
 import { handleVerifiedEmailChangeApi } from "./account-email-change.js";
 import { handleAdminAccountEditApi } from "./account-admin-edit.js";
+import { handleAdminUsersApi } from "./admin-users.js";
 import { enforceMaintenanceMode, handleSiteStatusApi } from "./site-controls.js";
 import { handlePublicAdsConfig } from "./site-ads.js";
 import { scoreGuestQuiz } from "./guest-score.js";
@@ -91,6 +92,10 @@ export default {
       const origin = String(request.headers.get("origin") || "").trim();
       if (origin !== url.origin) return jsonResponse({ error: "Request origin was not accepted." }, 403);
       return claimGuestScore(request, env.DB, url);
+    }
+
+    if (url.pathname.startsWith("/api/admin/users")) {
+      return handleAdminUsersApi(request, env, url);
     }
 
     const accountRoute = isAccountRoute(url.pathname);
