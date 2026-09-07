@@ -6,6 +6,7 @@ const CLEAN_PAGE_ASSETS = new Map([
   ["/terms", "/terms.html"],
   ["/privacy", "/privacy.html"],
   ["/admin", "/admin.html"],
+  ["/quiz-setup", "/quiz-setup.html"],
 ]);
 
 const LEGACY_PAGE_PATHS = new Map([
