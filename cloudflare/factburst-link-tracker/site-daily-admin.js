@@ -1,3 +1,4 @@
+// Daily Quiz assignments live in the shared Factburst D1 database so the desktop scheduler and website use the same source of truth.
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function listDailySchedule(env, url) {
