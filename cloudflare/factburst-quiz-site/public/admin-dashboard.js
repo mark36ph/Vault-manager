@@ -13,7 +13,6 @@
 
   function renderStats(stats = {}) {
     const values = {
-      "#stat-total": stats.total_quizzes,
       "#stat-published": stats.published,
       "#stat-drafts": stats.drafts,
       "#stat-questions": stats.questions,
@@ -63,11 +62,23 @@
     const source = catalogue.length ? catalogue : rows.map(row => ({
       status: row.querySelector(".admin-badge")?.textContent || "",
       question_count: Number.parseInt((row.querySelector(".admin-quiz-meta")?.textContent.match(/(\d+) questions?/) || [])[1] || "0", 10),
+      attempts: 0,
     }));
     const attention = source.filter(quiz => Number(quiz.question_count || 0) < 10).length;
     const ready = source.filter(quiz => Number(quiz.question_count || 0) >= 10).length;
     const drafts = source.filter(quiz => String(quiz.status || "").toLowerCase() === "draft").length;
-    panel.innerHTML = `<p class="eyebrow">Quiz health</p><h3>${attention ? `${attention} quiz${attention === 1 ? "" : "zes"} need attention` : "Your quiz catalogue looks healthy"}</h3><p>${ready} quiz${ready === 1 ? "" : "zes"} have 10+ questions · ${drafts} draft${drafts === 1 ? "" : "s"} · Preview any quiz directly from the catalogue.</p>`;
+    const totalAttempts = source.reduce((sum, quiz) => sum + Number(quiz.attempts || 0), 0);
+    const activeQuizzes = source.filter(quiz => Number(quiz.attempts || 0) > 0).length;
+    const averageAttempts = source.length ? totalAttempts / source.length : 0;
+    const topPlayed = [...source].sort((a, b) => Number(b.attempts || 0) - Number(a.attempts || 0)).slice(0, 5);
+    const topRows = topPlayed.length
+      ? topPlayed.map((quiz, index) => `<li><span><b>${index + 1}</b>${escapeHtml(quiz.title || quiz.slug || "Untitled quiz")}</span><strong>${Number(quiz.attempts || 0).toLocaleString()}</strong></li>`).join("")
+      : `<li class="admin-insight-empty">No quiz play data yet.</li>`;
+    panel.innerHTML = `<div class="admin-health-summary"><div><p class="eyebrow">Quiz health</p><h3>${attention ? `${attention} quiz${attention === 1 ? "" : "zes"} need attention` : "Your quiz catalogue looks healthy"}</h3><p>${ready} quiz${ready === 1 ? "" : "zes"} have 10+ questions · ${drafts} draft${drafts === 1 ? "" : "s"}.</p></div><div class="admin-health-metrics"><span><b>${activeQuizzes}</b> active</span><span><b>${averageAttempts.toFixed(1)}</b> plays/quiz</span></div></div><div class="admin-insight-grid"><div><p class="eyebrow">Most played</p><ol class="admin-top-quizzes">${topRows}</ol></div><div><p class="eyebrow">Activity snapshot</p><div class="admin-activity-stats"><span><b>${totalAttempts.toLocaleString()}</b>Total plays</span><span><b>${activeQuizzes}</b>Quizzes played</span><span><b>${drafts}</b>Drafts</span></div></div></div>`;
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
   }
 
   function applyFilters() {
