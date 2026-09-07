@@ -6,7 +6,7 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    public const int CurrentBuildNumber = 214;
+    public const int CurrentBuildNumber = 213;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
     private bool _deferredShellInitializationScheduled;
@@ -137,7 +137,7 @@ public partial class MainShellWindow
         InitializeCreateAdvancedUiCleanup();
         InitializeDatabaseBackupAndRecovery();
 
-        // History is deliberately initialized after the shell has had a chance to paint.
+        // Build the History page only after the shell and sidebar are responsive.
         QueueDeferredShellPhase(InitializeQuizHistoryPage);
     }
 }
