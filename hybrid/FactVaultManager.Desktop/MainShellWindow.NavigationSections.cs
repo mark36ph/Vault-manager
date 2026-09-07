@@ -23,23 +23,27 @@ public partial class MainShellWindow
         var youtubeAnalytics = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _youtubeAnalyticsTabIndex.ToString(), StringComparison.Ordinal));
 
-        // Only keep the active production, Library and analytics destinations
-        // in the legacy navigation. Question Bank, Upload Manager, Facebook and
-        // Instagram are retired from the current Factburst shell.
-        if (settings is null || quizzes is null || quizHistory is null || youtubeAnalytics is null ||
-            quizzes.Parent is not StackPanel navigation)
-        {
+        // Quizzes and Settings are the minimum viable shell. Optional history and
+        // analytics pages are added only when their initializers completed.
+        if (settings is null || quizzes is null || quizzes.Parent is not StackPanel navigation)
             return;
-        }
 
         _navigationSectionsApplied = true;
-
         navigation.Children.Clear();
         navigation.Children.Add(quizzes);
-        navigation.Children.Add(quizHistory);
-        navigation.Children.Add(NavigationSpacer());
-        navigation.Children.Add(youtubeAnalytics);
-        navigation.Children.Add(NavigationSpacer());
+
+        if (quizHistory is not null)
+        {
+            navigation.Children.Add(quizHistory);
+            navigation.Children.Add(NavigationSpacer());
+        }
+
+        if (youtubeAnalytics is not null)
+        {
+            navigation.Children.Add(youtubeAnalytics);
+            navigation.Children.Add(NavigationSpacer());
+        }
+
         navigation.Children.Add(settings);
 
         if (!_quizHomeSelected)
@@ -47,6 +51,7 @@ public partial class MainShellWindow
             _quizHomeSelected = true;
             MainTabs.SelectedIndex = _quizTabIndex;
         }
+
         ApplyNavigationSelection(MainTabs.SelectedIndex);
     }
 
