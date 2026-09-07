@@ -45,17 +45,31 @@ public partial class MainShellWindow
             return;
         }
 
-        var buttons = GetCurrentFactburstNavigationButtons();
-        if (buttons.Count == 0)
+        var allButtons = GetCurrentFactburstNavigationButtons();
+        if (allButtons.Count == 0)
         {
             _performanceDiagnosticsStatus!.Text = "The navigation hotspot profile could not run because the current Factburst sidebar is not ready yet.";
+            return;
+        }
+
+        var buttons = allButtons
+            .Where(button => IsNavigationReadyForDiagnostics(button))
+            .ToList();
+        var skipped = allButtons.Count - buttons.Count;
+        if (buttons.Count == 0)
+        {
+            _performanceDiagnosticsStatus!.Text = skipped == 0
+                ? "The navigation hotspot profile could not find any ready sections yet."
+                : $"No navigation sections are ready yet. {skipped} section(s) were skipped without opening any page dialogs.";
             return;
         }
 
         const int cycles = 10;
         var originalIndex = MainTabs.SelectedIndex;
         var samples = buttons.ToDictionary(button => button, _ => new List<double>());
-        _performanceDiagnosticsStatus!.Text = $"Profiling {buttons.Count} current Factburst sections for {cycles} cycles...";
+        _performanceDiagnosticsStatus!.Text = skipped == 0
+            ? $"Profiling {buttons.Count} current Factburst sections for {cycles} cycles..."
+            : $"Profiling {buttons.Count} ready Factburst sections for {cycles} cycles. {skipped} still-starting section(s) skipped...";
         await WaitForStableLayoutAsync();
 
         try
@@ -99,6 +113,7 @@ public partial class MainShellWindow
         builder.AppendLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         builder.AppendLine($"Sections           : {buttons.Count}");
         builder.AppendLine("Navigation set     : current Factburst sidebar only");
+        builder.AppendLine($"Sections skipped   : {skipped} (still starting / not ready)");
         builder.AppendLine("Warm-up passes     : 1 per section");
         builder.AppendLine($"Measured cycles    : {cycles}");
         builder.AppendLine($"Measured samples   : {buttons.Count * cycles}");
@@ -110,6 +125,13 @@ public partial class MainShellWindow
         {
             var status = row.MaxMs >= 500 ? "CRITICAL" : row.MaxMs >= 100 ? "SLOW" : "OK";
             builder.AppendLine($"{row.Name} | {row.Index} | {row.AverageMs:F1} | {row.P95Ms:F1} | {row.MaxMs:F1} | {row.Samples50} | {row.Samples100} | {status}");
+        }
+
+        if (skipped > 0)
+        {
+            builder.AppendLine();
+            builder.AppendLine("NOTE");
+            builder.AppendLine($"{skipped} current sidebar section(s) were not ready when the profile started. They were skipped rather than invoking normal navigation error dialogs.");
         }
 
         if (rows.Count > 0)
@@ -132,8 +154,10 @@ public partial class MainShellWindow
         builder.Append(PerformanceDiagnostics.GetReport());
         _performanceDiagnosticsResults!.Text = builder.ToString();
         _performanceDiagnosticsStatus.Text = rows.Count == 0
-            ? "Navigation hotspot profile completed without measurable current Factburst sections."
-            : $"Navigation hotspot profile complete. Hotspot: {rows[0].Name} at {rows[0].MaxMs:F1} ms maximum.";
+            ? $"Navigation hotspot profile completed. {skipped} section(s) were skipped because they were still starting."
+            : skipped == 0
+                ? $"Navigation hotspot profile complete. Hotspot: {rows[0].Name} at {rows[0].MaxMs:F1} ms maximum."
+                : $"Navigation hotspot profile complete. Hotspot: {rows[0].Name} at {rows[0].MaxMs:F1} ms maximum; {skipped} section(s) skipped while starting.";
     }
 
     private List<Button> GetCurrentFactburstNavigationButtons()
@@ -163,6 +187,23 @@ public partial class MainShellWindow
         }
 
         return buttons;
+    }
+
+    private bool IsNavigationReadyForDiagnostics(Button button)
+    {
+        var text = button.Content?.ToString() ?? string.Empty;
+        var key = _autopilotNavButtons
+            .FirstOrDefault(pair => ReferenceEquals(pair.Value, button)).Key;
+
+        return key switch
+        {
+            "Performance" => FindLegacyNavigationButton("YouTube Manager") is not null,
+            "Library" => FindLegacyNavigationButton("Quiz History") is not null,
+            "Create" => FindLegacyNavigationButton("Quizzes") is not null,
+            "Settings" => FindLegacyNavigationButton("Settings") is not null,
+            "Autopilot" => _autopilotHomeTabIndex >= 0,
+            _ => !string.IsNullOrWhiteSpace(text),
+        };
     }
 
     private async Task NavigateAndWaitForStableLayoutAsync(Button button)
