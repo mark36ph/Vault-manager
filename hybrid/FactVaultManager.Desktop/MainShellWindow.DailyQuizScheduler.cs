@@ -241,8 +241,16 @@ internal sealed class DailyQuizSchedulerWindow : Window
     private void SelectScheduledDate()
     {
         if (_scheduleList.SelectedItem is not DailyScheduleDisplay item) return;
-        if (DateTime.TryParseExact(item.Assignment.DayKey, new[] { "yyyy-MM-dd" }, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var date))
-            _datePicker.SelectedDate = date;
+        try
+        {
+            _datePicker.SelectedDate = DateTime.ParseExact(item.Assignment.DayKey, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        }
+        catch (FormatException)
+        {
+            _status.Text = $"Invalid scheduled date: {item.Assignment.DayKey}";
+            return;
+        }
+
         for (var i = 0; i < _quizPicker.Items.Count; i++)
         {
             if (_quizPicker.Items[i] is FactburstDailyQuizOption quiz && quiz.Id == item.Assignment.QuizId)
