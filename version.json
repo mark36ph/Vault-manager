@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.0.192",
-  "build": 212,
+  "latest_version": "1.0.193",
+  "build": 213,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 212 fixes the shell showing a blank content area when a secondary page initializer fails during activation.",
-    "The Quizzes page is now the resilient default home and optional History or Analytics pages cannot prevent the main navigation from loading."
+    "Build 213 restores the full Factburst sidebar navigation after the blank-shell recovery changes.",
+    "The bootstrap navigation is preserved so Website, Web Analytics, Users, Comments, SEO, Library and other available sections can be added reliably during deferred startup."
   ]
 }
