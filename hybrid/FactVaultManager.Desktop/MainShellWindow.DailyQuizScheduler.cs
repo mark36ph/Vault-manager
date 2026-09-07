@@ -241,7 +241,7 @@ internal sealed class DailyQuizSchedulerWindow : Window
     private void SelectScheduledDate()
     {
         if (_scheduleList.SelectedItem is not DailyScheduleDisplay item) return;
-        if (DateTime.TryParseExact(item.Assignment.DayKey, "yyyy-MM-dd", out var date))
+        if (DateTime.TryParseExact(item.Assignment.DayKey, new[] { "yyyy-MM-dd" }, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var date))
             _datePicker.SelectedDate = date;
         for (var i = 0; i < _quizPicker.Items.Count; i++)
         {
