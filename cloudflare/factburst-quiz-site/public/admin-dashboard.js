@@ -9,6 +9,7 @@
   if (!list || !search || !status || !category) return;
 
   let rows = [];
+  let catalogue = [];
 
   function renderStats(stats = {}) {
     const values = {
@@ -59,16 +60,14 @@
       const panels = dashboard.querySelector(".admin-dashboard-panels");
       (panels || dashboard).appendChild(panel);
     }
-    const counts = { attention: 0, ready: 0, drafts: 0 };
-    for (const row of rows) {
-      const meta = [...(row.querySelector(".admin-quiz-meta")?.children || [])].map(element => element.textContent.trim());
-      const questionMatch = meta.find(value => / questions?$/.test(value));
-      const questions = Number.parseInt(questionMatch || "0", 10) || 0;
-      const isDraft = meta[0]?.toLowerCase() === "draft";
-      if (isDraft) counts.drafts += 1;
-      if (questions < 10) counts.attention += 1; else counts.ready += 1;
-    }
-    panel.innerHTML = `<p class="eyebrow">Quiz health</p><h3>${counts.attention ? `${counts.attention} quiz${counts.attention === 1 ? "" : "zes"} need attention` : "Your quiz catalogue looks healthy"}</h3><p>${counts.ready} quiz${counts.ready === 1 ? "" : "zes"} have 10+ questions · ${counts.drafts} draft${counts.drafts === 1 ? "" : "s"} · Preview any quiz directly from the catalogue.</p>`;
+    const source = catalogue.length ? catalogue : rows.map(row => ({
+      status: row.querySelector(".admin-badge")?.textContent || "",
+      question_count: Number.parseInt((row.querySelector(".admin-quiz-meta")?.textContent.match(/(\d+) questions?/) || [])[1] || "0", 10),
+    }));
+    const attention = source.filter(quiz => Number(quiz.question_count || 0) < 10).length;
+    const ready = source.filter(quiz => Number(quiz.question_count || 0) >= 10).length;
+    const drafts = source.filter(quiz => String(quiz.status || "").toLowerCase() === "draft").length;
+    panel.innerHTML = `<p class="eyebrow">Quiz health</p><h3>${attention ? `${attention} quiz${attention === 1 ? "" : "zes"} need attention` : "Your quiz catalogue looks healthy"}</h3><p>${ready} quiz${ready === 1 ? "" : "zes"} have 10+ questions · ${drafts} draft${drafts === 1 ? "" : "s"} · Preview any quiz directly from the catalogue.</p>`;
   }
 
   function applyFilters() {
@@ -92,6 +91,7 @@
       const response = await fetch("/api/admin/quizzes", { credentials: "same-origin", cache: "no-store" });
       if (!response.ok) return;
       const data = await response.json();
+      catalogue = Array.isArray(data.quizzes) ? data.quizzes : [];
       renderStats(data.stats || {});
       populateCategories(data);
       refreshRows();
