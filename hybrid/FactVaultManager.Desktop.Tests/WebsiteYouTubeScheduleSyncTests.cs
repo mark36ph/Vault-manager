@@ -89,7 +89,27 @@ public sealed class WebsiteYouTubeScheduleSyncTests
     }
 
     private static QuizHistorySummary History(string privacy, string scheduledFor = "", string uploadDate = "", string format = "16:9", bool published = true, string url = "https://www.youtube.com/watch?v=abc123") =>
-        new(1, "Quiz", "2026-09-01 10:00:00", 10, "Science", format, 10, false, "C:\\Factburst\\Quiz", "", 1, "Quiz", "", "", "", published, url, uploadDate, privacy, scheduledFor);
+        new(
+            Id: 1,
+            Title: "Quiz",
+            Created: "2026-09-01 10:00:00",
+            QuestionCount: 10,
+            Categories: "Science",
+            Format: format,
+            QuestionSeconds: 10,
+            ShuffleAnswers: false,
+            ProjectFolder: "C:\\Factburst\\Quiz",
+            SeriesName: "",
+            EpisodeNumber: 1,
+            YouTubeTitle: "Quiz",
+            YouTubeDescription: "",
+            Hashtags: "",
+            PinnedComment: "",
+            PublishedOnYouTube: published,
+            YouTubeUrl: url,
+            YouTubeUploadDate: uploadDate,
+            YouTubePrivacy: privacy,
+            YouTubeScheduledFor: scheduledFor);
 
     private static string ReadRepositoryFile(string relativePath)
     {
