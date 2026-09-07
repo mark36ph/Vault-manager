@@ -9,7 +9,8 @@ public sealed class AutopilotMasterSwitchTests
         var schedule = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotScheduleTarget.cs");
         var guard = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotHomeLaunchGuard.cs");
 
-        Assert.Contains("InitializeAutopilotScheduleTarget()", buildInfo, StringComparison.Ordinal);
+        // Schedule supervision is intentionally opt-in now; startup must not initialize it.
+        Assert.DoesNotContain("InitializeAutopilotScheduleTarget()", buildInfo, StringComparison.Ordinal);
         Assert.Contains("Content = preferences.AutoFillEnabled ? \"AUTOPILOT ON\" : \"AUTOPILOT OFF\"", schedule, StringComparison.Ordinal);
         Assert.Contains("ApplyAutopilotMasterState(true)", schedule, StringComparison.Ordinal);
         Assert.Contains("ApplyAutopilotMasterState(false)", schedule, StringComparison.Ordinal);
