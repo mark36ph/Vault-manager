@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="/site-shell.css?v=1">
   <link rel="stylesheet" href="/visual-polish.css?v=1">
   <link rel="stylesheet" href="/admin.css?v=1">
+  <link rel="stylesheet" href="/admin-users.css?v=1">
   <script src="/admin-gate.js?v=2"></script>
 </head>
 <body data-page="admin">
@@ -40,11 +41,7 @@
 
     <section id="admin-app" class="hidden" aria-label="Quiz administration">
       <div class="admin-page-heading">
-        <div>
-          <p class="eyebrow">Quiz control</p>
-          <h1>Website quizzes</h1>
-          <p>Create, edit, schedule, publish or unpublish quizzes without needing your PC.</p>
-        </div>
+        <div><p class="eyebrow">Quiz control</p><h1>Website administration</h1><p>Create, edit, schedule, publish quizzes and manage player accounts.</p></div>
         <button id="new-quiz" class="button button-primary" type="button">+ New quiz</button>
       </div>
       <div id="app-status" class="admin-status" role="status" aria-live="polite"></div>
@@ -58,23 +55,21 @@
       </section>
 
       <section class="admin-panel">
-        <div class="admin-panel-heading">
-          <div><p class="eyebrow">Library</p><h2>All quizzes</h2></div>
-          <button id="refresh-quizzes" class="button button-secondary" type="button">Refresh</button>
-        </div>
-        <div class="admin-list-controls">
-          <label>Search<input id="admin-search" type="search" placeholder="Search quizzes…" autocomplete="off"></label>
-          <label>Status<select id="admin-status-filter"><option value="">All statuses</option><option value="published">Published</option><option value="draft">Draft</option></select></label>
-          <label>Category<select id="admin-category-filter"><option value="">All categories</option></select></label>
-        </div>
+        <div class="admin-panel-heading"><div><p class="eyebrow">Library</p><h2>All quizzes</h2></div><button id="refresh-quizzes" class="button button-secondary" type="button">Refresh</button></div>
+        <div class="admin-list-controls"><label>Search<input id="admin-search" type="search" placeholder="Search quizzes…" autocomplete="off"></label><label>Status<select id="admin-status-filter"><option value="">All statuses</option><option value="published">Published</option><option value="draft">Draft</option></select></label><label>Category<select id="admin-category-filter"><option value="">All categories</option></select></label></div>
         <div id="quiz-list" class="admin-quiz-list"></div>
         <div id="quiz-list-empty" class="admin-empty hidden"><h3>No quizzes yet</h3><p>Create the first website quiz from this page.</p></div>
       </section>
+
+      <section class="admin-panel" aria-labelledby="users-title">
+        <div class="admin-panel-heading"><div><p class="eyebrow">Accounts</p><h2 id="users-title">Users</h2><p class="admin-user-note">Manage usernames, emails, verification, passwords, friends and referrals.</p></div><button id="refresh-users" class="button button-secondary" type="button">Refresh</button></div>
+        <div class="admin-users-toolbar"><label class="admin-users-search">Search users<input id="admin-users-search" type="search" placeholder="Username, email or referral code…" autocomplete="off"></label></div>
+        <div id="admin-users-status" class="admin-status" role="status" aria-live="polite"></div>
+        <div id="admin-users-list" class="admin-users-list"></div>
+      </section>
+
       <section id="editor-panel" class="admin-panel hidden" aria-labelledby="editor-title">
-        <div class="admin-panel-heading editor-heading">
-          <div><p class="eyebrow">Editor</p><h2 id="editor-title">New quiz</h2></div>
-          <button id="close-editor" class="button button-ghost" type="button">Close</button>
-        </div>
+        <div class="admin-panel-heading editor-heading"><div><p class="eyebrow">Editor</p><h2 id="editor-title">New quiz</h2></div><button id="close-editor" class="button button-ghost" type="button">Close</button></div>
         <form id="quiz-form" class="admin-form">
           <div class="admin-field-grid">
             <label>Title<input id="quiz-title" name="title" required maxlength="160"></label>
@@ -97,5 +92,6 @@
   <script src="/admin-auth.js?v=1"></script>
   <script src="/admin.js?v=2"></script>
   <script src="/admin-dashboard.js?v=1"></script>
+  <script src="/admin-users.js?v=1"></script>
 </body>
 </html>
