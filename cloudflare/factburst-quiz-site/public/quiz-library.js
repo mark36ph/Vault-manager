@@ -2,6 +2,7 @@
   "use strict";
 
   const PAGE_SIZE = 12;
+  const CATEGORY_PAGE_SIZE = 50;
   const state = { page: 1, category: "", search: "" };
   const $ = selector => document.querySelector(selector);
 
@@ -49,10 +50,37 @@
     catch { renderLatest(null); }
   }
 
-  function populateCategories() {
-    const categories = ["Science", "History", "Geography", "Space", "Nature & Animals", "Technology", "Arts & Literature", "Music", "Film", "Logos", "Sports", "Entertainment", "Mathematics", "General Knowledge"];
-    for (const value of categories) if (![...filter.options].some(option => option.value.toLowerCase() === value.toLowerCase())) filter.append(new Option(value, value));
-    filter.value = state.category;
+  async function loadCategories() {
+    if (!filter) return;
+    const previousValue = state.category;
+    const categories = new Map();
+    try {
+      const firstResponse = await fetch(`/api/quizzes?limit=${CATEGORY_PAGE_SIZE}`, { cache: "no-store" });
+      if (firstResponse.ok) {
+        const first = await firstResponse.json();
+        for (const quiz of Array.isArray(first.quizzes) ? first.quizzes : []) {
+          const value = String(quiz.category || "").trim();
+          if (value) categories.set(value.toLowerCase(), value);
+        }
+        const totalPages = Math.min(Number(first.total_pages || 1), 20);
+        if (totalPages > 1) {
+          const requests = [];
+          for (let page = 2; page <= totalPages; page++) requests.push(fetch(`/api/quizzes?page=${page}&limit=${CATEGORY_PAGE_SIZE}`, { cache: "no-store" }).then(response => response.ok ? response.json() : null).catch(() => null));
+          const pages = await Promise.all(requests);
+          for (const data of pages) for (const quiz of Array.isArray(data?.quizzes) ? data.quizzes : []) {
+            const value = String(quiz.category || "").trim();
+            if (value) categories.set(value.toLowerCase(), value);
+          }
+        }
+      }
+    } catch {}
+
+    const fallbackCategories = ["Science", "History", "Geography", "Space", "Nature & Animals", "Technology", "Arts & Literature", "Music", "Film", "Logos", "Sports", "Entertainment", "Mathematics", "General Knowledge"];
+    for (const value of fallbackCategories) if (!categories.has(value.toLowerCase())) categories.set(value.toLowerCase(), value);
+
+    const sorted = [...categories.values()].sort((a, b) => a.localeCompare(b));
+    filter.replaceChildren(new Option("All categories", ""), ...sorted.map(value => new Option(value, value)));
+    filter.value = [...filter.options].some(option => option.value.toLowerCase() === previousValue.toLowerCase()) ? previousValue : "";
   }
 
   function updateUrl() {
@@ -101,5 +129,8 @@
   previous.addEventListener("click", () => { if (state.page <= 1) return; state.page--; loadPage(); document.querySelector("#browse")?.scrollIntoView({ behavior: "smooth", block: "start" }); });
   next.addEventListener("click", () => { state.page++; loadPage(); document.querySelector("#browse")?.scrollIntoView({ behavior: "smooth", block: "start" }); });
 
-  readUrl(); populateCategories(); loadLatest(); loadPage();
+  readUrl();
+  loadCategories();
+  loadLatest();
+  loadPage();
 })();
