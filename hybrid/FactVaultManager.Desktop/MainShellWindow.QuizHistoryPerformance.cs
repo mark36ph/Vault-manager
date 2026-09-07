@@ -10,17 +10,17 @@ public partial class MainShellWindow
 
     private static bool RegisterQuizHistoryPerformanceHandler()
     {
-        // Configure DataGrids at Initialized time, before any page can assign an
+        // Configure DataGrids at load time, before any page can assign an
         // ItemsSource. This ensures virtualization is active before WPF measures rows.
         EventManager.RegisterClassHandler(
             typeof(DataGrid),
-            FrameworkElement.InitializedEvent,
-            new RoutedEventHandler(MainShellWindowQuizHistoryPerformance_Initialized),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler(MainShellWindowQuizHistoryPerformance_Loaded),
             handledEventsToo: true);
         return true;
     }
 
-    private static void MainShellWindowQuizHistoryPerformance_Initialized(object sender, RoutedEventArgs e)
+    private static void MainShellWindowQuizHistoryPerformance_Loaded(object sender, RoutedEventArgs e)
     {
         if (sender is DataGrid grid)
             ConfigureQuizHistoryGridPerformance(grid);
