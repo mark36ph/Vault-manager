@@ -1,11 +1,10 @@
 {
-  "latest_version": "1.0.193",
-  "build": 213,
+  "latest_version": "1.0.194",
+  "build": 214,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 213 restores the full Factburst sidebar navigation after the blank-shell recovery changes.",
-    "Startup initialization now yields to the WPF UI instead of running secondary page setup as one long blocking activation operation.",
-    "Quiz History and other secondary sections are initialized after the shell has become responsive, while Autopilot remains opt-in."
+    "Build 214 makes deferred startup initialization granular so expensive UI setup yields back to WPF between individual steps, reducing visible freezes and improving startup responsiveness.",
+    "Build 214 upgrades Performance Diagnostics with a clearer dashboard, current-sidebar profiling, quick UI health scans, measurement reset, clipboard copy, and safer long-running actions."
   ]
 }
