@@ -64,5 +64,11 @@
   status.addEventListener("change", applyFilters);
   category.addEventListener("change", applyFilters);
   new MutationObserver(() => setTimeout(applyFilters, 0)).observe(list, { childList: true });
+
+  // The API reads the live D1 attempt count. Refresh the dashboard stats periodically
+  // so a play completed in another tab/device appears without a manual page reload.
   loadStats();
+  window.setInterval(() => {
+    if (document.visibilityState === "visible") loadStats();
+  }, 10000);
 })();
