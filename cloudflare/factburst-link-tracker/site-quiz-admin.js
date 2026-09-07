@@ -6,13 +6,14 @@ const JSON_HEADERS = {
 
 const MAX_IMAGE_DATA_URL_LENGTH = 1_250_000;
 const IMAGE_PREFIX = "quiz-images/";
+const IMAGE_ROUTE_PREFIX = `/${IMAGE_PREFIX}`;
 const IMAGE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 let siteSchemaReady = false;
 
 export async function listSiteQuizzes(env) {
   await ensureSiteSchema(env.DB);
   const result = await env.DB.prepare(`
-    SELECT q.slug, q.status, q.publish_at, q.updated_at,
+    SELECT q.id, q.slug, q.title, q.category, q.status, q.publish_at, q.updated_at,
            COUNT(sq.id) AS question_count
     FROM site_quizzes q
     LEFT JOIN site_questions sq ON sq.quiz_id = q.id
@@ -22,9 +23,9 @@ export async function listSiteQuizzes(env) {
   return json({ quizzes: result.results || [] });
 }
 
-export async function upsertSiteQuiz(request, env) {
+export async function upsertSiteQuizPreservingVisibility(request, env) {
   await ensureSiteSchema(env.DB);
-  const body = await readJson(request);
+  const body = await request.json();
   const validation = validateQuizPayload(body);
   if (validation.error) return json({ error: validation.error }, 400);
 
@@ -140,81 +141,45 @@ async function ensureSiteSchema(db) {
 
   const columns = await db.prepare("PRAGMA table_info(site_questions)").all();
   const names = new Set((columns.results || []).map(column => column.name));
-  if (!names.has("image_key")) {
-    await db.prepare("ALTER TABLE site_questions ADD COLUMN image_key TEXT NOT NULL DEFAULT ''").run();
-  }
-  if (!names.has("image_data_url")) {
-    await db.prepare("ALTER TABLE site_questions ADD COLUMN image_data_url TEXT NOT NULL DEFAULT ''").run();
-  }
-
+  if (!names.has("image_key")) await db.prepare("ALTER TABLE site_questions ADD COLUMN image_key TEXT NOT NULL DEFAULT ''").run();
+  if (!names.has("image_data_url")) await db.prepare("ALTER TABLE site_questions ADD COLUMN image_data_url TEXT NOT NULL DEFAULT ''").run();
   siteSchemaReady = true;
 }
 
 function validateQuizPayload(body) {
   if (!body || typeof body !== "object") return { error: "A quiz payload is required." };
-
   const slug = String(body.slug || "").trim().toLowerCase();
   if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(slug)) return { error: "Use a URL-safe quiz slug." };
-
   const title = String(body.title || "").trim();
   const category = String(body.category || "").trim();
   if (!title) return { error: "Quiz title is required." };
   if (!category) return { error: "Quiz category is required." };
-
   const youtubeUrl = validateYouTubeUrl(body.youtube_url);
   if (!youtubeUrl) return { error: "A valid HTTPS YouTube URL is required." };
-
   const questions = Array.isArray(body.questions) ? body.questions : [];
-  if (questions.length < 1 || questions.length > 100) {
-    return { error: "A quiz needs between 1 and 100 questions." };
-  }
-
+  if (questions.length < 1 || questions.length > 100) return { error: "A quiz needs between 1 and 100 questions." };
   const normalizedQuestions = [];
   for (let index = 0; index < questions.length; index++) {
     const item = questions[index] || {};
     const question = String(item.question || "").trim();
-    const answers = Array.isArray(item.answers)
-      ? item.answers.map(value => String(value || "").trim())
-      : [];
+    const answers = Array.isArray(item.answers) ? item.answers.map(value => String(value || "").trim()) : [];
     const correctAnswer = normalizeAnswer(item.correct_answer);
     const imageDataUrl = normalizeImageDataUrl(item.image_data_url);
     if (!question) return { error: `Question ${index + 1} is blank.` };
-    if (answers.length !== 4 || answers.some(answer => !answer) || new Set(answers).size !== 4) {
-      return { error: `Question ${index + 1} must have four distinct answers.` };
-    }
+    if (answers.length !== 4 || answers.some(answer => !answer) || new Set(answers).size !== 4) return { error: `Question ${index + 1} must have four distinct answers.` };
     if (!correctAnswer) return { error: `Question ${index + 1} needs correct_answer A, B, C or D.` };
     if (imageDataUrl === null) return { error: `Question ${index + 1} has an invalid or oversized website image.` };
-    normalizedQuestions.push({
-      question,
-      answers,
-      correct_answer: correctAnswer,
-      explanation: String(item.explanation || "").trim(),
-      image_data_url: imageDataUrl,
-    });
+    normalizedQuestions.push({ question, answers, correct_answer: correctAnswer, explanation: String(item.explanation || "").trim(), image_data_url: imageDataUrl });
   }
-
   const status = String(body.status || "published").trim().toLowerCase();
   if (!new Set(["draft", "published"]).has(status)) return { error: "Status must be draft or published." };
-
   let publishAt = null;
   if (body.publish_at) {
     const parsed = new Date(body.publish_at);
     if (Number.isNaN(parsed.getTime())) return { error: "publish_at must be a valid date/time." };
     publishAt = parsed.toISOString();
   }
-
-  return {
-    quiz: {
-      slug,
-      title,
-      category,
-      description: String(body.description || "").trim(),
-      youtube_url: youtubeUrl,
-      publish_at: publishAt,
-      status,
-      questions: normalizedQuestions,
-    },
-  };
+  return { quiz: { slug, title, category, description: String(body.description || "").trim(), youtube_url: youtubeUrl, publish_at: publishAt, status, questions: normalizedQuestions } };
 }
 
 async function storeImageDataUrl(bucket, slug, position, dataUrl) {
@@ -223,9 +188,7 @@ async function storeImageDataUrl(bucket, slug, position, dataUrl) {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
   const key = `${IMAGE_PREFIX}${slug}/q${String(position).padStart(3, "0")}-${hash.slice(0, 20)}.png`;
-  await bucket.put(key, bytes, {
-    httpMetadata: { contentType: "image/png", cacheControl: IMAGE_CACHE_CONTROL },
-  });
+  await bucket.put(key, bytes, { httpMetadata: { contentType: "image/png", cacheControl: IMAGE_CACHE_CONTROL } });
   return key;
 }
 
@@ -264,14 +227,5 @@ function normalizeAnswer(value) {
   return new Set(["A", "B", "C", "D"]).has(answer) ? answer : "";
 }
 
-async function readJson(request) {
-  try {
-    return await request.json();
-  } catch {
-    return null;
-  }
-}
-
-function json(value, status = 200) {
-  return new Response(JSON.stringify(value, null, 2), { status, headers: JSON_HEADERS });
-}
+async function readJson(request) { try { return await request.json(); } catch { return null; } }
+function json(value, status = 200) { return new Response(JSON.stringify(value, null, 2), { status, headers: JSON_HEADERS }); }
