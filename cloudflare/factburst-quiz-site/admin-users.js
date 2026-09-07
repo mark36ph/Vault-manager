@@ -2,6 +2,7 @@ import { derivePasswordHash, PASSWORD_POLICY } from "./account-auth.js";
 
 const MAX_TOKEN_LENGTH = 200;
 const ADMIN_SESSION_COOKIE = "fb_admin_session";
+const ADMIN_SESSION_SECONDS = 7 * 24 * 60 * 60;
 
 export async function handleAdminUsersApi(request, env, url) {
   if (!url.pathname.startsWith("/api/admin/users")) return null;
@@ -143,6 +144,43 @@ function publicUser(user) {
 function normalizeUsername(value){const v=String(value||"").trim().replace(/\s+/g," ");return v.length>=3&&v.length<=24&&/^[A-Za-z0-9][A-Za-z0-9 _.-]*[A-Za-z0-9]$/.test(v)?v:"";}
 function normalizeEmail(value){const v=String(value||"").trim();return v&&v.length<=254&&!/\s/.test(v)&&/^[^@]+@[^@]+\.[^@]+$/.test(v)?v:"";}
 function randomToken(n){const b=new Uint8Array(n);crypto.getRandomValues(b);let s="";for(const x of b)s+=String.fromCharCode(x);return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");}
-async function requireAdmin(request,env){const cookie=String(request.headers.get("cookie")||"");const match=cookie.match(new RegExp(`(?:^|;\\s*)${ADMIN_SESSION_COOKIE}=([^;]+)`));if(match){const row=await env.DB.prepare("SELECT expires_at FROM site_admin_sessions WHERE token_hash=? AND expires_at>? LIMIT 1").bind(await sha256(match[1]),new Date().toISOString()).first();if(row)return {ok:true};}const key=String(request.headers.get("authorization")||"").replace(/^Bearer\s+/i,"").trim();const expected=String(env.SITE_ADMIN_KEY||"").trim();if(key&&expected&&key===expected)return {ok:true};return {ok:false,response:json({error:"Administrator access required."},401)};}
-async function sha256(value){const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));let s="";for(const b of new Uint8Array(d))s+=String.fromCharCode(b);return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");}
+
+async function requireAdmin(request,env){
+  const expected=String(env.SITE_ADMIN_KEY||"").trim();
+  if(!expected) return {ok:false,response:json({error:"Website publishing is not enabled yet."},503)};
+
+  const cookie=String(request.headers.get("cookie")||"");
+  const match=cookie.split(";").map(value=>value.trim()).find(value=>value.startsWith(`${ADMIN_SESSION_COOKIE}=`));
+  if(match){
+    const token=match.slice(`${ADMIN_SESSION_COOKIE}=`.length);
+    if(await verifyAdminSessionToken(token,expected)) return {ok:true};
+  }
+
+  const key=String(request.headers.get("authorization")||"").replace(/^Bearer\s+/i,"").trim();
+  if(key&&key===expected)return {ok:true};
+  return {ok:false,response:json({error:"Administrator access required."},401)};
+}
+
+async function verifyAdminSessionToken(token,siteKey){
+  if(!token||token.length>MAX_TOKEN_LENGTH)return false;
+  const parts=token.split(".");
+  if(parts.length!==3)return false;
+  const timestamp=Number(parts[0]);
+  if(!Number.isInteger(timestamp))return false;
+  const now=Date.now()/1000;
+  if(now-timestamp>ADMIN_SESSION_SECONDS||timestamp-now>60)return false;
+  const expected=await hmacSha256(siteKey,`factburst-admin-session:${parts[0]}.${parts[1]}`);
+  let received;
+  try{received=fromBase64Url(parts[2]);}catch{return false;}
+  if(expected.length!==received.length)return false;
+  let difference=0;
+  for(let i=0;i<expected.length;i++)difference|=expected[i]^received[i];
+  return difference===0;
+}
+
+async function hmacSha256(secret,text){
+  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  return new Uint8Array(await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(text)));
+}
+function fromBase64Url(value){const normalized=value.replace(/-/g,"+").replace(/_/g,"/")+"===".slice((value.length+3)%4);const binary=atob(normalized);return Uint8Array.from(binary,char=>char.charCodeAt(0));}
 function json(value,status=200){return new Response(JSON.stringify(value),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"}})}
