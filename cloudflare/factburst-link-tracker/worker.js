@@ -3,6 +3,11 @@ import {
   upsertSiteQuizPreservingVisibility,
   updateSiteQuizVisibility,
 } from "./site-quiz-visibility.js";
+import {
+  clearDailyQuiz,
+  listDailySchedule,
+  setDailyQuiz,
+} from "./site-daily-admin.js";
 
 const SOURCES = {
   fb: "facebook",
@@ -70,6 +75,27 @@ export default {
       ) {
         requireApiKey(request, env);
         return updateSiteQuizVisibility(request, env, parts[3]);
+      }
+
+      if (path === "api/site/daily" && request.method === "GET") {
+        requireApiKey(request, env);
+        return listDailySchedule(env, url);
+      }
+
+      if (path === "api/site/daily" && request.method === "POST") {
+        requireApiKey(request, env);
+        return setDailyQuiz(request, env);
+      }
+
+      if (
+        parts.length === 4 &&
+        parts[0] === "api" &&
+        parts[1] === "site" &&
+        parts[2] === "daily" &&
+        request.method === "DELETE"
+      ) {
+        requireApiKey(request, env);
+        return clearDailyQuiz(request, env, parts[3]);
       }
 
       if (path === "api/stats" && request.method === "GET") {
