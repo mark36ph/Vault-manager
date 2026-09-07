@@ -6,7 +6,7 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    public const int CurrentBuildNumber = 213;
+    public const int CurrentBuildNumber = 214;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
     private bool _deferredShellInitializationScheduled;
@@ -56,87 +56,87 @@ public partial class MainShellWindow
 
     private void QueueDeferredShellPhase(Action phase)
     {
-        Dispatcher.BeginInvoke(DispatcherPriority.Background, phase);
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            new Action(() =>
+            {
+                using var perf = PerformanceDiagnostics.Measure($"Startup.DeferredStep.{phase.Method.Name}");
+                phase();
+            }));
     }
 
     private void InitializeDeferredShellFeatures()
     {
-        using var perf = PerformanceDiagnostics.Measure("Startup.DeferredShellFeatures");
         QueueDeferredShellPhase(InitializeDeferredQuizPhase);
     }
 
     private void InitializeDeferredQuizPhase()
     {
-        using var perf = PerformanceDiagnostics.Measure("Startup.DeferredQuizPhase");
-        FinalizeApiConnectionsYouTubeButton();
-        InitializeFinalVideoLabelSync();
-        InitializeQuizBatchButtonSync();
-        InitializeQuizYouTubePackagingMenuSync();
-        InitializeYouTubeUploadPackageUi();
-        InitializeUploadManagerYouTubeStatusSync();
-        InitializeUnifiedPublicationStateUi();
-        InitializeScheduledPromoPublishingBatchForApp();
-        InitializeScheduledRelatedVideoGuideForApp();
-        InitializeScheduledWebsitePublishingLayoutSafeForApp();
-        InitializeYouTubeGrowthAnalyticsUiReliably();
-        InitializeYouTubeGrowthRecommendationGuard();
-        InitializeYouTubeFirstCommentAutopilot();
+        QueueDeferredShellPhase(FinalizeApiConnectionsYouTubeButton);
+        QueueDeferredShellPhase(InitializeFinalVideoLabelSync);
+        QueueDeferredShellPhase(InitializeQuizBatchButtonSync);
+        QueueDeferredShellPhase(InitializeQuizYouTubePackagingMenuSync);
+        QueueDeferredShellPhase(InitializeYouTubeUploadPackageUi);
+        QueueDeferredShellPhase(InitializeUploadManagerYouTubeStatusSync);
+        QueueDeferredShellPhase(InitializeUnifiedPublicationStateUi);
+        QueueDeferredShellPhase(InitializeScheduledPromoPublishingBatchForApp);
+        QueueDeferredShellPhase(InitializeScheduledRelatedVideoGuideForApp);
+        QueueDeferredShellPhase(InitializeScheduledWebsitePublishingLayoutSafeForApp);
+        QueueDeferredShellPhase(InitializeYouTubeGrowthAnalyticsUiReliably);
+        QueueDeferredShellPhase(InitializeYouTubeGrowthRecommendationGuard);
+        QueueDeferredShellPhase(InitializeYouTubeFirstCommentAutopilot);
         QueueDeferredShellPhase(InitializeDeferredAutopilotPhase);
     }
 
     private void InitializeDeferredAutopilotPhase()
     {
-        using var perf = PerformanceDiagnostics.Measure("Startup.DeferredAutopilotPhase");
-        InitializeAutopilotFirstUi();
-        InitializeAutopilotMasterUi();
-        InitializeAutopilotNeedsYouTaskQueue();
-        InitializeAutopilotNeedsYouAlignedQueue();
-        InitializeAutopilotGuidedNeedsYou();
+        QueueDeferredShellPhase(InitializeAutopilotFirstUi);
+        QueueDeferredShellPhase(InitializeAutopilotMasterUi);
+        QueueDeferredShellPhase(InitializeAutopilotNeedsYouTaskQueue);
+        QueueDeferredShellPhase(InitializeAutopilotNeedsYouAlignedQueue);
+        QueueDeferredShellPhase(InitializeAutopilotGuidedNeedsYou);
         QueueDeferredShellPhase(InitializeDeferredWebsitePhase);
     }
 
     private void InitializeDeferredWebsitePhase()
     {
-        using var perf = PerformanceDiagnostics.Measure("Startup.DeferredWebsitePhase");
-        InitializeWebsiteManagerPage();
-        InitializeWebsiteYouTubeScheduleSync();
-        InitializeWebsiteVisibilityControls();
-        InitializeWebsiteUsersPage();
-        InitializeWebsiteAnalyticsPage();
-        InitializeWebsiteUserProvisioningControls();
-        InitializeWebsiteUsersFriendsPanel();
-        InitializeWebsiteMaintenancePlacement();
-        InitializeWebsiteAdministrationEnhancements();
-        InitializeWebsiteNavigationDivider();
-        InitializeWebsiteAdsSettings();
-        InitializeWebsiteSettingsShortcut();
-        InitializeWebsiteCommentModerationNavigation();
-        InitializeWebsiteSeoAuditPage();
-        InitializeWebsiteSeoAutoFixButton();
-        InitializeLogoQuizPromoArtworkRepair();
+        QueueDeferredShellPhase(InitializeWebsiteManagerPage);
+        QueueDeferredShellPhase(InitializeWebsiteYouTubeScheduleSync);
+        QueueDeferredShellPhase(InitializeWebsiteVisibilityControls);
+        QueueDeferredShellPhase(InitializeWebsiteUsersPage);
+        QueueDeferredShellPhase(InitializeWebsiteAnalyticsPage);
+        QueueDeferredShellPhase(InitializeWebsiteUserProvisioningControls);
+        QueueDeferredShellPhase(InitializeWebsiteUsersFriendsPanel);
+        QueueDeferredShellPhase(InitializeWebsiteMaintenancePlacement);
+        QueueDeferredShellPhase(InitializeWebsiteAdministrationEnhancements);
+        QueueDeferredShellPhase(InitializeWebsiteNavigationDivider);
+        QueueDeferredShellPhase(InitializeWebsiteAdsSettings);
+        QueueDeferredShellPhase(InitializeWebsiteSettingsShortcut);
+        QueueDeferredShellPhase(InitializeWebsiteCommentModerationNavigation);
+        QueueDeferredShellPhase(InitializeWebsiteSeoAuditPage);
+        QueueDeferredShellPhase(InitializeWebsiteSeoAutoFixButton);
+        QueueDeferredShellPhase(InitializeLogoQuizPromoArtworkRepair);
         QueueDeferredShellPhase(InitializeDeferredHistoryAndMaintenancePhase);
     }
 
     private void InitializeDeferredHistoryAndMaintenancePhase()
     {
-        using var perf = PerformanceDiagnostics.Measure("Startup.DeferredHistoryAndMaintenancePhase");
-        InitializeAutopilotNeedsYouCountSync();
-        InitializeInstagramPromoFollowup();
-        InitializeAutopilotNeedsYouVisualStability();
-        InitializeAutopilotShellActivationFix();
+        QueueDeferredShellPhase(InitializeAutopilotNeedsYouCountSync);
+        QueueDeferredShellPhase(InitializeInstagramPromoFollowup);
+        QueueDeferredShellPhase(InitializeAutopilotNeedsYouVisualStability);
+        QueueDeferredShellPhase(InitializeAutopilotShellActivationFix);
         // Autopilot schedule supervision is opt-in. Do not initialize its timer during startup.
         // The master switch initializes it only after the user explicitly turns Autopilot on.
-        InitializeQuizHistoryBulkArchiveUi();
-        InitializeQuizHistoryGroupedBulkArchiveUi();
-        InitializeQuizHistoryUiCleanup();
-        InitializeQuizContentLifecycleUi();
-        InitializeLibraryPublicationStatusUi();
-        InitializeLibraryPlatformStatusFix();
-        InitializeLibraryPlatformSymbolFix();
-        InitializeStartupSafeUiCleanup();
-        InitializeCreateAdvancedUiCleanup();
-        InitializeDatabaseBackupAndRecovery();
-
+        QueueDeferredShellPhase(InitializeQuizHistoryBulkArchiveUi);
+        QueueDeferredShellPhase(InitializeQuizHistoryGroupedBulkArchiveUi);
+        QueueDeferredShellPhase(InitializeQuizHistoryUiCleanup);
+        QueueDeferredShellPhase(InitializeQuizContentLifecycleUi);
+        QueueDeferredShellPhase(InitializeLibraryPublicationStatusUi);
+        QueueDeferredShellPhase(InitializeLibraryPlatformStatusFix);
+        QueueDeferredShellPhase(InitializeLibraryPlatformSymbolFix);
+        QueueDeferredShellPhase(InitializeStartupSafeUiCleanup);
+        QueueDeferredShellPhase(InitializeCreateAdvancedUiCleanup);
+        QueueDeferredShellPhase(InitializeDatabaseBackupAndRecovery);
         // Build the History page only after the shell and sidebar are responsive.
         QueueDeferredShellPhase(InitializeQuizHistoryPage);
     }
