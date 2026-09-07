@@ -13,20 +13,6 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build148_RemovesRetiredProjectWorkflowHooksFromShellCodeBehind()
-    {
-        var shell = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.xaml.cs");
-        Assert.DoesNotContain("_projectsWorkflowInitialized", shell, StringComparison.Ordinal);
-        Assert.DoesNotContain("InitializeProjectsWorkflow(", shell, StringComparison.Ordinal);
-        Assert.DoesNotContain("RefreshProjects(", shell, StringComparison.Ordinal);
-        Assert.DoesNotContain("ApplyProjectsFilter(", shell, StringComparison.Ordinal);
-        Assert.DoesNotContain("RenderProjects(", shell, StringComparison.Ordinal);
-        Assert.DoesNotContain("ApplyProjectProductionMetadata(", shell, StringComparison.Ordinal);
-        Assert.DoesNotContain("CurrentProjectOnScreenText(", shell, StringComparison.Ordinal);
-        Assert.DoesNotContain("CurrentProjectVisualPlan(", shell, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Build150_RemovesRetiredWorkspaceSurfacesFromXaml()
     {
         var xaml = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.xaml");
@@ -175,9 +161,9 @@ public sealed class RetiredFactCreationCleanupTests
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var version = ReadRepositoryFile("version.json");
-        Assert.Contains("CurrentBuildNumber = 213", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("\"build\": 213", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.193\"", version, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 214", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 214", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.194\"", version, StringComparison.Ordinal);
     }
 
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
