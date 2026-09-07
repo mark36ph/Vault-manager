@@ -171,23 +171,13 @@ public sealed class RetiredFactCreationCleanupTests
     }
 
     [Fact]
-    public void Build201_MatchesCurrentVersionAndBuildNumber()
-    {
-        var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
-        var version = ReadRepositoryFile("version.json");
-        Assert.Contains("CurrentBuildNumber = 201", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("\"build\": 201", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.181\"", version, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void CurrentBuild_MatchesCurrentVersionAndBuildNumber()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var version = ReadRepositoryFile("version.json");
-        Assert.Contains("CurrentBuildNumber = 203", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("\"build\": 203", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.183\"", version, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 210", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 210", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.190\"", version, StringComparison.Ordinal);
     }
 
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
