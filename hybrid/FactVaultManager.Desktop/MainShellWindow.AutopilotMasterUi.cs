@@ -155,7 +155,12 @@ public partial class MainShellWindow
         }
 
         if (enabled)
+        {
+            // Schedule supervision is opt-in as well. It is deliberately initialized here,
+            // after the user has explicitly turned the master switch on.
+            InitializeAutopilotScheduleTarget();
             InitializeFullAutopilot();
+        }
 
         ApplyAutopilotMasterState(enabled);
         RefreshAutopilotMasterUiState();
