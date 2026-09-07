@@ -14,9 +14,7 @@
   const saveSelection = (slug, positions) => {
     quizSelection = { slug, positions: [...positions] };
     window.factburstQuizSelection = quizSelection;
-    try {
-      sessionStorage.setItem(selectionKey, JSON.stringify({ ...quizSelection, created_at: Date.now() }));
-    } catch {}
+    try { sessionStorage.setItem(selectionKey, JSON.stringify({ ...quizSelection, created_at: Date.now() })); } catch {}
   };
 
   const loadSelection = slug => {
@@ -53,7 +51,6 @@
     const start = document.querySelector("#start-quiz");
     const copy = document.querySelector("#quiz-setup-copy");
     if (!setup || !select || !start) return Promise.resolve(Math.min(10, quiz.questions.length));
-
     setup.classList.remove("hidden");
     select.replaceChildren();
     const options = createOptionValues(quiz.questions.length);
@@ -63,13 +60,11 @@
       option.textContent = value === quiz.questions.length ? `All ${value} questions` : `${value} questions`;
       select.append(option);
     }
-
     const previous = loadSelection(slug);
     const previousCount = previous?.positions?.length;
     const defaultCount = options.includes(previousCount) ? previousCount : (options.includes(10) ? 10 : options[options.length - 1]);
     select.value = String(defaultCount);
     if (copy) copy.textContent = `This quiz has ${quiz.questions.length} questions. Choose how many you want to play, and we’ll randomly select them for you.`;
-
     return new Promise(resolve => {
       selectionReady = resolve;
       start.onclick = () => {
@@ -88,19 +83,16 @@
     const url = typeof input === "string" ? input : input?.url || "";
     const method = String(init?.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
     const parsed = new URL(url, location.origin);
-
     if (method === "POST" && /^\/api\/quizzes\/[a-z0-9][a-z0-9-]{0,79}\/score$/i.test(parsed.pathname)) {
       try {
         const body = typeof init?.body === "string" ? JSON.parse(init.body) : await input.clone().json();
         const slug = parsed.pathname.split("/")[3].toLowerCase();
         const selection = loadSelection(slug);
         if (selection?.positions?.length && Array.isArray(body?.answers) && !Array.isArray(body?.question_positions)) {
-          const nextInit = { ...(init || {}), body: JSON.stringify({ ...body, question_positions: selection.positions }) };
-          return originalFetch(input, nextInit);
+          return originalFetch(input, { ...(init || {}), body: JSON.stringify({ ...body, question_positions: selection.positions }) });
         }
       } catch {}
     }
-
     if (method === "POST" && parsed.pathname === "/api/account/claim-score") {
       try {
         const body = typeof init?.body === "string" ? JSON.parse(init.body) : await input.clone().json();
@@ -108,49 +100,35 @@
         const selection = loadSelection(slug);
         if (slug && selection?.positions?.length && Array.isArray(body?.answers)) {
           const response = await originalFetch(`/api/quizzes/${encodeURIComponent(slug)}/score`, {
-            method: "POST",
-            credentials: "same-origin",
+            method: "POST", credentials: "same-origin",
             headers: { "content-type": "application/json", accept: "application/json" },
             body: JSON.stringify({ answers: body.answers, question_positions: selection.positions }),
           });
           const payload = await response.json().catch(() => ({}));
           if (!response.ok) return new Response(JSON.stringify(payload), { status: response.status, headers: { "content-type": "application/json" } });
-          const account = await originalFetch("/api/account", { credentials: "same-origin", headers: { accept: "application/json" } }).then(result => result.json()).catch(() => ({}));
-          return new Response(JSON.stringify({ ...payload, user: account?.user || null }), {
-            status: response.status,
-            headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
-          });
+          const account = await originalFetch("/api/account", { credentials: "same-origin", headers: { accept: "application/json" }).then(result => result.json()).catch(() => ({}));
+          return new Response(JSON.stringify({ ...payload, user: account?.user || null }), { status: response.status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
         }
       } catch {}
     }
-
-    if (method !== "GET" || !/^\/api\/quizzes\/[a-z0-9][a-z0-9-]{0,79}$/i.test(parsed.pathname)) {
-      return originalFetch(input, init);
-    }
-
+    if (method !== "GET" || !/^\/api\/quizzes\/[a-z0-9][a-z0-9-]{0,79}$/i.test(parsed.pathname)) return originalFetch(input, init);
     const slug = parsed.pathname.split("/").pop().toLowerCase();
     if (selectionReady) return originalFetch(input, init);
-
     const response = await originalFetch(input, init);
     if (!response.ok) return response;
-
     try {
       const payload = await response.clone().json();
       const quiz = payload?.quiz;
       if (!quiz || !Array.isArray(quiz.questions) || quiz.questions.length === 0) return response;
-
       await setupSelection(quiz, slug);
       const selection = loadSelection(slug);
       const positions = new Set(selection?.positions || quiz.questions.map(question => Number(question.position)));
       const questions = quiz.questions.filter(question => positions.has(Number(question.position)));
-      const nextPayload = { ...payload, quiz: { ...quiz, questions } };
-      return new Response(JSON.stringify(nextPayload), {
-        status: response.status,
-        statusText: response.statusText,
-        headers: new Headers(response.headers),
-      });
-    } catch {
-      return response;
-    }
+      return new Response(JSON.stringify({ ...payload, quiz: { ...quiz, questions } }), { status: response.status, statusText: response.statusText, headers: new Headers(response.headers) });
+    } catch { return response; }
   };
+
+  const leaderboardScript = document.createElement("script");
+  leaderboardScript.src = "/quiz-leaderboard-length.js?v=1";
+  document.head.append(leaderboardScript);
 })();
