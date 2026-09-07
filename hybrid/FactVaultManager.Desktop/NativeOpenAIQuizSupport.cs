@@ -9,7 +9,7 @@ public sealed class NativeProviderIntegrationException : Exception
     public NativeProviderIntegrationException(string message) : base(message) { }
 }
 
-public sealed record NativeProviderCredentials(string OpenAiKey, string PexelsKey, string PixabayKey)
+public sealed record NativeProviderCredentials(string OpenAiKey)
 {
     public static NativeProviderCredentials FromSettings(
         AppSettingsModel settings,
@@ -19,35 +19,18 @@ public sealed record NativeProviderCredentials(string OpenAiKey, string PexelsKe
         environment ??= Environment.GetEnvironmentVariable;
 
         return new NativeProviderCredentials(
-            PreferStored(settings.OpenAiKey, environment("OPENAI_API_KEY")),
-            PreferStored(settings.PexelsKey, environment("PEXELS_API_KEY")),
-            PreferStored(settings.PixabayKey, environment("PIXABAY_API_KEY")));
+            PreferStored(settings.OpenAiKey, environment("OPENAI_API_KEY")));
     }
 
     public string Get(string provider, bool required = true)
     {
-        var normalized = provider.Trim().ToLowerInvariant();
-        var value = normalized switch
-        {
-            "openai" => OpenAiKey,
-            "pexels" => PexelsKey,
-            "pixabay" => PixabayKey,
-            _ => throw new ArgumentException($"unknown provider: {provider}", nameof(provider)),
-        };
+        if (!string.Equals(provider.Trim(), "openai", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException($"unknown provider: {provider}", nameof(provider));
 
-        if (required && string.IsNullOrWhiteSpace(value))
-        {
-            var variable = normalized switch
-            {
-                "openai" => "OPENAI_API_KEY",
-                "pexels" => "PEXELS_API_KEY",
-                "pixabay" => "PIXABAY_API_KEY",
-                _ => provider,
-            };
-            throw new InvalidOperationException($"{variable} is not configured");
-        }
+        if (required && string.IsNullOrWhiteSpace(OpenAiKey))
+            throw new InvalidOperationException("OPENAI_API_KEY is not configured");
 
-        return value;
+        return OpenAiKey;
     }
 
     private static string PreferStored(string? stored, string? fallback)
