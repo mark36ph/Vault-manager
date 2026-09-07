@@ -52,8 +52,8 @@ export async function scoreGuestQuiz(request, db, slug) {
   const allQuestions = questionResult.results || [];
   const positions = requestedPositions.length > 0 ? requestedPositions : allQuestions.map(question => Number(question.position));
   const uniquePositions = [...new Set(positions)];
-  const positionSet = new Set(uniquePositions);
-  const questions = allQuestions.filter(question => positionSet.has(Number(question.position)));
+  const questionByPosition = new Map(allQuestions.map(question => [Number(question.position), question]));
+  const questions = uniquePositions.map(position => questionByPosition.get(position)).filter(Boolean);
 
   if (allQuestions.length === 0) return json({ error: "This quiz has no questions yet." }, 409);
   if (questions.length !== uniquePositions.length) return json({ error: "One or more selected questions are invalid." }, 400);
