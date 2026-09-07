@@ -5,7 +5,7 @@
   const slugMatch = location.pathname.match(/^\/quiz\/([a-z0-9][a-z0-9-]{0,79})\/?$/i), slug = (slugMatch?.[1] || new URLSearchParams(location.search).get("slug") || "").toLowerCase();
   if (!slug) return;
   const escape = value => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[char]));
-  const getLength = () => { try { const memory = Number(window.factburstQuizSelection?.positions?.length || 0); if (memory) return memory; const saved = JSON.parse(sessionStorage.getItem("factburst_quiz_selection_v1") || "null"); return Number(saved?.positions?.length || 0); } catch { return 0; } };
+  const getLength = () => { try { const memory = Number(window.factburstQuizSelection?.refs?.length || window.factburstQuizSelection?.positions?.length || 0); if (memory) return memory; const saved = JSON.parse(sessionStorage.getItem("factburst_quiz_selection_v1") || "null"); return Number(saved?.refs?.length || saved?.positions?.length || 0); } catch { return 0; } };
   let controlsReady = false;
   let select;
   const ensureControls = () => {
@@ -18,6 +18,12 @@
     controls.append(label, select); heading.append(controls);
     select.addEventListener("change", () => load(Number(select.value)));
     controlsReady = true;
+  };
+  const getAvailableLengths = current => {
+    const max = Number(window.factburstQuizTotal || 0);
+    const values = new Set([10, 15, 20, 25, 30, 35, 40, 50].filter(value => !max || value <= max));
+    if (current > 0) values.add(current);
+    return [...values].sort((a, b) => a - b);
   };
   const render = payload => {
     const rows = Array.isArray(payload?.leaderboard) ? payload.leaderboard : []; list.replaceChildren();
@@ -33,12 +39,13 @@
     if (!length) return false;
     ensureControls();
     if (!select) return false;
-    if (!select.options.length) for (const value of [5, 10, 15, 20]) { const option = document.createElement("option"); option.value = String(value); option.textContent = `${value} questions`; select.append(option); }
-    if (![...select.options].some(option => Number(option.value) === length)) { const option = document.createElement("option"); option.value = String(length); option.textContent = `${length} questions`; select.append(option); }
+    const values = getAvailableLengths(length);
+    select.replaceChildren(...values.map(value => { const option = document.createElement("option"); option.value = String(value); option.textContent = `${value} questions`; return option; }));
     select.value = String(length);
     section.classList.remove("hidden");
     load(length);
     return true;
   };
+  window.addEventListener("factburst:quiz-selection-ready", sync);
   let attempts = 0; const timer = setInterval(() => { attempts++; if (sync() || attempts >= 20) clearInterval(timer); }, 500);
 })();
