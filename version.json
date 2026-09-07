@@ -5,6 +5,7 @@
   "sha256": "",
   "release_notes": [
     "Build 213 restores the full Factburst sidebar navigation after the blank-shell recovery changes.",
-    "The bootstrap navigation is preserved so Website, Web Analytics, Users, Comments, SEO, Library and other available sections can be added reliably during deferred startup."
+    "Startup initialization now yields to the WPF UI instead of running secondary page setup as one long blocking activation operation.",
+    "Quiz History and other secondary sections are initialized after the shell has become responsive, while Autopilot remains opt-in."
   ]
 }
