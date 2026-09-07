@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.0.191",
-  "build": 211,
+  "latest_version": "1.0.192",
+  "build": 212,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 211 makes Autopilot fully opt-in: the app no longer starts Autopilot schedule supervision or automatic quiz generation when Windows launches the app.",
-    "Autopilot starts only after the user explicitly turns the master Autopilot switch ON."
+    "Build 212 fixes the shell showing a blank content area when a secondary page initializer fails during activation.",
+    "The Quizzes page is now the resilient default home and optional History or Analytics pages cannot prevent the main navigation from loading."
   ]
 }
