@@ -37,6 +37,7 @@ public static class FactburstDailyWorkspaceLayout
             [
                 new FactburstAdvancedTool("Upload Manager", "Uploads and platform state", "Upload Manager"),
                 new FactburstAdvancedTool("Release Readiness", "Detailed release checks", "Release Readiness"),
+                new FactburstAdvancedTool("Daily Quiz", "Schedule the website's Daily Challenge", "Daily Quiz"),
                 new FactburstAdvancedTool("YouTube Manager", "Analytics, comments and playlists", "YouTube Manager"),
                 new FactburstAdvancedTool("Facebook Manager", "Facebook publishing tools", "Facebook Manager"),
                 new FactburstAdvancedTool("Instagram Manager", "Instagram publishing tools", "Instagram Manager"),
@@ -144,7 +145,7 @@ public partial class MainShellWindow
         ApplyCreateWorkspacePageCopy(
             "draft",
             "Questions",
-            "Review, reorder or replace the selected questions. This is optional when Autopilot is filling the release schedule for you.");
+            "Review the selected questions, change their order, replace or remove questions, and control answer shuffling.");
         ApplyCreateWorkspacePageCopy(
             "preview",
             "Preview",
@@ -336,7 +337,10 @@ public partial class MainShellWindow
             Opacity = quiet ? 0.82 : 1,
             ToolTip = tool.Note,
         };
-        button.Click += (_, _) => NavigateLegacy(tool.Route, "Advanced");
+        if (string.Equals(tool.Route, "Daily Quiz", StringComparison.OrdinalIgnoreCase))
+            button.Click += (_, _) => ShowDailyQuizScheduler();
+        else
+            button.Click += (_, _) => NavigateLegacy(tool.Route, "Advanced");
         parent.Children.Add(button);
     }
 }
