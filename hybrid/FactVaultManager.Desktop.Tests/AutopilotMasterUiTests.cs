@@ -6,7 +6,6 @@ public sealed class AutopilotMasterUiTests
     public void MasterUi_IsBuiltFromTheRealAutopilotHeader()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotMasterUi.cs");
-
         Assert.Contains("_autopilotHealthText?.Parent is not StackPanel healthStack", source, StringComparison.Ordinal);
         Assert.Contains("new ToggleButton", source, StringComparison.Ordinal);
         Assert.Contains("preferences.AutoFillEnabled ? \"ON\" : \"OFF\"", source, StringComparison.Ordinal);
@@ -18,7 +17,6 @@ public sealed class AutopilotMasterUiTests
     public void MasterUi_QueuesImmediatelyInsteadOfWaitingForAnotherLoadedEvent()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotMasterUi.cs");
-
         Assert.Contains("Dispatcher.BeginInvoke(", source, StringComparison.Ordinal);
         Assert.Contains("new Action(EnsureAutopilotMasterUi)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Loaded += (_, _) => Dispatcher.BeginInvoke", source, StringComparison.Ordinal);
@@ -32,7 +30,6 @@ public sealed class AutopilotMasterUiTests
         var enable = source.IndexOf("SetAutopilotMasterEnabledAsync", StringComparison.Ordinal);
         var save = source.IndexOf("preferences.AutoFillEnabled = enabled", enable, StringComparison.Ordinal);
         var evaluate = source.IndexOf("await EvaluateAutomaticScheduleFillAsync()", save, StringComparison.Ordinal);
-
         Assert.True(enable >= 0);
         Assert.True(save > enable);
         Assert.True(evaluate > save);
@@ -43,7 +40,6 @@ public sealed class AutopilotMasterUiTests
     public void SavedOnState_AutomaticallyEvaluatesWhenHomeUiAppears()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotMasterUi.cs");
-
         Assert.Contains("if (preferences.AutoFillEnabled)", source, StringComparison.Ordinal);
         Assert.Contains("EvaluateAutomaticScheduleFillAsync", source, StringComparison.Ordinal);
     }
@@ -52,15 +48,14 @@ public sealed class AutopilotMasterUiTests
     public void BuildInfo_InitializesMasterUiAndCurrentBuild()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
-
         Assert.Contains("CurrentBuildNumber =", source, StringComparison.Ordinal);
-        Assert.Contains("InitializeAutopilotMasterUi();", source, StringComparison.Ordinal);
+        Assert.Contains("QueueDeferredShellPhase(InitializeAutopilotMasterUi);", source, StringComparison.Ordinal);
         Assert.Contains("InitializeInstagramPromoApprovalUi();", source, StringComparison.Ordinal);
-        Assert.Contains("InitializeLibraryPublicationStatusUi();", source, StringComparison.Ordinal);
-        Assert.Contains("InitializeLibraryPlatformStatusFix();", source, StringComparison.Ordinal);
-        Assert.Contains("InitializeLibraryPlatformSymbolFix();", source, StringComparison.Ordinal);
-        var firstUi = source.IndexOf("InitializeAutopilotFirstUi();", StringComparison.Ordinal);
-        var masterUi = source.IndexOf("InitializeAutopilotMasterUi();", StringComparison.Ordinal);
+        Assert.Contains("QueueDeferredShellPhase(InitializeLibraryPublicationStatusUi);", source, StringComparison.Ordinal);
+        Assert.Contains("QueueDeferredShellPhase(InitializeLibraryPlatformStatusFix);", source, StringComparison.Ordinal);
+        Assert.Contains("QueueDeferredShellPhase(InitializeLibraryPlatformSymbolFix);", source, StringComparison.Ordinal);
+        var firstUi = source.IndexOf("QueueDeferredShellPhase(InitializeAutopilotFirstUi);", StringComparison.Ordinal);
+        var masterUi = source.IndexOf("QueueDeferredShellPhase(InitializeAutopilotMasterUi);", StringComparison.Ordinal);
         Assert.True(masterUi > firstUi);
     }
 
@@ -70,11 +65,9 @@ public sealed class AutopilotMasterUiTests
         while (directory is not null)
         {
             var candidate = Path.Combine(directory.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar));
-            if (File.Exists(candidate))
-                return File.ReadAllText(candidate);
+            if (File.Exists(candidate)) return File.ReadAllText(candidate);
             directory = directory.Parent;
         }
-
         throw new FileNotFoundException(relativePath);
     }
 }
