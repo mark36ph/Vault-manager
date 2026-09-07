@@ -1,3 +1,8 @@
+const dailyChallengeSection = document.querySelector("#daily-challenge");
+const dailyChallengeCard = document.querySelector("#daily-challenge-card");
+const dailyChallengeText = document.querySelector("#daily-challenge-text");
+const dailyChallengeCta = document.querySelector("#daily-challenge-cta");
+const dailyChallengeStreak = document.querySelector("#daily-challenge-streak");
 const latestCard = document.querySelector("#latest-card");
 const latestCta = document.querySelector("#latest-cta");
 const moreGrid = document.querySelector("#home-more-grid");
@@ -5,16 +10,20 @@ const moreEmpty = document.querySelector("#home-more-empty");
 
 initializeLanding().catch(error => {
   console.error(error);
+  if (dailyChallengeSection) dailyChallengeSection.classList.add("hidden");
   if (latestCard) latestCard.replaceChildren(messageBlock("Website ready", "The quiz feed is not available yet."));
   if (moreGrid) moreGrid.replaceChildren();
   if (moreEmpty) moreEmpty.classList.remove("hidden");
 });
 
 async function initializeLanding() {
-  const [latestResponse, listResponse] = await Promise.all([
+  const [dailyResponse, latestResponse, listResponse] = await Promise.all([
+    fetchJson("/api/engagement/daily"),
     fetchJson("/api/quizzes/latest"),
     fetchJson("/api/quizzes?limit=12"),
   ]);
+
+  renderDailyChallenge(dailyResponse);
 
   const now = Date.now();
   const quizzes = Array.isArray(listResponse.quizzes) ? listResponse.quizzes : [];
@@ -36,6 +45,35 @@ async function initializeLanding() {
 
   if (moreGrid) moreGrid.replaceChildren(...more.map(createQuizCard));
   if (moreEmpty) moreEmpty.classList.toggle("hidden", more.length !== 0);
+}
+
+function renderDailyChallenge(data) {
+  if (!dailyChallengeSection || !dailyChallengeCard) return;
+  const daily = data?.daily;
+  if (!daily?.slug) {
+    dailyChallengeSection.classList.add("hidden");
+    return;
+  }
+
+  dailyChallengeCard.classList.remove("loading-card");
+  const completed = Boolean(daily.completed || daily.score !== null && daily.score !== undefined);
+  const total = Number(daily.total || daily.question_count || 10);
+  if (dailyChallengeText) {
+    dailyChallengeText.textContent = completed
+      ? `You completed today's ${total}-question challenge with ${Number(daily.score || 0)}/${total}. Come back tomorrow for a new challenge.`
+      : `${daily.title || "Today's quiz"} · ${total} questions. Everyone gets the same daily challenge.`;
+  }
+
+  if (dailyChallengeCta) {
+    dailyChallengeCta.href = quizUrl(daily.slug, true);
+    dailyChallengeCta.textContent = completed ? "Play again" : "Play today's challenge";
+  }
+
+  const streak = Number(data?.streak?.current || 0);
+  if (dailyChallengeStreak && streak > 0) {
+    dailyChallengeStreak.textContent = `🔥 ${streak}-day streak`;
+    dailyChallengeStreak.classList.remove("hidden");
+  }
 }
 
 function renderLatest(container, quiz) {
@@ -100,9 +138,10 @@ function isUpcomingQuiz(quiz, now = Date.now()) {
   return Number.isFinite(release) && release > now;
 }
 
-function quizUrl(slug) {
+function quizUrl(slug, daily = false) {
   const value = String(slug || "").toLowerCase();
-  return /^[a-z0-9][a-z0-9-]{0,79}$/.test(value) ? `/quiz/${encodeURIComponent(value)}` : "/quizzes";
+  if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(value)) return "/quizzes";
+  return daily ? `/quiz/${encodeURIComponent(value)}?daily=1` : `/quiz/${encodeURIComponent(value)}`;
 }
 
 function messageBlock(title, copy) {
