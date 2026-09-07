@@ -6,7 +6,6 @@ public sealed class LibraryContentLifecycleUiTests
     public void Library_AddsLifecycleColumnsAndWorkflowFilters()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.QuizContentLifecycle.cs");
-
         Assert.Contains("title.Text = \"Library\";", source, StringComparison.Ordinal);
         Assert.Contains("Header = \"Stage\"", source, StringComparison.Ordinal);
         Assert.Contains("Header = \"Next action\"", source, StringComparison.Ordinal);
@@ -19,9 +18,8 @@ public sealed class LibraryContentLifecycleUiTests
     public void BuildInfo_InitializesLifecycleAfterQuizHistoryCleanup()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
-        var cleanup = source.IndexOf("InitializeQuizHistoryUiCleanup();", StringComparison.Ordinal);
-        var lifecycle = source.IndexOf("InitializeQuizContentLifecycleUi();", StringComparison.Ordinal);
-
+        var cleanup = source.IndexOf("QueueDeferredShellPhase(InitializeQuizHistoryUiCleanup);", StringComparison.Ordinal);
+        var lifecycle = source.IndexOf("QueueDeferredShellPhase(InitializeQuizContentLifecycleUi);", StringComparison.Ordinal);
         Assert.True(cleanup >= 0);
         Assert.True(lifecycle > cleanup);
         Assert.Contains("public const int CurrentBuildNumber", source, StringComparison.Ordinal);
@@ -33,11 +31,9 @@ public sealed class LibraryContentLifecycleUiTests
         while (directory is not null)
         {
             var candidate = Path.Combine(directory.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar));
-            if (File.Exists(candidate))
-                return File.ReadAllText(candidate);
+            if (File.Exists(candidate)) return File.ReadAllText(candidate);
             directory = directory.Parent;
         }
-
         throw new FileNotFoundException(relativePath);
     }
 }
