@@ -1,3 +1,22 @@
+import quizWorker from "./worker.js";
+
+const originalQuizWorkerFetch = quizWorker.fetch.bind(quizWorker);
+quizWorker.fetch = async (request, env, context) => {
+  const url = new URL(request.url);
+  const match = url.pathname.match(/^\/api\/quizzes\/([a-z0-9][a-z0-9-]{0,79})\/score$/i);
+  if (match && request.method === "POST") {
+    try {
+      const body = await request.clone().json();
+      if (Array.isArray(body?.question_positions) && body.question_positions.length > 0) {
+        return scoreSelectedQuizRequest(request, env, match[1].toLowerCase());
+      }
+    } catch {
+      // Fall through to the normal quiz worker for invalid requests.
+    }
+  }
+  return originalQuizWorkerFetch(request, env, context);
+};
+
 function json(value, status = 200) {
   return new Response(JSON.stringify(value), {
     status,
@@ -89,9 +108,7 @@ export async function scoreSelectedQuizRequest(request, env, slug) {
   const completedAt = new Date().toISOString();
   const playable = await loadPlayableQuiz(env.DB, slug, completedAt);
   if (playable?.quiz?.id && Number.isInteger(Number(payload.score)) && Number.isInteger(Number(payload.total))) {
-    await env.DB.prepare(`INSERT INTO site_attempts (quiz_id, score, total, completed_at) VALUES (?, ?, ?, ?)`)
-      .bind(playable.quiz.id, Number(payload.score), Number(payload.total), completedAt)
-      .run();
+    await env.DB.prepare(`INSERT INTO site_attempts (quiz_id, score, total, completed_at) VALUES (?, ?, ?, ?)`).bind(playable.quiz.id, Number(payload.score), Number(payload.total), completedAt).run();
   }
   return new Response(JSON.stringify({ ...payload, guest: false, saved: false, question_count: positions.length }), {
     status: response.status,
