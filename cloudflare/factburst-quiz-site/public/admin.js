@@ -2,7 +2,8 @@
   "use strict";
 
   const KEY_STORAGE = "factburst_admin_session_key";
-  const state = { key: sessionStorage.getItem(KEY_STORAGE) || "", quizzes: [], editingSlug: "" };
+  const PAGE_SIZE = 10;
+  const state = { key: sessionStorage.getItem(KEY_STORAGE) || "", quizzes: [], editingSlug: "", page: 1 };
   const $ = selector => document.querySelector(selector);
   const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':"&quot;"}[char]));
 
@@ -15,12 +16,14 @@
   const saveStatus = $("#save-status");
   const quizList = $("#quiz-list");
   const emptyList = $("#quiz-list-empty");
+  const pagination = $("#quiz-pagination");
   const editor = $("#editor-panel");
   const form = $("#quiz-form");
   const questionsEditor = $("#questions-editor");
   const questionCount = $("#question-count");
 
   function setStatus(element, message, type = "") {
+    if (!element) return;
     element.textContent = message;
     element.className = `admin-status ${type}`.trim();
   }
@@ -83,9 +86,64 @@
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
   }
 
+  function getFilteredQuizzes() {
+    const query = $("#admin-search")?.value.trim().toLowerCase() || "";
+    const status = $("#admin-status-filter")?.value || "";
+    const category = $("#admin-category-filter")?.value || "";
+    return state.quizzes.filter(quiz => {
+      if (status && quiz.status !== status) return false;
+      if (category && quiz.category !== category) return false;
+      if (!query) return true;
+      return [quiz.title, quiz.slug, quiz.category, quiz.description].some(value => String(value || "").toLowerCase().includes(query));
+    });
+  }
+
+  function renderPagination(total) {
+    const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    state.page = Math.min(Math.max(1, state.page), pages);
+    pagination.innerHTML = "";
+    if (pages <= 1) return;
+
+    const previous = document.createElement("button");
+    previous.type = "button";
+    previous.textContent = "‹";
+    previous.setAttribute("aria-label", "Previous page");
+    previous.disabled = state.page === 1;
+    previous.addEventListener("click", () => { state.page -= 1; renderList(); });
+    pagination.appendChild(previous);
+
+    const start = Math.max(1, Math.min(state.page - 2, pages - 4));
+    const end = Math.min(pages, start + 4);
+    for (let page = start; page <= end; page += 1) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = String(page);
+      button.classList.toggle("active", page === state.page);
+      button.setAttribute("aria-current", page === state.page ? "page" : "false");
+      button.addEventListener("click", () => { state.page = page; renderList(); });
+      pagination.appendChild(button);
+    }
+
+    const next = document.createElement("button");
+    next.type = "button";
+    next.textContent = "›";
+    next.setAttribute("aria-label", "Next page");
+    next.disabled = state.page === pages;
+    next.addEventListener("click", () => { state.page += 1; renderList(); });
+    pagination.appendChild(next);
+
+    const label = document.createElement("span");
+    label.textContent = `${total} total`;
+    pagination.appendChild(label);
+  }
+
   function renderList() {
-    emptyList.classList.toggle("hidden", state.quizzes.length > 0);
-    quizList.innerHTML = state.quizzes.map(quiz => `
+    const filtered = getFilteredQuizzes();
+    const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    if (state.page > pages) state.page = pages;
+    const visible = filtered.slice((state.page - 1) * PAGE_SIZE, state.page * PAGE_SIZE);
+    emptyList.classList.toggle("hidden", filtered.length > 0);
+    quizList.innerHTML = visible.map(quiz => `
       <article class="admin-quiz-row">
         <div>
           <div class="admin-quiz-title">${escapeHtml(quiz.title || quiz.slug)}</div>
@@ -98,6 +156,15 @@
         </div>
         <div class="admin-row-actions"><button class="button button-secondary" type="button" data-edit="${escapeHtml(quiz.slug)}">Edit</button></div>
       </article>`).join("");
+    renderPagination(filtered.length);
+  }
+
+  function populateCategoryFilter() {
+    const select = $("#admin-category-filter");
+    const current = select.value;
+    const categories = [...new Set(state.quizzes.map(quiz => String(quiz.category || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    select.innerHTML = `<option value="">All categories</option>${categories.map(category => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("")}`;
+    select.value = categories.includes(current) ? current : "";
   }
 
   function blankQuestion() {
@@ -226,6 +293,8 @@
     try {
       const data = await api("/api/admin/quizzes");
       state.quizzes = data.quizzes || [];
+      state.page = 1;
+      populateCategoryFilter();
       renderList();
       setStatus(appStatus, `${state.quizzes.length} quiz${state.quizzes.length === 1 ? "" : "zes"} loaded.`, "success");
     } catch (error) {
@@ -233,6 +302,22 @@
       setStatus(appStatus, error.message, "error");
     }
   }
+
+  function showSection(name, updateHash = true) {
+    const valid = ["dashboard", "quizzes", "quiz-settings", "website-settings", "users"];
+    const section = valid.includes(name) ? name : "dashboard";
+    document.querySelectorAll("[data-admin-section-panel]").forEach(panel => panel.classList.toggle("hidden", panel.dataset.adminSectionPanel !== section));
+    document.querySelectorAll("[data-admin-section]").forEach(link => link.classList.toggle("active", link.dataset.adminSection === section));
+    if (updateHash && window.location.hash !== `#${section}`) history.replaceState(null, "", `#${section}`);
+  }
+
+  document.querySelectorAll("[data-admin-section]").forEach(link => {
+    link.addEventListener("click", event => {
+      event.preventDefault();
+      showSection(link.dataset.adminSection);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  });
 
   loginForm.addEventListener("submit", async event => {
     event.preventDefault();
@@ -248,6 +333,7 @@
       setStatus(loginStatus, "");
       showApp();
       await loadQuizzes();
+      showSection(window.location.hash.slice(1), false);
     } catch (error) {
       state.key = "";
       setStatus(loginStatus, error.message, "error");
@@ -256,7 +342,7 @@
 
   $("#sign-out").addEventListener("click", signOut);
   $("#refresh-quizzes").addEventListener("click", loadQuizzes);
-  $("#new-quiz").addEventListener("click", () => openEditor());
+  $("#new-quiz").addEventListener("click", () => { showSection("quizzes"); openEditor(); });
   $("#close-editor").addEventListener("click", () => editor.classList.add("hidden"));
   $("#cancel-edit").addEventListener("click", () => editor.classList.add("hidden"));
   $("#add-question").addEventListener("click", () => {
@@ -267,6 +353,11 @@
   quizList.addEventListener("click", event => {
     const button = event.target.closest("[data-edit]");
     if (button) editQuiz(button.dataset.edit);
+  });
+
+  ["#admin-search", "#admin-status-filter", "#admin-category-filter"].forEach(selector => {
+    $(selector).addEventListener("input", () => { state.page = 1; renderList(); });
+    $(selector).addEventListener("change", () => { state.page = 1; renderList(); });
   });
 
   form.addEventListener("submit", async event => {
@@ -283,16 +374,7 @@
       if (!slug || !title || !category) throw new Error("Title, slug and category are required.");
       const youtube = $("#quiz-youtube").value.trim();
       if (youtube && !/^https:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(youtube)) throw new Error("YouTube URL must use an HTTPS YouTube address.");
-      const payload = {
-        slug,
-        title,
-        category,
-        description: $("#quiz-description").value.trim(),
-        youtube_url: youtube,
-        publish_at: toIso($("#quiz-publish-at").value),
-        status,
-        questions,
-      };
+      const payload = { slug, title, category, description: $("#quiz-description").value.trim(), youtube_url: youtube, publish_at: toIso($("#quiz-publish-at").value), status, questions };
       await api("/api/admin/quizzes", { method: "POST", body: JSON.stringify(payload) });
       setStatus(saveStatus, "Quiz saved successfully.", "success");
       state.editingSlug = slug;
@@ -312,6 +394,7 @@
     if (!state.key) return showLogin();
     showApp();
     await loadQuizzes();
+    showSection(window.location.hash.slice(1), false);
   }
 
   start();
