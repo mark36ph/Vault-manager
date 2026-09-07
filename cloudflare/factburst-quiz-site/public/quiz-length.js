@@ -72,7 +72,7 @@
 
     return new Promise(resolve => {
       selectionReady = resolve;
-      const finish = () => {
+      start.onclick = () => {
         const count = Math.max(1, Math.min(Number(select.value), quiz.questions.length));
         const selected = shuffle(quiz.questions).slice(0, count);
         const positions = selected.map(question => Number(question.position));
@@ -81,7 +81,6 @@
         resolve(count);
         selectionReady = null;
       };
-      start.onclick = finish;
     });
   };
 
@@ -89,6 +88,18 @@
     const url = typeof input === "string" ? input : input?.url || "";
     const method = String(init?.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
     const parsed = new URL(url, location.origin);
+
+    if (method === "POST" && /^\/api\/quizzes\/[a-z0-9][a-z0-9-]{0,79}\/score$/i.test(parsed.pathname)) {
+      try {
+        const body = typeof init?.body === "string" ? JSON.parse(init.body) : await input.clone().json();
+        const slug = parsed.pathname.split("/")[3].toLowerCase();
+        const selection = loadSelection(slug);
+        if (selection?.positions?.length && Array.isArray(body?.answers) && !Array.isArray(body?.question_positions)) {
+          const nextInit = { ...(init || {}), body: JSON.stringify({ ...body, question_positions: selection.positions }) };
+          return originalFetch(input, nextInit);
+        }
+      } catch {}
+    }
 
     if (method === "POST" && parsed.pathname === "/api/account/claim-score") {
       try {
