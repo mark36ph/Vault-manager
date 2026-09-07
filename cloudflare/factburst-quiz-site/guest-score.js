@@ -18,6 +18,9 @@ export async function scoreGuestQuiz(request, db, slug) {
   }
 
   const answers = Array.isArray(body?.answers) ? body.answers.map(normalizeAnswer) : [];
+  const requestedPositions = Array.isArray(body?.question_positions)
+    ? body.question_positions.map(Number).filter(Number.isInteger)
+    : [];
   const now = new Date().toISOString();
   const playable = await loadPlayableQuiz(db, slug, now);
   if (!playable) return json({ error: "Quiz not found." }, 404);
@@ -27,9 +30,14 @@ export async function scoreGuestQuiz(request, db, slug) {
     SELECT position, correct_answer, explanation
     FROM site_questions WHERE quiz_id = ? ORDER BY position ASC
   `).bind(quiz.id).all();
-  const questions = questionResult.results || [];
+  const allQuestions = questionResult.results || [];
+  const positions = requestedPositions.length > 0 ? requestedPositions : allQuestions.map(question => Number(question.position));
+  const uniquePositions = [...new Set(positions)];
+  const positionSet = new Set(uniquePositions);
+  const questions = allQuestions.filter(question => positionSet.has(Number(question.position)));
 
-  if (questions.length === 0) return json({ error: "This quiz has no questions yet." }, 409);
+  if (allQuestions.length === 0) return json({ error: "This quiz has no questions yet." }, 409);
+  if (questions.length !== uniquePositions.length) return json({ error: "One or more selected questions are invalid." }, 400);
   if (answers.length !== questions.length) return json({ error: `Submit exactly ${questions.length} answers.` }, 400);
   if (answers.some(answer => !answer)) return json({ error: "Every answer must be A, B, C or D." }, 400);
 
@@ -40,7 +48,7 @@ export async function scoreGuestQuiz(request, db, slug) {
     const isCorrect = selected === correct;
     if (isCorrect) score++;
     return {
-      position: Number(question.position || index + 1),
+      position: Number(question.position),
       selected,
       correct_answer: correct,
       correct: isCorrect,
@@ -56,6 +64,38 @@ export async function scoreGuestQuiz(request, db, slug) {
     youtube_url: launchQuiz ? "" : String(quiz.youtube_url || ""),
     guest: true,
     saved: false,
+    question_count: questions.length,
+  });
+}
+
+export async function scoreSelectedQuizRequest(request, env, slug) {
+  if (!env?.DB) return null;
+  let body;
+  try {
+    body = await request.clone().json();
+  } catch {
+    return null;
+  }
+  const positions = Array.isArray(body?.question_positions)
+    ? body.question_positions.map(Number).filter(Number.isInteger)
+    : [];
+  if (positions.length === 0) return null;
+  const response = await scoreGuestQuiz(request, env.DB, slug);
+  if (!response.ok) return response;
+  const headers = new Headers(response.headers);
+  headers.set("content-type", "application/json; charset=utf-8");
+  headers.set("cache-control", "no-store");
+  const payload = await response.clone().json();
+  const completedAt = new Date().toISOString();
+  const playable = await loadPlayableQuiz(env.DB, slug, completedAt);
+  if (playable?.quiz?.id && Number.isInteger(Number(payload.score)) && Number.isInteger(Number(payload.total))) {
+    await env.DB.prepare(`INSERT INTO site_attempts (quiz_id, score, total, completed_at) VALUES (?, ?, ?, ?)`)
+      .bind(playable.quiz.id, Number(payload.score), Number(payload.total), completedAt)
+      .run();
+  }
+  return new Response(JSON.stringify({ ...payload, guest: false, saved: false, question_count: positions.length }), {
+    status: response.status,
+    headers,
   });
 }
 
