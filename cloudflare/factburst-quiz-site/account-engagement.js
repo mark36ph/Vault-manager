@@ -39,6 +39,13 @@ export async function ensureEngagementSchema(db) {
       FOREIGN KEY (user_id) REFERENCES site_users(id) ON DELETE CASCADE,
       FOREIGN KEY (quiz_id) REFERENCES site_quizzes(id) ON DELETE CASCADE
     )`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS site_daily_schedule (
+      day_key TEXT PRIMARY KEY,
+      quiz_id INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (quiz_id) REFERENCES site_quizzes(id) ON DELETE CASCADE
+    )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS site_user_achievements (
       user_id INTEGER NOT NULL,
       achievement_key TEXT NOT NULL,
@@ -84,8 +91,7 @@ export async function ensureEngagementSchema(db) {
       detail TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'open',
       created_at TEXT NOT NULL,
-      FOREIGN KEY (user_id) REFERENCES site_users(id) ON DELETE CASCADE,
-      FOREIGN KEY (quiz_id) REFERENCES site_quizzes(id) ON DELETE CASCADE
+      FOREIGN KEY (user_id) REFERENCES site_users(id) ON DELETE CASCADE
     )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS site_live_matches (
       token_hash TEXT PRIMARY KEY,
@@ -106,6 +112,7 @@ export async function ensureEngagementSchema(db) {
     db.prepare("CREATE INDEX IF NOT EXISTS idx_site_user_attempts_user ON site_user_attempts(user_id, completed_at DESC)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_site_user_attempts_quiz ON site_user_attempts(quiz_id, completed_at DESC)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_site_daily_user ON site_daily_completions(user_id, day_key DESC)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_site_daily_schedule_quiz ON site_daily_schedule(quiz_id)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_site_notifications_user ON site_notifications(user_id, read_at, created_at DESC)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_site_question_reports_status ON site_question_reports(status, created_at DESC)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_site_live_matches_users ON site_live_matches(host_user_id, guest_user_id, created_at DESC)"),
@@ -534,6 +541,17 @@ async function recommendedQuizzes(db,userId) {
 }
 
 async function dailyQuizForDay(db,dayKey) {
+  const scheduled = await db.prepare(`
+    SELECT q.id,q.slug,q.title,q.category,q.description
+    FROM site_daily_schedule d
+    JOIN site_quizzes q ON q.id=d.quiz_id
+    WHERE d.day_key=?
+      AND q.status='published'
+      AND (q.publish_at IS NULL OR q.publish_at<=?)
+    LIMIT 1
+  `).bind(dayKey, `${dayKey}T00:00:00.000Z`).first();
+  if (scheduled) return scheduled;
+
   const countRow=await db.prepare("SELECT COUNT(*) AS total FROM site_quizzes WHERE status='published' AND (publish_at IS NULL OR publish_at<=?)").bind(`${dayKey}T23:59:59.999Z`).first();
   const count=Number(countRow?.total||0); if(count<=0)return null;
   const dayNumber=Math.floor(Date.parse(`${dayKey}T00:00:00Z`)/86400000);
@@ -588,4 +606,4 @@ async function readJson(request){try{return await request.json();}catch{return {
 function randomToken(byteCount){const bytes=new Uint8Array(byteCount);crypto.getRandomValues(bytes);return base64UrlEncode(bytes);}
 async function sha256(value){const bytes=new TextEncoder().encode(String(value||""));const digest=await crypto.subtle.digest("SHA-256",bytes);return base64UrlEncode(new Uint8Array(digest));}
 function base64UrlEncode(bytes){let binary="";for(const byte of bytes)binary+=String.fromCharCode(byte);return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");}
-function json(value,status=200,extraHeaders={}){return new Response(JSON.stringify(value),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff",...extraHeaders}});}
+function json(value,status=200){return new Response(JSON.stringify(value),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"}});}
