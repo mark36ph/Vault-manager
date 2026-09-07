@@ -40,8 +40,6 @@ public partial class MainShellWindow
                 tab.Style = hiddenPageStyle;
         }
 
-        // The standalone Question Bank page is retired. Do not attach its
-        // selection viewer or queue retry work when its grid is absent.
         ApplyNavigationSelection(MainTabs.SelectedIndex);
     }
 
@@ -52,9 +50,8 @@ public partial class MainShellWindow
         MeasureActivation("Navigation.ApplyProductBranding", ApplyProductBranding);
         MeasureActivation("Startup.InitializeQuizWorkflow", InitializeQuizWorkflow);
 
-        // Keep shell navigation alive even if a secondary page has a bad local
-        // dependency or stale data. A single page initializer must never leave
-        // the entire window showing the empty bootstrap tab.
+        // A failure in one secondary page must never stop the shell from selecting
+        // the working Quizzes page or building the remaining navigation.
         MeasureActivationSafe("Startup.InitializeQuizHistoryPage", InitializeQuizHistoryPage);
         MeasureActivationSafe("Startup.InitializeYouTubeAnalyticsPage", InitializeYouTubeAnalyticsPage);
         MeasureActivationSafe("Startup.InitializeQuizDraftEditor", InitializeQuizDraftEditor);
@@ -83,9 +80,8 @@ public partial class MainShellWindow
         {
             action();
         }
-        catch (Exception error)
+        catch (Exception)
         {
-            PerformanceDiagnostics.Record($"{operation}.Error", error.ToString());
             HeaderStatusText.Text = $"{operation.Replace("Startup.", string.Empty, StringComparison.Ordinal)} unavailable";
         }
     }
