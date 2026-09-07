@@ -5,6 +5,7 @@
   const search = $("#admin-search");
   const status = $("#admin-status-filter");
   const category = $("#admin-category-filter");
+  const dashboard = $("#admin-section-dashboard");
   if (!list || !search || !status || !category) return;
 
   let rows = [];
@@ -32,6 +33,42 @@
 
   function refreshRows() {
     rows = [...list.querySelectorAll(".admin-quiz-row")];
+    for (const row of rows) {
+      const actions = row.querySelector(".admin-row-actions");
+      const edit = actions?.querySelector("[data-edit]");
+      if (!actions || !edit || actions.querySelector("[data-preview]") || !edit.dataset.edit) continue;
+      const preview = document.createElement("a");
+      preview.className = "button button-secondary";
+      preview.href = `/admin-preview?slug=${encodeURIComponent(edit.dataset.edit)}`;
+      preview.target = "_blank";
+      preview.rel = "noopener";
+      preview.dataset.preview = "true";
+      preview.textContent = "Preview";
+      actions.insertBefore(preview, edit);
+    }
+    renderHealth();
+  }
+
+  function renderHealth() {
+    if (!dashboard) return;
+    let panel = dashboard.querySelector("#admin-quiz-health");
+    if (!panel) {
+      panel = document.createElement("article");
+      panel.id = "admin-quiz-health";
+      panel.className = "admin-dashboard-card admin-quiz-health";
+      const panels = dashboard.querySelector(".admin-dashboard-panels");
+      (panels || dashboard).appendChild(panel);
+    }
+    const counts = { attention: 0, ready: 0, drafts: 0 };
+    for (const row of rows) {
+      const meta = [...(row.querySelector(".admin-quiz-meta")?.children || [])].map(element => element.textContent.trim());
+      const questionMatch = meta.find(value => / questions?$/.test(value));
+      const questions = Number.parseInt(questionMatch || "0", 10) || 0;
+      const isDraft = meta[0]?.toLowerCase() === "draft";
+      if (isDraft) counts.drafts += 1;
+      if (questions < 10) counts.attention += 1; else counts.ready += 1;
+    }
+    panel.innerHTML = `<p class="eyebrow">Quiz health</p><h3>${counts.attention ? `${counts.attention} quiz${counts.attention === 1 ? "" : "zes"} need attention` : "Your quiz catalogue looks healthy"}</h3><p>${counts.ready} quiz${counts.ready === 1 ? "" : "zes"} have 10+ questions · ${counts.drafts} draft${counts.drafts === 1 ? "" : "s"} · Preview any quiz directly from the catalogue.</p>`;
   }
 
   function applyFilters() {
@@ -57,6 +94,7 @@
       const data = await response.json();
       renderStats(data.stats || {});
       populateCategories(data);
+      refreshRows();
     } catch {}
   }
 
@@ -65,8 +103,6 @@
   category.addEventListener("change", applyFilters);
   new MutationObserver(() => setTimeout(applyFilters, 0)).observe(list, { childList: true });
 
-  // The API reads the live D1 attempt count. Refresh the dashboard stats periodically
-  // so a play completed in another tab/device appears without a manual page reload.
   loadStats();
   window.setInterval(() => {
     if (document.visibilityState === "visible") loadStats();
