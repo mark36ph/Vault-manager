@@ -91,10 +91,15 @@ async function listQuizzes(db, url) {
   const offset = (page - 1) * limit;
   const category = (url.searchParams.get("category") || "").trim();
   const search = (url.searchParams.get("search") || "").trim();
+  const liveOnly = ["1", "true", "yes"].includes((url.searchParams.get("live_only") || "").toLowerCase());
   const now = new Date().toISOString();
   const launchSlug = await getLaunchQuizSlug(db, now);
   const where = ["q.status = 'published'"];
   const binds = [];
+  if (liveOnly) {
+    where.push("(q.publish_at IS NULL OR q.publish_at <= ? OR q.slug = ?)");
+    binds.push(now, launchSlug || "__no_launch_quiz__");
+  }
   if (category) { where.push("lower(q.category) = lower(?)"); binds.push(category); }
   if (search) { where.push("(lower(q.title) LIKE lower(?) OR lower(q.description) LIKE lower(?) OR lower(q.category) LIKE lower(?))"); const term = `%${search}%`; binds.push(term, term, term); }
   const whereSql = where.join(" AND ");
@@ -298,56 +303,64 @@ async function scoreQuiz(request, db, slug) {
   const questions = questionResult.results || [];
   if (questions.length === 0) return json({ error: "This quiz has no questions yet." }, 409);
   if (answers.length !== questions.length) return json({ error: `Submit exactly ${questions.length} answers.` }, 400);
-  if (answers.some(answer => !answer)) return json({ error: "Every answer must be A, B, C or D." }, 400);
-  let score = 0;
-  const results = questions.map((question, index) => { const correct = normalizeAnswer(question.correct_answer); const selected = answers[index]; const isCorrect = selected === correct; if (isCorrect) score++; return { position: question.position, selected, correct_answer: correct, correct: isCorrect, explanation: question.explanation || "" }; });
-  await db.prepare(`INSERT INTO site_attempts (quiz_id, score, total, completed_at) VALUES (?, ?, ?, ?)`).bind(quiz.id, score, questions.length, now).run();
-  return json({ score, total: questions.length, percentage: Math.round((score / questions.length) * 100), results, youtube_url: launchQuiz ? "" : (quiz.youtube_url || "") });
+  const results = answers.map((answer, index) => {
+    const question = questions[index];
+    const correctAnswer = normalizeAnswer(question.correct_answer);
+    return { correct: answer === correctAnswer, correct_answer: correctAnswer, explanation: question.explanation || "" };
+  });
+  const score = results.filter(result => result.correct).length;
+  const total = questions.length;
+  await db.prepare(`INSERT INTO site_attempts (quiz_id, score, total, completed_at) VALUES (?, ?, ?, ?)`).bind(quiz.id, score, total, now).run();
+  return json({ score, total, percentage: Math.round((score / total) * 100), results, youtube_url: launchQuiz ? "" : (quiz.youtube_url || "") });
 }
 
 async function upsertQuiz(request, env) {
   const auth = await requireAdmin(request, env); if (!auth.ok) return auth.response;
-  const body = await readJson(request); const validation = validateQuizPayload(body); if (validation.error) return json({ error: validation.error }, 400);
-  const quiz = validation.quiz;
-  if (quiz.questions.some(question => question.image_data_url) && !env.QUIZ_IMAGES) return json({ error: "Quiz image storage is not configured." }, 503);
+  const body = await readJson(request);
+  const title = String(body?.title || "").trim();
+  const category = String(body?.category || "").trim();
+  const description = String(body?.description || "").trim();
+  const youtubeUrl = String(body?.youtube_url || "").trim();
+  const status = String(body?.status || "draft").toLowerCase() === "published" ? "published" : "draft";
+  const publishAt = body?.publish_at ? new Date(body.publish_at).toISOString() : null;
+  const slug = slugify(String(body?.slug || title));
+  const questions = Array.isArray(body?.questions) ? body.questions : [];
+  if (!title || !category || !slug) return json({ error: "Title, category and a valid slug are required." }, 400);
+  if (questions.length === 0) return json({ error: "Add at least one question before saving." }, 400);
+  if (questions.length > 200) return json({ error: "A quiz can contain at most 200 questions." }, 400);
   const now = new Date().toISOString();
-  await env.DB.prepare(`INSERT INTO site_quizzes (slug, title, category, description, youtube_url, publish_at, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(slug) DO UPDATE SET title = excluded.title, category = excluded.category, description = excluded.description, youtube_url = excluded.youtube_url, publish_at = excluded.publish_at, status = excluded.status, updated_at = excluded.updated_at`).bind(quiz.slug, quiz.title, quiz.category, quiz.description, quiz.youtube_url, quiz.publish_at, quiz.status, now, now).run();
-  const saved = await env.DB.prepare("SELECT id FROM site_quizzes WHERE slug = ? LIMIT 1").bind(quiz.slug).first(); if (!saved) return json({ error: "Could not save the quiz." }, 500);
-  const oldResult = await env.DB.prepare("SELECT image_key FROM site_questions WHERE quiz_id = ? AND image_key <> ''").bind(saved.id).all();
-  const oldKeys = new Set((oldResult.results || []).map(row => String(row.image_key || "")).filter(Boolean));
-  const imageKeys = await Promise.all(quiz.questions.map((question, index) => question.image_data_url ? storeImageDataUrl(env.QUIZ_IMAGES, quiz.slug, index + 1, question.image_data_url) : Promise.resolve(question.image_key || "")));
-  const statements = [env.DB.prepare("DELETE FROM site_questions WHERE quiz_id = ?").bind(saved.id), ...quiz.questions.map((question, index) => env.DB.prepare(`INSERT INTO site_questions (quiz_id, position, question, answer_a, answer_b, answer_c, answer_d, correct_answer, explanation, image_key, image_data_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '')`).bind(saved.id, index + 1, question.question, question.answers[0], question.answers[1], question.answers[2], question.answers[3], question.correct_answer, question.explanation, imageKeys[index]))];
-  await env.DB.batch(statements);
-  if (env.QUIZ_IMAGES) { const newKeys = new Set(imageKeys.filter(Boolean)); const staleKeys = [...oldKeys].filter(key => !newKeys.has(key)); await Promise.all(staleKeys.map(key => env.QUIZ_IMAGES.delete(key))); }
-  return json({ ok: true, slug: quiz.slug, questions: quiz.questions.length, image_storage: "r2" });
-}
-
-function validateQuizPayload(body) {
-  if (!body || typeof body !== "object") return { error: "A quiz payload is required." };
-  const slug = String(body.slug || "").trim().toLowerCase(); if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(slug)) return { error: "Use a URL-safe quiz slug." };
-  const title = String(body.title || "").trim(); const category = String(body.category || "").trim();
-  if (!title) return { error: "Quiz title is required." }; if (!category) return { error: "Quiz category is required." };
-  const questions = Array.isArray(body.questions) ? body.questions : []; if (questions.length < 1 || questions.length > 100) return { error: "A quiz needs between 1 and 100 questions." };
-  const normalizedQuestions = [];
-  for (let index = 0; index < questions.length; index++) {
-    const item = questions[index] || {}; const question = String(item.question || "").trim(); const answers = Array.isArray(item.answers) ? item.answers.map(value => String(value || "").trim()) : []; const correctAnswer = normalizeAnswer(item.correct_answer); const imageDataUrl = normalizeImageDataUrl(item.image_data_url); const imageKey = normalizeImageKey(item.image_key, slug);
-    if (!question) return { error: `Question ${index + 1} is blank.` }; if (answers.length !== 4 || answers.some(answer => !answer) || new Set(answers).size !== 4) return { error: `Question ${index + 1} must have four distinct answers.` }; if (!correctAnswer) return { error: `Question ${index + 1} needs correct_answer A, B, C or D.` }; if (imageDataUrl === null) return { error: `Question ${index + 1} has an invalid or oversized website image.` }; if (imageKey === null) return { error: `Question ${index + 1} has an invalid existing website image.` };
-    normalizedQuestions.push({ question, answers, correct_answer: correctAnswer, explanation: String(item.explanation || "").trim(), image_data_url: imageDataUrl, image_key: imageKey || "" });
+  const existing = await env.DB.prepare("SELECT id FROM site_quizzes WHERE slug = ? LIMIT 1").bind(slug).first();
+  let quizId;
+  if (existing) {
+    quizId = Number(existing.id);
+    await env.DB.prepare("UPDATE site_quizzes SET title = ?, category = ?, description = ?, youtube_url = ?, publish_at = ?, status = ?, updated_at = ? WHERE id = ?").bind(title, category, description, youtubeUrl, publishAt, status, now, quizId).run();
+    await env.DB.prepare("DELETE FROM site_questions WHERE quiz_id = ?").bind(quizId).run();
+  } else {
+    const inserted = await env.DB.prepare("INSERT INTO site_quizzes (slug, title, category, description, youtube_url, publish_at, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(slug, title, category, description, youtubeUrl, publishAt, status, now, now).run();
+    quizId = Number(inserted.meta?.last_row_id || 0);
   }
-  const status = String(body.status || "draft").trim().toLowerCase(); if (!new Set(["draft", "published"]).has(status)) return { error: "Status must be draft or published." };
-  let publishAt = null; if (body.publish_at) { const parsed = new Date(body.publish_at); if (Number.isNaN(parsed.getTime())) return { error: "publish_at must be a valid date/time." }; publishAt = parsed.toISOString(); }
-  return { quiz: { slug, title, category, description: String(body.description || "").trim(), youtube_url: String(body.youtube_url || "").trim(), publish_at: publishAt, status, questions: normalizedQuestions } };
+  const statements = questions.map((question, index) => {
+    const answers = Array.isArray(question?.answers) ? question.answers.map(value => String(value || "").trim()) : [];
+    const correct = normalizeAnswer(question?.correct_answer);
+    return env.DB.prepare("INSERT INTO site_questions (quiz_id, position, question, answer_a, answer_b, answer_c, answer_d, correct_answer, explanation, image_key, image_data_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").bind(quizId, index + 1, String(question?.question || "").trim(), answers[0] || "", answers[1] || "", answers[2] || "", answers[3] || "", correct, String(question?.explanation || "").trim(), String(question?.image_key || "").trim(), String(question?.image_data_url || "").trim());
+  });
+  await env.DB.batch(statements);
+  return json({ ok: true, quiz: { id: quizId, slug, title, status, question_count: questions.length } }, existing ? 200 : 201);
 }
 
-async function storeImageDataUrl(bucket, slug, position, dataUrl) {
-  if (!bucket) throw new Error("Quiz image storage is not configured.");
-  const bytes = decodePngDataUrl(dataUrl); const digest = await crypto.subtle.digest("SHA-256", bytes); const hash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join(""); const key = `${IMAGE_PREFIX}${slug}/q${String(position).padStart(3, "0")}-${hash.slice(0, 20)}.png`;
-  await bucket.put(key, bytes, { httpMetadata: { contentType: "image/png", cacheControl: IMAGE_CACHE_CONTROL } }); return key;
+async function readJson(request) {
+  try { return await request.json(); } catch { return {}; }
 }
-function decodePngDataUrl(dataUrl) { const image = normalizeImageDataUrl(dataUrl); if (!image) throw new Error("Invalid PNG image data."); const base64 = image.slice("data:image/png;base64,".length); const binary = atob(base64); const bytes = new Uint8Array(binary.length); for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index); return bytes; }
-function imageUrlForKey(key) { return `/${String(key).replace(/^\/+/, "")}`; }
-function normalizeImageDataUrl(value) { const image = String(value || "").trim(); if (!image) return ""; if (image.length > MAX_IMAGE_DATA_URL_LENGTH) return null; if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(image)) return null; return image; }
-function normalizeImageKey(value, slug) { const key = String(value || "").trim().replace(/^\/+/, ""); if (!key) return ""; const pattern = new RegExp(`^${IMAGE_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}${slug.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\/q\\d{3}-[a-f0-9]{20}\\.png$`); return pattern.test(key) ? key : null; }
-function normalizeAnswer(value) { const answer = String(value || "").trim().toUpperCase(); return new Set(["A", "B", "C", "D"]).has(answer) ? answer : ""; }
-async function readJson(request) { try { return await request.json(); } catch { return null; } }
-function json(value, status = 200) { return new Response(JSON.stringify(value), { status, headers: JSON_HEADERS }); }
+
+function normalizeAnswer(value) {
+  const answer = String(value || "").trim().toUpperCase();
+  return /^[A-D]$/.test(answer) ? answer : "";
+}
+
+function slugify(value) {
+  return value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+}
+
+function json(value, status = 200) {
+  return new Response(JSON.stringify(value), { status, headers: JSON_HEADERS });
+}
