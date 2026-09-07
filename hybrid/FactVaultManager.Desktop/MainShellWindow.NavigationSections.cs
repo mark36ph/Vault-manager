@@ -14,37 +14,18 @@ public partial class MainShellWindow
         if (_navigationSectionsApplied || Content is not DependencyObject root)
             return;
 
-        var settings = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), "5", StringComparison.Ordinal));
         var quizzes = FindVisualChildren<Button>(root)
             .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _quizTabIndex.ToString(), StringComparison.Ordinal));
-        var quizHistory = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _quizHistoryTabIndex.ToString(), StringComparison.Ordinal));
-        var youtubeAnalytics = FindVisualChildren<Button>(root)
-            .FirstOrDefault(button => string.Equals(button.Tag?.ToString(), _youtubeAnalyticsTabIndex.ToString(), StringComparison.Ordinal));
 
-        // Quizzes and Settings are the minimum viable shell. Optional history and
-        // analytics pages are added only when their initializers completed.
-        if (settings is null || quizzes is null || quizzes.Parent is not StackPanel navigation)
+        // The legacy navigation panel is the bootstrap source for the modern
+        // Factburst sidebar. Do not clear or rebuild it here: doing so removes
+        // the Dashboard/Quizzes anchors that the deferred sidebar activation
+        // uses to locate the panel and prevents Website, Users, SEO, Analytics,
+        // Comments and History navigation from ever being added.
+        if (quizzes is null)
             return;
 
         _navigationSectionsApplied = true;
-        navigation.Children.Clear();
-        navigation.Children.Add(quizzes);
-
-        if (quizHistory is not null)
-        {
-            navigation.Children.Add(quizHistory);
-            navigation.Children.Add(NavigationSpacer());
-        }
-
-        if (youtubeAnalytics is not null)
-        {
-            navigation.Children.Add(youtubeAnalytics);
-            navigation.Children.Add(NavigationSpacer());
-        }
-
-        navigation.Children.Add(settings);
 
         if (!_quizHomeSelected)
         {
