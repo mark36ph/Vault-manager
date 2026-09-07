@@ -50,15 +50,10 @@ public partial class MainShellWindow
         MeasureActivation("Navigation.ApplyProductBranding", ApplyProductBranding);
         MeasureActivation("Startup.InitializeQuizWorkflow", InitializeQuizWorkflow);
 
-        // A failure in one secondary page must never stop the shell from selecting
-        // the working Quizzes page or building the remaining navigation.
-        MeasureActivationSafe("Startup.InitializeQuizHistoryPage", InitializeQuizHistoryPage);
-        MeasureActivationSafe("Startup.InitializeYouTubeAnalyticsPage", InitializeYouTubeAnalyticsPage);
-        MeasureActivationSafe("Startup.InitializeQuizDraftEditor", InitializeQuizDraftEditor);
-        MeasureActivationSafe("Startup.InitializeQuizRotationWorkflow", InitializeQuizRotationWorkflow);
-        MeasureActivationSafe("Startup.InitializeQuizExportWorkflow", InitializeQuizExportWorkflow);
+        // Activation must stay cheap. Secondary pages are initialized by the deferred
+        // startup pipeline so opening the shell never blocks the WPF dispatcher on a
+        // large history/database operation.
         MeasureActivationSafe("Startup.ApplyNavigationSections", ApplyNavigationSections);
-        MeasureActivationSafe("Startup.InitializeSettingsWorkflow", InitializeSettingsWorkflow);
     }
 
     protected override void OnClosed(EventArgs e)
