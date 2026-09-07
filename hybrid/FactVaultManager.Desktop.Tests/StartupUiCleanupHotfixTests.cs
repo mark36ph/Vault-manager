@@ -6,9 +6,8 @@ public sealed class StartupUiCleanupHotfixTests
     public void StartupCleanup_DoesNotStartTheLegacyRepeatingCleanupDuringWindowLoad()
     {
         var build = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
-
         Assert.Contains("CurrentBuildNumber =", build, StringComparison.Ordinal);
-        Assert.Contains("InitializeStartupSafeUiCleanup();", build, StringComparison.Ordinal);
+        Assert.Contains("QueueDeferredShellPhase(InitializeStartupSafeUiCleanup);", build, StringComparison.Ordinal);
         Assert.DoesNotContain("window.InitializeDailyUiCleanup();", build, StringComparison.Ordinal);
     }
 
@@ -16,7 +15,6 @@ public sealed class StartupUiCleanupHotfixTests
     public void StartupSafeCleanup_IsOneIdlePassAndCoalescedPageChanges()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.StartupUiCleanupHotfix.cs");
-
         Assert.Contains("DispatcherPriority.ApplicationIdle", source, StringComparison.Ordinal);
         Assert.Contains("_startupSafeUiCleanupQueued", source, StringComparison.Ordinal);
         Assert.Contains("ReferenceEquals(eventArgs.OriginalSource, MainTabs)", source, StringComparison.Ordinal);
@@ -32,11 +30,9 @@ public sealed class StartupUiCleanupHotfixTests
         while (directory is not null)
         {
             var candidate = Path.Combine(directory.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar));
-            if (File.Exists(candidate))
-                return File.ReadAllText(candidate);
+            if (File.Exists(candidate)) return File.ReadAllText(candidate);
             directory = directory.Parent;
         }
-
         throw new FileNotFoundException(relativePath);
     }
 }
