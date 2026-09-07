@@ -11,6 +11,7 @@ public partial class MainShellWindow
     private static readonly TimeSpan DailyQuizQueueHorizon = TimeSpan.FromDays(DailyQuizQueueTarget - 1);
     private readonly Random _dailyQuizRandom = new();
     private bool _dailyQuizAutopilotRunning;
+    private System.Windows.Threading.DispatcherTimer? _dailyQuizAutopilotTimer;
 
     private sealed record DailyQuizScheduleItem(
         string DayKey,
@@ -25,6 +26,35 @@ public partial class MainShellWindow
         string From,
         string To,
         IReadOnlyList<DailyQuizScheduleItem>? Schedule);
+
+    public void InitializeDailyQuizAutopilotForApp()
+    {
+        if (_dailyQuizAutopilotTimer is not null) return;
+
+        _dailyQuizAutopilotTimer = new System.Windows.Threading.DispatcherTimer(
+            System.Windows.Threading.DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMinutes(5),
+        };
+        _dailyQuizAutopilotTimer.Tick += async (_, _) => await RunDailyQuizQueueCycleAsync();
+        _dailyQuizAutopilotTimer.Start();
+
+        Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.ApplicationIdle,
+            new Action(async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(20));
+                await RunDailyQuizQueueCycleAsync();
+            }));
+    }
+
+    private async Task RunDailyQuizQueueCycleAsync()
+    {
+        if (_dailyQuizAutopilotRunning || _quizBatchAutomationRunning || _quizBatchRenderRunning || _quizAutopilotFinishing)
+            return;
+
+        await MaintainDailyQuizQueueAsync();
+    }
 
     private async Task<string?> MaintainDailyQuizQueueAsync()
     {
@@ -50,9 +80,7 @@ public partial class MainShellWindow
                 .FirstOrDefault(day => !validByDay.ContainsKey(day));
 
             if (missingDay is null)
-            {
                 return $"Daily Quiz queue: {validByDay.Count:N0}/{DailyQuizQueueTarget:N0} scheduled";
-            }
 
             var category = await Task.Run(() => ChooseDailyQuizCategory(schedule));
             if (string.IsNullOrWhiteSpace(category))
@@ -61,14 +89,23 @@ public partial class MainShellWindow
             var originalCategory = _quizCategoryComboBox?.SelectedItem;
             var originalTitle = _quizTitleTextBox?.Text ?? "";
             var originalQuestionCount = _quizQuestionCountTextBox?.Text ?? "";
+            var originalSeconds = _quizSecondsPerQuestionTextBox?.Text ?? "";
+            var originalMode = _quizModeComboBox?.SelectedItem;
+            var originalFormat = _quizFormatComboBox?.SelectedIndex ?? 0;
 
             try
             {
                 SelectQuizBatchCategory(category);
+                if (_quizModeComboBox is not null)
+                    _quizModeComboBox.SelectedItem = QuizBuilderModePresets.Full;
+                if (_quizQuestionCountTextBox is not null)
+                    _quizQuestionCountTextBox.Text = QuizBuilderModePresets.Full.QuestionCount.ToString();
+                if (_quizSecondsPerQuestionTextBox is not null)
+                    _quizSecondsPerQuestionTextBox.Text = QuizBuilderModePresets.Full.SecondsPerQuestion.ToString();
+                if (_quizFormatComboBox is not null)
+                    _quizFormatComboBox.SelectedIndex = QuizBuilderModePresets.Full.Vertical ? 1 : 0;
                 if (_quizTitleTextBox is not null)
                     _quizTitleTextBox.Text = $"Daily Quiz • {missingDay} • {category}";
-                if (_quizQuestionCountTextBox is not null)
-                    _quizQuestionCountTextBox.Text = "10";
 
                 SetScheduledReadinessStatus($"Daily Quiz Autopilot: creating {category} for {missingDay}...");
                 var result = await RenderOneBatchQuizAsync(1, 1, stage => SetScheduledReadinessStatus(stage));
@@ -95,11 +132,7 @@ public partial class MainShellWindow
                     Title = $"Daily Quiz • {missingDay} • {category}",
                 };
                 await website.PublishQuizAsync(tracker.BaseUrl, tracker.ApiKey, websitePayload);
-                await SetDailyQuizAsync(
-                    tracker.BaseUrl,
-                    tracker.ApiKey,
-                    missingDay,
-                    websitePayload.Slug);
+                await SetDailyQuizAsync(tracker.BaseUrl, tracker.ApiKey, missingDay, websitePayload.Slug);
 
                 var scheduledTotal = validByDay.Count + 1;
                 SetScheduledReadinessStatus(
@@ -114,6 +147,12 @@ public partial class MainShellWindow
                     _quizTitleTextBox.Text = originalTitle;
                 if (_quizQuestionCountTextBox is not null)
                     _quizQuestionCountTextBox.Text = originalQuestionCount;
+                if (_quizSecondsPerQuestionTextBox is not null)
+                    _quizSecondsPerQuestionTextBox.Text = originalSeconds;
+                if (_quizModeComboBox is not null)
+                    _quizModeComboBox.SelectedItem = originalMode;
+                if (_quizFormatComboBox is not null)
+                    _quizFormatComboBox.SelectedIndex = originalFormat;
             }
         }
         catch (Exception error)
@@ -138,23 +177,19 @@ public partial class MainShellWindow
         if (available.Count == 0) return "";
 
         var scheduledCategories = schedule
-            .Where(item => IsUsableDailySchedule(item))
+            .Where(IsUsableDailySchedule)
             .Select(item => item.Category.Trim())
             .Where(category => category.Length > 0)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        // Prefer categories not represented in the existing 21-day queue. This makes the
-        // sequence genuinely random without falling into a predictable A/B/C/... rotation.
         var candidates = available
             .Where(category => !scheduledCategories.Contains(category))
             .ToList();
 
         if (candidates.Count == 0)
         {
-            // If there are fewer than 21 categories, start reusing categories only after
-            // the current set has been exhausted, while avoiding the most recent three.
             var recent = schedule
-                .Where(item => IsUsableDailySchedule(item))
+                .Where(IsUsableDailySchedule)
                 .OrderByDescending(item => item.DayKey, StringComparer.Ordinal)
                 .Select(item => item.Category.Trim())
                 .Where(category => category.Length > 0)
