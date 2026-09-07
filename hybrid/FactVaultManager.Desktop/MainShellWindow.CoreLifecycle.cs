@@ -51,17 +51,17 @@ public partial class MainShellWindow
         base.OnActivated(e);
         MeasureActivation("Navigation.ApplyProductBranding", ApplyProductBranding);
         MeasureActivation("Startup.InitializeQuizWorkflow", InitializeQuizWorkflow);
-        // Keep only the pages used by the current Factburst workflow. The old
-        // Question Bank, Upload Manager, Facebook and Instagram manager pages
-        // are no longer part of the product navigation and do not need to be
-        // constructed during activation.
-        MeasureActivation("Startup.InitializeQuizHistoryPage", InitializeQuizHistoryPage);
-        MeasureActivation("Startup.InitializeYouTubeAnalyticsPage", InitializeYouTubeAnalyticsPage);
-        MeasureActivation("Startup.InitializeQuizDraftEditor", InitializeQuizDraftEditor);
-        MeasureActivation("Startup.InitializeQuizRotationWorkflow", InitializeQuizRotationWorkflow);
-        MeasureActivation("Startup.InitializeQuizExportWorkflow", InitializeQuizExportWorkflow);
-        MeasureActivation("Startup.ApplyNavigationSections", ApplyNavigationSections);
-        MeasureActivation("Startup.InitializeSettingsWorkflow", InitializeSettingsWorkflow);
+
+        // Keep shell navigation alive even if a secondary page has a bad local
+        // dependency or stale data. A single page initializer must never leave
+        // the entire window showing the empty bootstrap tab.
+        MeasureActivationSafe("Startup.InitializeQuizHistoryPage", InitializeQuizHistoryPage);
+        MeasureActivationSafe("Startup.InitializeYouTubeAnalyticsPage", InitializeYouTubeAnalyticsPage);
+        MeasureActivationSafe("Startup.InitializeQuizDraftEditor", InitializeQuizDraftEditor);
+        MeasureActivationSafe("Startup.InitializeQuizRotationWorkflow", InitializeQuizRotationWorkflow);
+        MeasureActivationSafe("Startup.InitializeQuizExportWorkflow", InitializeQuizExportWorkflow);
+        MeasureActivationSafe("Startup.ApplyNavigationSections", ApplyNavigationSections);
+        MeasureActivationSafe("Startup.InitializeSettingsWorkflow", InitializeSettingsWorkflow);
     }
 
     protected override void OnClosed(EventArgs e)
@@ -74,6 +74,20 @@ public partial class MainShellWindow
     {
         using var perf = PerformanceDiagnostics.Measure(operation);
         action();
+    }
+
+    private void MeasureActivationSafe(string operation, Action action)
+    {
+        using var perf = PerformanceDiagnostics.Measure(operation);
+        try
+        {
+            action();
+        }
+        catch (Exception error)
+        {
+            PerformanceDiagnostics.Record($"{operation}.Error", error.ToString());
+            HeaderStatusText.Text = $"{operation.Replace("Startup.", string.Empty, StringComparison.Ordinal)} unavailable";
+        }
     }
 
     private void ApplyProductBranding()
