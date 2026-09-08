@@ -14,7 +14,7 @@
     #admin-app>.admin-page-heading p{margin-bottom:0}
     @media(max-width:860px){#admin-app{grid-template-columns:180px minmax(0,1fr);column-gap:16px}#admin-app>.admin-section-nav{top:12px}}
     @media(max-width:720px){#admin-app{display:block}#admin-app>.admin-section-nav{position:sticky;top:0;z-index:10;margin:0 0 16px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:7px;border-radius:15px}#admin-app>.admin-section-nav:before{grid-column:1/-1;padding:4px 8px 3px}#admin-app>.admin-section-nav a{justify-content:center;min-height:38px;padding:8px 6px;font-size:12px}#admin-app>.admin-section-nav a:hover{transform:none}}
-    @media(max-width:430px){#admin-app>.admin-section-nav{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:430px){#admin-app>.admin-section-nav{grid-template-columns:repeat(2,minmax(0,1fr))}
   `;
 
   function injectLayout() {
@@ -25,10 +25,17 @@
     document.head.appendChild(style);
   }
 
+  function loadSocialHub() {
+    if (document.querySelector("script[data-social-hub]") || document.querySelector("#admin-section-social-hub")) return;
+    const script = document.createElement("script");
+    script.src = "/admin-social.js?v=3";
+    script.dataset.socialHub = "1";
+    document.head.appendChild(script);
+  }
+
   function removeWebsiteGenerationUi() {
     document.querySelectorAll('[data-admin-section="generation"]').forEach(el => el.remove());
     document.querySelectorAll('[data-admin-section-panel="generation"]').forEach(el => el.remove());
-    document.querySelectorAll('script[src*="admin-generation.js"]').forEach(el => el.remove());
     const heading = document.querySelector("#admin-app .admin-page-heading p:not(.eyebrow)");
     if (heading && /generation/i.test(heading.textContent)) {
       heading.textContent = "Manage quizzes, publishing, social and growth analytics.";
@@ -42,6 +49,7 @@
   function init() {
     injectLayout();
     removeWebsiteGenerationUi();
+    loadSocialHub();
   }
 
   if (document.readyState === "loading") {
