@@ -107,6 +107,9 @@ jobs:
         run: |
           node --check cloudflare/factburst-quiz-site/worker.js
           node --check cloudflare/factburst-quiz-site/worker-entry.js
+          node --check cloudflare/factburst-quiz-site/quiz-generation.js
+          node --check cloudflare/factburst-quiz-site/admin-users.js
+          node --check cloudflare/factburst-quiz-site/public/admin-generation.js
           node --check cloudflare/factburst-quiz-site/clean-public-routes.js
           node --check cloudflare/factburst-quiz-site/site-seo.js
           node --check cloudflare/factburst-quiz-site/social-card.js
