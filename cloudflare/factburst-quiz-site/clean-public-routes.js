@@ -7,6 +7,7 @@ const CLEAN_PAGE_ASSETS = new Map([
   ["/privacy", "/privacy.html"],
   ["/admin", "/admin.html"],
   ["/admin-preview", "/admin-preview.html"],
+  ["/admin-social", "/admin-social.html"],
   ["/quiz-setup", "/quiz-setup.html"],
 ]);
 
