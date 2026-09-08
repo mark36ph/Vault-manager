@@ -1,0 +1,43 @@
+name: Configure Factburst Quiz Cron
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "cloudflare/factburst-quiz-site/**"
+      - ".github/workflows/configure-factburst-cron.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  configure:
+    name: Configure hourly quiz-generation trigger
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure Cloudflare Cron Trigger
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CLOUDFLARE_API_TOKEN}" || -z "${CLOUDFLARE_ACCOUNT_ID}" ]]; then
+            echo "::error::Cloudflare credentials are required."
+            exit 1
+          fi
+          api="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts/factburst-quiz-site/schedules"
+          response="$(curl --fail-with-body --silent --show-error -X PUT \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '[{"cron":"0 * * * *"}]' \
+            "${api}")"
+          if [[ "$(jq -r '.success // false' <<<"${response}")" != "true" ]]; then
+            echo "::error::Cloudflare rejected the Factburst Cron Trigger configuration."
+            jq -r '.errors[]?.message // empty' <<<"${response}" >&2
+            exit 1
+          fi
+          echo "Hourly Factburst quiz-generation Cron Trigger configured. The Worker only queues jobs when the admin schedule is enabled and due."
