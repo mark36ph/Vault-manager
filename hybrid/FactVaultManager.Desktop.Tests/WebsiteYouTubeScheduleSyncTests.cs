@@ -107,6 +107,8 @@ public sealed class WebsiteYouTubeScheduleSyncTests
             PinnedComment: "",
             PublishedOnYouTube: published,
             YouTubeUrl: url,
+            YouTubeViews: 0,
+            YouTubeLikes: 0,
             YouTubeUploadDate: uploadDate,
             YouTubePrivacy: privacy,
             YouTubeScheduledFor: scheduledFor);
