@@ -1,3 +1,5 @@
+import { handleAdminSocialApi } from "./admin-social.js";
+
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" };
 const GENERATION_SETTINGS_KEY = "quiz_generation_settings";
 const DEFAULT_SETTINGS = { enabled: false, frequency: "daily", time_utc: "06:00", quizzes_per_run: 1, categories: [], auto_publish: false };
@@ -26,6 +28,7 @@ export async function scheduledQuizGeneration(env) {
 }
 
 export async function handleGeneratorApi(request, env, url) {
+  if (url.pathname.startsWith("/api/admin/social")) return handleAdminSocialApi(request, env, url);
   if (!url.pathname.startsWith("/api/generator/")) return null;
   const expected = String(env.GENERATOR_API_KEY || "").trim();
   const supplied = String(request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
