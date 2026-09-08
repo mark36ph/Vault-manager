@@ -9,6 +9,7 @@ export async function handleSocialStatsApi(request, env, url) {
   await ensureSocialStatsSchema(env.DB);
 
   if (request.method === "GET" && url.pathname === "/api/social/stats") {
+    if (!isAdminAuthorized(request, env)) return json({ error: "Administrator authentication required." }, 401);
     return listSocialStats(env.DB, url);
   }
 
@@ -103,6 +104,13 @@ async function upsertSocialStats(request, db) {
   }
   await db.batch(statements);
   return json({ ok: true, saved: records.length, captured_at: now });
+}
+
+function isAdminAuthorized(request, env) {
+  const expected = String(env.SITE_ADMIN_KEY || "").trim();
+  if (!expected) return false;
+  const header = String(request.headers.get("authorization") || "").trim();
+  return header.startsWith("Bearer ") && header.slice(7).trim() === expected;
 }
 
 function isStatsWriterAuthorized(request, env) {
