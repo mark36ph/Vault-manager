@@ -71,7 +71,8 @@ async function createCommand(request,db){
   if(!PLATFORMS.includes(platform)||!ACTIONS.includes(action))return json({error:"Unsupported platform or action."},400);
   const comment=await db.prepare("SELECT id,quiz_slug,platform,platform_comment_id FROM site_social_comments WHERE id=? LIMIT 1").bind(commentId).first();
   if(!comment||comment.platform!==platform)return json({error:"Comment not found for that platform."},404);
-  let payload={};if(body?.text!==undefined)payload.text=String(body.text).trim().slice(0,4000);
+  let payload={platform_comment_id:String(comment.platform_comment_id||'')};
+  if(body?.text!==undefined)payload.text=String(body.text).trim().slice(0,4000);
   if(action==="reply"&&!payload.text)return json({error:"Reply text is required."},400);
   const now=new Date().toISOString();
   const inserted=await db.prepare("INSERT INTO site_social_commands(comment_id,quiz_slug,platform,action,payload_json,status,created_at,updated_at) VALUES(?,?,?,?,?,'queued',?,?) RETURNING id").bind(commentId,comment.quiz_slug,platform,action,JSON.stringify(payload),now,now).first();
