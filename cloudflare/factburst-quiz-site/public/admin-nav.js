@@ -25,10 +25,19 @@
     if (slot) nav.insertBefore(link, slot); else nav.append(link);
   }
 
+  function loadPhase1AdminUi() {
+    if (location.pathname !== "/admin" || document.querySelector("[data-phase1-loaded]")) return;
+    const script = document.createElement("script");
+    script.src = "/admin-phase1.js?v=1";
+    script.dataset.phase1Loaded = "1";
+    document.body.appendChild(script);
+  }
+
   async function initialize() {
     adminReady = await checkAdmin();
     if (adminReady) window.factburstAdmin = true;
     addDesktopAdminLink();
+    loadPhase1AdminUi();
     window.dispatchEvent(new CustomEvent("factburst:admin-nav-ready"));
   }
 
