@@ -24,6 +24,10 @@ export async function handleAdminSocialApi(request, env, url) {
 }
 
 async function ensureSocialSchema(db) {
+  const quizColumns = await db.prepare("PRAGMA table_info(site_quizzes)").all();
+  const quizNames = new Set((quizColumns.results || []).map(column => String(column.name || "")));
+  if (!quizNames.has("social_title")) await db.prepare("ALTER TABLE site_quizzes ADD COLUMN social_title TEXT NOT NULL DEFAULT ''").run();
+  if (!quizNames.has("social_description")) await db.prepare("ALTER TABLE site_quizzes ADD COLUMN social_description TEXT NOT NULL DEFAULT ''").run();
   await db.batch([
     db.prepare(`CREATE TABLE IF NOT EXISTS site_social_packages (
       id INTEGER PRIMARY KEY AUTOINCREMENT, quiz_id INTEGER NOT NULL UNIQUE,
@@ -107,5 +111,7 @@ async function ensureJobs(db,quizId){const now=new Date().toISOString();await db
 function platform(status,scheduled_at,published_url){return{status:String(status||'ready'),scheduled_at:scheduled_at||null,published_url:String(published_url||'')};}
 function str(value,max){return String(value??'').trim().slice(0,max);}function normalizeDate(value){const d=new Date(value);return Number.isNaN(d.getTime())?null:d.toISOString();}
 function json(value,status=200){return new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});}
-async function requireAdmin(request,env){const expected=String(env.SITE_ADMIN_KEY||'').trim();const supplied=String(request.headers.get('authorization')||'').replace(/^Bearer\s+/i,'').trim();if(expected&&supplied===expected)return{ok:true};const cookie=String(request.headers.get('cookie')||'').match(/(?:^|;\s*)fb_admin_session=([^;]+)/)?.[1]||'';if(cookie&&env.DB){const hash=await sha256(cookie);const row=await env.DB.prepare("SELECT expires_at FROM site_admin_sessions WHERE token_hash=? LIMIT 1").bind(hash).first().catch(()=>null);if(row?.expires_at&&new Date(row.expires_at).getTime()>Date.now())return{ok:true};}return{ok:false,response:json({error:'Administrator authentication required.'},401)};}
-async function sha256(value){const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));return[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function requireAdmin(request,env){const expected=String(env.SITE_ADMIN_KEY||'').trim();const supplied=String(request.headers.get('authorization')||'').replace(/^Bearer\s+/i,'').trim();if(expected&&supplied===expected)return{ok:true};const cookie=String(request.headers.get('cookie')||'').match(/(?:^|;\s*)fb_admin_session=([^;]+)/)?.[1]||'';if(cookie&&expected&&await verifyAdminSessionCookie(cookie,expected))return{ok:true};return{ok:false,response:json({error:'Administrator authentication required.'},401)};}
+async function verifyAdminSessionCookie(token,siteKey){const parts=String(token).split('.');if(parts.length!==3)return false;const timestamp=Number(parts[0]);const now=Date.now()/1000;const maxAge=7*24*60*60;if(!Number.isInteger(timestamp)||now-timestamp>maxAge||timestamp-now>60)return false;const expected=await hmacSha256(siteKey,`factburst-admin-session:${parts[0]}.${parts[1]}`);const received=fromBase64Url(parts[2]);if(expected.length!==received.length)return false;let difference=0;for(let i=0;i<expected.length;i++)difference|=expected[i]^received[i];return difference===0;}
+async function hmacSha256(secret,text){const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);return new Uint8Array(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(text)));}
+function fromBase64Url(value){const normalized=value.replace(/-/g,'+').replace(/_/g,'/')+'==='.slice((value.length+3)%4);const binary=atob(normalized);return Uint8Array.from(binary,char=>char.charCodeAt(0));}
