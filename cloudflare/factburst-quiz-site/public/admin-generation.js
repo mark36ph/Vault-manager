@@ -1,19 +1,19 @@
 (() => {
   "use strict";
-  const $=s=>document.querySelector(s);
-  const section=$("#admin-section-generation");
-  const showGeneration=()=>{document.querySelectorAll("[data-admin-section-panel]").forEach(p=>p.classList.toggle("hidden",p.dataset.adminSectionPanel!=="generation"));document.querySelectorAll("[data-admin-section]").forEach(a=>a.classList.toggle("active",a.dataset.adminSection==="generation"));history.replaceState(null,"","#generation");};
-  const loadPhase1=()=>{if(document.querySelector("[data-phase1-loaded]"))return;const s=document.createElement("script");s.src="/admin-phase1.js?v=1";s.dataset.phase1Loaded="1";document.body.appendChild(s);};
-  document.querySelectorAll('[data-admin-section="generation"]').forEach(link=>link.addEventListener("click",e=>{e.preventDefault();e.stopImmediatePropagation();showGeneration();}));
-  if(!section){loadPhase1();return;}
-  const enabled=$("#generation-enabled"),frequency=$("#generation-frequency"),time=$("#generation-time"),perRun=$("#generation-per-run"),categories=$("#generation-categories"),autoPublish=$("#generation-auto-publish"),form=$("#generation-settings-form"),runNow=$("#generation-run-now"),jobs=$("#generation-jobs"),status=$("#generation-status");
-  const esc=v=>String(v??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
-  const setStatus=(m,t="")=>{if(status){status.textContent=m;status.className=`admin-status ${t}`.trim();}};
-  async function api(path,opt={}){const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...opt});let d={};try{d=await r.json();}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d;}
-  async function load(){try{const [s,j]=await Promise.all([api("/api/admin/phase1/generation/settings"),api("/api/admin/phase1/generation/jobs?limit=20")]);const x=s.settings||{};enabled.checked=x.enabled===true;frequency.value=x.frequency||"daily";time.value=x.time_utc||"06:00";perRun.value=Number(x.quizzes_per_run||1);categories.value=Array.isArray(x.categories)?x.categories.join(", "):"";autoPublish.checked=x.auto_publish===true;renderJobs(j.jobs||[]);setStatus("");}catch(e){setStatus(e.message,"error");}}
-  function renderJobs(items){if(!jobs)return;jobs.innerHTML=items.length?items.map(j=>`<article class="admin-settings-card"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><strong>Job #${j.id}</strong><span class="admin-badge">${esc(j.status)}</span></div><p>${esc(j.requested_category||"Any category")} · ${Number(j.questions_per_quiz||10)} questions · attempts ${Number(j.attempts||0)}</p><small>${esc(j.created_at||"")}${j.worker_id?` · worker ${esc(j.worker_id)}`:""}</small>${j.result_summary?`<p>${esc(j.result_summary)}</p>`:""}${j.error_message?`<p class="social-hub-error">${esc(j.error_message)}</p>`:""}</article>`).join(""):"<div class=\"admin-empty\"><h3>No generation jobs yet</h3><p>Queue a job or enable the schedule.</p></div>";}
-  form?.addEventListener("submit",async e=>{e.preventDefault();setStatus("Saving generation settings…");try{const d=await api("/api/admin/phase1/generation/settings",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({enabled:enabled.checked,frequency:frequency.value,time_utc:time.value,quizzes_per_run:Number(perRun.value),categories:categories.value,auto_publish:autoPublish.checked})});setStatus("Generation settings saved.","success");enabled.checked=d.settings.enabled;await load();}catch(err){setStatus(err.message,"error");}});
-  runNow?.addEventListener("click",async()=>{runNow.disabled=true;setStatus("Queueing generation job…");try{await api("/api/admin/phase1/generation/queue",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({count:Number(perRun.value)||1,category:(categories.value.split(",")[0]||"").trim(),auto_publish:autoPublish.checked})});setStatus("Generation job queued.","success");await load();}catch(e){setStatus(e.message,"error");}finally{runNow.disabled=false;}});
-  load();loadPhase1();
-  if(location.hash==="#generation")showGeneration();
+  // Quiz generation belongs to the desktop application. Keep this compatibility
+  // shim only long enough to remove any stale website generation UI from older
+  // cached admin.html pages.
+  function removeWebsiteGenerationUi() {
+    document.querySelectorAll('[data-admin-section="generation"]').forEach(el => el.remove());
+    document.querySelectorAll('[data-admin-section-panel="generation"]').forEach(el => el.remove());
+    if (location.hash === "#generation") {
+      history.replaceState(null, "", "#dashboard");
+      document.querySelector('[data-admin-section="dashboard"]')?.click();
+    }
+  }
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", removeWebsiteGenerationUi, { once: true });
+  } else {
+    removeWebsiteGenerationUi();
+  }
 })();
