@@ -163,7 +163,7 @@ public sealed class RetiredFactCreationCleanupTests
         var version = ReadRepositoryFile("version.json");
         Assert.Contains("CurrentBuildNumber = 217", buildInfo, StringComparison.Ordinal);
         Assert.Contains("\"build\": 217", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.196\"", version, StringComparison.Ordinal);
+        Assert.Contains("\"latest_version\": \"1.0.197\"", version, StringComparison.Ordinal);
     }
 
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
