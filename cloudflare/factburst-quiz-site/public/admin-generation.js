@@ -2,7 +2,9 @@
   "use strict";
   const $=s=>document.querySelector(s);
   const section=$("#admin-section-generation");
+  const showGeneration=()=>{document.querySelectorAll("[data-admin-section-panel]").forEach(p=>p.classList.toggle("hidden",p.dataset.adminSectionPanel!=="generation"));document.querySelectorAll("[data-admin-section]").forEach(a=>a.classList.toggle("active",a.dataset.adminSection==="generation"));history.replaceState(null,"","#generation");};
   const loadPhase1=()=>{if(document.querySelector("[data-phase1-loaded]"))return;const s=document.createElement("script");s.src="/admin-phase1.js?v=1";s.dataset.phase1Loaded="1";document.body.appendChild(s);};
+  document.querySelectorAll('[data-admin-section="generation"]').forEach(link=>link.addEventListener("click",e=>{e.preventDefault();e.stopImmediatePropagation();showGeneration();}));
   if(!section){loadPhase1();return;}
   const enabled=$("#generation-enabled"),frequency=$("#generation-frequency"),time=$("#generation-time"),perRun=$("#generation-per-run"),categories=$("#generation-categories"),autoPublish=$("#generation-auto-publish"),form=$("#generation-settings-form"),runNow=$("#generation-run-now"),jobs=$("#generation-jobs"),status=$("#generation-status");
   const esc=v=>String(v??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
@@ -13,4 +15,5 @@
   form?.addEventListener("submit",async e=>{e.preventDefault();setStatus("Saving generation settings…");try{const d=await api("/api/admin/phase1/generation/settings",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({enabled:enabled.checked,frequency:frequency.value,time_utc:time.value,quizzes_per_run:Number(perRun.value),categories:categories.value,auto_publish:autoPublish.checked})});setStatus("Generation settings saved.","success");enabled.checked=d.settings.enabled;await load();}catch(err){setStatus(err.message,"error");}});
   runNow?.addEventListener("click",async()=>{runNow.disabled=true;setStatus("Queueing generation job…");try{await api("/api/admin/phase1/generation/queue",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({count:Number(perRun.value)||1,category:(categories.value.split(",")[0]||"").trim(),auto_publish:autoPublish.checked})});setStatus("Generation job queued.","success");await load();}catch(e){setStatus(e.message,"error");}finally{runNow.disabled=false;}});
   load();loadPhase1();
+  if(location.hash==="#generation")showGeneration();
 })();
