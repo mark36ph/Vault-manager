@@ -20,6 +20,7 @@ import { handleEngagementApi, recordEngagementAttempt } from "./account-engageme
 import { handleVerifiedEmailChangeApi } from "./account-email-change.js";
 import { handleAdminAccountEditApi } from "./account-admin-edit.js";
 import { handleAdminUsersApi } from "./admin-users.js";
+import { handleGeneratorApi, scheduledQuizGeneration } from "./quiz-generation.js";
 import { enforceMaintenanceMode, handleSiteStatusApi } from "./site-controls.js";
 import { handlePublicAdsConfig } from "./site-ads.js";
 import { scoreGuestQuiz } from "./guest-score.js";
@@ -94,6 +95,9 @@ export default {
       return claimGuestScore(request, env.DB, url);
     }
 
+    const generatorResponse = await handleGeneratorApi(request, env, url);
+    if (generatorResponse) return generatorResponse;
+
     if (url.pathname.startsWith("/api/admin/users")) {
       return handleAdminUsersApi(request, env, url);
     }
@@ -151,8 +155,6 @@ export default {
       const schemaFailure = await ensureSchemasSafely(env, url);
       if (schemaFailure) return schemaFailure;
 
-      // Scoring must work for visitors as well as signed-in users. Only require
-      // an active session when we are going to save the score to an account.
       const currentUser = await activeSessionUser(request, env.DB);
       if (!currentUser?.email_verified_at) {
         return scoreGuestQuiz(request, env.DB, scoreMatch[1].toLowerCase());
@@ -174,30 +176,13 @@ export default {
 
       const score = Number(payload?.score);
       const total = Number(payload?.total);
-      if (!Number.isInteger(score) || !Number.isInteger(total) || total <= 0 || score < 0 || score > total) {
-        return scored;
-      }
+      if (!Number.isInteger(score) || !Number.isInteger(total) || total <= 0 || score < 0 || score > total) return scored;
 
       const completedAt = new Date().toISOString();
-      const accountScore = await recordAuthenticatedScore(
-        request,
-        env.DB,
-        Number(quiz.id),
-        score,
-        total,
-        completedAt,
-      );
+      const accountScore = await recordAuthenticatedScore(request, env.DB, Number(quiz.id), score, total, completedAt);
       if (!accountScore) return scored;
 
-      const engagement = await recordEngagementAttempt(
-        request,
-        env.DB,
-        Number(quiz.id),
-        score,
-        total,
-        completedAt,
-      );
-
+      const engagement = await recordEngagementAttempt(request, env.DB, Number(quiz.id), score, total, completedAt);
       const headers = new Headers(scored.headers);
       headers.set("content-type", "application/json; charset=utf-8");
       headers.set("cache-control", "no-store");
@@ -207,215 +192,69 @@ export default {
       });
     }
 
-    // Clean page routes such as /admin and /admin-preview are mapped to their
-    // deployed .html assets before the request reaches the asset worker.
-    const assetRequest = seoUrl.pathname !== url.pathname
-      ? new Request(seoUrl, request)
-      : request;
+    const assetRequest = seoUrl.pathname !== url.pathname ? new Request(seoUrl, request) : request;
     return quizWorker.fetch(assetRequest, env, context);
+  },
+
+  async scheduled(controller, env, context) {
+    try {
+      const result = await scheduledQuizGeneration(env);
+      console.log("Factburst scheduled quiz generation", { scheduled_time: controller.scheduledTime, ...result });
+    } catch (error) {
+      console.error("Factburst scheduled quiz generation failed", error);
+    }
   },
 };
 
 async function claimGuestScore(request, db, url) {
   let body;
-  try {
-    body = await request.json();
-  } catch {
-    return jsonResponse({ error: "Request body must be valid JSON." }, 400);
-  }
-
+  try { body = await request.json(); } catch { return jsonResponse({ error: "Request body must be valid JSON." }, 400); }
   const slug = String(body?.slug || "").trim().toLowerCase();
   const answers = Array.isArray(body?.answers) ? body.answers.map(normalizeClaimAnswer) : [];
   if (!/^[a-z0-9][a-z0-9-]{0,79}$/.test(slug)) return jsonResponse({ error: "That quiz link is not valid." }, 400);
   if (answers.length === 0 || answers.some(answer => !answer)) return jsonResponse({ error: "A complete quiz result is required." }, 400);
-
   const user = await activeSessionUser(request, db);
   if (!user) return jsonResponse({ error: "Create or log in to an account before saving this score." }, 401);
-
-  const scoringRequest = new Request(url.origin + `/api/quizzes/${encodeURIComponent(slug)}/score`, {
-    method: "POST",
-    headers: { "content-type": "application/json", origin: url.origin },
-    body: JSON.stringify({ answers }),
-  });
+  const scoringRequest = new Request(url.origin + `/api/quizzes/${encodeURIComponent(slug)}/score`, { method: "POST", headers: { "content-type": "application/json", origin: url.origin }, body: JSON.stringify({ answers }) });
   const scored = await scoreGuestQuiz(scoringRequest, db, slug);
   if (!scored.ok) return scored;
-
   let payload;
-  try {
-    payload = await scored.clone().json();
-  } catch {
-    return jsonResponse({ error: "The score could not be checked." }, 500);
-  }
-
+  try { payload = await scored.clone().json(); } catch { return jsonResponse({ error: "The score could not be checked." }, 500); }
   const quiz = await db.prepare("SELECT id FROM site_quizzes WHERE slug = ? LIMIT 1").bind(slug).first();
   if (!quiz) return jsonResponse({ error: "Quiz not found." }, 404);
-
-  const score = Number(payload?.score);
-  const total = Number(payload?.total);
-  if (!Number.isInteger(score) || !Number.isInteger(total) || total <= 0 || score < 0 || score > total) {
-    return jsonResponse({ error: "The score could not be validated." }, 400);
-  }
-
+  const score = Number(payload?.score); const total = Number(payload?.total);
+  if (!Number.isInteger(score) || !Number.isInteger(total) || total <= 0 || score < 0 || score > total) return jsonResponse({ error: "The score could not be validated." }, 400);
   const completedAt = new Date().toISOString();
-  await db.prepare(`
-    INSERT INTO site_user_scores
-      (user_id, quiz_id, best_score, total, attempts, first_completed_at, last_completed_at)
-    VALUES (?, ?, ?, ?, 1, ?, ?)
-    ON CONFLICT(user_id, quiz_id) DO UPDATE SET
-      best_score = CASE
-        WHEN site_user_scores.total = excluded.total
-          THEN MAX(site_user_scores.best_score, excluded.best_score)
-        ELSE excluded.best_score
-      END,
-      total = excluded.total,
-      attempts = CASE
-        WHEN site_user_scores.total = excluded.total
-          THEN site_user_scores.attempts + 1
-        ELSE 1
-      END,
-      first_completed_at = CASE
-        WHEN site_user_scores.total = excluded.total
-          THEN site_user_scores.first_completed_at
-        ELSE excluded.first_completed_at
-      END,
-      last_completed_at = excluded.last_completed_at
-  `).bind(user.id, quiz.id, score, total, completedAt, completedAt).run();
-
-  const saved = await db.prepare(`
-    SELECT best_score, total, attempts
-    FROM site_user_scores
-    WHERE user_id = ? AND quiz_id = ? LIMIT 1
-  `).bind(user.id, quiz.id).first();
-
-  return jsonResponse({
-    saved: true,
-    guest: false,
-    score,
-    total,
-    percentage: Number(payload?.percentage || 0),
-    user: {
-      id: Number(user.id),
-      username: String(user.username || ""),
-      email_verified: Boolean(user.email_verified_at),
-    },
-    account_score: saved ? {
-      username: String(user.username || ""),
-      best_score: Number(saved.best_score || 0),
-      total: Number(saved.total || total),
-      attempts: Number(saved.attempts || 0),
-    } : null,
-  });
+  await db.prepare(`INSERT INTO site_user_scores (user_id, quiz_id, best_score, total, attempts, first_completed_at, last_completed_at) VALUES (?, ?, ?, ?, 1, ?, ?) ON CONFLICT(user_id, quiz_id) DO UPDATE SET best_score = CASE WHEN site_user_scores.total = excluded.total THEN MAX(site_user_scores.best_score, excluded.best_score) ELSE excluded.best_score END, total = excluded.total, attempts = CASE WHEN site_user_scores.total = excluded.total THEN site_user_scores.attempts + 1 ELSE 1 END, first_completed_at = CASE WHEN site_user_scores.total = excluded.total THEN site_user_scores.first_completed_at ELSE excluded.first_completed_at END, last_completed_at = excluded.last_completed_at`).bind(user.id, quiz.id, score, total, completedAt, completedAt).run();
+  const saved = await db.prepare("SELECT best_score, total, attempts FROM site_user_scores WHERE user_id = ? AND quiz_id = ? LIMIT 1").bind(user.id, quiz.id).first();
+  return jsonResponse({ saved: true, guest: false, score, total, percentage: Number(payload?.percentage || 0), user: { id: Number(user.id), username: String(user.username || ""), email_verified: Boolean(user.email_verified_at) }, account_score: saved ? { username: String(user.username || ""), best_score: Number(saved.best_score || 0), total: Number(saved.total || total), attempts: Number(saved.attempts || 0) } : null });
 }
 
-function normalizeClaimAnswer(value) {
-  const answer = String(value || "").trim().toUpperCase();
-  return /^[A-D]$/.test(answer) ? answer : "";
-}
-
-function jsonResponse(value, status = 200) {
-  return new Response(JSON.stringify(value), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-      "x-content-type-options": "nosniff",
-    },
-  });
-}
+function normalizeClaimAnswer(value) { const answer = String(value || "").trim().toUpperCase(); return /^[A-D]$/.test(answer) ? answer : ""; }
+function jsonResponse(value, status = 200) { return new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } }); }
 
 async function rewriteSeoResponse(response, method) {
-  const headers = new Headers(response.headers);
-  const location = headers.get("location");
-  if (location) headers.set("location", rewritePublicPaths(location));
-
-  if (method === "HEAD" || response.status === 204 || response.status === 304) {
-    return new Response(null, {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    });
-  }
-
+  const headers = new Headers(response.headers); const location = headers.get("location"); if (location) headers.set("location", rewritePublicPaths(location));
+  if (method === "HEAD" || response.status === 204 || response.status === 304) return new Response(null, { status: response.status, statusText: response.statusText, headers });
   const contentType = headers.get("content-type") || "";
-  const rewriteBody = /(?:text\/html|application\/xml|text\/plain)/i.test(contentType);
-  if (!rewriteBody) {
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    });
-  }
-
-  const body = rewritePublicPaths(await response.text());
-  headers.delete("content-length");
-  headers.delete("etag");
-  return new Response(body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
+  if (!/(?:text\/html|application\/xml|text\/plain)/i.test(contentType)) return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+  const body = rewritePublicPaths(await response.text()); headers.delete("content-length"); headers.delete("etag");
+  return new Response(body, { status: response.status, statusText: response.statusText, headers });
 }
 
 function isAccountRoute(pathname) {
-  return pathname === "/api/account" ||
-    pathname.startsWith("/api/account/") ||
-    pathname === "/api/friends" ||
-    pathname.startsWith("/api/friends/") ||
-    pathname === "/api/challenges" ||
-    pathname.startsWith("/api/challenges/") ||
-    pathname === "/api/leaderboard" ||
-    /^\/api\/quizzes\/[a-z0-9][a-z0-9-]{0,79}\/leaderboard$/i.test(pathname) ||
-    isCommentRoute(pathname);
+  return pathname === "/api/account" || pathname.startsWith("/api/account/") || pathname === "/api/friends" || pathname.startsWith("/api/friends/") || pathname === "/api/challenges" || pathname.startsWith("/api/challenges/") || pathname === "/api/leaderboard" || /^\/api\/quizzes\/[a-z0-9][a-z0-9-]{0,79}\/leaderboard$/i.test(pathname) || isCommentRoute(pathname);
 }
-
-function isCommentRoute(pathname) {
-  return /^\/api\/quizzes\/[a-z0-9][a-z0-9-]{0,79}\/comments$/i.test(pathname);
-}
-
-function shouldCheckSiteControls(pathname) {
-  if (pathname === "/robots.txt" || pathname === "/sitemap.xml") return false;
-  if (pathname === "/api/site/status") return true;
-  if (pathname.startsWith("/api/")) return true;
-  return !/\.(?:css|js|ico|png|jpg|jpeg|gif|webp|svg|woff2?)$/i.test(pathname);
-}
+function isCommentRoute(pathname) { return /^\/api\/quizzes\/[a-z0-9][a-z0-9-]{0,79}\/comments$/i.test(pathname); }
+function shouldCheckSiteControls(pathname) { if (pathname === "/robots.txt" || pathname === "/sitemap.xml") return false; if (pathname === "/api/site/status") return true; if (pathname.startsWith("/api/")) return true; return !/\.(?:css|js|ico|png|jpg|jpeg|gif|webp|svg|woff2?)$/i.test(pathname); }
 
 async function ensureSchemas(env, url) {
   if (accountSchemaReady) return;
-
   const bootstrapUrl = new URL("/api/quizzes?limit=1", url);
   const bootstrap = await quizWorker.fetch(new Request(bootstrapUrl, { method: "GET" }), env);
-  if (!bootstrap.ok && bootstrap.status >= 500) {
-    throw new Error("The quiz database could not be prepared for accounts.");
-  }
+  if (!bootstrap.ok && bootstrap.status >= 500) throw new Error("The quiz database could not be prepared for accounts.");
   await ensureAccountSchemaOnce(env.DB);
 }
-
-async function ensureAccountSchemaOnce(db) {
-  if (accountSchemaReady) return;
-  await prepareAccountSchema(db);
-  accountSchemaReady = true;
-}
-
-async function ensureSchemasSafely(env, url) {
-  try {
-    await ensureSchemas(env, url);
-    return null;
-  } catch (error) {
-    console.error("Factburst account schema preparation failed", error);
-    return accountSetupFailure();
-  }
-}
-
-function accountSetupFailure() {
-  return new Response(JSON.stringify({
-    error: "Account setup is temporarily unavailable. Please try again shortly.",
-    code: "account_schema_error",
-  }), {
-    status: 503,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-      "x-content-type-options": "nosniff",
-    },
-  });
-}
+async function ensureAccountSchemaOnce(db) { if (accountSchemaReady) return; await prepareAccountSchema(db); accountSchemaReady = true; }
+async function ensureSchemasSafely(env, url) { try { await ensureSchemas(env, url); return null; } catch (error) { console.error("Factburst account schema preparation failed", error); return accountSetupFailure(); } }
+function accountSetupFailure() { return new Response(JSON.stringify({ error: "Account setup is temporarily unavailable. Please try again shortly.", code: "account_schema_error" }), { status: 503, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } }); }
