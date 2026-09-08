@@ -6,7 +6,7 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    public const int CurrentBuildNumber = 217;
+    public const int CurrentBuildNumber = 218;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
     private bool _deferredShellInitializationScheduled;
@@ -103,10 +103,7 @@ public partial class MainShellWindow
         QueueDeferredShellPhase(InitializeWebsiteManagerPage);
         QueueDeferredShellPhase(InitializeWebsiteYouTubeScheduleSync);
         QueueDeferredShellPhase(InitializeWebsiteVisibilityControls);
-        QueueDeferredShellPhase(InitializeWebsiteUsersPage);
         QueueDeferredShellPhase(InitializeWebsiteAnalyticsPage);
-        QueueDeferredShellPhase(InitializeWebsiteUserProvisioningControls);
-        QueueDeferredShellPhase(InitializeWebsiteUsersFriendsPanel);
         QueueDeferredShellPhase(InitializeWebsiteMaintenancePlacement);
         QueueDeferredShellPhase(InitializeWebsiteAdministrationEnhancements);
         QueueDeferredShellPhase(InitializeWebsiteNavigationDivider);
@@ -125,8 +122,6 @@ public partial class MainShellWindow
         QueueDeferredShellPhase(InitializeInstagramPromoFollowup);
         QueueDeferredShellPhase(InitializeAutopilotNeedsYouVisualStability);
         QueueDeferredShellPhase(InitializeAutopilotShellActivationFix);
-        // Autopilot schedule supervision is opt-in. Do not initialize its timer during startup.
-        // The master switch initializes it only after the user explicitly turns Autopilot on.
         QueueDeferredShellPhase(InitializeQuizHistoryBulkArchiveUi);
         QueueDeferredShellPhase(InitializeQuizHistoryGroupedBulkArchiveUi);
         QueueDeferredShellPhase(InitializeQuizHistoryUiCleanup);
@@ -137,7 +132,6 @@ public partial class MainShellWindow
         QueueDeferredShellPhase(InitializeStartupSafeUiCleanup);
         QueueDeferredShellPhase(InitializeCreateAdvancedUiCleanup);
         QueueDeferredShellPhase(InitializeDatabaseBackupAndRecovery);
-        // Build the History page only after the shell and sidebar are responsive.
         QueueDeferredShellPhase(InitializeQuizHistoryPage);
     }
 }
