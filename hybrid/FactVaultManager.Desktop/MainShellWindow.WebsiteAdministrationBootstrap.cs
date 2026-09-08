@@ -19,7 +19,6 @@ public partial class MainShellWindow
     private static void WebsiteAdministrationWindow_Loaded(object sender, RoutedEventArgs eventArgs)
     {
         if (sender is not MainShellWindow window) return;
-        window.InitializeWebsiteUsersPage();
         window.InitializeWebsiteAnalyticsPage();
         window.InitializeWebsiteAdministrationEnhancements();
     }
