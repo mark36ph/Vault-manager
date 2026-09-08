@@ -91,7 +91,12 @@ async function commandResult(request,db){
   let body;try{body=await request.json();}catch{return json({error:"Request body must be valid JSON."},400);}
   const id=Number(body?.command_id);if(!Number.isInteger(id)||id<=0)return json({error:"Command ID is required."},400);
   const success=body?.success===true;const now=new Date().toISOString();
+  const command=await db.prepare("SELECT comment_id,action FROM site_social_commands WHERE id=? LIMIT 1").bind(id).first();
   await db.prepare("UPDATE site_social_commands SET status=?,result_json=?,error_message=?,updated_at=?,completed_at=? WHERE id=?").bind(success?'succeeded':'failed',JSON.stringify(body?.result||{}),String(body?.error||'').slice(0,2000),now,now,id).run();
+  if(success && command?.comment_id){
+    const status=command.action==='hide'?'hidden':command.action==='delete'?'deleted':command.action==='reply'?'replied':null;
+    if(status) await db.prepare("UPDATE site_social_comments SET status=?,updated_at=? WHERE id=?").bind(status,now,Number(command.comment_id)).run();
+  }
   return json({ok:true});
 }
 
