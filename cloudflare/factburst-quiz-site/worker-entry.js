@@ -21,6 +21,7 @@ import { handleVerifiedEmailChangeApi } from "./account-email-change.js";
 import { handleAdminAccountEditApi } from "./account-admin-edit.js";
 import { handleAdminUsersApi } from "./admin-users.js";
 import { handleGeneratorApi, scheduledQuizGeneration } from "./quiz-generation.js";
+import { handleSocialStatsApi } from "./social-stats.js";
 import { enforceMaintenanceMode, handleSiteStatusApi } from "./site-controls.js";
 import { handlePublicAdsConfig } from "./site-ads.js";
 import { scoreGuestQuiz } from "./guest-score.js";
@@ -68,6 +69,9 @@ export default {
 
     const analyticsResponse = await handleAnalyticsApi(request, env, url);
     if (analyticsResponse) return analyticsResponse;
+
+    const socialStatsResponse = await handleSocialStatsApi(request, env, url);
+    if (socialStatsResponse) return socialStatsResponse;
 
     if (url.pathname === "/api/site/ads" && request.method === "GET") {
       if (!env.DB) {
