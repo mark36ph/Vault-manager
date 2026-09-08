@@ -1,23 +1,12 @@
 (() => {
   "use strict";
   const KEY="factburst_admin_session_key";
-  const NAV=[
-    ["Dashboard","/admin"],["Quizzes","/admin/quizzes"],["Social","/admin/social"],["Analytics","/admin/analytics"],["Settings","/admin/settings"],["Users","/admin/users"]
-  ];
+  const NAV=[["Dashboard","/admin"],["Quizzes","/admin/quizzes"],["Social","/admin/social"],["Analytics","/admin/analytics"],["Settings","/admin/settings"],["Users","/admin/users"]];
   const path=location.pathname.replace(/\/$/,"")||"/admin";
-  function boot(){
-    const app=document.querySelector("#admin-app"); if(!app)return;
-    const content=document.querySelector("#admin-content")||app;
-    const header=document.querySelector(".admin-header");
-    if(header&&!header.querySelector("[data-admin-signout]")){
-      const b=document.createElement("button"); b.className="button button-ghost";b.type="button";b.dataset.adminSignout="1";b.textContent="Sign out";header.querySelector(".admin-header-actions")?.appendChild(b);
-      b.onclick=async()=>{try{await fetch("/api/admin/auth/logout",{method:"POST",credentials:"same-origin"});}catch{} sessionStorage.removeItem(KEY);location.href="/admin";};
-    }
-    let nav=app.querySelector(".admin-sidebar");
-    if(!nav){nav=document.createElement("aside");nav.className="admin-sidebar";nav.setAttribute("aria-label","Admin navigation");nav.innerHTML=`<div class="admin-sidebar-label">Manage</div>${NAV.map(([label,href])=>`<a href="${href}" class="${href===path?"active":""}">${label}</a>`).join("")}`;app.insertBefore(nav,content);}
-    if(!sessionStorage.getItem(KEY)){
-      fetch("/api/admin/auth/session",{credentials:"same-origin",cache:"no-store"}).then(r=>{if(r.ok)sessionStorage.setItem(KEY,"session");else if(path!=="/admin")location.href="/admin";}).catch(()=>{});
-    }
-  }
+  function loginPanel(){let p=document.querySelector("#admin-login");if(p)return p;p=document.createElement("section");p.id="admin-login";p.className="admin-panel admin-auth-panel";p.innerHTML=`<p class="eyebrow">Private admin</p><h1>Sign in to Factburst</h1><p>Administrator access is protected with Google Authenticator.</p><form id="admin-login-form" class="admin-form"><label for="admin-login-code">Google Authenticator code</label><input id="admin-login-code" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" required placeholder="123456"><button class="button button-primary" type="submit">Sign in</button></form><p id="admin-login-status" class="admin-status"></p>`;document.querySelector(".admin-shell")?.appendChild(p);return p;}
+  async function auth(){try{const r=await fetch("/api/admin/auth/session",{credentials:"same-origin",cache:"no-store"});if(r.ok){sessionStorage.setItem(KEY,"session");return true;}}catch{}if(path!=="/admin"){location.href="/admin";return false;}return false;}
+  function wireLogin(){const form=document.querySelector("#admin-login-form");if(!form||form.dataset.wired)return;form.dataset.wired="1";form.addEventListener("submit",async e=>{e.preventDefault();const status=document.querySelector("#admin-login-status"),code=document.querySelector("#admin-login-code")?.value.trim()||"";if(!/^\d{6}$/.test(code)){status.textContent="Enter the 6-digit authenticator code.";status.className="admin-status error";return;}status.textContent="Verifying…";try{const r=await fetch("/api/admin/auth/login",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({code,trust_device:true})});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||"Authenticator code was not accepted.");sessionStorage.setItem(KEY,"session");location.reload();}catch(err){status.textContent=err.message;status.className="admin-status error";}});}
+  function shell(){const app=document.querySelector("#admin-app");if(!app)return;let nav=app.querySelector(".admin-sidebar");if(!nav){nav=document.createElement("aside");nav.className="admin-sidebar";nav.setAttribute("aria-label","Admin navigation");nav.innerHTML=`<div class="admin-sidebar-label">Manage</div>${NAV.map(([label,href])=>`<a href="${href}" class="${href===path?"active":""}">${label}</a>`).join("")}`;app.insertBefore(nav,app.firstElementChild);}}
+  async function boot(){const ok=await auth();const app=document.querySelector("#admin-app");if(!ok){if(app)app.classList.add("hidden");const p=loginPanel();p.classList.remove("hidden");wireLogin();return;}document.querySelector("#admin-login")?.classList.add("hidden");shell();const header=document.querySelector(".admin-header-actions");if(header&&!header.querySelector("[data-admin-signout]")){const b=document.createElement("button");b.className="button button-ghost";b.type="button";b.dataset.adminSignout="1";b.textContent="Sign out";header.appendChild(b);b.onclick=async()=>{try{await fetch("/api/admin/auth/logout",{method:"POST",credentials:"same-origin"});}catch{}sessionStorage.removeItem(KEY);location.href="/admin";};}}
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();
 })();
