@@ -19,10 +19,10 @@ export async function enforceAccountRequestPolicy(request, db, url) {
     const usernameKey = String(body?.username || "").trim().replace(/\s+/g, " ").toLowerCase();
     if (!usernameKey) return null;
     const user = await db.prepare(`
-      SELECT status FROM site_users WHERE username_key = ? LIMIT 1
+      SELECT status, suspension_reason FROM site_users WHERE username_key = ? LIMIT 1
     `).bind(usernameKey).first();
     if (String(user?.status || "active").toLowerCase() === "suspended") {
-      return json({ error: suspendedAccountMessage(), code: "account_suspended" }, 403);
+      return json({ error: suspendedAccountMessage(user?.suspension_reason), code: "account_suspended" }, 403);
     }
     return null;
   }
@@ -43,7 +43,7 @@ export async function enforceActiveSession(request, db) {
 
   const tokenHash = await sha256(token);
   const row = await db.prepare(`
-    SELECT s.token_hash, s.user_id, u.status
+    SELECT s.token_hash, s.user_id, u.status, u.suspension_reason
     FROM site_sessions s
     LEFT JOIN site_users u ON u.id = s.user_id
     WHERE s.token_hash = ?
@@ -56,7 +56,7 @@ export async function enforceActiveSession(request, db) {
 
   await db.prepare("DELETE FROM site_sessions WHERE token_hash = ?").bind(tokenHash).run();
   return json({
-    error: suspendedAccountMessage(),
+    error: suspendedAccountMessage(row.suspension_reason),
     code: "account_suspended",
   }, 403, {
     "set-cookie": `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
@@ -79,8 +79,11 @@ export async function activeSessionUser(request, db) {
   `).bind(tokenHash, now).first();
 }
 
-export function suspendedAccountMessage() {
-  return "Your Factburst account has been suspended. Contact Factburst support if you think this is a mistake.";
+export function suspendedAccountMessage(reason = "") {
+  const cleanReason = String(reason || "").trim();
+  return cleanReason
+    ? `Your Factburst account has been suspended. Reason: ${cleanReason} Contact Factburst support if you think this is a mistake.`
+    : "Your Factburst account has been suspended. Contact Factburst support if you think this is a mistake.";
 }
 
 async function readJsonClone(request) {
