@@ -32,33 +32,23 @@ public sealed class FactburstWebsiteSocialStatsClient : IDisposable
         _client.Timeout = TimeSpan.FromSeconds(30);
     }
 
-    public async Task PushAsync(
-        string apiKey,
-        IEnumerable<FactburstSocialStatsRecord> records,
-        CancellationToken cancellationToken = default)
+    public async Task PushAsync(string apiKey, IEnumerable<FactburstSocialStatsRecord> records, CancellationToken cancellationToken = default)
     {
         var key = RequireApiKey(apiKey);
         var payload = records?.ToArray() ?? Array.Empty<FactburstSocialStatsRecord>();
         if (payload.Length == 0) return;
         if (payload.Length > 100) throw new ArgumentException("A maximum of 100 social stat records can be sent at once.", nameof(records));
-
         using var request = new HttpRequestMessage(HttpMethod.Post, DefaultWebsiteBaseUrl + "/api/social/stats");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        request.Content = new StringContent(
-            JsonSerializer.Serialize(new { stats = payload }),
-            Encoding.UTF8,
-            "application/json");
+        request.Content = new StringContent(JsonSerializer.Serialize(new { stats = payload }), Encoding.UTF8, "application/json");
         using var response = await _client.SendAsync(request, cancellationToken);
         if (response.IsSuccessStatusCode) return;
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         throw new HttpRequestException(ParseError(body, response.StatusCode));
     }
 
-    public static FactburstSocialStatsRecord FromHistory(
-        QuizHistorySummary history,
-        string platform,
-        DateTimeOffset capturedAt)
+    public static FactburstSocialStatsRecord FromHistory(QuizHistorySummary history, string platform, DateTimeOffset capturedAt)
     {
         ArgumentNullException.ThrowIfNull(history);
         var normalizedPlatform = NormalizePlatform(platform);
@@ -82,17 +72,9 @@ public sealed class FactburstWebsiteSocialStatsClient : IDisposable
             "instagram" => history.InstagramUrl,
             _ => "",
         };
-        var id = normalizedPlatform switch
-        {
-            "youtube" => YouTubeVideoAnalyticsService.TryGetVideoId(history.YouTubeUrl) ?? "",
-            _ => "",
-        };
+        var id = normalizedPlatform == "youtube" ? YouTubeVideoAnalyticsService.TryGetVideoId(history.YouTubeUrl) ?? "" : "";
         return new FactburstSocialStatsRecord(
-            SlugFromHistory(history),
-            normalizedPlatform,
-            id,
-            url.Trim(),
-            status,
+            FactburstLinkTrackerClient.CampaignSlug(history), normalizedPlatform, id, url.Trim(), status,
             ParseDate(scheduled),
             ParseDate(normalizedPlatform == "youtube" ? history.YouTubeUploadDate : normalizedPlatform == "facebook" ? history.FacebookUploadDate : history.InstagramUploadDate),
             Math.Max(0, normalizedPlatform == "youtube" ? history.YouTubeViews : normalizedPlatform == "facebook" ? history.FacebookViews : 0),
@@ -100,31 +82,19 @@ public sealed class FactburstWebsiteSocialStatsClient : IDisposable
             Math.Max(0, normalizedPlatform == "facebook" ? history.FacebookComments : 0),
             Math.Max(0, normalizedPlatform == "facebook" ? history.FacebookShares : 0),
             Math.Max(0, normalizedPlatform == "facebook" ? history.FacebookReactions : 0),
-            capturedAt.ToUniversalTime().ToString("O"),
-            "");
+            capturedAt.ToUniversalTime().ToString("O"), "");
     }
 
     public void Dispose() => _client.Dispose();
 
-    private static string SlugFromHistory(QuizHistorySummary history)
+    private static string NormalizePlatform(string value) => (value ?? "").Trim().ToLowerInvariant() switch
     {
-        var title = history.Title.Trim().ToLowerInvariant();
-        var slug = System.Text.RegularExpressions.Regex.Replace(title, "[^a-z0-9]+", "-").Trim('-');
-        return slug.Length > 80 ? slug[..80].Trim('-') : slug;
-    }
-
-    private static string NormalizePlatform(string value)
-    {
-        var platform = (value ?? "").Trim().ToLowerInvariant();
-        return platform switch
-        {
-            "yt" or "youtube-promo" => "youtube",
-            "fb" => "facebook",
-            "ig" => "instagram",
-            "youtube" or "facebook" or "instagram" => platform,
-            _ => throw new ArgumentException("Platform must be YouTube, Facebook, or Instagram.", nameof(value)),
-        };
-    }
+        "yt" or "youtube-promo" => "youtube",
+        "fb" => "facebook",
+        "ig" => "instagram",
+        "youtube" or "facebook" or "instagram" => value.Trim().ToLowerInvariant(),
+        _ => throw new ArgumentException("Platform must be YouTube, Facebook, or Instagram.", nameof(value)),
+    };
 
     private static string? ParseDate(string? value)
     {
