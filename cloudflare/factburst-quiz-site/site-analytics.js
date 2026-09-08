@@ -61,15 +61,36 @@ async function requireAdmin(request, env) {
   const supplied = String(request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
   if (expected && supplied === expected) return { ok: true };
   const cookie = String(request.headers.get("cookie") || "").match(/(?:^|;\s*)fb_admin_session=([^;]+)/)?.[1] || "";
-  if (cookie && env.DB) {
-    const hash = await sha256(cookie);
-    const row = await env.DB.prepare("SELECT expires_at FROM site_admin_sessions WHERE token_hash=? LIMIT 1").bind(hash).first().catch(() => null);
-    if (row?.expires_at && new Date(row.expires_at).getTime() > Date.now()) return { ok: true };
-  }
+  if (cookie && expected && await verifyAdminSessionCookie(cookie, expected)) return { ok: true };
   return { ok: false, response: json({ error: "Administrator authentication required." }, 401) };
+}
+
+async function verifyAdminSessionCookie(token, siteKey) {
+  const parts = String(token).split(".");
+  if (parts.length !== 3) return false;
+  const timestamp = Number(parts[0]);
+  const now = Date.now() / 1000;
+  const maxAge = 7 * 24 * 60 * 60;
+  if (!Number.isInteger(timestamp) || now - timestamp > maxAge || timestamp - now > 60) return false;
+  const expected = await hmacSha256(siteKey, `factburst-admin-session:${parts[0]}.${parts[1]}`);
+  const received = fromBase64Url(parts[2]);
+  if (expected.length !== received.length) return false;
+  let difference = 0;
+  for (let i = 0; i < expected.length; i++) difference |= expected[i] ^ received[i];
+  return difference === 0;
+}
+
+async function hmacSha256(secret, text) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(text)));
+}
+
+function fromBase64Url(value) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((value.length + 3) % 4);
+  const binary = atob(normalized);
+  return Uint8Array.from(binary, char => char.charCodeAt(0));
 }
 
 function normalizeSlug(value){const slug=String(value||"").trim().toLowerCase();return/^[a-z0-9][a-z0-9-]{0,79}$/.test(slug)?slug:"";}
 function normalizeSource(value){const source=String(value||"").trim().toLowerCase();return/^[a-z0-9_-]{1,40}$/.test(source)?source:"";}
-async function sha256(value){const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));return[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,"0")).join("");}
 function json(payload,status=200,extraHeaders={}){return new Response(JSON.stringify(payload),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff",...extraHeaders}});}
