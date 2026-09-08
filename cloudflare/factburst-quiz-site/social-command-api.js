@@ -19,11 +19,16 @@ export async function handleSocialCommandApi(request, env, url) {
 }
 
 export async function handleAdminSocialCommentsApi(request, env, url) {
-  if (!url.pathname.startsWith("/api/admin/social-comments")) return null;
+  if (!url.pathname.startsWith("/api/admin/social-comments") && !url.pathname.startsWith("/api/admin/user-delete/")) return null;
   if (!env.DB) return json({ error: "Database unavailable." }, 503);
   const auth = await requireAdmin(request, env);
   if (!auth.ok) return auth.response;
   try {
+    if (url.pathname.startsWith("/api/admin/user-delete/")) {
+      if (request.method !== "DELETE") return json({ error: "Method not allowed." }, 405);
+      const userId = Number(url.pathname.split("/").filter(Boolean).pop() || 0);
+      return deleteAdminUser(env.DB, userId);
+    }
     await ensureSchema(env.DB);
     if (request.method === "GET") return listComments(env.DB, url);
     if (request.method === "POST") return createCommand(request, env.DB);
@@ -32,6 +37,23 @@ export async function handleAdminSocialCommentsApi(request, env, url) {
     console.error("Factburst admin social comments failed", error);
     return json({ error: "The comment request could not be completed." }, 500);
   }
+}
+
+async function deleteAdminUser(db, userId) {
+  if (!Number.isInteger(userId) || userId <= 0) return json({ error: "Invalid user id." }, 400);
+  const existing = await db.prepare("SELECT id,username,email FROM site_users WHERE id=? LIMIT 1").bind(userId).first();
+  if (!existing) return json({ error: "User not found." }, 404);
+
+  const statements = [];
+  const tableExists = async (name) => Boolean(await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=? LIMIT 1").bind(name).first());
+  if (await tableExists("site_sessions")) statements.push(db.prepare("DELETE FROM site_sessions WHERE user_id=?").bind(userId));
+  if (await tableExists("site_email_verifications")) statements.push(db.prepare("DELETE FROM site_email_verifications WHERE user_id=?").bind(userId));
+  if (await tableExists("site_user_scores")) statements.push(db.prepare("DELETE FROM site_user_scores WHERE user_id=?").bind(userId));
+  if (await tableExists("site_challenges")) statements.push(db.prepare("DELETE FROM site_challenges WHERE challenger_user_id=? OR challenged_user_id=?").bind(userId,userId));
+  if (await tableExists("site_friendships")) statements.push(db.prepare("DELETE FROM site_friendships WHERE user_a_id=? OR user_b_id=? OR requested_by_user_id=?").bind(userId,userId,userId));
+  await db.batch(statements);
+  await db.prepare("DELETE FROM site_users WHERE id=?").bind(userId).run();
+  return json({ deleted:true, user_id:userId, username:String(existing.username||""), email:String(existing.email||"") });
 }
 
 async function ensureSchema(db) {
