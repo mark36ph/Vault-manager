@@ -2,7 +2,7 @@ const SITE_ORIGIN = "https://factburstquiz.com";
 
 const CLEAN_PAGE_ASSETS = new Map([
   ["/profile", "/profile.html"], ["/leaderboard", "/leaderboard.html"], ["/terms", "/terms.html"], ["/privacy", "/privacy.html"],
-  ["/admin", "/admin.html"], ["/admin/quizzes", "/admin-quizzes.html"], ["/admin/social", "/admin-social-page.html"], ["/admin/analytics", "/admin-analytics-page.html"], ["/admin/settings", "/admin-settings-page.html"], ["/admin/users", "/admin-users.html"], ["/admin-preview", "/admin-preview.html"], ["/quiz-setup", "/quiz-setup.html"],
+  ["/admin", "/admin.html"], ["/admin/quizzes", "/admin-quizzes.html"], ["/admin/social", "/admin-social-page.html"], ["/admin/analytics", "/admin-analytics.html"], ["/admin/settings", "/admin-settings.html"], ["/admin/users", "/admin-users.html"], ["/admin-preview", "/admin-preview.html"], ["/quiz-setup", "/quiz-setup.html"],
 ]);
 const LEGACY_PAGE_PATHS = new Map([["/index.html", "/"],["/profile.html", "/profile"],["/leaderboard.html", "/leaderboard"],["/terms.html", "/terms"],["/privacy.html", "/privacy"],["/admin.html", "/admin"],["/admin-social", "/admin/social"],["/admin-social.html", "/admin/social"]]);
 export function seoAssetPath(pathname) { const path=String(pathname||"/"); if(path==="/")return "/index.html"; return CLEAN_PAGE_ASSETS.get(path)||path; }
