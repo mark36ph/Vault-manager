@@ -23,6 +23,7 @@ import { handleAdminUsersApi } from "./admin-users.js";
 import { handleGeneratorApi, scheduledQuizGeneration } from "./quiz-generation.js";
 import { handleSocialStatsApi } from "./social-stats.js";
 import { handleSocialCommandApi, handleAdminSocialCommentsApi } from "./social-command-api.js";
+import { handleAdminPhase1Api } from "./admin-phase1-api.js";
 import { enforceMaintenanceMode, handleSiteStatusApi } from "./site-controls.js";
 import { handlePublicAdsConfig } from "./site-ads.js";
 import { scoreGuestQuiz } from "./guest-score.js";
@@ -46,6 +47,9 @@ export default {
 
     const adminSocialCommentsResponse = await handleAdminSocialCommentsApi(request, env, url);
     if (adminSocialCommentsResponse) return adminSocialCommentsResponse;
+
+    const phase1Response = await handleAdminPhase1Api(request, env, url);
+    if (phase1Response) return phase1Response;
 
     if (env.DB && shouldCheckSiteControls(url.pathname)) {
       const schemaFailure = await ensureSchemasSafely(env, url);
