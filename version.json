@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.0.195",
-  "build": 215,
+  "latest_version": "1.0.196",
+  "build": 216,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 215 prevents Performance Diagnostics from opening startup-warning dialogs when a page is still initializing.",
-    "Navigation diagnostics now skip unready pages, report which sections were skipped, measure only ready sections, and keep the diagnostic window responsive while profiling."
+    "Build 216 bumps the desktop build after the successful test run.",
+    "Performance Diagnostics continue to skip unready pages and keep profiling safe while the shell finishes initializing."
   ]
 }
