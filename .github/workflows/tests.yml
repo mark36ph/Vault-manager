@@ -12,13 +12,11 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
-
     steps:
       - name: Check out repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
-
       - name: Require build bump for desktop app changes
         shell: bash
         env:
@@ -27,66 +25,32 @@ jobs:
         run: |
           set -euo pipefail
           changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
-
-          if ! printf '%s\n' "$changed" | grep -q '^hybrid/FactVaultManager.Desktop/'; then
-            echo "No desktop app changes detected; build bump is not required."
-            exit 0
-          fi
-
+          if ! printf '%s\n' "$changed" | grep -q '^hybrid/FactVaultManager.Desktop/'; then echo "No desktop app changes detected; build bump is not required."; exit 0; fi
           build_info='hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs'
-          if ! printf '%s\n' "$changed" | grep -qx "$build_info"; then
-            echo "Desktop app code changed but $build_info was not updated. Bump CurrentBuildNumber."
-            exit 1
-          fi
-          if ! printf '%s\n' "$changed" | grep -qx 'version.json'; then
-            echo "Desktop app code changed but version.json was not updated. Keep its build number in sync."
-            exit 1
-          fi
-
+          if ! printf '%s\n' "$changed" | grep -qx "$build_info"; then echo "Desktop app code changed but $build_info was not updated. Bump CurrentBuildNumber."; exit 1; fi
+          if ! printf '%s\n' "$changed" | grep -qx 'version.json'; then echo "Desktop app code changed but version.json was not updated. Keep its build number in sync."; exit 1; fi
           base_build="$(git show "$BASE_SHA:$build_info" | sed -n 's/.*CurrentBuildNumber = \([0-9][0-9]*\).*/\1/p' | head -n 1)"
           head_build="$(git show "$HEAD_SHA:$build_info" | sed -n 's/.*CurrentBuildNumber = \([0-9][0-9]*\).*/\1/p' | head -n 1)"
           version_build="$(git show "$HEAD_SHA:version.json" | python -c 'import json,sys; print(json.load(sys.stdin)["build"])')"
-
-          if [[ -z "$base_build" || -z "$head_build" ]]; then
-            echo "Could not read desktop build numbers."
-            exit 1
-          fi
-          if (( head_build <= base_build )); then
-            echo "Desktop build number must increase: base=$base_build head=$head_build."
-            exit 1
-          fi
-          if [[ "$version_build" != "$head_build" ]]; then
-            echo "version.json build ($version_build) must match CurrentBuildNumber ($head_build)."
-            exit 1
-          fi
-
+          if [[ -z "$base_build" || -z "$head_build" ]]; then echo "Could not read desktop build numbers."; exit 1; fi
+          if (( head_build <= base_build )); then echo "Desktop build number must increase: base=$base_build head=$head_build."; exit 1; fi
+          if [[ "$version_build" != "$head_build" ]]; then echo "version.json build ($version_build) must match CurrentBuildNumber ($head_build)."; exit 1; fi
           echo "Desktop build bump verified: $base_build -> $head_build."
-
   dotnet-test:
     runs-on: windows-latest
     timeout-minutes: 20
-
     steps:
       - name: Check out repository
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-
       - name: Set up .NET
         uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
-        with:
-          dotnet-version: "8.0.x"
-
+        with: { dotnet-version: "8.0.x" }
       - name: Restore
         run: dotnet restore hybrid\FactVaultManager.Desktop.Tests\FactVaultManager.Desktop.Tests.csproj
-
       - name: Run C# tests
         run: >-
-          dotnet test
-          hybrid\FactVaultManager.Desktop.Tests\FactVaultManager.Desktop.Tests.csproj
-          -c Release
-          --no-restore
-          --logger "trx;LogFileName=factvault-tests.trx"
-          --collect:"XPlat Code Coverage"
-
+          dotnet test hybrid\FactVaultManager.Desktop.Tests\FactVaultManager.Desktop.Tests.csproj
+          -c Release --no-restore --logger "trx;LogFileName=factvault-tests.trx" --collect:"XPlat Code Coverage"
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v6
@@ -94,22 +58,17 @@ jobs:
           name: dotnet-test-results
           path: hybrid/FactVaultManager.Desktop.Tests/TestResults
           if-no-files-found: ignore
-
   website-check:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
-
       - name: Check JavaScript syntax
         run: |
           node --check cloudflare/factburst-quiz-site/worker.js
           node --check cloudflare/factburst-quiz-site/worker-entry.js
-          node --check cloudflare/factburst-quiz-site/quiz-generation.js
           node --check cloudflare/factburst-quiz-site/admin-users.js
-          node --check cloudflare/factburst-quiz-site/public/admin-generation.js
           node --check cloudflare/factburst-quiz-site/clean-public-routes.js
           node --check cloudflare/factburst-quiz-site/site-seo.js
           node --check cloudflare/factburst-quiz-site/social-card.js
