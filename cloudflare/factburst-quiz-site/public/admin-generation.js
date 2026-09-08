@@ -9,6 +9,37 @@
   socialScript.src = "/admin-social.js?v=2";
   document.head.appendChild(socialScript);
 
+  function activateSection(section) {
+    const panel = document.querySelector(`[data-admin-section-panel="${section}"]`);
+    if (!panel) return false;
+    document.querySelectorAll("[data-admin-section-panel]").forEach(item => item.classList.toggle("hidden", item !== panel));
+    document.querySelectorAll("[data-admin-section]").forEach(link => link.classList.toggle("active", link.dataset.adminSection === section));
+    const socialNav = document.querySelector("[data-social-hub-nav]");
+    if (socialNav) socialNav.classList.toggle("active", section === "social");
+    history.replaceState(null, "", `#${section}`);
+    return true;
+  }
+
+  function installSectionNavigation() {
+    document.addEventListener("click", event => {
+      const link = event.target.closest(".admin-section-nav a[href^='#']");
+      if (!link) return;
+      const section = link.dataset.adminSection || (link.dataset.socialHubNav ? "social" : link.getAttribute("href")?.slice(1));
+      if (!["generation", "social"].includes(section)) return;
+      if (activateSection(section)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    }, true);
+
+    const hash = window.location.hash.replace(/^#/, "");
+    if (["generation", "social"].includes(hash)) {
+      window.setTimeout(() => activateSection(hash), 0);
+    }
+  }
+
+  installSectionNavigation();
+
   const $ = selector => document.querySelector(selector);
   const form = $("#generation-settings-form");
   const status = $("#generation-status");
