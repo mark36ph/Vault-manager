@@ -8,9 +8,7 @@ export async function enforceAccountRequestPolicy(request, db, url) {
   if (pathname === "/api/account/signup" && request.method === "POST") {
     const body = await readJsonClone(request);
     const reason = reservedUsernameReason(body?.username);
-    if (reason) {
-      return json({ error: reason, code: "username_reserved" }, 400);
-    }
+    if (reason) return json({ error: reason, code: "username_reserved" }, 400);
     return null;
   }
 
@@ -18,19 +16,14 @@ export async function enforceAccountRequestPolicy(request, db, url) {
     const body = await readJsonClone(request);
     const usernameKey = String(body?.username || "").trim().replace(/\s+/g, " ").toLowerCase();
     if (!usernameKey) return null;
-    const user = await db.prepare(`
-      SELECT status, suspension_reason FROM site_users WHERE username_key = ? LIMIT 1
-    `).bind(usernameKey).first();
+    const user = await db.prepare(`SELECT status, suspension_reason FROM site_users WHERE username_key = ? LIMIT 1`).bind(usernameKey).first();
     if (String(user?.status || "active").toLowerCase() === "suspended") {
       return json({ error: suspendedAccountMessage(user?.suspension_reason), code: "account_suspended" }, 403);
     }
     return null;
   }
 
-  if (pathname === "/api/account" ||
-      pathname === "/api/account/email" ||
-      pathname === "/api/account/resend-verification" ||
-      pathname === "/api/account/history") {
+  if (pathname === "/api/account" || pathname === "/api/account/email" || pathname === "/api/account/resend-verification" || pathname === "/api/account/history") {
     return enforceActiveSession(request, db);
   }
 
@@ -40,25 +33,13 @@ export async function enforceAccountRequestPolicy(request, db, url) {
 export async function enforceActiveSession(request, db) {
   const token = cookieValue(request, SESSION_COOKIE);
   if (!token) return null;
-
   const tokenHash = await sha256(token);
-  const row = await db.prepare(`
-    SELECT s.token_hash, s.user_id, u.status, u.suspension_reason
-    FROM site_sessions s
-    LEFT JOIN site_users u ON u.id = s.user_id
-    WHERE s.token_hash = ?
-    LIMIT 1
-  `).bind(tokenHash).first();
-
+  const row = await db.prepare(`SELECT s.token_hash, s.user_id, u.status, u.suspension_reason FROM site_sessions s LEFT JOIN site_users u ON u.id = s.user_id WHERE s.token_hash = ? LIMIT 1`).bind(tokenHash).first();
   if (!row) return null;
   const status = String(row.status || "active").toLowerCase();
   if (status === "active") return null;
-
   await db.prepare("DELETE FROM site_sessions WHERE token_hash = ?").bind(tokenHash).run();
-  return json({
-    error: suspendedAccountMessage(row.suspension_reason),
-    code: "account_suspended",
-  }, 403, {
+  return json({ error: suspendedAccountMessage(row.suspension_reason), code: "account_suspended" }, 403, {
     "set-cookie": `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
   });
 }
@@ -68,30 +49,17 @@ export async function activeSessionUser(request, db) {
   if (!token) return null;
   const tokenHash = await sha256(token);
   const now = new Date().toISOString();
-  return db.prepare(`
-    SELECT u.id, u.username, u.email, u.email_key, u.email_verified_at, u.status
-    FROM site_sessions s
-    JOIN site_users u ON u.id = s.user_id
-    WHERE s.token_hash = ?
-      AND s.expires_at > ?
-      AND COALESCE(u.status, 'active') = 'active'
-    LIMIT 1
-  `).bind(tokenHash, now).first();
+  return db.prepare(`SELECT u.id, u.username, u.email, u.email_key, u.email_verified_at, u.status FROM site_sessions s JOIN site_users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ? AND COALESCE(u.status, 'active') = 'active' LIMIT 1`).bind(tokenHash, now).first();
 }
 
 export function suspendedAccountMessage(reason = "") {
   const cleanReason = String(reason || "").trim();
-  return cleanReason
-    ? `Your Factburst account has been suspended. Reason: ${cleanReason} Contact Factburst support if you think this is a mistake.`
-    : "Your Factburst account has been suspended. Contact Factburst support if you think this is a mistake.";
+  if (!cleanReason) return "Your Factburst account has been suspended. Contact Factburst support if you think this is a mistake.";
+  return `Your Factburst account has been suspended.\n\nSUSPENSION REASON\n${cleanReason}\n\nContact Factburst support if you think this is a mistake.`;
 }
 
 async function readJsonClone(request) {
-  try {
-    return await request.clone().json();
-  } catch {
-    return null;
-  }
+  try { return await request.clone().json(); } catch { return null; }
 }
 
 function cookieValue(request, name) {
