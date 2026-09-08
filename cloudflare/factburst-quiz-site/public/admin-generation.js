@@ -1,5 +1,10 @@
 (() => {
   "use strict";
+  const style = document.createElement("link");
+  style.rel = "stylesheet";
+  style.href = "/admin-generation.css?v=1";
+  document.head.appendChild(style);
+
   const $ = selector => document.querySelector(selector);
   const form = $("#generation-settings-form");
   const status = $("#generation-status");
@@ -23,6 +28,11 @@
 
   function categoriesValue() {
     return fields.categories.value.split(/[,\n]/).map(value => value.trim()).filter(Boolean).slice(0, 30);
+  }
+
+  function safeCount(value) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? Math.min(10, Math.max(1, parsed)) : 1;
   }
 
   function renderJobs(items) {
@@ -67,17 +77,12 @@
       enabled: fields.enabled.checked,
       frequency: fields.frequency.value,
       time_utc: fields.time.value || "06:00",
-      quizzes_per_run: Math.min(10, Math.max(1, Number.parseInt(fields.perRun.value || "1", 10))),
+      quizzes_per_run: safeCount(fields.perRun.value),
       categories: categoriesValue(),
       auto_publish: fields.autoPublish.checked
     };
     try {
-      const response = await fetch("/api/admin/users/generation", {
-        method: "PATCH",
-        credentials: "same-origin",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload)
-      });
+      const response = await fetch("/api/admin/users/generation", { method: "PATCH", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Could not save generation settings.");
       setStatus("Generation settings saved.");
@@ -91,12 +96,8 @@
     runNow.disabled = true;
     setStatus("Queuing generation job…");
     try {
-      const response = await fetch("/api/admin/users/generation/run", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ categories: categoriesValue(), quizzes_per_run: Number.parseInt(fields.perRun.value || "1", 10), auto_publish: fields.autoPublish.checked })
-      });
+      const count = safeCount(fields.perRun.value);
+      const response = await fetch("/api/admin/users/generation/run", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ categories: categoriesValue(), quizzes_per_run: count, auto_publish: fields.autoPublish.checked }) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Could not queue generation.");
       setStatus(`Queued ${Number(data.queued || 0).toLocaleString()} generation job${data.queued === 1 ? "" : "s"}.`);
