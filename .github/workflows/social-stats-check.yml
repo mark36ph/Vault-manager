@@ -1,0 +1,36 @@
+name: Social stats check
+
+on:
+  push:
+    paths:
+      - 'cloudflare/factburst-quiz-site/social-stats.js'
+      - 'cloudflare/factburst-quiz-site/worker-entry.js'
+      - 'cloudflare/factburst-quiz-site/public/admin-social.html'
+      - 'cloudflare/factburst-quiz-site/public/admin-social.js'
+      - 'cloudflare/factburst-quiz-site/public/admin-social.css'
+      - 'cloudflare/factburst-quiz-site/clean-public-routes.js'
+      - '.github/workflows/social-stats-check.yml'
+  pull_request:
+    paths:
+      - 'cloudflare/factburst-quiz-site/social-stats.js'
+      - 'cloudflare/factburst-quiz-site/worker-entry.js'
+      - 'cloudflare/factburst-quiz-site/public/admin-social.html'
+      - 'cloudflare/factburst-quiz-site/public/admin-social.js'
+      - 'cloudflare/factburst-quiz-site/public/admin-social.css'
+      - 'cloudflare/factburst-quiz-site/clean-public-routes.js'
+      - '.github/workflows/social-stats-check.yml'
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check JavaScript
+        run: |
+          node --check cloudflare/factburst-quiz-site/social-stats.js
+          node --check cloudflare/factburst-quiz-site/worker-entry.js
+          node --check cloudflare/factburst-quiz-site/public/admin-social.js
+          node --check cloudflare/factburst-quiz-site/clean-public-routes.js
