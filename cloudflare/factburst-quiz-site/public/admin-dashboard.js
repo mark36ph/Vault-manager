@@ -12,12 +12,7 @@
   let catalogue = [];
 
   function renderStats(stats = {}) {
-    const values = {
-      "#stat-published": stats.published,
-      "#stat-drafts": stats.drafts,
-      "#stat-questions": stats.questions,
-      "#stat-attempts": stats.attempts,
-    };
+    const values = { "#stat-published": stats.published, "#stat-drafts": stats.drafts, "#stat-questions": stats.questions, "#stat-attempts": stats.attempts };
     for (const [selector, value] of Object.entries(values)) {
       const element = $(selector);
       if (element) element.textContent = Number(value || 0).toLocaleString();
@@ -29,6 +24,27 @@
     const current = category.value;
     category.replaceChildren(new Option("All categories", ""), ...categories.map(value => new Option(value, value)));
     category.value = current;
+  }
+
+  function healthFor(quiz) {
+    const questions = Array.isArray(quiz.questions) ? quiz.questions : [];
+    const issues = [];
+    if (questions.length < 10) issues.push(`Only ${questions.length} question${questions.length === 1 ? "" : "s"} (10 recommended)`);
+    const seen = new Set();
+    questions.forEach((item, index) => {
+      const text = String(item.question || "").trim();
+      if (!text) issues.push(`Question ${index + 1} is empty`);
+      const key = text.toLowerCase().replace(/\s+/g, " ");
+      if (key && seen.has(key)) issues.push(`Question ${index + 1} duplicates another question`);
+      if (key) seen.add(key);
+      const answers = Array.isArray(item.answers) ? item.answers.map(answer => String(answer || "").trim()) : [];
+      if (answers.length < 4 || answers.some(answer => !answer)) issues.push(`Question ${index + 1} has a missing answer`);
+      const correct = String(item.correct_answer || "").trim().toUpperCase();
+      if (!["A", "B", "C", "D"].includes(correct)) issues.push(`Question ${index + 1} has no valid correct answer`);
+      if (!String(item.explanation || "").trim()) issues.push(`Question ${index + 1} is missing an explanation`);
+    });
+    if (!String(quiz.category || "").trim()) issues.push("Category is missing");
+    return issues;
   }
 
   function refreshRows() {
@@ -56,30 +72,34 @@
       panel = document.createElement("article");
       panel.id = "admin-quiz-health";
       panel.className = "admin-dashboard-card admin-quiz-health";
-      const panels = dashboard.querySelector(".admin-dashboard-panels");
-      (panels || dashboard).appendChild(panel);
+      (dashboard.querySelector(".admin-dashboard-panels") || dashboard).appendChild(panel);
     }
-    const source = catalogue.length ? catalogue : rows.map(row => ({
-      status: row.querySelector(".admin-badge")?.textContent || "",
-      question_count: Number.parseInt((row.querySelector(".admin-quiz-meta")?.textContent.match(/(\d+) questions?/) || [])[1] || "0", 10),
-      attempts: 0,
-    }));
-    const attention = source.filter(quiz => Number(quiz.question_count || 0) < 10).length;
-    const ready = source.filter(quiz => Number(quiz.question_count || 0) >= 10).length;
+
+    const source = catalogue.length ? catalogue : rows.map(row => ({ status: row.querySelector(".admin-badge")?.textContent || "", question_count: Number.parseInt((row.querySelector(".admin-quiz-meta")?.textContent.match(/(\d+) questions?/) || [])[1] || "0", 10), attempts: 0 }));
+    const detailed = source.filter(quiz => Array.isArray(quiz.questions));
+    const health = detailed.map(quiz => ({ quiz, issues: healthFor(quiz) }));
+    const attention = health.filter(item => item.issues.length > 0);
+    const ready = source.filter(quiz => Number(quiz.question_count || (Array.isArray(quiz.questions) ? quiz.questions.length : 0)) >= 10 && (!Array.isArray(quiz.questions) || !healthFor(quiz).length)).length;
     const drafts = source.filter(quiz => String(quiz.status || "").toLowerCase() === "draft").length;
     const totalAttempts = source.reduce((sum, quiz) => sum + Number(quiz.attempts || 0), 0);
     const activeQuizzes = source.filter(quiz => Number(quiz.attempts || 0) > 0).length;
     const averageAttempts = source.length ? totalAttempts / source.length : 0;
+
+    const attentionRows = attention.slice(0, 6).map(({ quiz, issues }) => {
+      const slug = encodeURIComponent(quiz.slug || "");
+      const title = escapeHtml(quiz.title || quiz.slug || "Untitled quiz");
+      const summary = escapeHtml(issues.slice(0, 2).join(" · "));
+      return `<li><div><strong>${title}</strong><small>${summary}${issues.length > 2 ? ` · +${issues.length - 2} more` : ""}</small></div><a class="button button-secondary" href="/admin?edit=${slug}">Fix</a></li>`;
+    }).join("") || `<li class="admin-insight-empty">No quiz health issues found.</li>`;
+
     const topPlayed = [...source].sort((a, b) => Number(b.attempts || 0) - Number(a.attempts || 0)).slice(0, 5);
-    const topRows = topPlayed.length
-      ? topPlayed.map((quiz, index) => `<li><span><b>${index + 1}</b>${escapeHtml(quiz.title || quiz.slug || "Untitled quiz")}</span><strong>${Number(quiz.attempts || 0).toLocaleString()}</strong></li>`).join("")
-      : `<li class="admin-insight-empty">No quiz play data yet.</li>`;
-    panel.innerHTML = `<div class="admin-health-summary"><div><p class="eyebrow">Quiz health</p><h3>${attention ? `${attention} quiz${attention === 1 ? "" : "zes"} need attention` : "Your quiz catalogue looks healthy"}</h3><p>${ready} quiz${ready === 1 ? "" : "zes"} have 10+ questions · ${drafts} draft${drafts === 1 ? "" : "s"}.</p></div><div class="admin-health-metrics"><span><b>${activeQuizzes}</b> active</span><span><b>${averageAttempts.toFixed(1)}</b> plays/quiz</span></div></div><div class="admin-insight-grid"><div><p class="eyebrow">Most played</p><ol class="admin-top-quizzes">${topRows}</ol></div><div><p class="eyebrow">Activity snapshot</p><div class="admin-activity-stats"><span><b>${totalAttempts.toLocaleString()}</b>Total plays</span><span><b>${activeQuizzes}</b>Quizzes played</span><span><b>${drafts}</b>Drafts</span></div></div></div>`;
+    const topRows = topPlayed.length ? topPlayed.map((quiz, index) => `<li><span><b>${index + 1}</b>${escapeHtml(quiz.title || quiz.slug || "Untitled quiz")}</span><strong>${Number(quiz.attempts || 0).toLocaleString()}</strong></li>`).join("") : `<li class="admin-insight-empty">No quiz play data yet.</li>`;
+
+    const headline = attention.length ? `${attention.length} quiz${attention.length === 1 ? "" : "zes"} need attention` : "Your quiz catalogue looks healthy";
+    panel.innerHTML = `<div class="admin-health-summary"><div><p class="eyebrow">Quiz health</p><h3>${headline}</h3><p>${ready} ready · ${drafts} draft${drafts === 1 ? "" : "s"} · ${attention.length} with issues.</p></div><div class="admin-health-metrics"><span><b>${activeQuizzes}</b> active</span><span><b>${averageAttempts.toFixed(1)}</b> plays/quiz</span></div></div><div class="admin-insight-grid"><div><p class="eyebrow">Needs attention</p><ul class="admin-health-issues">${attentionRows}</ul></div><div><p class="eyebrow">Most played</p><ol class="admin-top-quizzes">${topRows}</ol><div class="admin-activity-stats"><span><b>${totalAttempts.toLocaleString()}</b>Total plays</span><span><b>${activeQuizzes}</b>Quizzes played</span></div></div></div>`;
   }
 
-  function escapeHtml(value) {
-    return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
-  }
+  function escapeHtml(value) { return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]); }
 
   function applyFilters() {
     refreshRows();
@@ -106,6 +126,17 @@
       renderStats(data.stats || {});
       populateCategories(data);
       refreshRows();
+      await Promise.all(catalogue.map(async quiz => {
+        if (!quiz.slug) return;
+        try {
+          const detail = await fetch(`/api/admin/quizzes/${encodeURIComponent(quiz.slug)}`, { credentials: "same-origin", cache: "no-store" });
+          if (detail.ok) {
+            const payload = await detail.json();
+            if (payload.quiz) Object.assign(quiz, payload.quiz);
+          }
+        } catch {}
+      }));
+      renderHealth();
     } catch {}
   }
 
@@ -113,9 +144,6 @@
   status.addEventListener("change", applyFilters);
   category.addEventListener("change", applyFilters);
   new MutationObserver(() => setTimeout(applyFilters, 0)).observe(list, { childList: true });
-
   loadStats();
-  window.setInterval(() => {
-    if (document.visibilityState === "visible") loadStats();
-  }, 10000);
+  window.setInterval(() => { if (document.visibilityState === "visible") loadStats(); }, 10000);
 })();
