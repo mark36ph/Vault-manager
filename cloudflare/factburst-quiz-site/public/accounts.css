@@ -124,6 +124,7 @@
   margin: 0;
   color: var(--muted);
   font-size: 13px;
+  white-space: pre-line;
 }
 .account-status[data-kind="error"] { color: #ff9bbd; }
 .account-status[data-kind="success"] { color: var(--green); }
