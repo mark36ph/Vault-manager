@@ -1,6 +1,5 @@
 (() => {
   const ADMIN_LINK = ["Admin", "/admin"];
-  const SOCIAL_LINK = ["Social", "/admin#social"];
   let adminReady = false;
 
   async function checkAdmin() {
@@ -16,16 +15,14 @@
     const nav = document.querySelector(".top-nav");
     if (!nav || !adminReady || nav.classList.contains("desktop-navigation-source")) return;
     const slot = nav.querySelector(".notification-slot");
-    for (const [label, href] of [ADMIN_LINK, SOCIAL_LINK]) {
-      if (nav.querySelector(`[data-admin-nav="${label.toLowerCase()}"]`)) continue;
-      const link = document.createElement("a");
-      link.href = href;
-      link.textContent = label;
-      link.dataset.adminNav = label.toLowerCase();
-      if (label === "Admin" && location.pathname === "/admin") link.setAttribute("aria-current", "page");
-      if (label === "Social" && location.pathname === "/admin" && location.hash === "#social") link.setAttribute("aria-current", "page");
-      if (slot) nav.insertBefore(link, slot); else nav.append(link);
-    }
+    const [label, href] = ADMIN_LINK;
+    if (nav.querySelector(`[data-admin-nav="${label.toLowerCase()}"]`)) return;
+    const link = document.createElement("a");
+    link.href = href;
+    link.textContent = label;
+    link.dataset.adminNav = label.toLowerCase();
+    if (location.pathname === "/admin") link.setAttribute("aria-current", "page");
+    if (slot) nav.insertBefore(link, slot); else nav.append(link);
   }
 
   async function initialize() {
