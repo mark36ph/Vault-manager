@@ -3,10 +3,11 @@ const TRACKER_API_KEY_MIN_LENGTH = 16;
 const TRACKER_BASE_URL = "https://go.factburstquiz.com";
 
 export async function handleApiSettingsBackupApi(request, env, url) {
-  if (!url.pathname.startsWith("/api/admin/api-settings")) return null;
+  const pathname = url.pathname.replace(/\/$/, "");
+  if (!pathname.startsWith("/api/admin/api-settings")) return null;
   if (!env.DB) return json({ error: "Database unavailable." }, 503);
   try {
-    if (request.method === "POST" && url.pathname === "/api/admin/api-settings/backup") {
+    if (request.method === "POST" && pathname === "/api/admin/api-settings/backup") {
       if (!(await isTrackerAuthorized(request, env))) return json({ error: "API settings backup authentication required." }, 401);
       let body;
       try { body = await request.json(); } catch { return json({ error: "Request body must be valid JSON." }, 400); }
@@ -17,7 +18,7 @@ export async function handleApiSettingsBackupApi(request, env, url) {
       await env.DB.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(BACKUP_KEY, encrypted, now).run();
       return json({ ok: true, backed_up_at: now, configured: summarize(settings) });
     }
-    if (url.pathname === "/api/admin/api-settings" && request.method === "GET") {
+    if (pathname === "/api/admin/api-settings" && request.method === "GET") {
       if (!(await requireAdmin(request, env))) return json({ error: "Administrator authentication required." }, 401);
       const row = await env.DB.prepare("SELECT value,updated_at FROM site_settings WHERE key=? LIMIT 1").bind(BACKUP_KEY).first();
       if (!row?.value) return json({ configured: false, backed_up_at: null, settings: null });
@@ -69,9 +70,6 @@ async function isTrackerAuthorized(request, env) {
   const configured = String(env.TRACKER_API_KEY || "").trim();
   if (configured.length >= TRACKER_API_KEY_MIN_LENGTH) return supplied === configured;
 
-  // The desktop app legitimately has the tracker secret, but the quiz-site Worker
-  // does not need to store a second copy of it. Validate the supplied key directly
-  // against the tracker Worker instead.
   try {
     const response = await fetch(`${TRACKER_BASE_URL}/api/stats`, {
       method: "GET",
@@ -161,5 +159,5 @@ function fromBase64Url(value) {
 }
 
 function json(data, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
+  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-factburst-api": "api-settings-backup-v2" } });
 }
