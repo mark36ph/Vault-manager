@@ -9,7 +9,7 @@ export async function handleSocialStatsApi(request, env, url) {
   await ensureSocialStatsSchema(env.DB);
 
   if (request.method === "GET" && url.pathname === "/api/social/stats") {
-    if (!isAdminAuthorized(request, env)) return json({ error: "Administrator authentication required." }, 401);
+    if (!(await isAdminAuthorized(request, env))) return json({ error: "Administrator authentication required." }, 401);
     return listSocialStats(env.DB, url);
   }
 
@@ -106,11 +106,41 @@ async function upsertSocialStats(request, db) {
   return json({ ok: true, saved: records.length, captured_at: now });
 }
 
-function isAdminAuthorized(request, env) {
+async function isAdminAuthorized(request, env) {
   const expected = String(env.SITE_ADMIN_KEY || "").trim();
   if (!expected) return false;
   const header = String(request.headers.get("authorization") || "").trim();
-  return header.startsWith("Bearer ") && header.slice(7).trim() === expected;
+  if (header.startsWith("Bearer ") && header.slice(7).trim() === expected) return true;
+  const cookie = String(request.headers.get("cookie") || "").match(/(?:^|;\s*)fb_admin_session=([^;]+)/)?.[1] || "";
+  return Boolean(cookie && await verifyAdminSessionCookie(cookie, expected));
+}
+
+async function verifyAdminSessionCookie(token, siteKey) {
+  const parts = String(token).split(".");
+  if (parts.length !== 3) return false;
+  const timestamp = Number(parts[0]);
+  const now = Date.now() / 1000;
+  const maxAge = 7 * 24 * 60 * 60;
+  if (!Number.isInteger(timestamp) || now - timestamp > maxAge || timestamp - now > 60) return false;
+  try {
+    const expected = await hmacSha256(siteKey, `factburst-admin-session:${parts[0]}.${parts[1]}`);
+    const received = fromBase64Url(parts[2]);
+    if (expected.length !== received.length) return false;
+    let difference = 0;
+    for (let i = 0; i < expected.length; i++) difference |= expected[i] ^ received[i];
+    return difference === 0;
+  } catch { return false; }
+}
+
+async function hmacSha256(secret, text) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(text)));
+}
+
+function fromBase64Url(value) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((value.length + 3) % 4);
+  const binary = atob(normalized);
+  return Uint8Array.from(binary, char => char.charCodeAt(0));
 }
 
 function isStatsWriterAuthorized(request, env) {
