@@ -35,7 +35,6 @@ function sanitizeSettings(value) {
   const allowed = [
     "tracker_base_url", "tracker_api_key",
     "openai_api_key", "openai_model",
-    "pexels_api_key", "pixabay_api_key",
     "youtube_api_key", "youtube_oauth_client_id", "youtube_oauth_client_secret", "youtube_oauth_refresh_token", "youtube_approved_channel_id", "youtube_approved_channel_name",
     "facebook_page_access_token", "facebook_approved_page_id", "facebook_approved_page_name",
     "instagram_access_token"
