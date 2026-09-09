@@ -6,7 +6,7 @@
   function headers(){return {Authorization:`Bearer ${sessionStorage.getItem(KEY)||""}`,accept:"application/json"};}
   async function load(){const status=$("#analytics-status");try{status.textContent="Loading analytics…";const days=$("#analytics-days").value||30;const r=await fetch(`/api/admin/analytics?days=${encodeURIComponent(days)}`,{headers:headers(),credentials:"same-origin"});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||`Request failed (${r.status}).`);render(data);status.textContent="Updated just now.";}catch(e){status.textContent=e.message;}}
   function render(d){
-    $("#analytics-events").textContent=String(d.totals?.events||0);$("#analytics-starts").textContent=String(d.totals?.starts||0);$("#analytics-completions").textContent=String(d.totals?.completions||0);$("#analytics-shares").textContent=String(d.totals?.shares||0);
+    $("#analytics-events").textContent=String(d.totals?.events||0);$("#analytics-starts").textContent=String(d.totals?.starts||0);$("#analytics-completions").textContent=String(d.totals?.completions||0);
     const rate=d.totals?.starts?Math.round((d.totals.completions/d.totals.starts)*100):0;$("#analytics-rate").textContent=`${rate}%`;
     $("#analytics-events-list").innerHTML=(d.events||[]).map(x=>`<div class="admin-analytics-row"><span>${esc(x.event_name)}</span><strong>${Number(x.count||0)}</strong></div>`).join("")||'<p class="admin-empty-text">No events recorded.</p>';
     $("#analytics-quizzes-list").innerHTML=(d.quizzes||[]).map(x=>`<div class="admin-analytics-row"><span>${esc(x.quiz_slug)}</span><strong>${Number(x.count||0)}</strong></div>`).join("")||'<p class="admin-empty-text">No quiz activity recorded.</p>';
