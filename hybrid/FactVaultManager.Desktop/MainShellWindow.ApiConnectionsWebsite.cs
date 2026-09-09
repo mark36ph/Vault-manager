@@ -57,6 +57,23 @@ public partial class MainShellWindow
             TestWebsiteConnectionAsync,
             "The value must exactly match the TRACKER_API_KEY secret on the Cloudflare tracker Worker. It is encrypted when stored on this PC.");
 
+        var backup = new Button
+        {
+            Content = "Back up API settings to Cloudflare",
+            MinWidth = 220,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0, 10, 0, 4),
+        };
+        backup.Click += BackupApiSettingsToCloudflare_Click;
+        stack.Children.Add(backup);
+        stack.Children.Add(new TextBlock
+        {
+            Text = "Encrypted backup of the configured API credentials and connection identifiers. Existing backup values are replaced.",
+            Foreground = SettingsMutedBrush(),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 2, 0, 10),
+        });
+
         var cloudflare = new Button
         {
             Content = "Open Cloudflare Dashboard",
@@ -81,6 +98,31 @@ public partial class MainShellWindow
 
         SetConfiguredStatus("website", tracker.ApiKey);
         WireWebsiteTrackerSaveIntoUnifiedFooter(page);
+    }
+
+    private async void BackupApiSettingsToCloudflare_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_apiConnectionsTrackerBaseUrl is null || _apiConnectionsTrackerApiKey is null)
+            return;
+
+        try
+        {
+            var trackerApiKey = RequireApiValue(_apiConnectionsTrackerApiKey.Password, "Website tracker API key");
+            var baseUrl = RequireApiValue(_apiConnectionsTrackerBaseUrl.Text, "Website tracker base URL");
+            FactburstTrackerSettingsStore.Save(_data.SettingsPath, baseUrl, trackerApiKey);
+            var settings = _data.LoadSettings();
+            using var client = new FactburstApiSettingsBackupClient();
+            await client.BackupAsync(trackerApiKey, settings, baseUrl);
+            if (_settingsPageStatus is not null)
+                _settingsPageStatus.Text = "API settings were encrypted and backed up to Cloudflare.";
+            MessageBox.Show(this, "The configured API settings were encrypted and backed up to Cloudflare successfully.", "Cloudflare API Backup", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception error)
+        {
+            if (_settingsPageStatus is not null)
+                _settingsPageStatus.Text = "API backup failed: " + FriendlyApiTestError(error);
+            MessageBox.Show(this, error.Message, "Cloudflare API Backup", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void WireWebsiteTrackerSaveIntoUnifiedFooter(StackPanel page)
