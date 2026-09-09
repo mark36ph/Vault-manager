@@ -165,7 +165,7 @@ function normalizePlatform(value) {
 
 function normalizeStatus(value) {
   const status = String(value || "unknown").trim().toLowerCase();
-  return ["scheduled", "uploading", "published", "failed", "cancelled", "unknown"].includes(status) ? status : "unknown";
+  return ["scheduled", "uploading", "pending", "published", "failed", "cancelled", "not_uploaded", "not_connected", "unknown"].includes(status) ? status : "unknown";
 }
 
 function normalizeDate(value) {
