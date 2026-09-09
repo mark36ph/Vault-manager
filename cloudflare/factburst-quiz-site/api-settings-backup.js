@@ -1,12 +1,13 @@
 const BACKUP_KEY = "api_settings_backup_v1";
 const TRACKER_API_KEY_MIN_LENGTH = 16;
+const TRACKER_BASE_URL = "https://go.factburstquiz.com";
 
 export async function handleApiSettingsBackupApi(request, env, url) {
   if (!url.pathname.startsWith("/api/admin/api-settings")) return null;
   if (!env.DB) return json({ error: "Database unavailable." }, 503);
   try {
     if (request.method === "POST" && url.pathname === "/api/admin/api-settings/backup") {
-      if (!isTrackerAuthorized(request, env)) return json({ error: "API settings backup authentication required." }, 401);
+      if (!(await isTrackerAuthorized(request, env))) return json({ error: "API settings backup authentication required." }, 401);
       let body;
       try { body = await request.json(); } catch { return json({ error: "Request body must be valid JSON." }, 400); }
       const settings = sanitizeSettings(body?.settings);
@@ -61,11 +62,26 @@ function summarize(settings) {
   return result;
 }
 
-function isTrackerAuthorized(request, env) {
-  const expected = String(env.TRACKER_API_KEY || "").trim();
-  if (!expected || expected.length < TRACKER_API_KEY_MIN_LENGTH) return false;
+async function isTrackerAuthorized(request, env) {
   const supplied = String(request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
-  return supplied === expected;
+  if (supplied.length < TRACKER_API_KEY_MIN_LENGTH) return false;
+
+  const configured = String(env.TRACKER_API_KEY || "").trim();
+  if (configured.length >= TRACKER_API_KEY_MIN_LENGTH) return supplied === configured;
+
+  // The desktop app legitimately has the tracker secret, but the quiz-site Worker
+  // does not need to store a second copy of it. Validate the supplied key directly
+  // against the tracker Worker instead.
+  try {
+    const response = await fetch(`${TRACKER_BASE_URL}/api/stats`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${supplied}` },
+    });
+    return response.ok;
+  } catch (error) {
+    console.error("Tracker API key validation failed", error);
+    return false;
+  }
 }
 
 async function requireAdmin(request, env) {
