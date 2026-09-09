@@ -100,18 +100,12 @@ public partial class MainShellWindow
 
     private void InitializeDeferredWebsitePhase()
     {
+        // Keep only desktop website operations that are still needed for publishing.
+        // Website administration, moderation, SEO, ads and maintenance now live on the website.
         QueueDeferredShellPhase(InitializeWebsiteManagerPage);
         QueueDeferredShellPhase(InitializeWebsiteYouTubeScheduleSync);
         QueueDeferredShellPhase(InitializeWebsiteVisibilityControls);
         QueueDeferredShellPhase(InitializeWebsiteAnalyticsPage);
-        QueueDeferredShellPhase(InitializeWebsiteMaintenancePlacement);
-        QueueDeferredShellPhase(InitializeWebsiteAdministrationEnhancements);
-        QueueDeferredShellPhase(InitializeWebsiteNavigationDivider);
-        QueueDeferredShellPhase(InitializeWebsiteAdsSettings);
-        QueueDeferredShellPhase(InitializeWebsiteSettingsShortcut);
-        QueueDeferredShellPhase(InitializeWebsiteCommentModerationNavigation);
-        QueueDeferredShellPhase(InitializeWebsiteSeoAuditPage);
-        QueueDeferredShellPhase(InitializeWebsiteSeoAutoFixButton);
         QueueDeferredShellPhase(InitializeLogoQuizPromoArtworkRepair);
         QueueDeferredShellPhase(InitializeDeferredHistoryAndMaintenancePhase);
     }
