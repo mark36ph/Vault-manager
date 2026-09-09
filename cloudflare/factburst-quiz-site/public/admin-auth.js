@@ -48,7 +48,7 @@
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.error || "Authenticator code was not accepted.");
-      status("Signed in. This device is trusted for 7 days.", "success");
+      status("Signed in. This device is trusted for 30 days.", "success");
       submitToLegacyAdmin();
     } catch (error) {
       status(error.message, "error");
