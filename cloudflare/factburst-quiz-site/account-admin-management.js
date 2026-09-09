@@ -1,7 +1,7 @@
 import { derivePasswordHash, PASSWORD_POLICY, normalizeEmail, normalizeUsername } from "./account-auth.js";
 
 const ADMIN_SESSION_COOKIE = "fb_admin_session";
-const ADMIN_SESSION_SECONDS = 7 * 24 * 60 * 60;
+const ADMIN_SESSION_SECONDS = 30 * 24 * 60 * 60;
 
 export async function handleAdminUserManagementApi(request, env, url) {
   if (!url.pathname.startsWith("/api/admin/users")) return null;
@@ -39,18 +39,15 @@ async function requireAdmin(request, env) {
 async function verifyAdminSession(request, env) {
   const cookie = (request.headers.get("cookie") || "").split(";").map(v => v.trim()).find(v => v.startsWith(`${ADMIN_SESSION_COOKIE}=`));
   if (!cookie) return false;
-  const token = cookie.slice(`${ADMIN_SESSION_COOKIE}=`.length).split(".");
-  if (token.length !== 3) return false;
-  const timestamp = Number(token[0]);
+  const parts = cookie.slice(`${ADMIN_SESSION_COOKIE}=`.length).split(".");
+  if (parts.length === 2) return constantTimeEqual(await hmacSha256(env.SITE_ADMIN_KEY, parts[0]), fromBase64Url(parts[1]));
+  if (parts.length !== 3) return false;
+  const timestamp = Number(parts[0]);
   const now = Math.floor(Date.now() / 1000);
   if (!Number.isInteger(timestamp) || now - timestamp > ADMIN_SESSION_SECONDS || timestamp - now > 60) return false;
-  const expected = await hmacSha256(env.SITE_ADMIN_KEY, `factburst-admin-session:${token[0]}.${token[1]}`);
-  const received = fromBase64Url(token[2]);
-  if (expected.length !== received.length) return false;
-  let difference = 0;
-  for (let i = 0; i < expected.length; i++) difference |= expected[i] ^ received[i];
-  return difference === 0;
+  return constantTimeEqual(await hmacSha256(env.SITE_ADMIN_KEY, `factburst-admin-session:${parts[0]}.${parts[1]}`), fromBase64Url(parts[2]));
 }
+function constantTimeEqual(expected, received) { if (expected.length !== received.length) return false; let difference = 0; for (let i = 0; i < expected.length; i++) difference |= expected[i] ^ received[i]; return difference === 0; }
 async function hmacSha256(secret, text) { const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]); return new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(text))); }
 function fromBase64Url(value) { const normalized = value.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((value.length + 3) % 4); return Uint8Array.from(atob(normalized), char => char.charCodeAt(0)); }
 
