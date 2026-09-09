@@ -57,6 +57,11 @@ public partial class MainShellWindow
             if (histories.Count == 0)
                 return;
 
+            var journal = _data.SocialUploadJournal.List();
+            var journalByQuizPlatform = journal
+                .GroupBy(x => $"{x.HistoryId}:{x.Platform.Trim().ToLowerInvariant()}")
+                .ToDictionary(x => x.Key, x => x.First());
+
             using var client = new FactburstWebsiteSocialStatsClient();
             var capturedAt = DateTimeOffset.UtcNow;
             var records = new List<FactburstSocialStatsRecord>(histories.Count * 3);
@@ -67,7 +72,8 @@ public partial class MainShellWindow
                 {
                     try
                     {
-                        records.Add(FactburstWebsiteSocialStatsClient.FromHistory(history, platform, capturedAt));
+                        journalByQuizPlatform.TryGetValue($"{history.Id}:{platform}", out var entry);
+                        records.Add(FactburstWebsiteSocialStatsClient.FromHistory(history, platform, capturedAt, entry));
                     }
                     catch (Exception error)
                     {
