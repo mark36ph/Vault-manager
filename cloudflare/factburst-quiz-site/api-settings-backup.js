@@ -78,15 +78,24 @@ async function requireAdmin(request, env) {
   return verifyAdminSessionCookie(cookie, expected);
 }
 
-async function verifyAdminSessionCookie(token, siteKey) {
-  const parts = String(token).split(".");
-  if (parts.length !== 3) return false;
-  const timestamp = Number(parts[0]);
-  const now = Date.now() / 1000;
-  const maxAge = 7 * 24 * 60 * 60;
-  if (!Number.isInteger(timestamp) || now - timestamp > maxAge || timestamp - now > 60) return false;
-  const expected = await hmacSha256(siteKey, `factburst-admin-session:${parts[0]}.${parts[1]}`);
-  const received = fromBase64Url(parts[2]);
+async function verifyAdminSessionCookie(cookie, siteKey) {
+  const parts = String(cookie).split(".");
+  if (parts.length === 2) {
+    const [token, signature] = parts;
+    if (!token || !signature) return false;
+    return constantTimeEqual(await hmacSha256(siteKey, token), fromBase64Url(signature));
+  }
+  if (parts.length === 3) {
+    const timestamp = Number(parts[0]);
+    const now = Date.now() / 1000;
+    const maxAge = 30 * 24 * 60 * 60;
+    if (!Number.isInteger(timestamp) || now - timestamp > maxAge || timestamp - now > 60) return false;
+    return constantTimeEqual(await hmacSha256(siteKey, `factburst-admin-session:${parts[0]}.${parts[1]}`), fromBase64Url(parts[2]));
+  }
+  return false;
+}
+
+function constantTimeEqual(expected, received) {
   if (expected.length !== received.length) return false;
   let difference = 0;
   for (let i = 0; i < expected.length; i++) difference |= expected[i] ^ received[i];
