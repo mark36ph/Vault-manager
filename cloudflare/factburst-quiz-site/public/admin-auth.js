@@ -15,9 +15,17 @@
     el.className = `admin-status ${type}`.trim();
   }
 
+  function returnAfterLogin() {
+    const target = new URLSearchParams(location.search).get("return");
+    if (!target || !target.startsWith("/admin") || target === "/admin") return false;
+    location.replace(target);
+    return true;
+  }
+
   function submitToLegacyAdmin() {
     authPassed = true;
     sessionStorage.setItem(SESSION_KEY, "session");
+    if (returnAfterLogin()) return;
     document.dispatchEvent(new CustomEvent("factburst-admin-session-ready"));
   }
 
