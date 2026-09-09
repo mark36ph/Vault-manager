@@ -4,10 +4,10 @@
   const MAX_IMAGE_DATA_URL_LENGTH=1200000;
   const key=sessionStorage.getItem(KEY_STORAGE)||"";
   const $=s=>document.querySelector(s);
-  let dirty=false; let saving=false; let loadedSnapshot="";
+  let dirty=false; let saving=false;
   const status=(e,m,t="")=>{if(e){e.textContent=m;e.className=`admin-status ${t}`.trim();}};
   const escapeHtml=v=>String(v??"").replace(/[&<>'"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;",'"':'&quot;'}[c]));
-  function headers(){return{Authorization:`Bearer ${key}`,"Content-Type":"application/json`};}
+  function headers(){return{Authorization:`Bearer ${key}`,"Content-Type":"application/json"};}
   async function api(path,o={}){const r=await fetch(path,{...o,headers:{...headers(),...(o.headers||{})},credentials:"same-origin",cache:"no-store"});let d=null;try{d=await r.json();}catch{}if(!r.ok){const e=new Error(d?.error||`Request failed (${r.status}).`);e.status=r.status;throw e;}return d;}
   function toDateTimeLocal(v){if(!v)return"";const d=new Date(v);if(Number.isNaN(d.getTime()))return"";const p=n=>String(n).padStart(2,"0");return`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;}
   function toIso(v){if(!v)return null;const d=new Date(v);return Number.isNaN(d.getTime())?null:d.toISOString();}
@@ -15,8 +15,7 @@
   function imageUrl(key){const v=String(key||"").trim();return v.startsWith("quiz-images/")?`/${v}`:"";}
   function resizeImage(file){return new Promise((resolve,reject)=>{if(!file||!/^image\/(png|jpe?g|webp)$/i.test(file.type))return reject(new Error("Please choose a PNG, JPG or WebP image."));if(file.size>8*1024*1024)return reject(new Error("Image files must be 8 MB or smaller."));const reader=new FileReader();reader.onerror=()=>reject(new Error("The image could not be read."));reader.onload=()=>{const img=new Image();img.onerror=()=>reject(new Error("The selected image could not be decoded."));img.onload=()=>{let w=img.naturalWidth,h=img.naturalHeight;const draw=()=>{const canvas=document.createElement("canvas");canvas.width=w;canvas.height=h;const ctx=canvas.getContext("2d");if(!ctx)return reject(new Error("Your browser could not prepare the image."));ctx.drawImage(img,0,0,w,h);const data=canvas.toDataURL("image/png");if(data.length<=MAX_IMAGE_DATA_URL_LENGTH)return resolve(data);if(Math.max(w,h)<=600)return reject(new Error("That image is still too large after resizing. Please choose a simpler image."));w=Math.max(1,Math.round(w*.8));h=Math.max(1,Math.round(h*.8));draw();};const scale=Math.min(1,1200/Math.max(w,h));w=Math.max(1,Math.round(w*scale));h=Math.max(1,Math.round(h*scale));draw();};img.src=String(reader.result||"");};reader.readAsDataURL(file);});}
   function setDirty(){if(!saving){dirty=true;$("#unsaved-indicator")?.classList.remove("hidden");}}
-  function markSaved(){dirty=false;loadedSnapshot=collectSnapshot();$("#unsaved-indicator")?.classList.add("hidden");}
-  function collectSnapshot(){const data={title:$("#quiz-title")?.value||"",slug:$("#quiz-slug")?.value||"",category:$("#quiz-category")?.value||"",status:$("#quiz-status")?.value||"",publish_at:$("#quiz-publish-at")?.value||"",youtube_url:$("#quiz-youtube")?.value||"",description:$("#quiz-description")?.value||"",questions:[...($("#questions-editor")?.children||[])].map(d=>({question:d.querySelector(".q-text")?.value||"",answers:[...d.querySelectorAll(".q-answer")].map(x=>x.value||""),correct_answer:d.querySelector(".q-correct")?.value||"",explanation:d.querySelector(".q-explanation")?.value||"",image_key:d.dataset.imageKey||"",image_data_url:d._imageDataUrl||""}))};return JSON.stringify(data);}
+  function markSaved(){dirty=false;$("#unsaved-indicator")?.classList.add("hidden");}
   function setQuestionImage(card,dataUrl,key){card.dataset.imageKey=key||"";card._imageDataUrl=dataUrl||"";const preview=card.querySelector(".question-image-preview"),img=card.querySelector("img"),remove=card.querySelector(".remove-question-image"),src=dataUrl||imageUrl(key);img.src=src;img.classList.toggle("hidden",!src);preview.classList.toggle("hidden",!src);remove.classList.toggle("hidden",!src);}
   function updateCount(){const n=$("#questions-editor").children.length;$("#question-count").textContent=`${n} question${n===1?"":"s"}`;}
   function renumber(){[...$("#questions-editor").children].forEach((d,i)=>{d.querySelector(".question-number").textContent=i+1;d.querySelector(".image-note").textContent=`Question ${i+1} of up to 100`;});updateCount();}
