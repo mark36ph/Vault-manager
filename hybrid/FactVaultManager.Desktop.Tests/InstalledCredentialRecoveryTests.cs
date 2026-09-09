@@ -49,7 +49,7 @@ public sealed class InstalledCredentialRecoveryTests
 
         var result = InstalledCredentialRecovery.Run(appDataRoot, [sourceSettings]);
 
-        Assert.Equal(8, result.RecoveredCount);
+        Assert.Equal(6, result.RecoveredCount);
         Assert.Equal(0, result.ClearedInvalidCount);
         Assert.True(result.SettingsChanged);
         Assert.Equal(sourceText, File.ReadAllText(sourceSettings));
@@ -59,8 +59,6 @@ public sealed class InstalledCredentialRecoveryTests
         Assert.Equal("D:\\Quiz Projects", migrated["general"]!["projects_folder"]!.GetValue<string>());
         Assert.Equal("gpt-5-mini", migrated["ai"]!["model"]!.GetValue<string>());
         AssertCredential(migrated, "ai", "api_key", "openai-source");
-        AssertCredential(migrated, "images", "pexels_api_key", "pexels-source");
-        AssertCredential(migrated, "images", "pixabay_api_key", "pixabay-source");
         AssertCredential(migrated, "youtube", "api_key", "youtube-source");
         AssertCredential(migrated, "youtube", "oauth_client_secret", "youtube-secret-source");
         AssertCredential(migrated, "youtube", "oauth_refresh_token", "youtube-refresh-source");
@@ -110,8 +108,7 @@ public sealed class InstalledCredentialRecoveryTests
             destinationSettings,
             $$"""
             {
-              "ai": { "api_key": "{{JsonEscape(LocalSecretProtector.Protect("installed-openai"))}}" },
-              "images": { "pexels_api_key": "" }
+              "ai": { "api_key": "{{JsonEscape(LocalSecretProtector.Protect("installed-openai"))}}" }
             }
             """);
 
@@ -121,17 +118,15 @@ public sealed class InstalledCredentialRecoveryTests
             sourceSettings,
             """
             {
-              "ai": { "api_key": "old-openai" },
-              "images": { "pexels_api_key": "source-pexels" }
+              "ai": { "api_key": "old-openai" }
             }
             """);
 
         var result = InstalledCredentialRecovery.Run(appDataRoot, [sourceSettings]);
 
-        Assert.Equal(1, result.RecoveredCount);
+        Assert.Equal(0, result.RecoveredCount);
         var migrated = ReadObject(destinationSettings);
         AssertCredential(migrated, "ai", "api_key", "installed-openai");
-        AssertCredential(migrated, "images", "pexels_api_key", "source-pexels");
     }
 
     [Fact]
@@ -146,7 +141,6 @@ public sealed class InstalledCredentialRecoveryTests
             $$"""
             {
               "ai": { "api_key": "{{JsonEscape(LocalSecretProtector.Protect("valid-openai"))}}" },
-              "images": { "pexels_api_key": "dpapi:v1:not-base64" },
               "general": { "theme": "dark" }
             }
             """);
@@ -154,12 +148,11 @@ public sealed class InstalledCredentialRecoveryTests
         var result = InstalledCredentialRecovery.Run(appDataRoot, Array.Empty<string>());
 
         Assert.Equal(0, result.RecoveredCount);
-        Assert.Equal(1, result.ClearedInvalidCount);
-        Assert.True(result.SettingsChanged);
+        Assert.Equal(0, result.ClearedInvalidCount);
+        Assert.False(result.SettingsChanged);
 
         var migrated = ReadObject(destinationSettings);
         AssertCredential(migrated, "ai", "api_key", "valid-openai");
-        Assert.Equal("", migrated["images"]!["pexels_api_key"]!.GetValue<string>());
         Assert.Equal("dark", migrated["general"]!["theme"]!.GetValue<string>());
         Assert.False(File.Exists(Path.Combine(appDataRoot, "installed-credential-recovery-v1.json")));
     }
