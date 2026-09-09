@@ -2,10 +2,13 @@
   "use strict";
   const $ = s => document.querySelector(s);
   const toggle = $("#maintenance-toggle"), message = $("#maintenance-message"), save = $("#save-website-settings"), status = $("#website-settings-status");
-  if (!toggle || !message || !save) return;
-  const setStatus=(text,type="")=>{status.textContent=text;status.className=`admin-status ${type}`;};
-  async function api(options={}){const r=await fetch("/api/admin/users/site-settings",{credentials:"same-origin",cache:"no-store",...options});let d={};try{d=await r.json();}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d;}
-  async function load(){try{const d=await api();toggle.checked=!!d.maintenance_enabled;message.value=d.maintenance_message||"";}catch(e){setStatus(e.message,"error");}}
-  save.addEventListener("click",async()=>{save.disabled=true;setStatus("Saving…");try{const d=await api({method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({maintenance_enabled:toggle.checked,maintenance_message:message.value})});toggle.checked=!!d.maintenance_enabled;message.value=d.maintenance_message||"";setStatus(toggle.checked?"Maintenance mode enabled.":"Website is live.","success");}catch(e){setStatus(e.message,"error");}finally{save.disabled=false;}});
-  load();
+  const backupStatus = $("#api-settings-backup-status"), backupState = $("#api-settings-backup-state"), backupDate = $("#api-settings-backup-date"), services = $("#api-settings-services");
+  const setStatus=(element,text,type="")=>{if(element){element.textContent=text;element.className=`admin-status ${type}`.trim();}};
+  async function api(path,options={}){const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...options});let d={};try{d=await r.json();}catch{}if(!r.ok)throw new Error(d.error||`Request failed (${r.status})`);return d;}
+  async function loadWebsite(){try{const d=await api("/api/admin/users/site-settings");toggle.checked=!!d.maintenance_enabled;message.value=d.maintenance_message||"";}catch(e){setStatus(status,e.message,"error");}}
+  async function loadBackup(){try{const d=await api("/api/admin/api-settings");if(!d.configured){backupState.textContent="No Cloudflare API settings backup has been created yet.";backupDate.textContent="Use the desktop app's Back up API settings to Cloudflare button.";services.textContent="No backup available.";return;}backupState.textContent="Encrypted API settings backup is configured.";backupDate.textContent=d.backed_up_at?`Last backup: ${new Date(d.backed_up_at).toLocaleString()}`:"Last backup time unavailable.";const entries=Object.entries(d.settings||{});services.innerHTML=entries.length?entries.map(([key,value])=>`<div style="display:flex;justify-content:space-between;gap:16px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08)"><span>${escapeHtml(labelFor(key))}</span><code>${escapeHtml(String(value))}</code></div>`).join(""):"No configured API values were included in the backup.";}catch(e){setStatus(backupStatus,e.message,"error");}}
+  function labelFor(key){return String(key).replace(/_/g," ").replace(/\b\w/g,m=>m.toUpperCase());}
+  function escapeHtml(value){return String(value??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));}
+  if(toggle&&message&&save){save.addEventListener("click",async()=>{save.disabled=true;setStatus(status,"Saving…");try{const d=await api("/api/admin/users/site-settings",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({maintenance_enabled:toggle.checked,maintenance_message:message.value})});toggle.checked=!!d.maintenance_enabled;message.value=d.maintenance_message||"";setStatus(status,toggle.checked?"Maintenance mode enabled.":"Website is live.","success");}catch(e){setStatus(status,e.message,"error");}finally{save.disabled=false;}});loadWebsite();}
+  if(backupStatus&&backupState&&backupDate&&services)loadBackup();
 })();
