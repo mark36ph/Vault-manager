@@ -98,12 +98,7 @@
       const response = await nativeFetch(new Request(request, { headers, credentials: "same-origin", cache: "no-store" }));
       if (response.status === 401 && String(request.url).includes("/api/")) {
         sessionStorage.removeItem(KEY);
-        if (path !== "/admin") {
-          const returnTo = `${location.pathname}${location.search}${location.hash}`;
-          location.replace(`/admin?return=${encodeURIComponent(returnTo)}`);
-        } else {
-          showLogin();
-        }
+        session = null;
         document.dispatchEvent(new CustomEvent("factburst-admin-session-expired"));
       }
       return response;
