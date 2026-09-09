@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.0.198",
-  "build": 218,
+  "latest_version": "1.0.199",
+  "build": 219,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 218 is released as version 1.0.198 so installed build 217 can detect the update.",
-    "Performance Diagnostics continue to skip unready pages and keep profiling safe while the shell finishes initializing."
+    "Build 219 fixes Cloudflare API backup so it targets the Factburst website administration API instead of the tracker base URL.",
+    "The existing website tracker connection and TRACKER_API_KEY settings remain unchanged."
   ]
 }
