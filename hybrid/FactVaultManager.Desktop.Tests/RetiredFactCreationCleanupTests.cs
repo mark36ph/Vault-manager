@@ -161,8 +161,8 @@ public sealed class RetiredFactCreationCleanupTests
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var version = ReadRepositoryFile("version.json");
-        Assert.Contains("CurrentBuildNumber = 217", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("\"build\": 217", version, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber = 218", buildInfo, StringComparison.Ordinal);
+        Assert.Contains("\"build\": 218", version, StringComparison.Ordinal);
         Assert.Contains("\"latest_version\": \"1.0.197\"", version, StringComparison.Ordinal);
     }
 
