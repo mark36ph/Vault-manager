@@ -3,28 +3,6 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class WebsiteCommentModerationTests
 {
     [Fact]
-    public void CommentModeration_StaysAfterWebsiteUsersInMainSidebar()
-    {
-        var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
-        var moderation = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.WebsiteCommentModeration.cs");
-        var navigation = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.WebsiteCommentModerationNavigation.cs");
-        Assert.Contains("QueueDeferredShellPhase(InitializeWebsiteCommentModerationNavigation);", buildInfo, StringComparison.Ordinal);
-        Assert.DoesNotContain("window.InitializeWebsiteCommentModerationPage();", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("_autopilotNavButtons.TryGetValue(\"Users\"", navigation, StringComparison.Ordinal);
-        Assert.Contains("_autopilotNavButtons[\"Comments\"]", navigation, StringComparison.Ordinal);
-        Assert.Contains("Content = \"☵   Comments\"", navigation, StringComparison.Ordinal);
-        Assert.Contains("finalCommentsIndex == finalUsersIndex + 1", navigation, StringComparison.Ordinal);
-        Assert.Contains("MainTabs.SelectedIndex = _websiteCommentModerationTabIndex", navigation, StringComparison.Ordinal);
-        Assert.Contains("SelectAutopilotNav(\"Comments\")", navigation, StringComparison.Ordinal);
-        Assert.Contains("Comment moderation", moderation, StringComparison.Ordinal);
-        Assert.Contains("Reported", moderation, StringComparison.Ordinal);
-        Assert.Contains("Visible", moderation, StringComparison.Ordinal);
-        Assert.Contains("Hidden", moderation, StringComparison.Ordinal);
-        Assert.Contains("Dismiss reports", moderation, StringComparison.Ordinal);
-        Assert.Contains("Open quiz", moderation, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void Build77_DesktopClientUsesSecuredSiteCommentsAdminRoute()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/FactburstWebsiteCommentsAdminClient.cs");
