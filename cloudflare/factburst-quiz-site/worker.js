@@ -8,7 +8,7 @@ const IMAGE_PREFIX = "quiz-images/";
 const IMAGE_ROUTE_PREFIX = `/${IMAGE_PREFIX}`;
 const IMAGE_CACHE_CONTROL = "public, max-age=31536000, immutable";
 const ADMIN_SESSION_COOKIE = "fb_admin_session";
-const ADMIN_SESSION_SECONDS = 7 * 24 * 60 * 60;
+const ADMIN_SESSION_SECONDS = 30 * 24 * 60 * 60;
 let schemaReady = false;
 
 export default {
@@ -144,7 +144,7 @@ async function adminAuthLogin(request, env) {
   const token = await createAdminSession(env.SITE_ADMIN_KEY);
   const headers = new Headers(JSON_HEADERS);
   headers.append("set-cookie", `${ADMIN_SESSION_COOKIE}=${token}; Max-Age=${ADMIN_SESSION_SECONDS}; Path=/; HttpOnly; Secure; SameSite=Strict`);
-  return new Response(JSON.stringify({ ok: true, trusted_for_days: 7 }), { status: 200, headers });
+  return new Response(JSON.stringify({ ok: true, trusted_for_days: 30 }), { status: 200, headers });
 }
 
 async function adminAuthSession(request, env) {
