@@ -17,8 +17,6 @@ public static class InstalledCredentialRecovery
     private static readonly CredentialSpec[] CredentialSpecs =
     [
         new("ai", "api_key", "OPENAI_API_KEY"),
-        new("images", "pexels_api_key", "PEXELS_API_KEY"),
-        new("images", "pixabay_api_key", "PIXABAY_API_KEY"),
         new("youtube", "api_key", "YOUTUBE_API_KEY"),
         new("youtube", "oauth_client_secret", "YOUTUBE_OAUTH_CLIENT_SECRET"),
         new("youtube", "oauth_refresh_token", "YOUTUBE_OAUTH_REFRESH_TOKEN"),
