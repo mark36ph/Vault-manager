@@ -4,6 +4,7 @@
   const LOGIN = "/api/admin/auth/login";
   const SETUP = "/api/admin/auth/setup";
   const LOGOUT = "/api/admin/auth/logout";
+  const SESSION_KEY = "factburst_admin_session_key";
   let authPassed = false;
   let busy = false;
 
@@ -15,12 +16,9 @@
   }
 
   function submitToLegacyAdmin() {
-    const key = document.querySelector("#admin-key");
-    const form = document.querySelector("#login-form");
-    if (!key || !form) return;
-    key.value = "session";
     authPassed = true;
-    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    sessionStorage.setItem(SESSION_KEY, "session");
+    document.dispatchEvent(new CustomEvent("factburst-admin-session-ready"));
   }
 
   async function hasSession() {
