@@ -112,7 +112,7 @@ public partial class MainShellWindow
             FactburstTrackerSettingsStore.Save(_data.SettingsPath, baseUrl, trackerApiKey);
             var settings = _data.LoadSettings();
             using var client = new FactburstApiSettingsBackupClient();
-            await client.BackupAsync(trackerApiKey, settings, baseUrl);
+            await client.BackupAsync(trackerApiKey, settings, FactburstApiSettingsBackupClient.DefaultWebsiteBaseUrl);
             if (_settingsPageStatus is not null)
                 _settingsPageStatus.Text = "API settings were encrypted and backed up to Cloudflare.";
             MessageBox.Show(this, "The configured API settings were encrypted and backed up to Cloudflare successfully.", "Cloudflare API Backup", MessageBoxButton.OK, MessageBoxImage.Information);
