@@ -67,18 +67,22 @@ async function requireAdmin(request, env) {
 
 async function verifyAdminSessionCookie(token, siteKey) {
   const parts = String(token).split(".");
+  if (parts.length === 2) {
+    const expected = await hmacSha256(siteKey, parts[0]);
+    const received = fromBase64Url(parts[1]);
+    return constantTimeEqual(expected, received);
+  }
   if (parts.length !== 3) return false;
   const timestamp = Number(parts[0]);
   const now = Date.now() / 1000;
-  const maxAge = 7 * 24 * 60 * 60;
+  const maxAge = 30 * 24 * 60 * 60;
   if (!Number.isInteger(timestamp) || now - timestamp > maxAge || timestamp - now > 60) return false;
   const expected = await hmacSha256(siteKey, `factburst-admin-session:${parts[0]}.${parts[1]}`);
   const received = fromBase64Url(parts[2]);
-  if (expected.length !== received.length) return false;
-  let difference = 0;
-  for (let i = 0; i < expected.length; i++) difference |= expected[i] ^ received[i];
-  return difference === 0;
+  return constantTimeEqual(expected, received);
 }
+
+function constantTimeEqual(a,b){if(a.length!==b.length)return false;let difference=0;for(let i=0;i<a.length;i++)difference|=a[i]^b[i];return difference===0;}
 
 async function hmacSha256(secret, text) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
