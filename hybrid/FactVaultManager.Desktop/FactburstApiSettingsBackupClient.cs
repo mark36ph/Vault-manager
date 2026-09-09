@@ -7,17 +7,18 @@ namespace FactVaultManager.Desktop;
 
 public sealed class FactburstApiSettingsBackupClient : IDisposable
 {
+    public const string DefaultWebsiteBaseUrl = "https://factburstquiz.com";
     private readonly HttpClient _client = new() { Timeout = TimeSpan.FromSeconds(30) };
 
-    public async Task BackupAsync(string trackerApiKey, AppSettingsModel settings, string trackerBaseUrl, CancellationToken cancellationToken = default)
+    public async Task BackupAsync(string trackerApiKey, AppSettingsModel settings, string websiteBaseUrl = DefaultWebsiteBaseUrl, CancellationToken cancellationToken = default)
     {
         var key = (trackerApiKey ?? "").Trim();
         if (key.Length < 16) throw new InvalidOperationException("Add the website tracker API key before backing up API settings.");
-        var baseUrl = (trackerBaseUrl ?? "").Trim().TrimEnd('/');
-        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out _)) throw new InvalidOperationException("The website tracker base URL is not valid.");
+        var baseUrl = (websiteBaseUrl ?? "").Trim().TrimEnd('/');
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out _)) throw new InvalidOperationException("The Factburst website base URL is not valid.");
 
         var payload = new BackupSettings(
-            baseUrl,
+            "https://go.factburstquiz.com",
             key,
             settings.OpenAiKey,
             settings.OpenAiModel,
@@ -68,10 +69,10 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
         [property: JsonPropertyName("youtube_oauth_client_id")] string YouTubeOAuthClientId,
         [property: JsonPropertyName("youtube_oauth_client_secret")] string YouTubeOAuthClientSecret,
         [property: JsonPropertyName("youtube_oauth_refresh_token")] string YouTubeOAuthRefreshToken,
-        [property: JsonPropertyName("youtube_approved_channel_id")] string ApprovedYouTubeChannelId,
-        [property: JsonPropertyName("youtube_approved_channel_name")] string ApprovedYouTubeChannelName,
+        [property: JsonPropertyName("youtube_approved_channel_id")] string YouTubeApprovedChannelId,
+        [property: JsonPropertyName("youtube_approved_channel_name")] string YouTubeApprovedChannelName,
         [property: JsonPropertyName("facebook_page_access_token")] string FacebookPageAccessToken,
-        [property: JsonPropertyName("facebook_approved_page_id")] string ApprovedFacebookPageId,
-        [property: JsonPropertyName("facebook_approved_page_name")] string ApprovedFacebookPageName,
+        [property: JsonPropertyName("facebook_approved_page_id")] string FacebookApprovedPageId,
+        [property: JsonPropertyName("facebook_approved_page_name")] string FacebookApprovedPageName,
         [property: JsonPropertyName("instagram_access_token")] string InstagramAccessToken);
 }
