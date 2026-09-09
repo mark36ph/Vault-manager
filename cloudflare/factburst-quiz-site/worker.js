@@ -206,33 +206,36 @@ async function hmacSha256(secret, text) {
 }
 
 async function createAdminSession(siteKey) {
-  const timestamp = Math.floor(Date.now() / 1000);
-  const nonce = crypto.randomUUID();
-  const payload = `${timestamp}.${nonce}`;
-  const signature = base64Url(await hmacSha256(siteKey, `factburst-admin-session:${payload}`));
-  return `${payload}.${signature}`;
+  const random = crypto.getRandomValues(new Uint8Array(32));
+  const token = base64Url(random);
+  const signature = base64Url(await hmacSha256(siteKey, token));
+  return `${token}.${signature}`;
 }
 
 async function verifyAdminSession(request, env) {
-  const cookieHeader = request.headers.get("cookie") || "";
-  const match = cookieHeader.split(";").map(value => value.trim()).find(value => value.startsWith(`${ADMIN_SESSION_COOKIE}=`));
-  if (!match) return false;
-  const token = match.slice(`${ADMIN_SESSION_COOKIE}=`.length);
-  const parts = token.split(".");
-  if (parts.length !== 3) return false;
-  const timestamp = Number(parts[0]);
-  if (!Number.isInteger(timestamp) || Date.now() / 1000 - timestamp > ADMIN_SESSION_SECONDS || timestamp - Date.now() / 1000 > 60) return false;
-  const expected = await hmacSha256(env.SITE_ADMIN_KEY, `factburst-admin-session:${parts[0]}.${parts[1]}`);
-  const received = fromBase64Url(parts[2]);
-  if (expected.length !== received.length) return false;
-  let difference = 0;
-  for (let i = 0; i < expected.length; i++) difference |= expected[i] ^ received[i];
-  return difference === 0;
+  const cookie = parseCookie(request.headers.get("cookie") || "")[ADMIN_SESSION_COOKIE] || "";
+  if (!cookie || !cookie.includes(".")) return false;
+  const [token, signature] = cookie.split(".");
+  if (!token || !signature) return false;
+  const expected = base64Url(await hmacSha256(env.SITE_ADMIN_KEY, token));
+  return signature === expected;
+}
+
+function parseCookie(value) {
+  return Object.fromEntries(value.split(";").map(part => part.trim().split("=")).filter(part => part.length >= 2));
 }
 
 async function listAdminQuizzes(request, env) {
   const auth = await requireAdmin(request, env); if (!auth.ok) return auth.response;
-  const result = await env.DB.prepare(`SELECT q.slug, q.title, q.category, q.description, q.youtube_url, q.publish_at, q.status, q.created_at, q.updated_at, COUNT(sq.id) AS question_count, COUNT(DISTINCT sa.id) AS attempts FROM site_quizzes q LEFT JOIN site_questions sq ON sq.quiz_id = q.id LEFT JOIN site_attempts sa ON sa.quiz_id = q.id GROUP BY q.id ORDER BY COALESCE(q.publish_at, q.created_at) DESC, q.id DESC`).all();
+  const result = await env.DB.prepare(`SELECT q.id, q.slug, q.title, q.category, q.description, q.youtube_url, q.publish_at, q.status, q.created_at, q.updated_at, COUNT(DISTINCT sq.id) AS question_count, COUNT(DISTINCT sa.id) AS attempts FROM site_quizzes q LEFT JOIN site_questions sq ON sq.quiz_id = q.id LEFT JOIN site_attempts sa ON sa.quiz_id = q.id GROUP BY q.id ORDER BY COALESCE(q.publish_at, q.created_at) DESC, q.id DESC`).all();
+  const questionResult = await env.DB.prepare(`SELECT quiz_id, position, question, answer_a, answer_b, answer_c, answer_d, correct_answer, explanation, image_key, image_data_url FROM site_questions ORDER BY quiz_id ASC, position ASC`).all();
+  const questionsByQuiz = new Map();
+  for (const row of questionResult.results || []) {
+    const id = Number(row.quiz_id);
+    if (!questionsByQuiz.has(id)) questionsByQuiz.set(id, []);
+    questionsByQuiz.get(id).push(row);
+  }
+  const quizzes = (result.results || []).map(quiz => ({ ...quiz, health: analyzeQuizHealth(quiz, questionsByQuiz.get(Number(quiz.id)) || []) }));
   const [totals, published, drafts, questions, attempts] = await Promise.all([
     env.DB.prepare("SELECT COUNT(*) AS value FROM site_quizzes").first(),
     env.DB.prepare("SELECT COUNT(*) AS value FROM site_quizzes WHERE status = 'published'").first(),
@@ -240,7 +243,44 @@ async function listAdminQuizzes(request, env) {
     env.DB.prepare("SELECT COUNT(*) AS value FROM site_questions").first(),
     env.DB.prepare("SELECT COUNT(*) AS value FROM site_attempts").first(),
   ]);
-  return json({ quizzes: result.results || [], stats: { total_quizzes: Number(totals?.value || 0), published: Number(published?.value || 0), drafts: Number(drafts?.value || 0), questions: Number(questions?.value || 0), attempts: Number(attempts?.value || 0) } });
+  const healthStats = quizzes.reduce((stats, quiz) => { stats[quiz.health.status] += 1; stats.issues += quiz.health.issues.length; return stats; }, { healthy: 0, warning: 0, error: 0, issues: 0 });
+  return json({ quizzes, stats: { total_quizzes: Number(totals?.value || 0), published: Number(published?.value || 0), drafts: Number(drafts?.value || 0), questions: Number(questions?.value || 0), attempts: Number(attempts?.value || 0), health: healthStats } });
+}
+
+function analyzeQuizHealth(quiz, rows) {
+  const issues = [];
+  const title = String(quiz?.title || "").trim();
+  const category = String(quiz?.category || "").trim();
+  const description = String(quiz?.description || "").trim();
+  if (!title) issues.push({ severity: "error", code: "missing-title", message: "Missing title." });
+  if (!category) issues.push({ severity: "error", code: "missing-category", message: "Missing category." });
+  if (!description) issues.push({ severity: "warning", code: "missing-description", message: "Description is empty." });
+  if (rows.length === 0) issues.push({ severity: "error", code: "no-questions", message: "Quiz has no questions." });
+  if (rows.length > 200) issues.push({ severity: "error", code: "too-many-questions", message: `Quiz has ${rows.length} questions; maximum is 200.` });
+  if (rows.length > 0 && rows.length < 5) issues.push({ severity: "warning", code: "few-questions", message: `Only ${rows.length} question${rows.length === 1 ? "" : "s"}; consider adding at least 5.` });
+  const seenQuestions = new Map();
+  for (const row of rows) {
+    const position = Number(row.position || 0);
+    const prefix = `Question ${position || "?"}`;
+    const text = String(row.question || "").trim();
+    const answers = [row.answer_a, row.answer_b, row.answer_c, row.answer_d].map(value => String(value || "").trim());
+    if (!text) issues.push({ severity: "error", code: "missing-question", position, message: `${prefix} has no question text.` });
+    else {
+      const key = text.toLowerCase().replace(/\s+/g, " ");
+      if (seenQuestions.has(key)) issues.push({ severity: "error", code: "duplicate-question", position, message: `${prefix} duplicates question ${seenQuestions.get(key)}.` });
+      else seenQuestions.set(key, position || "?");
+    }
+    const missingAnswers = answers.map((value, index) => value ? "" : String.fromCharCode(65 + index)).filter(Boolean);
+    if (missingAnswers.length) issues.push({ severity: "error", code: "missing-answer", position, message: `${prefix} is missing answer${missingAnswers.length > 1 ? "s" : ""}: ${missingAnswers.join(", ")}.` });
+    const normalizedAnswers = answers.filter(Boolean).map(value => value.toLowerCase().replace(/\s+/g, " "));
+    if (new Set(normalizedAnswers).size !== normalizedAnswers.length) issues.push({ severity: "error", code: "duplicate-answers", position, message: `${prefix} contains duplicate answer choices.` });
+    const correct = String(row.correct_answer || "").trim().toUpperCase();
+    if (!/^[A-D]$/.test(correct)) issues.push({ severity: "error", code: "invalid-correct-answer", position, message: `${prefix} has an invalid correct answer.` });
+    else if (!answers[correct.charCodeAt(0) - 65]) issues.push({ severity: "error", code: "correct-answer-missing", position, message: `${prefix} points to ${correct}, but that answer is empty.` });
+  }
+  const errors = issues.filter(issue => issue.severity === "error").length;
+  const warnings = issues.filter(issue => issue.severity === "warning").length;
+  return { status: errors ? "error" : warnings ? "warning" : "healthy", errors, warnings, issue_count: issues.length, issues: issues.slice(0, 20) };
 }
 
 async function getAdminQuiz(request, env, slug) {
@@ -248,7 +288,8 @@ async function getAdminQuiz(request, env, slug) {
   const quiz = await env.DB.prepare(`SELECT id, slug, title, category, description, youtube_url, publish_at, status, created_at, updated_at FROM site_quizzes WHERE slug = ? LIMIT 1`).bind(slug).first();
   if (!quiz) return json({ error: "Quiz not found." }, 404);
   const result = await env.DB.prepare(`SELECT position, question, answer_a, answer_b, answer_c, answer_d, correct_answer, explanation, image_key FROM site_questions WHERE quiz_id = ? ORDER BY position ASC`).bind(quiz.id).all();
-  return json({ quiz: { ...quiz, questions: (result.results || []).map(row => ({ position: row.position, question: row.question, answers: [row.answer_a, row.answer_b, row.answer_c, row.answer_d], correct_answer: normalizeAnswer(row.correct_answer), explanation: row.explanation || "", image_key: String(row.image_key || "") })) } });
+  const questions = result.results || [];
+  return json({ quiz: { ...quiz, questions: questions.map(row => ({ position: row.position, question: row.question, answers: [row.answer_a, row.answer_b, row.answer_c, row.answer_d], correct_answer: normalizeAnswer(row.correct_answer), explanation: row.explanation || "", image_key: String(row.image_key || "") })), health: analyzeQuizHealth(quiz, questions) } });
 }
 
 async function loadPlayableQuiz(db, slug, now, columns) {
