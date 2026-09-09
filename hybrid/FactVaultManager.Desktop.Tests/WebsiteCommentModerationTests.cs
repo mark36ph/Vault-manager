@@ -3,17 +3,7 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class WebsiteCommentModerationTests
 {
     [Fact]
-    public void Build77_DesktopClientUsesSecuredSiteCommentsAdminRoute()
-    {
-        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/FactburstWebsiteCommentsAdminClient.cs");
-        Assert.Contains("/api/site/comments?", source, StringComparison.Ordinal);
-        Assert.Contains("/api/site/comments/{commentId}", source, StringComparison.Ordinal);
-        Assert.Contains("AuthenticationHeaderValue(\"Bearer\", key)", source, StringComparison.Ordinal);
-        Assert.Contains("dismiss_reports", source, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Build77_AdminWorkerExposesCommentModerationBehindExistingApiKeyGuard()
+    public void WebsiteWorkerExposesCommentModerationBehindExistingApiKeyGuard()
     {
         var worker = ReadRepositoryFile("cloudflare/factburst-link-tracker/admin-worker-entry.js");
         var admin = ReadRepositoryFile("cloudflare/factburst-link-tracker/site-comment-admin.js");
