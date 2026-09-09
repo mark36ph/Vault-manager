@@ -1,1 +1,109 @@
-(() => {"use strict";const $=s=>document.querySelector(s);const esc=v=>String(v??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));async function load(){try{const key=sessionStorage.getItem('factburst_admin_session_key')||'session';const r=await fetch('/api/admin/quizzes',{headers:{Authorization:`Bearer ${key}`},credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('Administrator session expired.');const d=await r.json();const qs=d.quizzes||[];$('#stat-published').textContent=Number(d.stats?.published||qs.filter(q=>q.status==='published').length).toLocaleString();$('#stat-drafts').textContent=Number(d.stats?.drafts||qs.filter(q=>q.status!=='published').length).toLocaleString();$('#stat-questions').textContent=Number(d.stats?.questions||qs.reduce((n,q)=>n+Number(q.question_count||0),0)).toLocaleString();$('#stat-attempts').textContent=Number(d.stats?.attempts||0).toLocaleString();let attention=0;const detailed=[];for(const q of qs){try{const x=await fetch(`/api/admin/quizzes/${encodeURIComponent(q.slug)}`,{headers:{Authorization:`Bearer ${key}`},credentials:'same-origin'});if(x.ok){const z=(await x.json()).quiz;if(z){const questions=z.questions||[];const issues=[];if(questions.length<10)issues.push('fewer than 10 questions');const seen=new Set();questions.forEach((it,i)=>{const t=String(it.question||'').trim().toLowerCase();if(!t)issues.push(`Q${i+1} is empty`);if(t&&seen.has(t))issues.push(`Q${i+1} is duplicated`);if(t)seen.add(t);const a=(it.answers||[]).map(v=>String(v||'').trim());if(a.length!==4||a.some(v=>!v))issues.push(`Q${i+1} has missing answers`);if(!['A','B','C','D'].includes(String(it.correct_answer||'').toUpperCase()))issues.push(`Q${i+1} has invalid correct answer`);});if(issues.length){attention++;detailed.push({title:z.title||z.slug,issues});}}}}catch{}}$('#health-headline').textContent=attention?`${attention} quiz${attention===1?'':'zes'} need attention`:'Your quiz catalogue looks healthy';$('#health-summary').textContent=attention?detailed.slice(0,4).map(x=>`${x.title}: ${x.issues.slice(0,2).join(', ')}`).join(' · '):`${qs.length} quizzes checked with no structural issues found.`;const top=[...qs].sort((a,b)=>Number(b.attempts||0)-Number(a.attempts||0)).slice(0,5);$('#health-top').innerHTML=top.length?top.map((q,i)=>`<div class="admin-analytics-row"><span>${i+1}. ${esc(q.title||q.slug)}</span><strong>${Number(q.attempts||0).toLocaleString()}</strong></div>`).join(''):'<p>No play data yet.</p>';}catch(e){$('#health-headline').textContent=e.message;$('#health-summary').textContent='Please sign in again.';}}document.addEventListener('factburst-admin-session-ready',load,{once:true});if(sessionStorage.getItem('factburst_admin_session_key'))load();})();
+(() => {
+  "use strict";
+  const $ = selector => document.querySelector(selector);
+  const SESSION_KEY = "factburst_admin_session_key";
+  const loginPanel = $("#login-panel");
+  const app = $("#admin-app");
+  const headline = $("#health-headline");
+  const summary = $("#health-summary");
+  const top = $("#health-top");
+  const esc = value => String(value ?? "").replace(/[&<>\"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]));
+
+  function showApp() {
+    loginPanel?.classList.add("hidden");
+    app?.classList.remove("hidden");
+  }
+
+  function showLogin(message = "") {
+    app?.classList.add("hidden");
+    loginPanel?.classList.remove("hidden");
+    if (message) {
+      const status = $("#login-status");
+      if (status) { status.textContent = message; status.className = "admin-status error"; }
+    }
+  }
+
+  function sessionHeaders() {
+    const key = sessionStorage.getItem(SESSION_KEY);
+    return key ? { Authorization: `Bearer ${key}` } : {};
+  }
+
+  async function load() {
+    showApp();
+    try {
+      const response = await fetch("/api/admin/quizzes", {
+        headers: { ...sessionHeaders(), Accept: "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+      });
+      if (response.status === 401) {
+        sessionStorage.removeItem(SESSION_KEY);
+        showLogin("Your administrator session has expired. Please sign in again.");
+        return;
+      }
+      if (!response.ok) throw new Error(`Could not load the quiz catalogue (${response.status}).`);
+      const data = await response.json();
+      const quizzes = Array.isArray(data.quizzes) ? data.quizzes : [];
+      $("#stat-published").textContent = Number(data.stats?.published ?? quizzes.filter(q => q.status === "published").length).toLocaleString();
+      $("#stat-drafts").textContent = Number(data.stats?.drafts ?? quizzes.filter(q => q.status !== "published").length).toLocaleString();
+      $("#stat-questions").textContent = Number(data.stats?.questions ?? quizzes.reduce((total, q) => total + Number(q.question_count || 0), 0)).toLocaleString();
+      $("#stat-attempts").textContent = Number(data.stats?.attempts || 0).toLocaleString();
+
+      let attention = 0;
+      const detailed = [];
+      for (const quiz of quizzes) {
+        if (!quiz.slug) continue;
+        try {
+          const detail = await fetch(`/api/admin/quizzes/${encodeURIComponent(quiz.slug)}`, {
+            headers: { ...sessionHeaders(), Accept: "application/json" },
+            credentials: "same-origin",
+            cache: "no-store",
+          });
+          if (detail.status === 401) {
+            sessionStorage.removeItem(SESSION_KEY);
+            showLogin("Your administrator session has expired. Please sign in again.");
+            return;
+          }
+          if (!detail.ok) continue;
+          const payload = await detail.json();
+          const quizDetail = payload.quiz;
+          if (!quizDetail) continue;
+          const questions = Array.isArray(quizDetail.questions) ? quizDetail.questions : [];
+          const issues = [];
+          if (questions.length < 10) issues.push("fewer than 10 questions");
+          const seen = new Set();
+          questions.forEach((item, index) => {
+            const text = String(item.question || "").trim().toLowerCase().replace(/\s+/g, " ");
+            if (!text) issues.push(`Q${index + 1} is empty`);
+            if (text && seen.has(text)) issues.push(`Q${index + 1} is duplicated`);
+            if (text) seen.add(text);
+            const answers = Array.isArray(item.answers) ? item.answers.map(value => String(value || "").trim()) : [];
+            if (answers.length !== 4 || answers.some(value => !value)) issues.push(`Q${index + 1} has missing answers`);
+            const normalized = answers.filter(Boolean).map(value => value.toLowerCase().replace(/\s+/g, " "));
+            if (new Set(normalized).size !== normalized.length) issues.push(`Q${index + 1} has duplicate answers`);
+            if (!["A", "B", "C", "D"].includes(String(item.correct_answer || "").trim().toUpperCase())) issues.push(`Q${index + 1} has invalid correct answer`);
+            if (!String(item.explanation || "").trim()) issues.push(`Q${index + 1} is missing an explanation`);
+          });
+          if (!String(quizDetail.category || "").trim()) issues.push("category is missing");
+          if (issues.length) { attention++; detailed.push({ title: quizDetail.title || quizDetail.slug, issues }); }
+        } catch {}
+      }
+
+      headline.textContent = attention ? `${attention} quiz${attention === 1 ? "" : "zes"} need attention` : "Your quiz catalogue looks healthy";
+      summary.textContent = attention
+        ? detailed.slice(0, 4).map(item => `${item.title}: ${item.issues.slice(0, 2).join(", ")}`).join(" · ")
+        : `${quizzes.length} quizzes checked with no structural issues found.`;
+      const mostPlayed = [...quizzes].sort((a, b) => Number(b.attempts || 0) - Number(a.attempts || 0)).slice(0, 5);
+      top.innerHTML = mostPlayed.length
+        ? mostPlayed.map((quiz, index) => `<div class="admin-analytics-row"><span>${index + 1}. ${esc(quiz.title || quiz.slug)}</span><strong>${Number(quiz.attempts || 0).toLocaleString()}</strong></div>`).join("")
+        : "<p>No play data yet.</p>";
+    } catch (error) {
+      headline.textContent = "Could not load quiz health.";
+      summary.textContent = error?.message || "Please try again.";
+    }
+  }
+
+  document.addEventListener("factburst-admin-session-ready", load, { once: true });
+  if (sessionStorage.getItem(SESSION_KEY)) load();
+  else showLogin();
+})();
