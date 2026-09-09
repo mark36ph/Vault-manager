@@ -5,16 +5,7 @@
   const adsEnabled = $("#ads-enabled"), adsClient = $("#adsense-client"), adsLeft = $("#adsense-left-slot"), adsRight = $("#adsense-right-slot"), adsSave = $("#save-ads-settings"), adsStatus = $("#ads-settings-status"), adsState = $("#ads-settings-state");
   const backupStatus = $("#api-settings-backup-status"), backupState = $("#api-settings-backup-state"), backupDate = $("#api-settings-backup-date"), services = $("#api-settings-services");
   const setStatus=(element,text,type="")=>{if(element){element.textContent=text;element.className=`admin-status ${type}`.trim();}};
-  let redirecting = false;
-  function handleAuthFailure(error){
-    if (redirecting) return;
-    if (error?.status === 401 || /authentication required|not signed in|session expired/i.test(String(error?.message||""))) {
-      redirecting = true;
-      sessionStorage.removeItem("factburst_admin_session_key");
-      location.href = "/admin";
-    }
-  }
-  async function api(path,options={}){const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...options});let d={};try{d=await r.json();}catch{}if(!r.ok){const e=new Error(d.error||`Request failed (${r.status})`);e.status=r.status;handleAuthFailure(e);throw e;}return d;}
+  async function api(path,options={}){const r=await fetch(path,{credentials:"same-origin",cache:"no-store",...options});let d={};try{d=await r.json();}catch{}if(!r.ok){const e=new Error(d.error||`Request failed (${r.status})`);e.status=r.status;throw e;}return d;}
   async function loadWebsite(){try{const d=await api("/api/admin/users/site-settings");toggle.checked=!!d.maintenance_enabled;message.value=d.maintenance_message||"";}catch(e){setStatus(status,e.message,"error");}}
   async function loadAds(){try{const d=await api("/api/admin/site/ads");adsEnabled.checked=!!d.enabled;adsClient.value=d.client||"";adsLeft.value=d.left_slot||"";adsRight.value=d.right_slot||"";setStatus(adsState,d.active?"Google Ads are active on the public site.":"Google Ads are currently inactive.",d.active?"success":"");}catch(e){setStatus(adsStatus,e.message,"error");}}
   async function loadBackup(){try{const d=await api("/api/admin/api-settings");if(!d.configured){backupState.textContent="No Cloudflare API settings backup has been created yet.";backupDate.textContent="Use the desktop app's Back up API settings to Cloudflare button.";services.textContent="No backup available.";return;}backupState.textContent="Encrypted API settings backup is configured.";backupDate.textContent=d.backed_up_at?`Last backup: ${new Date(d.backed_up_at).toLocaleString()}`:"Last backup time unavailable.";const entries=Object.entries(d.settings||{});services.innerHTML=entries.length?entries.map(([key,value])=>`<div style="display:flex;justify-content:space-between;gap:16px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.08)"><span>${escapeHtml(labelFor(key))}</span><code>${escapeHtml(String(value))}</code></div>`).join(""):"No configured API values were included in the backup.";}catch(e){setStatus(backupStatus,e.message,"error");}}
