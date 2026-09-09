@@ -48,17 +48,11 @@ public sealed class FactburstWebsiteSocialStatsClient : IDisposable
         throw new HttpRequestException(ParseError(body, response.StatusCode));
     }
 
-    public static FactburstSocialStatsRecord FromHistory(QuizHistorySummary history, string platform, DateTimeOffset capturedAt)
+    public static FactburstSocialStatsRecord FromHistory(QuizHistorySummary history, string platform, DateTimeOffset capturedAt, SocialUploadJournalEntry? journal = null)
     {
         ArgumentNullException.ThrowIfNull(history);
         var normalizedPlatform = NormalizePlatform(platform);
-        var status = normalizedPlatform switch
-        {
-            "youtube" => history.YouTubeIsScheduled ? "scheduled" : history.PublishedOnYouTube ? "published" : "unknown",
-            "facebook" => history.FacebookIsScheduled ? "scheduled" : history.PublishedOnFacebook ? "published" : "unknown",
-            "instagram" => history.PublishedOnInstagram ? "published" : "unknown",
-            _ => "unknown",
-        };
+        var status = ResolveStatus(history, normalizedPlatform, journal);
         var scheduled = normalizedPlatform switch
         {
             "youtube" => history.YouTubeScheduledFor,
@@ -67,22 +61,42 @@ public sealed class FactburstWebsiteSocialStatsClient : IDisposable
         };
         var url = normalizedPlatform switch
         {
-            "youtube" => history.YouTubeUrl,
-            "facebook" => history.FacebookUrl,
-            "instagram" => history.InstagramUrl,
+            "youtube" => journal?.RemoteUrl ?? history.YouTubeUrl,
+            "facebook" => journal?.RemoteUrl ?? history.FacebookUrl,
+            "instagram" => journal?.RemoteUrl ?? history.InstagramUrl,
             _ => "",
         };
-        var id = normalizedPlatform == "youtube" ? YouTubeVideoAnalyticsService.TryGetVideoId(history.YouTubeUrl) ?? "" : "";
+        var id = !string.IsNullOrWhiteSpace(journal?.RemoteId)
+            ? journal.RemoteId.Trim()
+            : normalizedPlatform == "youtube" ? YouTubeVideoAnalyticsService.TryGetVideoId(history.YouTubeUrl) ?? "" : "";
+        var publishedAt = normalizedPlatform == "youtube" ? history.YouTubeUploadDate : normalizedPlatform == "facebook" ? history.FacebookUploadDate : history.InstagramUploadDate;
         return new FactburstSocialStatsRecord(
             FactburstLinkTrackerClient.CampaignSlug(history), normalizedPlatform, id, url.Trim(), status,
-            ParseDate(scheduled),
-            ParseDate(normalizedPlatform == "youtube" ? history.YouTubeUploadDate : normalizedPlatform == "facebook" ? history.FacebookUploadDate : history.InstagramUploadDate),
+            ParseDate(scheduled), ParseDate(publishedAt),
             Math.Max(0, normalizedPlatform == "youtube" ? history.YouTubeViews : normalizedPlatform == "facebook" ? history.FacebookViews : 0),
             Math.Max(0, normalizedPlatform == "youtube" ? history.YouTubeLikes : 0),
             Math.Max(0, normalizedPlatform == "facebook" ? history.FacebookComments : 0),
             Math.Max(0, normalizedPlatform == "facebook" ? history.FacebookShares : 0),
             Math.Max(0, normalizedPlatform == "facebook" ? history.FacebookReactions : 0),
-            capturedAt.ToUniversalTime().ToString("O"), "");
+            capturedAt.ToUniversalTime().ToString("O"), journal?.LastError ?? "");
+    }
+
+    private static string ResolveStatus(QuizHistorySummary history, string platform, SocialUploadJournalEntry? journal)
+    {
+        if (journal is not null)
+        {
+            if (journal.HasFailure) return "failed";
+            if (journal.UploadStatus == SocialUploadJournalStatus.InProgress) return "uploading";
+            if (journal.UploadStatus == SocialUploadJournalStatus.Pending) return "pending";
+            if (journal.UploadStatus == SocialUploadJournalStatus.Complete) return "published";
+        }
+        return platform switch
+        {
+            "youtube" => history.YouTubeIsScheduled ? "scheduled" : history.PublishedOnYouTube ? "published" : "not_uploaded",
+            "facebook" => history.FacebookIsScheduled ? "scheduled" : history.PublishedOnFacebook ? "published" : "not_uploaded",
+            "instagram" => history.PublishedOnInstagram ? "published" : "not_uploaded",
+            _ => "not_uploaded",
+        };
     }
 
     public void Dispose() => _client.Dispose();
