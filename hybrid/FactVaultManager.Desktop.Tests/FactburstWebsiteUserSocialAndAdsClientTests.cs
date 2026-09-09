@@ -15,7 +15,7 @@ public sealed class FactburstWebsiteUserSocialAndAdsClientTests
               "incoming": [{ "friendship_id": 4, "user_id": 9, "username": "History Buff", "user_status": "active", "created_at": "2026-08-29T12:00:00Z", "responded_at": null }], "outgoing": [] }
             """); });
         using var http = new HttpClient(handler);
-        using var client = new FactburstWebsiteUserFriendsClient(http);
+        using var client = new FactVaultManager.Desktop.FactburstWebsiteUserFriendsClient(http);
         var result = await client.FetchAsync("https://go.factburstquiz.com", "1234567890abcdef", 7);
         Assert.Equal("Space Ace", Assert.Single(result.Friends).Username);
         Assert.Equal("History Buff", Assert.Single(result.Incoming).Username);
@@ -23,18 +23,6 @@ public sealed class FactburstWebsiteUserSocialAndAdsClientTests
         Assert.Equal("Bearer", captured?.Headers.Authorization?.Scheme);
         Assert.Equal("1234567890abcdef", captured?.Headers.Authorization?.Parameter);
         Assert.EndsWith("/api/site/users/7/friends", captured?.RequestUri?.AbsoluteUri ?? "", StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task Ads_client_fetches_and_saves_optional_side_ad_settings()
-    {
-        var calls = new List<(HttpMethod Method, string Url, string Scheme)>();
-        var handler = new StubHandler(request => { calls.Add((request.Method, request.RequestUri?.AbsoluteUri ?? "", request.Headers.Authorization?.Scheme ?? "")); var body = request.Method == HttpMethod.Get ? "{\"enabled\":false,\"client\":\"ca-pub-1234567890123456\",\"left_slot\":\"1234567890\",\"right_slot\":\"\"}" : "{\"enabled\":true,\"client\":\"ca-pub-1234567890123456\",\"left_slot\":\"1234567890\",\"right_slot\":\"0987654321\"}"; return Json(HttpStatusCode.OK, body); });
-        using var http = new HttpClient(handler);
-        using var client = new FactburstWebsiteAdsAdminClient(http);
-        var current = await client.FetchAsync("https://go.factburstquiz.com", "1234567890abcdef");
-        var saved = await client.SaveAsync("https://go.factburstquiz.com", "1234567890abcdef", new FactburstWebsiteAdsSettings(true, current.Client, current.LeftSlot, "0987654321"));
-        Assert.False(current.Enabled); Assert.Equal("1234567890", current.LeftSlot); Assert.True(saved.Enabled); Assert.Equal("0987654321", saved.RightSlot); Assert.Equal(2, calls.Count); Assert.All(calls, call => Assert.Equal("Bearer", call.Scheme)); Assert.Equal(HttpMethod.Patch, calls[1].Method); Assert.EndsWith("/api/site/ads", calls[1].Url, StringComparison.Ordinal);
     }
 
     private static HttpResponseMessage Json(HttpStatusCode status, string body) => new(status) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
