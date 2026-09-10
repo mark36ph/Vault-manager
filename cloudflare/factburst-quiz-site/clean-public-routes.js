@@ -10,6 +10,7 @@ const CLEAN_PAGE_ASSETS = new Map([
   ["/admin/social", "/admin-social-page.html"],
   ["/admin/analytics", "/admin-analytics.html"],
   ["/admin/settings", "/admin-settings.html"],
+  ["/admin/recovery", "/admin-recovery.html"],
   ["/admin/users", "/admin-users.html"],
   ["/admin-preview", "/admin-preview.html"],
   ["/quiz-setup", "/quiz-setup.html"],
