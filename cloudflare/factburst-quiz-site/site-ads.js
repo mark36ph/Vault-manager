@@ -1,6 +1,4 @@
 const ADS_KEYS = ["ads_enabled", "adsense_client", "adsense_left_slot", "adsense_right_slot"];
-const LOGO_KEY = "site_logo_data_url";
-const MAX_LOGO_DATA_URL_BYTES = 210000;
 
 export async function handlePublicAdsConfig(request, db, url) {
   if (url.pathname !== "/api/site/ads" || request.method !== "GET") return null;
@@ -45,64 +43,6 @@ export async function handleAdminAdsConfig(request, env, url) {
       .bind(key, values[key], now).run();
   }
   return json({ ok: true, ...{ enabled, client, left_slot: left, right_slot: right }, active: enabled && Boolean(client) && Boolean(left || right), updated_at: now });
-}
-
-export async function handleLogoApi(request, env, url) {
-  if (url.pathname !== "/api/admin/site/logo" && url.pathname !== "/brand-icon.png") return null;
-  if (!env.DB) {
-    if (url.pathname === "/brand-icon.png") return null;
-    return json({ error: "Database unavailable." }, 503);
-  }
-  await ensureSettingsTable(env.DB);
-
-  if (url.pathname === "/brand-icon.png" && request.method === "GET") {
-    const row = await env.DB.prepare("SELECT value,updated_at FROM site_settings WHERE key=? LIMIT 1").bind(LOGO_KEY).first();
-    const parsed = parseLogoDataUrl(row?.value);
-    if (!parsed) return null;
-    return new Response(parsed.bytes, {
-      status: 200,
-      headers: {
-        "content-type": parsed.contentType,
-        "cache-control": "no-cache, must-revalidate",
-        "etag": `\"${simpleEtag(String(row.updated_at || "logo"))}\"`,
-        "x-content-type-options": "nosniff",
-      },
-    });
-  }
-
-  if (url.pathname !== "/api/admin/site/logo") return null;
-  if (!(await requireAdmin(request, env))) return json({ error: "Administrator authentication required." }, 401);
-  if (request.method !== "POST") return json({ error: "Logo endpoint not found." }, 404);
-
-  let body;
-  try { body = await request.json(); } catch { return json({ error: "Request body must be valid JSON." }, 400); }
-  const dataUrl = String(body?.data_url || "").trim();
-  const parsed = parseLogoDataUrl(dataUrl);
-  if (!parsed) return json({ error: "Logo must be a valid PNG or JPEG image." }, 400);
-  if (dataUrl.length > MAX_LOGO_DATA_URL_BYTES) return json({ error: "Logo is too large after optimisation. Keep it below 150 KB." }, 413);
-
-  const now = new Date().toISOString();
-  await env.DB.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at")
-    .bind(LOGO_KEY, dataUrl, now).run();
-  return json({ ok: true, updated_at: now, url: `/brand-icon.png?logo=${encodeURIComponent(now)}` });
-}
-
-function parseLogoDataUrl(value) {
-  const text = String(value || "").trim();
-  const match = text.match(/^data:(image\/(?:png|jpeg));base64,([A-Za-z0-9+/=\s]+)$/i);
-  if (!match) return null;
-  try {
-    const binary = atob(match[2].replace(/\s/g, ""));
-    const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
-    if (!bytes.length) return null;
-    return { contentType: match[1].toLowerCase(), bytes };
-  } catch { return null; }
-}
-
-function simpleEtag(value) {
-  let hash = 2166136261;
-  for (let i = 0; i < value.length; i++) hash = Math.imul(hash ^ value.charCodeAt(i), 16777619);
-  return (hash >>> 0).toString(16);
 }
 
 async function readAdsSettings(db) {
