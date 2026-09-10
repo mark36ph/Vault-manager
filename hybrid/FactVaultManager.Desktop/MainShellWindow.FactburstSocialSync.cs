@@ -16,10 +16,7 @@ public partial class MainShellWindow
 
     static MainShellWindow()
     {
-        EventManager.RegisterClassHandler(
-            typeof(MainShellWindow),
-            FrameworkElement.LoadedEvent,
-            new RoutedEventHandler(MainShellWindow_LoadedForFactburstSocialSync));
+        EventManager.RegisterClassHandler(typeof(MainShellWindow), FrameworkElement.LoadedEvent, new RoutedEventHandler(MainShellWindow_LoadedForFactburstSocialSync));
     }
 
     private static void MainShellWindow_LoadedForFactburstSocialSync(object sender, RoutedEventArgs e)
@@ -32,12 +29,10 @@ public partial class MainShellWindow
     {
         if (_factburstSocialSyncTimer.Interval != TimeSpan.Zero)
             return;
-
         _factburstSocialSyncTimer.Interval = TimeSpan.FromMinutes(15);
         _factburstSocialSyncTimer.Tick += async (_, _) => await SyncFactburstSocialStateAsync();
         Closed += (_, _) => _factburstSocialSyncTimer.Stop();
         _factburstSocialSyncTimer.Start();
-
         _ = SyncFactburstSocialStateAsync();
     }
 
@@ -45,27 +40,24 @@ public partial class MainShellWindow
     {
         if (_factburstSocialSyncRunning)
             return;
-
         _factburstSocialSyncRunning = true;
         try
         {
             var tracker = FactburstTrackerSettingsStore.Load(_data.SettingsPath);
             if (!tracker.IsConfigured)
                 return;
-
+            var reporting = FactburstSocialReportingSettingsStore.Load(_data.SettingsPath);
+            // Keep existing installations working while the dedicated key is being introduced.
+            // Once SOCIAL_STATS_API_KEY is entered in Settings, it is always preferred.
+            var reportingKey = reporting.IsConfigured ? reporting.ApiKey : tracker.ApiKey;
             var histories = _data.GetQuizHistory();
             if (histories.Count == 0)
                 return;
-
             var journal = _data.SocialUploadJournal.List();
-            var journalByQuizPlatform = journal
-                .GroupBy(x => $"{x.HistoryId}:{x.Platform.Trim().ToLowerInvariant()}")
-                .ToDictionary(x => x.Key, x => x.First());
-
+            var journalByQuizPlatform = journal.GroupBy(x => $"{x.HistoryId}:{x.Platform.Trim().ToLowerInvariant()}").ToDictionary(x => x.Key, x => x.First());
             using var client = new FactburstWebsiteSocialStatsClient();
             var capturedAt = DateTimeOffset.UtcNow;
             var records = new List<FactburstSocialStatsRecord>(histories.Count * 3);
-
             foreach (var history in histories)
             {
                 foreach (var platform in new[] { "youtube", "facebook", "instagram" })
@@ -81,9 +73,8 @@ public partial class MainShellWindow
                     }
                 }
             }
-
             foreach (var batch in records.Chunk(100))
-                await client.PushAsync(tracker.ApiKey, batch);
+                await client.PushAsync(reportingKey, batch);
         }
         catch (Exception error)
         {
