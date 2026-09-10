@@ -15,6 +15,71 @@
     saveStatus.className = `admin-status ${type}`.trim();
   }
 
+  function getQuestionText(card) {
+    return card.querySelector(".q-text")?.value.trim() || "";
+  }
+
+  function getAnswers(card) {
+    return [...card.querySelectorAll(".q-answer")].map(input => input.value.trim());
+  }
+
+  function validateQuestions() {
+    const cards = [...editor.children];
+    const seen = new Map();
+    const issues = [];
+
+    cards.forEach((card, index) => {
+      card.classList.remove("admin-question-invalid");
+      const question = getQuestionText(card);
+      const answers = getAnswers(card);
+      const correct = card.querySelector(".q-correct")?.value?.trim() ?? "";
+      const cardIssues = [];
+
+      if (!question) cardIssues.push("missing question");
+      if (answers.length === 0 || answers.some(answer => !answer)) cardIssues.push("missing answer");
+      const nonEmpty = answers.filter(Boolean).map(answer => answer.toLowerCase());
+      if (new Set(nonEmpty).size !== nonEmpty.length) cardIssues.push("duplicate answers");
+      if (!correct) cardIssues.push("no correct answer");
+
+      const key = question.toLowerCase();
+      if (key) {
+        if (seen.has(key)) {
+          cardIssues.push(`duplicate question (same as Q${seen.get(key)})`);
+          const first = cards[seen.get(key) - 1];
+          first?.classList.add("admin-question-invalid");
+        } else {
+          seen.set(key, index + 1);
+        }
+      }
+
+      if (cardIssues.length) {
+        card.classList.add("admin-question-invalid");
+        issues.push({ index: index + 1, text: cardIssues.join(", ") });
+      }
+    });
+
+    return issues;
+  }
+
+  function updateValidation() {
+    const panel = document.querySelector("#admin-validation-panel");
+    if (!panel) return;
+    const issues = validateQuestions();
+    const summary = panel.querySelector(".admin-validation-summary");
+    const list = panel.querySelector(".admin-validation-list");
+    if (issues.length === 0) {
+      panel.classList.remove("has-errors");
+      if (summary) summary.textContent = "✓ Ready to publish — no question issues found.";
+      if (list) list.innerHTML = "";
+      return;
+    }
+    panel.classList.add("has-errors");
+    if (summary) summary.textContent = `${issues.length} question${issues.length === 1 ? "" : "s"} need attention.`;
+    if (list) {
+      list.innerHTML = issues.map(issue => `<button type="button" class="admin-validation-item" data-question-index="${issue.index}"><strong>Q${issue.index}</strong> — ${issue.text}</button>`).join("");
+    }
+  }
+
   function renumber() {
     [...editor.children].forEach((card, index) => {
       const number = card.querySelector(".question-number");
@@ -27,6 +92,7 @@
       const total = editor.children.length;
       count.textContent = `${total} question${total === 1 ? "" : "s"}`;
     }
+    updateValidation();
   }
 
   function removeCard(card) {
@@ -84,8 +150,17 @@
       text.dataset.enhanced = "1";
       text.addEventListener("input", () => {
         summaryText.textContent = text.value.trim() || "New question";
+        updateValidation();
       });
     }
+
+    card.querySelectorAll("input, textarea, select").forEach(input => {
+      if (!input.dataset.validationEnhanced) {
+        input.dataset.validationEnhanced = "1";
+        input.addEventListener("input", updateValidation);
+        input.addEventListener("change", updateValidation);
+      }
+    });
 
     if (!summary) return;
     let main = summary.querySelector(".question-summary-main");
@@ -126,6 +201,63 @@
     renumber();
   }
 
+  function installAdminTools() {
+    if (!toolbar || document.querySelector("#admin-question-tools")) return;
+    const tools = document.createElement("div");
+    tools.id = "admin-question-tools";
+    tools.innerHTML = `
+      <div class="admin-question-search-row">
+        <input id="admin-question-search" type="search" placeholder="Search questions…" aria-label="Search questions">
+        <button type="button" class="button button-ghost" id="admin-clear-question-search">Clear</button>
+      </div>
+      <div id="admin-validation-panel" class="admin-validation-panel" aria-live="polite">
+        <div class="admin-validation-summary">Checking questions…</div>
+        <div class="admin-validation-list"></div>
+      </div>`;
+    toolbar.after(tools);
+
+    const search = tools.querySelector("#admin-question-search");
+    const clear = tools.querySelector("#admin-clear-question-search");
+    search?.addEventListener("input", () => {
+      const term = search.value.trim().toLowerCase();
+      [...editor.children].forEach(card => {
+        const haystack = [getQuestionText(card), ...getAnswers(card)].join(" ").toLowerCase();
+        card.hidden = Boolean(term && !haystack.includes(term));
+      });
+    });
+    clear?.addEventListener("click", () => {
+      search.value = "";
+      [...editor.children].forEach(card => { card.hidden = false; });
+      search.focus();
+    });
+
+    tools.querySelector(".admin-validation-list")?.addEventListener("click", event => {
+      const button = event.target.closest(".admin-validation-item");
+      if (!button) return;
+      const index = Number(button.dataset.questionIndex);
+      const card = editor.children[index - 1];
+      if (!card) return;
+      card.hidden = false;
+      card.open = true;
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+
+    const style = document.createElement("style");
+    style.textContent = `
+      #admin-question-tools { margin: 12px 0 16px; }
+      .admin-question-search-row { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
+      #admin-question-search { flex:1; min-width:0; }
+      .admin-validation-panel { border:1px solid rgba(120,120,120,.25); border-radius:10px; padding:10px 12px; }
+      .admin-validation-panel.has-errors { border-color: rgba(190,70,70,.55); }
+      .admin-validation-summary { font-weight:600; }
+      .admin-validation-list { display:grid; gap:4px; margin-top:7px; }
+      .admin-validation-item { border:0; background:none; text-align:left; padding:4px; cursor:pointer; }
+      .admin-question-invalid { outline:2px solid rgba(190,70,70,.55); outline-offset:2px; }
+      @media (max-width:600px) { .admin-question-search-row { flex-direction:column; align-items:stretch; } }
+    `;
+    document.head.appendChild(style);
+  }
+
   editor.addEventListener("click", event => {
     const duplicate = event.target.closest(".duplicate-question");
     if (duplicate) {
@@ -142,7 +274,7 @@
       event.stopImmediatePropagation();
       const card = remove.closest(".question-card");
       if (!card) return;
-      const questionText = card.querySelector(".q-text")?.value.trim() || "";
+      const questionText = getQuestionText(card);
       const label = questionText
         ? `\n\n“${questionText.slice(0, 80)}${questionText.length > 80 ? "…" : ""}”`
         : "";
@@ -197,5 +329,6 @@
   });
 
   if (toolbar) toolbar.setAttribute("aria-label", "Question editor controls");
+  installAdminTools();
   enhanceExisting();
 })();
