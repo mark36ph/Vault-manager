@@ -6,7 +6,7 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    public const int CurrentBuildNumber = 220;
+    public const int CurrentBuildNumber = 221;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
     private bool _deferredShellInitializationScheduled;
@@ -100,12 +100,10 @@ public partial class MainShellWindow
 
     private void InitializeDeferredWebsitePhase()
     {
-        // Keep only desktop website operations that are still needed for publishing.
-        // Website administration, moderation, SEO, ads and maintenance now live on the website.
-        QueueDeferredShellPhase(InitializeWebsiteManagerPage);
+        // Keep only desktop operations that are still needed for publishing.
+        // Website administration, moderation, SEO, analytics, ads and maintenance now live on the website.
         QueueDeferredShellPhase(InitializeWebsiteYouTubeScheduleSync);
         QueueDeferredShellPhase(InitializeWebsiteVisibilityControls);
-        QueueDeferredShellPhase(InitializeWebsiteAnalyticsPage);
         QueueDeferredShellPhase(InitializeLogoQuizPromoArtworkRepair);
         QueueDeferredShellPhase(InitializeDeferredHistoryAndMaintenancePhase);
     }
