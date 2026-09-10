@@ -2,17 +2,38 @@
   "use strict";
   const KEY = "factburst_admin_session_key";
   const DIAG_KEY = "factburst_admin_auth_diagnostic";
-  const NAV = [["Dashboard","/admin"],["Quizzes","/admin/quizzes"],["Social","/admin/social"],["Analytics","/admin/analytics"],["Settings","/admin/settings"]];
+  const NAV = [
+    ["Dashboard", "/admin", "dashboard"],
+    ["Quizzes", "/admin/quizzes", "quiz"],
+    ["Social", "/admin/social", "social"],
+    ["Analytics", "/admin/analytics", "analytics"],
+    ["Settings", "/admin/settings", "settings"],
+  ];
   const path = location.pathname.replace(/\/$/, "") || "/admin";
   const nativeFetch = window.fetch.bind(window);
   let session = null;
 
-  function recordAuthDiagnostic(data) {
-    const diagnostic = {
-      time: new Date().toISOString(),
-      page: location.pathname,
-      ...data,
+  function icon(name) {
+    const icons = {
+      dashboard: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+      quiz: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h9l3 3V20.5H6z"/><path d="M14 3.5v4h4M9 12h6M9 16h4"/></svg>',
+      social: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="m8.2 10.8 7.5-3.6M8.2 13.2l7.5 3.6"/></svg>',
+      analytics: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>',
+      settings: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z"/><path d="m19.4 15 .1.1a2 2 0 0 1-2.8 2.8l-.1-.1a2 2 0 0 0-3.4 1.4v.2a2 2 0 0 1-4 0v-.2a2 2 0 0 0-3.4-1.4l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A2 2 0 0 0 3.7 11H3.5a2 2 0 0 1 0-4h.2a2 2 0 0 0 1.4-3.4L5 3.5a2 2 0 1 1 2.8-2.8l.1.1A2 2 0 0 0 11.3 2h.2a2 2 0 0 1 4 0v.2a2 2 0 0 0 3.4 1.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A2 2 0 0 0 23.1 10h.2a2 2 0 0 1 0 4h-.2a2 2 0 0 0-3.7-1.4Z"/></svg>'
     };
+    return icons[name] || icons.dashboard;
+  }
+
+  function installNavStyles() {
+    if (document.getElementById("admin-sidebar-svg-styles")) return;
+    const style = document.createElement("style");
+    style.id = "admin-sidebar-svg-styles";
+    style.textContent = `.admin-sidebar{gap:6px}.admin-sidebar-label{padding:8px 10px 6px}.admin-sidebar a{position:relative;gap:11px}.admin-sidebar a svg{width:18px;height:18px;flex:0 0 18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:.82}.admin-sidebar a.active svg{opacity:1}.admin-sidebar-section-divider{height:1px;margin:7px 8px;background:rgba(255,255,255,.08)}.admin-sidebar-footer{margin-top:auto;padding-top:6px}.admin-sidebar-footer-label{padding:5px 10px;color:var(--admin-muted,#9ca8ba);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}@media(max-width:700px){.admin-sidebar a{gap:7px}.admin-sidebar a svg{width:16px;height:16px;flex-basis:16px}.admin-sidebar-section-divider{margin:5px 4px}}`;
+    document.head.appendChild(style);
+  }
+
+  function recordAuthDiagnostic(data) {
+    const diagnostic = { time: new Date().toISOString(), page: location.pathname, ...data };
     try { sessionStorage.setItem(DIAG_KEY, JSON.stringify(diagnostic)); } catch {}
     window.FactburstAdminAuthDiagnostic = diagnostic;
     document.dispatchEvent(new CustomEvent("factburst-admin-auth-diagnostic", { detail: diagnostic }));
@@ -45,6 +66,7 @@
   function shell() {
     const app = document.querySelector("#admin-app");
     if (!app) return;
+    installNavStyles();
     let nav = app.querySelector(".admin-sidebar");
     if (!nav) {
       nav = document.createElement("aside");
@@ -52,7 +74,7 @@
       nav.setAttribute("aria-label", "Admin navigation");
       app.insertBefore(nav, app.firstElementChild);
     }
-    nav.innerHTML = `<div class="admin-sidebar-label">Manage</div>${NAV.map(([label, href]) => `<a href="${href}" class="${href === path ? "active" : ""}">${label}</a>`).join("")}`;
+    nav.innerHTML = `<div class="admin-sidebar-label">Overview</div>${NAV.slice(0,1).map(([label,href,ico]) => `<a href="${href}" class="${href === path ? "active" : ""}">${icon(ico)}<span>${label}</span></a>`).join("")}<div class="admin-sidebar-label">Manage</div>${NAV.slice(1,3).map(([label,href,ico]) => `<a href="${href}" class="${href === path ? "active" : ""}">${icon(ico)}<span>${label}</span></a>`).join("")}<div class="admin-sidebar-label">Insights</div>${NAV.slice(3,4).map(([label,href,ico]) => `<a href="${href}" class="${href === path ? "active" : ""}">${icon(ico)}<span>${label}</span></a>`).join("")}<div class="admin-sidebar-footer"><div class="admin-sidebar-section-divider"></div><div class="admin-sidebar-footer-label">System</div>${NAV.slice(4).map(([label,href,ico]) => `<a href="${href}" class="${href === path ? "active" : ""}">${icon(ico)}<span>${label}</span></a>`).join("")}</div>`;
   }
 
   function addIdentity() {
