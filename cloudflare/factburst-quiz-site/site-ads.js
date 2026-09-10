@@ -15,11 +15,12 @@ export async function handleAdminAdsConfig(request, env, url) {
 
   if (request.method === "GET" && url.pathname === "/api/admin/site/ads") {
     const values = await readAdsSettings(env.DB);
+    const client = normalizeClient(values.adsense_client);
     return json({
       enabled: values.ads_enabled === "1",
-      client: normalizeClient(values.adsense_client),
-      left_slot: normalizeSlot(values.adsense_left_slot),
-      right_slot: normalizeSlot(values.adsense_right_slot),
+      client,
+      left_slot: normalizeAdSlot(values.adsense_left_slot, client),
+      right_slot: normalizeAdSlot(values.adsense_right_slot, client),
       active: publicAds(values).enabled,
     });
   }
@@ -30,18 +31,13 @@ export async function handleAdminAdsConfig(request, env, url) {
   try { body = await request.json(); } catch { return json({ error: "Request body must be valid JSON." }, 400); }
   const enabled = Boolean(body?.enabled);
   const client = normalizeClient(body?.client);
-  const left = normalizeSlot(body?.left_slot);
-  const right = normalizeSlot(body?.right_slot);
+  const left = normalizeAdSlot(body?.left_slot, client);
+  const right = normalizeAdSlot(body?.right_slot, client);
   if (enabled && !client) return json({ error: "Enter a valid AdSense Publisher ID such as ca-pub-1234567890123456." }, 400);
-  if (enabled && !left && !right) return json({ error: "Enter at least one ad slot when Google Ads is enabled." }, 400);
+  if (enabled && !left && !right) return json({ error: "Enter at least one real AdSense ad slot ID. Do not use the Publisher ID as the slot ID." }, 400);
 
   const now = new Date().toISOString();
-  const values = {
-    ads_enabled: enabled ? "1" : "0",
-    adsense_client: client,
-    adsense_left_slot: left,
-    adsense_right_slot: right,
-  };
+  const values = { ads_enabled: enabled ? "1" : "0", adsense_client: client, adsense_left_slot: left, adsense_right_slot: right };
   for (const key of ADS_KEYS) {
     await env.DB.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at")
       .bind(key, values[key], now).run();
@@ -56,29 +52,9 @@ async function readAdsSettings(db) {
 
 function publicAds(values) {
   const client = normalizeClient(values.adsense_client);
-  const left = normalizeSlot(values.adsense_left_slot);
-  const right = normalizeSlot(values.adsense_right_slot);
+  const left = normalizeAdSlot(values.adsense_left_slot, client);
+  const right = normalizeAdSlot(values.adsense_right_slot, client);
   return { enabled: values.ads_enabled === "1" && Boolean(client) && Boolean(left || right), client, left_slot: left, right_slot: right };
-}
-
-export async function ensureSettingsTable(db) {
-  await db.prepare(`
-    CREATE TABLE IF NOT EXISTS site_settings (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL DEFAULT '',
-      updated_at TEXT NOT NULL
-    )
-  `).run();
-}
-
-export function normalizeClient(value) {
-  const text = String(value || "").trim();
-  return /^ca-pub-\d{10,24}$/.test(text) ? text : "";
-}
-
-export function normalizeSlot(value) {
-  const text = String(value || "").trim();
-  return /^\d{4,20}$/.test(text) ? text : "";
 }
 
 async function requireAdmin(request, env) {
@@ -111,6 +87,25 @@ async function verifyAdminSessionCookie(cookie, siteKey) {
   return false;
 }
 
+function normalizeClient(value) {
+  const text = String(value || "").trim();
+  return /^ca-pub-\d{10,24}$/.test(text) ? text : "";
+}
+
+function normalizeSlot(value) {
+  const text = String(value || "").trim();
+  return /^\d{4,20}$/.test(text) ? text : "";
+}
+
+function normalizeAdSlot(value, client) {
+  const slot = normalizeSlot(value);
+  if (!slot) return "";
+  const publisherNumber = String(client || "").replace(/^ca-pub-/, "");
+  return publisherNumber && slot === publisherNumber ? "" : slot;
+}
+
+export { normalizeClient, normalizeSlot, normalizeAdSlot };
+
 function constantTimeEqual(expected, received) {
   if (expected.length !== received.length) return false;
   let difference = 0;
@@ -131,4 +126,14 @@ function fromBase64Url(value) {
 
 function json(value, status = 200) {
   return new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
+}
+
+export async function ensureSettingsTable(db) {
+  await db.prepare(`
+    CREATE TABLE IF NOT EXISTS site_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    )
+  `).run();
 }
