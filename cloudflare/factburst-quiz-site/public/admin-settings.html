@@ -12,186 +12,46 @@
 <body>
   <main class="admin-shell">
     <header class="admin-header">
-      <a class="admin-brand" href="/" aria-label="Factburst Quiz home">
-        <span class="admin-brand-mark"><img src="/brand-icon.png?v=2" alt=""></span>
-        <div>Factburst Quiz Admin</div>
-      </a>
-      <div class="admin-header-actions">
-        <a class="button button-secondary" href="/quizzes">View site</a>
-      </div>
+      <a class="admin-brand" href="/" aria-label="Factburst Quiz home"><span class="admin-brand-mark"><img src="/brand-icon.png?v=2" alt=""></span><div>Factburst Quiz Admin</div></a>
+      <div class="admin-header-actions"><a class="button button-secondary" href="/quizzes">View site</a></div>
     </header>
-
     <div class="admin-app-layout" id="admin-app">
       <section class="admin-main" id="admin-content">
-        <div class="admin-page-heading">
-          <p class="eyebrow">Configuration</p>
-          <h1>Settings</h1>
-          <p>Manage public-site controls, advertising and connection backups from one place. Quiz generation stays in the desktop application.</p>
-        </div>
+        <div class="admin-page-heading"><p class="eyebrow">Configuration</p><h1>Settings</h1><p>Manage public-site controls, advertising and connection backups from one place. Quiz generation stays in the desktop application.</p></div>
+        <section class="admin-panel admin-settings-overview"><div class="admin-panel-heading"><div><p class="eyebrow">System status</p><h2>At-a-glance</h2></div></div><div class="admin-settings-status-grid">
+          <article class="admin-settings-status-card"><span class="admin-settings-status-icon">●</span><div><strong id="settings-site-status">Checking…</strong><small>Public website</small></div></article>
+          <article class="admin-settings-status-card"><span class="admin-settings-status-icon">$</span><div><strong id="settings-ads-status">Checking…</strong><small>Google AdSense</small></div></article>
+          <article class="admin-settings-status-card"><span class="admin-settings-status-icon">↗</span><div><strong id="settings-backup-status">Checking…</strong><small>API backup</small></div></article>
+        </div></section>
 
-        <section class="admin-panel admin-settings-overview">
-          <div class="admin-panel-heading">
-            <div>
-              <p class="eyebrow">System status</p>
-              <h2>At-a-glance</h2>
-            </div>
-          </div>
-          <div class="admin-settings-status-grid">
-            <article class="admin-settings-status-card">
-              <span class="admin-settings-status-icon">●</span>
-              <div><strong id="settings-site-status">Checking…</strong><small>Public website</small></div>
-            </article>
-            <article class="admin-settings-status-card">
-              <span class="admin-settings-status-icon">$</span>
-              <div><strong id="settings-ads-status">Checking…</strong><small>Google AdSense</small></div>
-            </article>
-            <article class="admin-settings-status-card">
-              <span class="admin-settings-status-icon">↗</span>
-              <div><strong id="settings-backup-status">Checking…</strong><small>API backup</small></div>
-            </article>
-          </div>
+        <section class="admin-panel"><div class="admin-panel-heading"><div><p class="eyebrow">Website</p><h2>Maintenance mode</h2></div><span class="admin-section-badge">Emergency protected</span></div>
+          <div class="admin-settings-feature-grid"><article class="admin-settings-card admin-control-card"><div><h3>Public website status</h3><p>Temporarily take the public site offline while you work. Normal visitors will see the maintenance message instead of the site.</p></div><label class="admin-toggle"><input id="maintenance-toggle" type="checkbox"><span></span><b>Enable maintenance</b></label></article>
+          <article class="admin-settings-card"><h3>Maintenance message</h3><textarea id="maintenance-message" class="admin-settings-textarea" rows="4" maxlength="500" placeholder="We’ll be back shortly."></textarea><div class="admin-settings-actions"><button id="save-website-settings" class="button button-primary" type="button">Save website settings</button><span id="website-settings-status" class="admin-status" role="status"></span></div></article></div>
+          <div class="admin-security-note admin-recovery-note"><div><strong>Emergency recovery</strong><p>If this dashboard ever fails, use the separate recovery page to turn maintenance mode off without relying on the normal Settings page.</p></div><a class="button button-secondary" href="/admin/recovery">Open emergency recovery</a></div>
         </section>
 
-        <section class="admin-panel">
-          <div class="admin-panel-heading">
-            <div>
-              <p class="eyebrow">Website</p>
-              <h2>Maintenance mode</h2>
-            </div>
-            <span class="admin-section-badge">Emergency protected</span>
-          </div>
-          <div class="admin-settings-feature-grid">
-            <article class="admin-settings-card admin-control-card">
-              <div>
-                <h3>Public website status</h3>
-                <p>Temporarily take the public site offline while you work. Normal visitors will see the maintenance message instead of the site.</p>
-              </div>
-              <label class="admin-toggle">
-                <input id="maintenance-toggle" type="checkbox">
-                <span></span>
-                <b>Enable maintenance</b>
-              </label>
-            </article>
-            <article class="admin-settings-card">
-              <h3>Maintenance message</h3>
-              <textarea id="maintenance-message" class="admin-settings-textarea" rows="4" maxlength="500" placeholder="We’ll be back shortly."></textarea>
-              <div class="admin-settings-actions">
-                <button id="save-website-settings" class="button button-primary" type="button">Save website settings</button>
-                <span id="website-settings-status" class="admin-status" role="status"></span>
-              </div>
-            </article>
-          </div>
-          <div class="admin-security-note admin-recovery-note">
-            <div>
-              <strong>Emergency recovery</strong>
-              <p>If this dashboard ever fails, use the separate recovery page to turn maintenance mode off without relying on the normal Settings page.</p>
-            </div>
-            <a class="button button-secondary" href="/admin/recovery">Open emergency recovery</a>
-          </div>
-        </section>
-
-        <section class="admin-panel">
-          <div class="admin-panel-heading">
-            <div>
-              <p class="eyebrow">Advertising</p>
-              <h2>Google AdSense</h2>
-            </div>
-            <span id="ads-settings-badge" class="admin-section-badge">Checking…</span>
-          </div>
+        <section class="admin-panel"><div class="admin-panel-heading"><div><p class="eyebrow">Advertising</p><h2>Google AdSense</h2></div><span id="ads-settings-badge" class="admin-section-badge">Checking…</span></div>
           <p>Configure the publisher account and ad slots used on supported quiz pages. Ads are only loaded after the visitor accepts optional advertising cookies.</p>
-
-          <div class="admin-settings-feature-grid">
-            <article class="admin-settings-card admin-control-card">
-              <div>
-                <h3>Advertising status</h3>
-                <p>Keep this disabled until the publisher ID and at least one real AdSense ad-slot ID are configured.</p>
-              </div>
-              <label class="admin-toggle">
-                <input id="ads-enabled" type="checkbox">
-                <span></span>
-                <b>Enable Google Ads</b>
-              </label>
-            </article>
-
-            <article class="admin-settings-card">
-              <h3>AdSense configuration</h3>
-              <div class="admin-settings-form-grid">
-                <label class="admin-field">
-                  <span>Publisher ID</span>
-                  <input id="adsense-client" type="text" inputmode="text" autocomplete="off" placeholder="ca-pub-1234567890123456" maxlength="32">
-                  <small>Starts with <code>ca-pub-</code>.</small>
-                </label>
-                <label class="admin-field">
-                  <span>Left ad slot</span>
-                  <input id="adsense-left-slot" type="text" inputmode="numeric" autocomplete="off" placeholder="1234567890" maxlength="20">
-                  <small>Use the numeric slot ID from AdSense — not the publisher ID.</small>
-                </label>
-                <label class="admin-field">
-                  <span>Right ad slot</span>
-                  <input id="adsense-right-slot" type="text" inputmode="numeric" autocomplete="off" placeholder="1234567890" maxlength="20">
-                  <small>Optional if the left slot is the only slot you use.</small>
-                </label>
-              </div>
-              <div id="ads-settings-validation" class="admin-settings-validation" role="status"></div>
-              <div class="admin-settings-actions">
-                <button id="save-ads-settings" class="button button-primary" type="button">Save Google Ads settings</button>
-                <span id="ads-settings-status" class="admin-status" role="status"></span>
-              </div>
-              <p id="ads-settings-state" class="admin-status"></p>
-            </article>
-          </div>
-
-          <div class="admin-checklist">
-            <div class="admin-checklist-heading"><strong>AdSense readiness</strong><span>Code/configuration checks</span></div>
-            <div class="admin-checklist-grid">
-              <div><span class="check" id="ads-check-publisher">•</span><span><strong>Publisher ID</strong><small>Valid AdSense publisher format</small></span></div>
-              <div><span class="check" id="ads-check-slot">•</span><span><strong>Ad slot IDs</strong><small>Numeric slot IDs, separate from publisher ID</small></span></div>
-              <div><span class="check">✓</span><span><strong>ads.txt</strong><small>Repository contains the configured Google publisher record</small></span></div>
-              <div><span class="check">✓</span><span><strong>Consent handling</strong><small>Advertising script waits for optional advertising consent</small></span></div>
-            </div>
-          </div>
+          <div class="admin-settings-feature-grid"><article class="admin-settings-card admin-control-card"><div><h3>Advertising status</h3><p>Keep this disabled until the publisher ID, at least one real AdSense ad-slot ID and the required Google consent setup are ready.</p></div><label class="admin-toggle"><input id="ads-enabled" type="checkbox"><span></span><b>Enable Google Ads</b></label></article>
+          <article class="admin-settings-card"><h3>AdSense configuration</h3><div class="admin-settings-form-grid">
+            <label class="admin-field"><span>Publisher ID</span><input id="adsense-client" type="text" inputmode="text" autocomplete="off" placeholder="ca-pub-1234567890123456" maxlength="32"><small>Starts with <code>ca-pub-</code>.</small></label>
+            <label class="admin-field"><span>Left ad slot</span><input id="adsense-left-slot" type="text" inputmode="numeric" autocomplete="off" placeholder="1234567890" maxlength="20"><small>Use the numeric slot ID from AdSense — not the publisher ID.</small></label>
+            <label class="admin-field"><span>Right ad slot</span><input id="adsense-right-slot" type="text" inputmode="numeric" autocomplete="off" placeholder="1234567890" maxlength="20"><small>Optional if the left slot is the only slot you use.</small></label>
+          </div><div id="ads-settings-validation" class="admin-settings-validation" role="status"></div><div class="admin-settings-actions"><button id="save-ads-settings" class="button button-primary" type="button">Save Google Ads settings</button><span id="ads-settings-status" class="admin-status" role="status"></span></div><p id="ads-settings-state" class="admin-status"></p></article></div>
+          <div class="admin-checklist"><div class="admin-checklist-heading"><strong>AdSense readiness</strong><span>Code/configuration checks</span></div><div class="admin-checklist-grid">
+            <div><span class="check" id="ads-check-publisher">•</span><span><strong>Publisher ID</strong><small>Valid AdSense publisher format</small></span></div>
+            <div><span class="check" id="ads-check-slot">•</span><span><strong>Ad slot IDs</strong><small>Numeric slot IDs, separate from publisher ID</small></span></div>
+            <div><span class="check">✓</span><span><strong>ads.txt</strong><small>Repository contains the configured Google publisher record</small></span></div>
+            <div><span class="check warn">!</span><span><strong>Google CMP</strong><small>Confirm a Google-certified TCF CMP is configured in AdSense for UK/EEA personalised ads</small></span></div>
+          </div></div>
         </section>
 
-        <section class="admin-panel">
-          <div class="admin-panel-heading">
-            <div>
-              <p class="eyebrow">API &amp; Connections</p>
-              <h2>API keys &amp; connection backup</h2>
-            </div>
-            <span class="admin-section-badge">Encrypted backup</span>
-          </div>
-          <p>API credentials are backed up from the desktop app into the Cloudflare database. Full secrets are never displayed here.</p>
-          <div id="api-settings-backup-status" class="admin-status"></div>
-          <div id="api-settings-backup-grid" class="admin-settings-feature-grid">
-            <article class="admin-settings-card">
-              <h3>Cloudflare backup</h3>
-              <p id="api-settings-backup-state">Checking backup status…</p>
-              <p id="api-settings-backup-date"></p>
-            </article>
-            <article class="admin-settings-card">
-              <h3>Configured services</h3>
-              <div id="api-settings-services">Loading…</div>
-            </article>
-          </div>
-        </section>
+        <section class="admin-panel"><div class="admin-panel-heading"><div><p class="eyebrow">API &amp; Connections</p><h2>API keys &amp; connection backup</h2></div><span class="admin-section-badge">Encrypted backup</span></div><p>API credentials are backed up from the desktop app into the Cloudflare database. Full secrets are never displayed here.</p><div id="api-settings-backup-status" class="admin-status"></div><div id="api-settings-backup-grid" class="admin-settings-feature-grid"><article class="admin-settings-card"><h3>Cloudflare backup</h3><p id="api-settings-backup-state">Checking backup status…</p><p id="api-settings-backup-date"></p></article><article class="admin-settings-card"><h3>Configured services</h3><div id="api-settings-services">Loading…</div></article></div></section>
 
-        <section class="admin-panel">
-          <div class="admin-panel-heading">
-            <div>
-              <p class="eyebrow">Application</p>
-              <h2>Generation &amp; publishing</h2>
-            </div>
-          </div>
-          <p>Quiz generation, AI settings, queues, content creation and the main publishing workflow remain in the desktop app. This keeps the website admin focused on the live public catalogue and website operations.</p>
-          <div class="admin-settings-info-grid">
-            <div><strong>Desktop app</strong><span>Generation, AI, YouTube packaging and publishing</span></div>
-            <div><strong>Website admin</strong><span>Published quizzes, social tools, analytics, maintenance and advertising</span></div>
-          </div>
-        </section>
+        <section class="admin-panel"><div class="admin-panel-heading"><div><p class="eyebrow">Application</p><h2>Generation &amp; publishing</h2></div></div><p>Quiz generation, AI settings, queues, content creation and the main publishing workflow remain in the desktop app. This keeps the website admin focused on the live public catalogue and website operations.</p><div class="admin-settings-info-grid"><div><strong>Desktop app</strong><span>Generation, AI, YouTube packaging and publishing</span></div><div><strong>Website admin</strong><span>Published quizzes, social tools, analytics, maintenance and advertising</span></div></div></section>
       </section>
     </div>
   </main>
-  <script src="/admin-core.js?v=6"></script>
-  <script src="/admin-settings.js?v=7"></script>
+  <script src="/admin-core.js?v=6"></script><script src="/admin-settings.js?v=7"></script>
 </body>
 </html>
