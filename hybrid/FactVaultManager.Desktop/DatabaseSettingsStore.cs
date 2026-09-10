@@ -14,6 +14,7 @@ public static class DatabaseSettingsStore
     public const string MainSettingsKey = "desktop-app-settings";
     public const string AutopilotPreferencesKey = "autopilot-preferences";
     public const string TrackerSettingsKey = "factburst-link-tracker";
+    public const string SocialStatsSettingsKey = "factburst-social-reporting";
 
     public static string DatabasePathFromSettingsPath(string settingsPath)
     {
@@ -74,9 +75,6 @@ public static class DatabaseSettingsStore
         }
         catch (SqliteException error)
         {
-            // A compatibility mirror prevents a transient database lock/corruption from turning
-            // into an unexpected settings reset. We never overwrite the database after a failed
-            // read because an authoritative row may already exist there.
             Debug.WriteLine($"Could not read database setting '{settingKey}': {error.Message}");
         }
 
@@ -95,9 +93,6 @@ public static class DatabaseSettingsStore
         var databasePath = DatabasePathFromSettingsPath(settingsPath);
         if (File.Exists(databasePath))
             SaveJson(databasePath, settingKey, valueJson);
-        // Legacy recovery utilities and isolated preference tests can legitimately run before a
-        // FactVault database exists. In the installed app, DesktopDataService enforces database
-        // presence before user settings are saved, so this remains only a compatibility path.
         TryWriteCompatibilityMirror(legacyPath, valueJson);
     }
 
@@ -121,8 +116,6 @@ public static class DatabaseSettingsStore
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
-            // The mirror is deliberately non-authoritative. A failed JSON mirror must never
-            // undo a successful database save or make the user lose newly saved settings.
             Debug.WriteLine("Could not update legacy settings mirror: " + error.Message);
         }
     }
