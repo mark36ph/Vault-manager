@@ -16,10 +16,11 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
         if (key.Length < 16) throw new InvalidOperationException("Add the website tracker API key before backing up API settings.");
         var baseUrl = (websiteBaseUrl ?? "").Trim().TrimEnd('/');
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out _)) throw new InvalidOperationException("The Factburst website base URL is not valid.");
-
+        var socialReporting = FactburstSocialReportingSettingsStore.Load(_settingsPathFallback(settings));
         var payload = new BackupSettings(
             "https://go.factburstquiz.com",
             key,
+            socialReporting.ApiKey,
             settings.OpenAiKey,
             settings.OpenAiModel,
             settings.YouTubeApiKey,
@@ -32,7 +33,6 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
             settings.ApprovedFacebookPageId,
             settings.ApprovedFacebookPageName,
             settings.InstagramAccessToken);
-
         using var request = new HttpRequestMessage(HttpMethod.Post, baseUrl + "/api/admin/api-settings/backup");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -40,6 +40,14 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
         using var response = await _client.SendAsync(request, cancellationToken);
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!response.IsSuccessStatusCode) throw new HttpRequestException(ParseError(body, response.StatusCode));
+    }
+
+    // The backup client receives AppSettingsModel rather than MainShellWindow, so the real
+    // settings path is supplied through this compatibility hook by the caller's current store.
+    private static string _settingsPathFallback(AppSettingsModel settings)
+    {
+        var property = settings.GetType().GetProperty("SettingsPath");
+        return property?.GetValue(settings)?.ToString() ?? Path.Combine(AppContext.BaseDirectory, "settings.json");
     }
 
     public void Dispose() => _client.Dispose();
@@ -59,6 +67,7 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
     private sealed record BackupSettings(
         [property: JsonPropertyName("tracker_base_url")] string TrackerBaseUrl,
         [property: JsonPropertyName("tracker_api_key")] string TrackerApiKey,
+        [property: JsonPropertyName("social_stats_api_key")] string SocialStatsApiKey,
         [property: JsonPropertyName("openai_api_key")] string OpenAiApiKey,
         [property: JsonPropertyName("openai_model")] string OpenAiModel,
         [property: JsonPropertyName("youtube_api_key")] string YouTubeApiKey,
