@@ -5,13 +5,14 @@ namespace FactVaultManager.Desktop.Tests;
 public sealed class PerformanceDiagnosticsDashboardTests
 {
     [Fact]
-    public void Build214_DeferredStartupQueuesIndividualSteps()
+    public void Build221_DeferredStartupQueuesIndividualStepsWithoutLegacyWebsitePages()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
 
         Assert.Contains("Startup.DeferredStep.", buildInfo, StringComparison.Ordinal);
         Assert.Contains("QueueDeferredShellPhase(FinalizeApiConnectionsYouTubeButton);", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("QueueDeferredShellPhase(InitializeWebsiteManagerPage);", buildInfo, StringComparison.Ordinal);
+        Assert.DoesNotContain("QueueDeferredShellPhase(InitializeWebsiteManagerPage);", buildInfo, StringComparison.Ordinal);
+        Assert.DoesNotContain("QueueDeferredShellPhase(InitializeWebsiteAnalyticsPage);", buildInfo, StringComparison.Ordinal);
         Assert.Contains("QueueDeferredShellPhase(InitializeQuizHistoryPage);", buildInfo, StringComparison.Ordinal);
     }
 
