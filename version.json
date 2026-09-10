@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.0.200",
-  "build": 220,
+  "latest_version": "1.0.201",
+  "build": 221,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 220 fixes Cloudflare API backup by retrying through the direct Factburst Worker when the custom website domain returns not found.",
-    "The existing website tracker connection and TRACKER_API_KEY settings remain unchanged."
+    "Build 221 moves website analytics to the Factburst web admin and removes the legacy desktop Website and Web Analytics pages.",
+    "The desktop website publishing and scheduling workflow remains available where it is still required."
   ]
 }
