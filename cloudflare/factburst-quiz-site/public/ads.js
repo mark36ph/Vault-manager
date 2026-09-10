@@ -1,23 +1,7 @@
 let factburstAdsStarted = false;
 
 if (document.body.dataset.page === "quiz") {
-  if (hasAdvertisingConsent()) {
-    startAds();
-  }
-  window.addEventListener("factburst:cookie-consent", event => {
-    if (event.detail?.choice === "accepted") startAds();
-  });
-}
-
-function hasAdvertisingConsent() {
-  try {
-    if (window.factburstCookieConsent?.acceptsOptional) {
-      return window.factburstCookieConsent.acceptsOptional();
-    }
-    return localStorage.getItem("factburst-cookie-consent-v1") === "accepted";
-  } catch {
-    return false;
-  }
+  startAds();
 }
 
 function startAds() {
@@ -38,12 +22,6 @@ async function initializeSideAds() {
     [document.querySelector("#quiz-ad-right"), config.right_slot],
   ].filter(([host, slot]) => host && validSlot(slot));
   if (slots.length === 0) return;
-
-  const script = document.createElement("script");
-  script.async = true;
-  script.crossOrigin = "anonymous";
-  script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(config.client)}`;
-  document.head.append(script);
 
   for (const [host, slot] of slots) {
     host.classList.remove("hidden");
