@@ -9,9 +9,12 @@ public sealed record FactburstSocialStatsRecord(
     [property: JsonPropertyName("quiz_slug")] string QuizSlug,
     [property: JsonPropertyName("platform")] string Platform,
     [property: JsonPropertyName("platform_id")] string PlatformId,
+    [property: JsonPropertyName("external_id")] string ExternalId,
+    [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("url")] string Url,
     [property: JsonPropertyName("status")] string Status,
     [property: JsonPropertyName("scheduled_for")] string? ScheduledFor,
+    [property: JsonPropertyName("uploaded_at")] string? UploadedAt,
     [property: JsonPropertyName("published_at")] string? PublishedAt,
     [property: JsonPropertyName("views")] long Views,
     [property: JsonPropertyName("likes")] long Likes,
@@ -70,9 +73,10 @@ public sealed class FactburstWebsiteSocialStatsClient : IDisposable
             ? journal.RemoteId.Trim()
             : normalizedPlatform == "youtube" ? YouTubeVideoAnalyticsService.TryGetVideoId(history.YouTubeUrl) ?? "" : "";
         var publishedAt = normalizedPlatform == "youtube" ? history.YouTubeUploadDate : normalizedPlatform == "facebook" ? history.FacebookUploadDate : history.InstagramUploadDate;
+        var uploadedAt = journal?.CompletedAt ?? publishedAt;
         return new FactburstSocialStatsRecord(
-            FactburstLinkTrackerClient.CampaignSlug(history), normalizedPlatform, id, url.Trim(), status,
-            ParseDate(scheduled), ParseDate(publishedAt),
+            FactburstLinkTrackerClient.CampaignSlug(history), normalizedPlatform, id, id, history.Title?.Trim() ?? "", url.Trim(), status,
+            ParseDate(scheduled), ParseDate(uploadedAt), ParseDate(publishedAt),
             Math.Max(0, normalizedPlatform == "youtube" ? history.YouTubeViews : normalizedPlatform == "facebook" ? history.FacebookViews : 0),
             Math.Max(0, normalizedPlatform == "youtube" ? history.YouTubeLikes : 0),
             Math.Max(0, normalizedPlatform == "facebook" ? history.FacebookComments : 0),
@@ -119,7 +123,7 @@ public sealed class FactburstWebsiteSocialStatsClient : IDisposable
     private static string RequireApiKey(string value)
     {
         var key = (value ?? "").Trim();
-        if (key.Length < 16) throw new InvalidOperationException("Add the tracker API key in Settings → Link Tracker first.");
+        if (key.Length < 16) throw new InvalidOperationException("Add the social reporting API key in Settings → API & Connections first.");
         return key;
     }
 
