@@ -1,109 +1,20 @@
 (() => {
   "use strict";
-  const $ = selector => document.querySelector(selector);
-  const SESSION_KEY = "factburst_admin_session_key";
-  const loginPanel = $("#login-panel");
-  const app = $("#admin-app");
-  const headline = $("#health-headline");
-  const summary = $("#health-summary");
-  const top = $("#health-top");
-  const esc = value => String(value ?? "").replace(/[&<>\"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[char]));
-
-  function showApp() {
-    loginPanel?.classList.add("hidden");
-    app?.classList.remove("hidden");
+  const $=selector=>document.querySelector(selector);
+  const SESSION_KEY="factburst_admin_session_key";
+  const loginPanel=$("#login-panel"),app=$("#admin-app"),headline=$("#health-headline"),summary=$("#health-summary"),top=$("#health-top");
+  const esc=value=>String(value??"").replace(/[&<>\"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[char]));
+  function showApp(){loginPanel?.classList.add("hidden");app?.classList.remove("hidden");}
+  function showLogin(message=""){app?.classList.add("hidden");loginPanel?.classList.remove("hidden");if(message){const status=$("#login-status");if(status){status.textContent=message;status.className="admin-status error";}}}
+  function sessionHeaders(){const key=sessionStorage.getItem(SESSION_KEY);return key?{Authorization:`Bearer ${key}`}:{ };}
+  async function fetchJson(path){const response=await fetch(path,{headers:{...sessionHeaders(),Accept:"application/json"},credentials:"same-origin",cache:"no-store"});const data=await response.json().catch(()=>({}));if(response.status===401){sessionStorage.removeItem(SESSION_KEY);showLogin("Your administrator session has expired. Please sign in again.");throw new Error("Administrator session expired.");}if(!response.ok)throw new Error(data?.error||`Request failed (${response.status}).`);return data;}
+  function socialCards(summary){const p=summary?.platforms||{};const cards=[
+    ["Total published",summary?.total_published||0,"Across all platforms"],["Scheduled",summary?.total_scheduled||0,"Waiting for desktop publisher"],["Failed",summary?.total_failed||0,"Uploads needing attention"],["YouTube views",p.youtube?.views||0,"Reported by desktop app"],["YouTube likes",p.youtube?.likes||0,"Reported by desktop app"],["Facebook views",p.facebook?.views||0,"Reported by desktop app"],["Facebook reactions",p.facebook?.reactions||0,"Reported by desktop app"],["Facebook comments",p.facebook?.comments||0,"Reported by desktop app"],["Facebook shares",p.facebook?.shares||0,"Reported by desktop app"],["Instagram activity",(p.instagram?.published||0)+(p.instagram?.views||0)+(p.instagram?.likes||0),"Published + reported metrics"]];
+    $("#dashboard-social-cards").innerHTML=cards.map(card=>`<article class="dashboard-social-card"><span>${esc(card[0])}</span><strong>${Number(card[1]).toLocaleString()}</strong><small>${esc(card[2])}</small></article>`).join("");
   }
-
-  function showLogin(message = "") {
-    app?.classList.add("hidden");
-    loginPanel?.classList.remove("hidden");
-    if (message) {
-      const status = $("#login-status");
-      if (status) { status.textContent = message; status.className = "admin-status error"; }
-    }
-  }
-
-  function sessionHeaders() {
-    const key = sessionStorage.getItem(SESSION_KEY);
-    return key ? { Authorization: `Bearer ${key}` } : {};
-  }
-
-  async function load() {
-    showApp();
-    try {
-      const response = await fetch("/api/admin/quizzes", {
-        headers: { ...sessionHeaders(), Accept: "application/json" },
-        credentials: "same-origin",
-        cache: "no-store",
-      });
-      if (response.status === 401) {
-        sessionStorage.removeItem(SESSION_KEY);
-        showLogin("Your administrator session has expired. Please sign in again.");
-        return;
-      }
-      if (!response.ok) throw new Error(`Could not load the quiz catalogue (${response.status}).`);
-      const data = await response.json();
-      const quizzes = Array.isArray(data.quizzes) ? data.quizzes : [];
-      $("#stat-published").textContent = Number(data.stats?.published ?? quizzes.filter(q => q.status === "published").length).toLocaleString();
-      $("#stat-drafts").textContent = Number(data.stats?.drafts ?? quizzes.filter(q => q.status !== "published").length).toLocaleString();
-      $("#stat-questions").textContent = Number(data.stats?.questions ?? quizzes.reduce((total, q) => total + Number(q.question_count || 0), 0)).toLocaleString();
-      $("#stat-attempts").textContent = Number(data.stats?.attempts || 0).toLocaleString();
-
-      let attention = 0;
-      const detailed = [];
-      for (const quiz of quizzes) {
-        if (!quiz.slug) continue;
-        try {
-          const detail = await fetch(`/api/admin/quizzes/${encodeURIComponent(quiz.slug)}`, {
-            headers: { ...sessionHeaders(), Accept: "application/json" },
-            credentials: "same-origin",
-            cache: "no-store",
-          });
-          if (detail.status === 401) {
-            sessionStorage.removeItem(SESSION_KEY);
-            showLogin("Your administrator session has expired. Please sign in again.");
-            return;
-          }
-          if (!detail.ok) continue;
-          const payload = await detail.json();
-          const quizDetail = payload.quiz;
-          if (!quizDetail) continue;
-          const questions = Array.isArray(quizDetail.questions) ? quizDetail.questions : [];
-          const issues = [];
-          if (questions.length < 10) issues.push("fewer than 10 questions");
-          const seen = new Set();
-          questions.forEach((item, index) => {
-            const text = String(item.question || "").trim().toLowerCase().replace(/\s+/g, " ");
-            if (!text) issues.push(`Q${index + 1} is empty`);
-            if (text && seen.has(text)) issues.push(`Q${index + 1} is duplicated`);
-            if (text) seen.add(text);
-            const answers = Array.isArray(item.answers) ? item.answers.map(value => String(value || "").trim()) : [];
-            if (answers.length !== 4 || answers.some(value => !value)) issues.push(`Q${index + 1} has missing answers`);
-            const normalized = answers.filter(Boolean).map(value => value.toLowerCase().replace(/\s+/g, " "));
-            if (new Set(normalized).size !== normalized.length) issues.push(`Q${index + 1} has duplicate answers`);
-            if (!["A", "B", "C", "D"].includes(String(item.correct_answer || "").trim().toUpperCase())) issues.push(`Q${index + 1} has invalid correct answer`);
-            if (!String(item.explanation || "").trim()) issues.push(`Q${index + 1} is missing an explanation`);
-          });
-          if (!String(quizDetail.category || "").trim()) issues.push("category is missing");
-          if (issues.length) { attention++; detailed.push({ title: quizDetail.title || quizDetail.slug, issues }); }
-        } catch {}
-      }
-
-      headline.textContent = attention ? `${attention} quiz${attention === 1 ? "" : "zes"} need attention` : "Your quiz catalogue looks healthy";
-      summary.textContent = attention
-        ? detailed.slice(0, 4).map(item => `${item.title}: ${item.issues.slice(0, 2).join(", ")}`).join(" · ")
-        : `${quizzes.length} quizzes checked with no structural issues found.`;
-      const mostPlayed = [...quizzes].sort((a, b) => Number(b.attempts || 0) - Number(a.attempts || 0)).slice(0, 5);
-      top.innerHTML = mostPlayed.length
-        ? mostPlayed.map((quiz, index) => `<div class="admin-analytics-row"><span>${index + 1}. ${esc(quiz.title || quiz.slug)}</span><strong>${Number(quiz.attempts || 0).toLocaleString()}</strong></div>`).join("")
-        : "<p>No play data yet.</p>";
-    } catch (error) {
-      headline.textContent = "Could not load quiz health.";
-      summary.textContent = error?.message || "Please try again.";
-    }
-  }
-
-  document.addEventListener("factburst-admin-session-ready", load, { once: true });
-  if (sessionStorage.getItem(SESSION_KEY)) load();
-  else showLogin();
+  function renderSocial(stats){const body=$("#dashboard-social-table");if(!stats.length){body.innerHTML='<tr><td colspan="9">No social upload records have been reported yet.</td></tr>';return;}const statusLabel={published:"Published",scheduled:"Scheduled",failed:"Failed",uploading:"Uploading",pending:"Pending",not_uploaded:"Not uploaded",not_connected:"Not connected",cancelled:"Cancelled",unknown:"Not synced"};body.innerHTML=stats.slice(0,30).map(row=>{const status=String(row.status||"unknown").toLowerCase();const date=row.published_at||row.scheduled_for;const sync=row.last_stats_sync||row.captured_at;const metrics=row.platform==="facebook"?`${Number(row.likes||0).toLocaleString()} reactions`:`${Number(row.likes||0).toLocaleString()} likes`;return `<tr><td>${esc(row.title||row.quiz_slug)}</td><td>${esc(row.platform)}</td><td><span class="dashboard-social-status ${esc(status)}">${esc(statusLabel[status]||"Not synced")}</span></td><td>${date?esc(new Date(date).toLocaleString()):"—"}</td><td>${Number(row.views||0).toLocaleString()}</td><td>${metrics}</td><td>${Number(row.comments||0).toLocaleString()}</td><td>${Number(row.shares||0).toLocaleString()}</td><td>${sync?esc(new Date(sync).toLocaleString()):"—"}</td></tr>`}).join("");}
+  async function loadSocial(){const status=$("#dashboard-social-status");try{const data=await fetchJson("/api/social/stats?limit=500");socialCards(data.summary||{});renderSocial(Array.isArray(data.stats)?data.stats:[]);status.textContent="";}catch(error){if(error.message!=="Administrator session expired.")status.textContent=error.message;status.className="admin-status error";}}
+  async function load(){showApp();try{const data=await fetchJson("/api/admin/quizzes");const quizzes=Array.isArray(data.quizzes)?data.quizzes:[];$("#stat-published").textContent=Number(data.stats?.published??quizzes.filter(q=>q.status==="published").length).toLocaleString();$("#stat-drafts").textContent=Number(data.stats?.drafts??quizzes.filter(q=>q.status!=="published").length).toLocaleString();$("#stat-questions").textContent=Number(data.stats?.questions??quizzes.reduce((total,q)=>total+Number(q.question_count||0),0)).toLocaleString();$("#stat-attempts").textContent=Number(data.stats?.attempts||0).toLocaleString();let attention=0;const detailed=[];for(const quiz of quizzes){if(!quiz.slug)continue;try{const payload=await fetchJson(`/api/admin/quizzes/${encodeURIComponent(quiz.slug)}`);const quizDetail=payload.quiz;if(!quizDetail)continue;const questions=Array.isArray(quizDetail.questions)?quizDetail.questions:[];const issues=[];if(questions.length<10)issues.push("fewer than 10 questions");const seen=new Set();questions.forEach((item,index)=>{const text=String(item.question||"").trim().toLowerCase().replace(/\s+/g," ");if(!text)issues.push(`Q${index+1} is empty`);if(text&&seen.has(text))issues.push(`Q${index+1} is duplicated`);if(text)seen.add(text);const answers=Array.isArray(item.answers)?item.answers.map(value=>String(value||"").trim()):[];if(answers.length!==4||answers.some(value=>!value))issues.push(`Q${index+1} has missing answers`);const normalized=answers.filter(Boolean).map(value=>value.toLowerCase().replace(/\s+/g," "));if(new Set(normalized).size!==normalized.length)issues.push(`Q${index+1} has duplicate answers`);if(!["A","B","C","D"].includes(String(item.correct_answer||"").trim().toUpperCase()))issues.push(`Q${index+1} has invalid correct answer`);if(!String(item.explanation||"").trim())issues.push(`Q${index+1} is missing an explanation`);});if(!String(quizDetail.category||"").trim())issues.push("category is missing");if(issues.length){attention++;detailed.push({title:quizDetail.title||quizDetail.slug,issues});}}catch(error){if(error.message==="Administrator session expired.")return;}}
+    headline.textContent=attention?`${attention} quiz${attention===1?"":"zes"} need attention`:"Your quiz catalogue looks healthy";summary.textContent=attention?detailed.slice(0,4).map(item=>`${item.title}: ${item.issues.slice(0,2).join(", ")}`).join(" · "):`${quizzes.length} quizzes checked with no structural issues found.`;const mostPlayed=[...quizzes].sort((a,b)=>Number(b.attempts||0)-Number(a.attempts||0)).slice(0,5);top.innerHTML=mostPlayed.length?mostPlayed.map((quiz,index)=>`<div class="admin-analytics-row"><span>${index+1}. ${esc(quiz.title||quiz.slug)}</span><strong>${Number(quiz.attempts||0).toLocaleString()}</strong></div>`).join(""):"<p>No play data yet.</p>";await loadSocial();}catch(error){if(error.message!=="Administrator session expired."){headline.textContent="Could not load quiz health.";summary.textContent=error.message||"Please try again.";}}}
+  document.addEventListener("factburst-admin-session-ready",load,{once:true});if(sessionStorage.getItem(SESSION_KEY))load();else showLogin();
 })();
