@@ -4,6 +4,7 @@
   const toggle = $("#maintenance-toggle"), message = $("#maintenance-message"), save = $("#save-website-settings"), status = $("#website-settings-status"), siteStatus = $("#settings-site-status");
   const adsEnabled = $("#ads-enabled"), adsClient = $("#adsense-client"), adsLeft = $("#adsense-left-slot"), adsRight = $("#adsense-right-slot"), adsSave = $("#save-ads-settings"), adsStatus = $("#ads-settings-status"), adsState = $("#ads-settings-state"), adsBadge = $("#ads-settings-badge"), adsValidation = $("#ads-settings-validation"), publisherCheck = $("#ads-check-publisher"), slotCheck = $("#ads-check-slot"), adsOverview = $("#settings-ads-status");
   const backupOverview = $("#settings-backup-status"), backupStatus = $("#api-settings-backup-status"), backupState = $("#api-settings-backup-state"), backupDate = $("#api-settings-backup-date"), services = $("#api-settings-services");
+  const logoFile = $("#site-logo-file"), logoPreview = $("#site-logo-preview"), headerLogo = $("#admin-header-logo"), logoSave = $("#save-site-logo"), logoStatus = $("#site-logo-status"), logoName = $("#site-logo-file-name"), logoSize = $("#site-logo-file-size");
   const setStatus = (element, text, type = "") => { if (!element) return; element.textContent = text; element.className = `admin-status ${type}`.trim(); };
   async function api(path, options = {}) { const response = await fetch(path, { credentials: "same-origin", cache: "no-store", ...options }); let data = {}; try { data = await response.json(); } catch {} if (!response.ok) { const error = new Error(data.error || `Request failed (${response.status})`); error.status = response.status; throw error; } return data; }
   function validClient(value) { return /^ca-pub-\d{10,24}$/.test(String(value || "").trim()); }
@@ -35,6 +36,58 @@
   async function loadBackup() { try { const data = await api("/api/admin/api-settings"); if (!data.configured) { backupState.textContent = "No Cloudflare API settings backup has been created yet."; backupDate.textContent = "Use the desktop app's Back up API settings to Cloudflare button."; services.textContent = "No backup available."; if (backupOverview) backupOverview.textContent = "Not configured"; return; } backupState.textContent = "Encrypted API settings backup is configured."; backupDate.textContent = data.backed_up_at ? `Last backup: ${new Date(data.backed_up_at).toLocaleString()}` : "Last backup time unavailable."; const entries = Object.entries(data.settings || {}); services.innerHTML = entries.length ? entries.map(([key, value]) => `<div class="admin-settings-service"><span>${escapeHtml(labelFor(key))}</span><code>${escapeHtml(String(value))}</code></div>`).join("") : "No configured API values were included in the backup."; if (backupOverview) backupOverview.textContent = "Configured"; } catch (error) { setStatus(backupStatus, error.message, "error"); if (backupOverview) backupOverview.textContent = "Unavailable"; } }
   function labelFor(key) { return String(key).replace(/_/g, " ").replace(/\b\w/g, match => match.toUpperCase()); }
   function escapeHtml(value) { return String(value ?? "").replace(/[&<>\"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[character])); }
+
+  async function prepareLogo(file) {
+    if (!file || !/^image\/(png|jpeg)$/.test(file.type)) throw new Error("Please choose a PNG or JPG logo.");
+    const image = await new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = () => reject(new Error("The selected image could not be read.")); img.src = URL.createObjectURL(file); });
+    try {
+      const maxDimension = 700;
+      const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
+      canvas.height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
+      const context = canvas.getContext("2d");
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      let quality = 0.88;
+      let blob = await canvasToBlob(canvas, "image/jpeg", quality);
+      while (blob.size > 145 * 1024 && quality > 0.5) { quality -= 0.06; blob = await canvasToBlob(canvas, "image/jpeg", quality); }
+      if (blob.size > 145 * 1024) {
+        const smaller = document.createElement("canvas");
+        smaller.width = Math.max(240, Math.round(canvas.width * 0.8));
+        smaller.height = Math.max(240, Math.round(canvas.height * 0.8));
+        smaller.getContext("2d").drawImage(canvas, 0, 0, smaller.width, smaller.height);
+        blob = await canvasToBlob(smaller, "image/jpeg", 0.72);
+      }
+      if (blob.size > 150 * 1024) throw new Error("The logo could not be compressed below 150 KB. Please choose a smaller image.");
+      return blobToDataUrl(blob);
+    } finally { URL.revokeObjectURL(image.src); }
+  }
+  function canvasToBlob(canvas, type, quality) { return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("The logo could not be compressed.")), type, quality)); }
+  function blobToDataUrl(blob) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(new Error("The logo could not be prepared.")); reader.readAsDataURL(blob); }); }
+  function formatBytes(bytes) { return `${Math.max(1, Math.round(bytes / 1024))} KB`; }
+
+  logoFile?.addEventListener("change", () => { const file = logoFile.files?.[0]; if (!file) { logoName.textContent = "No new logo selected"; logoSize.textContent = ""; return; } logoName.textContent = file.name; logoSize.textContent = formatBytes(file.size); setStatus(logoStatus, "Ready to compress and upload."); });
+  logoSave?.addEventListener("click", async () => {
+    const file = logoFile?.files?.[0];
+    if (!file) { setStatus(logoStatus, "Choose a PNG or JPG logo first.", "error"); return; }
+    logoSave.disabled = true; setStatus(logoStatus, "Compressing logo…");
+    try {
+      const dataUrl = await prepareLogo(file);
+      setStatus(logoStatus, "Uploading…");
+      await api("/api/admin/site/logo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data_url: dataUrl }) });
+      const cacheBust = `?logo=${Date.now()}`;
+      if (logoPreview) logoPreview.src = `/brand-icon.png${cacheBust}`;
+      if (headerLogo) headerLogo.src = `/brand-icon.png${cacheBust}`;
+      setStatus(logoStatus, "Website logo updated successfully.", "success");
+      logoSize.textContent = "Uploaded and optimised";
+      logoFile.value = "";
+      logoName.textContent = "No new logo selected";
+    } catch (error) { setStatus(logoStatus, error.message, "error"); }
+    finally { logoSave.disabled = false; }
+  });
+
   save?.addEventListener("click", async () => { save.disabled = true; setStatus(status, "Saving…"); try { const data = await api("/api/admin/users/site-settings", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ maintenance_enabled: toggle.checked, maintenance_message: message.value }) }); toggle.checked = !!data.maintenance_enabled; message.value = data.maintenance_message || ""; setStatus(status, toggle.checked ? "Maintenance mode enabled." : "Website is live.", "success"); if (siteStatus) siteStatus.textContent = toggle.checked ? "Maintenance mode" : "Live"; } catch (error) { setStatus(status, error.message, "error"); } finally { save.disabled = false; } });
   adsSave?.addEventListener("click", async () => { const validation = updateAdsValidation(); if (adsEnabled.checked && (!validation.publisherOk || !validation.realSlot)) { setStatus(adsStatus, "Fix the AdSense configuration before enabling Google Ads.", "error"); return; } adsSave.disabled = true; setStatus(adsStatus, "Saving…"); try { const data = await api("/api/admin/site/ads", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled: adsEnabled.checked, client: adsClient.value, left_slot: adsLeft.value, right_slot: adsRight.value }) }); adsEnabled.checked = !!data.enabled; adsClient.value = data.client || ""; adsLeft.value = data.left_slot || ""; adsRight.value = data.right_slot || ""; updateAdsBadge(); setStatus(adsStatus, "Google Ads settings saved.", "success"); setStatus(adsState, data.active ? "Google Ads are active on the public site." : "Advertising is configured but currently disabled.", data.active ? "success" : ""); if (adsOverview) adsOverview.textContent = data.active ? "Active" : "Configured"; } catch (error) { setStatus(adsStatus, error.message, "error"); } finally { adsSave.disabled = false; } });
   [adsClient, adsLeft, adsRight, adsEnabled].forEach(element => element?.addEventListener("input", updateAdsBadge));
