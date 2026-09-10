@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Emergency Recovery | Factburst Quiz Admin</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/admin.css?v=5">
+  <link rel="stylesheet" href="/admin-core.css?v=2">
+</head>
+<body>
+  <main class="admin-shell">
+    <header class="admin-header">
+      <a class="admin-brand" href="/" aria-label="Factburst Quiz home"><span class="admin-brand-mark"><img src="/brand-icon.png?v=2" alt=""></span><span>Factburst Quiz Admin</span></a>
+      <div class="admin-header-actions"><a class="button button-secondary" href="/admin">Open admin</a></div>
+    </header>
+    <section id="login-panel" class="admin-panel admin-login hidden">
+      <p class="eyebrow">Emergency recovery</p>
+      <h1>Website recovery</h1>
+      <p>Sign in with Google Authenticator to access the emergency maintenance control.</p>
+      <form id="login-form" class="admin-form">
+        <label for="admin-key">Google Authenticator code</label>
+        <input id="admin-key" name="admin-key" type="text" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" autocomplete="one-time-code" required placeholder="123456">
+        <button class="button button-primary" type="submit">Open recovery</button>
+      </form>
+      <p id="login-status" class="admin-status"></p>
+    </section>
+    <div class="admin-app-layout hidden" id="admin-app">
+      <section class="admin-main" id="admin-content">
+        <div class="admin-page-heading">
+          <p class="eyebrow">Emergency recovery</p>
+          <h1>Website recovery</h1>
+          <p>This page is deliberately kept separate from the normal Settings dashboard. Use it only if the main admin interface is unavailable.</p>
+        </div>
+        <section class="admin-panel">
+          <div class="admin-panel-heading"><div><p class="eyebrow">Safety control</p><h2>Maintenance mode</h2></div></div>
+          <div class="admin-settings-grid">
+            <article class="admin-settings-card">
+              <h3 id="recovery-state">Checking website status…</h3>
+              <p id="recovery-message">Loading the current maintenance setting.</p>
+              <p id="recovery-updated" class="admin-status"></p>
+            </article>
+            <article class="admin-settings-card admin-control-card">
+              <div><h3>Emergency action</h3><p>Turn maintenance mode off and immediately return the public site to normal operation.</p></div>
+              <button id="disable-maintenance" class="button button-primary" type="button">Turn maintenance mode OFF</button>
+              <p id="recovery-status" class="admin-status"></p>
+            </article>
+          </div>
+          <p class="admin-status">The normal desktop Maintenance Mode control remains available as a second recovery path.</p>
+        </section>
+      </section>
+    </div>
+  </main>
+  <script src="/admin-auth.js?v=2"></script>
+  <script src="/admin-core.js?v=6"></script>
+  <script src="/admin-recovery.js?v=1"></script>
+</body>
+</html>
