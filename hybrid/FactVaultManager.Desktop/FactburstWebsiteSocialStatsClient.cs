@@ -73,7 +73,7 @@ public sealed class FactburstWebsiteSocialStatsClient : IDisposable
             ? journal.RemoteId.Trim()
             : normalizedPlatform == "youtube" ? YouTubeVideoAnalyticsService.TryGetVideoId(history.YouTubeUrl) ?? "" : "";
         var publishedAt = normalizedPlatform == "youtube" ? history.YouTubeUploadDate : normalizedPlatform == "facebook" ? history.FacebookUploadDate : history.InstagramUploadDate;
-        var uploadedAt = journal?.CompletedAt ?? publishedAt;
+        var uploadedAt = journal?.UpdatedAt ?? publishedAt;
         return new FactburstSocialStatsRecord(
             FactburstLinkTrackerClient.CampaignSlug(history), normalizedPlatform, id, id, history.Title?.Trim() ?? "", url.Trim(), status,
             ParseDate(scheduled), ParseDate(uploadedAt), ParseDate(publishedAt),
