@@ -60,17 +60,14 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
-
           api="https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}"
           auth=(--header "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" --header "Content-Type: application/json")
-
           scripts="$(curl --fail-with-body --silent --show-error "${auth[@]}" "${api}/workers/scripts")"
           if [[ "$(jq -r '.success // false' <<<"${scripts}")" != "true" ]]; then
             echo "Cloudflare did not return the account Workers." >&2
             jq -r '.errors[]?.message // empty' <<<"${scripts}" >&2
             exit 1
           fi
-
           all_matches=()
           tracker_matches=()
           while IFS= read -r script_id; do
@@ -80,18 +77,15 @@ jobs:
             if [[ -z "${settings}" || "$(jq -r '.success // false' <<<"${settings}" 2>/dev/null)" != "true" ]]; then
               continue
             fi
-
             d1_id="$(jq -r '.result.bindings[]? | select(.type == "d1" and .name == "DB") | (.database_id // .id // empty)' <<<"${settings}" | head -n 1)"
             [[ -z "${d1_id}" ]] && continue
             candidate="${script_id}|${d1_id}"
             all_matches+=("${candidate}")
-
             has_tracker_key="$(jq -r '[.result.bindings[]? | select(.name == "TRACKER_API_KEY")] | length' <<<"${settings}")"
             if [[ "${has_tracker_key}" -gt 0 ]]; then
               tracker_matches+=("${candidate}")
             fi
           done < <(jq -r '.result[]?.id // empty' <<<"${scripts}")
-
           selected=""
           if [[ ${#tracker_matches[@]} -eq 1 ]]; then
             selected="${tracker_matches[0]}"
@@ -100,7 +94,6 @@ jobs:
             printf 'Tracker candidate: %s\n' "${tracker_matches[@]%%|*}" >&2
             exit 1
           fi
-
           if [[ -z "${selected}" ]]; then
             for candidate in "${all_matches[@]}"; do
               if [[ "${candidate%%|*}" == "go" ]]; then
@@ -109,17 +102,14 @@ jobs:
               fi
             done
           fi
-
           if [[ -z "${selected}" && ${#all_matches[@]} -eq 1 ]]; then
             selected="${all_matches[0]}"
           fi
-
           if [[ -z "${selected}" ]]; then
             echo "Could not identify the tracker D1 database safely." >&2
             printf 'DB candidate: %s\n' "${all_matches[@]%%|*}" >&2
             exit 1
           fi
-
           IFS='|' read -r source_worker d1_id <<<"${selected}"
           database="$(curl --fail-with-body --silent --show-error "${auth[@]}" "${api}/d1/database/${d1_id}")"
           if [[ "$(jq -r '.success // false' <<<"${database}")" != "true" ]]; then
@@ -127,10 +117,8 @@ jobs:
             jq -r '.errors[]?.message // empty' <<<"${database}" >&2
             exit 1
           fi
-
           d1_name="$(jq -r '.result.name // empty' <<<"${database}")"
           [[ -n "${d1_name}" ]] || { echo "The Factburst D1 database did not have a name." >&2; exit 1; }
-
           jq -n \
             --arg database_id "${d1_id}" \
             --arg database_name "${d1_name}" \
@@ -141,15 +129,8 @@ jobs:
               compatibility_date: "2026-08-27",
               keep_vars: true,
               workers_dev: true,
-              routes: [
-                {
-                  pattern: "factburstquiz.com",
-                  custom_domain: true
-                }
-              ],
-              vars: {
-                EMAIL_FROM: "noreply@factburstquiz.com"
-              },
+              routes: [{ pattern: "factburstquiz.com", custom_domain: true }],
+              vars: { EMAIL_FROM: "noreply@factburstquiz.com" },
               assets: {
                 directory: "./public",
                 binding: "ASSETS",
@@ -171,26 +152,15 @@ jobs:
                   "/terms.html",
                   "/privacy",
                   "/privacy.html",
+                  "/brand-icon.png",
                   "/robots.txt",
                   "/sitemap.xml",
                   "/social/*"
                 ]
               },
-              d1_databases: [
-                {
-                  binding: "DB",
-                  database_name: $database_name,
-                  database_id: $database_id
-                }
-              ],
-              r2_buckets: [
-                {
-                  binding: "QUIZ_IMAGES",
-                  bucket_name: $r2_bucket_name
-                }
-              ]
+              d1_databases: [{ binding: "DB", database_name: $database_name, database_id: $database_id }],
+              r2_buckets: [{ binding: "QUIZ_IMAGES", bucket_name: $r2_bucket_name }]
             }' > wrangler.ci.json
-
           echo "database_name=${d1_name}" >> "$GITHUB_OUTPUT"
           echo "source_worker=${source_worker}" >> "$GITHUB_OUTPUT"
           echo "Using D1 database '${d1_name}' from tracker Worker '${source_worker}' with R2 bucket 'factburst-quiz-images'."
@@ -210,21 +180,17 @@ jobs:
             echo "::error::Cloudflare could not read factburst-quiz-site settings."
             exit 1
           fi
-
           has_resend_key="$(jq -r '[.result.bindings[]? | select(.name == "RESEND_API_KEY")] | length' <<<"${settings}")"
           if [[ "${has_resend_key}" -ne 1 ]]; then
             echo "::error::RESEND_API_KEY is not configured on factburst-quiz-site."
             exit 1
           fi
-
           has_password_pepper="$(jq -r '[.result.bindings[]? | select(.name == "PASSWORD_PEPPER")] | length' <<<"${settings}")"
           if [[ "${has_password_pepper}" -ne 1 ]]; then
             echo "Generating a stable Factburst password pepper in Cloudflare."
             pepper="$(openssl rand -hex 32)"
             payload="$(jq -n --arg text "${pepper}" '{name:"PASSWORD_PEPPER", text:$text, type:"secret_text"}')"
-            result="$(curl --fail-with-body --silent --show-error -X PUT "${auth[@]}" \
-              --data "${payload}" \
-              "${api}/workers/scripts/factburst-quiz-site/secrets")"
+            result="$(curl --fail-with-body --silent --show-error -X PUT "${auth[@]}" --data "${payload}" "${api}/workers/scripts/factburst-quiz-site/secrets")"
             unset pepper
             if [[ "$(jq -r '.success // false' <<<"${result}")" != "true" ]]; then
               echo "::error::Could not create PASSWORD_PEPPER on factburst-quiz-site."
@@ -232,7 +198,6 @@ jobs:
               exit 1
             fi
           fi
-
           echo "Resend and password-security secrets are configured."
 
       - name: Deploy to Cloudflare
@@ -300,7 +265,6 @@ jobs:
           set -euo pipefail
           base="${DEPLOYMENT_URL:-https://factburst-quiz-site.factburstquiz.workers.dev}"
           base="${base%/}"
-
           for path in profile leaderboard terms privacy; do
             headers="$(mktemp)"
             body="$(mktemp)"
@@ -323,7 +287,6 @@ jobs:
               echo "::error::Clean public route /${path} still exposed a legacy .html canonical or internal link."
               exit 1
             fi
-
             legacy_headers="$(mktemp)"
             legacy_status="$(curl --silent --show-error --max-time 15 --output /dev/null --dump-header "${legacy_headers}" --write-out '%{http_code}' "${base}/${path}.html")"
             if [[ "${legacy_status}" != "301" ]]; then
@@ -338,7 +301,6 @@ jobs:
               exit 1
             fi
           done
-
           index_headers="$(mktemp)"
           index_status="$(curl --silent --show-error --max-time 15 --output /dev/null --dump-header "${index_headers}" --write-out '%{http_code}' "${base}/index.html")"
           index_location="$(sed -n 's/^[Ll]ocation:[[:space:]]*//p' "${index_headers}" | head -n 1 | tr -d '\r')"
@@ -347,7 +309,6 @@ jobs:
             cat "${index_headers}" >&2
             exit 1
           fi
-
           sitemap="$(curl --fail-with-body --silent --show-error --max-time 15 "${base}/sitemap.xml")"
           for path in leaderboard terms privacy; do
             if ! grep -q "<loc>https://factburstquiz.com/${path}</loc>" <<<"${sitemap}"; then
@@ -369,14 +330,12 @@ jobs:
           set -euo pipefail
           base="${DEPLOYMENT_URL:-https://factburst-quiz-site.factburstquiz.workers.dev}"
           base="${base%/}"
-
           latest="$(curl --fail-with-body --silent --show-error --max-time 15 "${base}/api/quizzes/latest")"
           slug="$(jq -r '.quiz.slug // empty' <<<"${latest}")"
           if [[ -z "${slug}" ]]; then
             echo "::error::Could not find a published latest quiz slug for the clean-route smoke test."
             exit 1
           fi
-
           headers="$(mktemp)"
           body="$(mktemp)"
           status="$(curl --silent --show-error --max-time 15 --output "${body}" --dump-header "${headers}" --write-out '%{http_code}' "${base}/quiz/${slug}")"
@@ -399,6 +358,23 @@ jobs:
             exit 1
           fi
           echo "Clean quiz route /quiz/${slug} returned HTTP 200 without redirecting."
+
+      - name: Smoke test dynamic logo route
+        shell: bash
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          set -euo pipefail
+          base="${DEPLOYMENT_URL:-https://factburst-quiz-site.factburstquiz.workers.dev}"
+          base="${base%/}"
+          headers="$(mktemp)"
+          status="$(curl --silent --show-error --max-time 15 --output /dev/null --dump-header "${headers}" --write-out '%{http_code}' "${base}/brand-icon.png?smoke=1")"
+          if [[ "${status}" != "200" && "${status}" != "404" ]]; then
+            echo "::error::Dynamic logo route returned unexpected HTTP ${status}."
+            cat "${headers}" >&2
+            exit 1
+          fi
+          echo "Dynamic logo route is Worker-first and returned HTTP ${status}."
 
       - name: Deployment summary
         if: success()
