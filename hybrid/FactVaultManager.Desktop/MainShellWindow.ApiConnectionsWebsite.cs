@@ -8,6 +8,7 @@ public partial class MainShellWindow
     private bool _apiConnectionsWebsiteInitialized;
     private TextBox? _apiConnectionsTrackerBaseUrl;
     private PasswordBox? _apiConnectionsTrackerApiKey;
+    private PasswordBox? _apiConnectionsSocialStatsApiKey;
 
     public void InitializeApiConnectionsWebsite()
     {
@@ -24,12 +25,13 @@ public partial class MainShellWindow
 
         _apiConnectionsWebsiteInitialized = true;
         var tracker = FactburstTrackerSettingsStore.Load(_data.SettingsPath);
+        var socialReporting = FactburstSocialReportingSettingsStore.Load(_data.SettingsPath);
 
         var website = SettingsSection("Website & Link Tracker");
         var stack = (StackPanel)website.Child;
         stack.Children.Add(new TextBlock
         {
-            Text = "Connect Factburst Quiz Manager to the website administration API. The desktop app uses the same TRACKER_API_KEY stored as a secret on the Cloudflare tracker Worker.",
+            Text = "Connect Factburst Quiz Manager to the website administration API. The desktop app uses the TRACKER_API_KEY stored as a secret on the Cloudflare tracker Worker.",
             Foreground = SettingsMutedBrush(),
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 10),
@@ -38,17 +40,12 @@ public partial class MainShellWindow
         stack.Children.Add(SettingsFieldLabel("Tracker base URL"));
         _apiConnectionsTrackerBaseUrl = new TextBox
         {
-            Text = tracker.BaseUrl.Length > 0
-                ? tracker.BaseUrl
-                : FactburstTrackerSettingsStore.DefaultBaseUrl,
+            Text = tracker.BaseUrl.Length > 0 ? tracker.BaseUrl : FactburstTrackerSettingsStore.DefaultBaseUrl,
             Margin = new Thickness(0, 5, 0, 8),
         };
         stack.Children.Add(_apiConnectionsTrackerBaseUrl);
 
-        _apiConnectionsTrackerApiKey = new PasswordBox
-        {
-            Password = tracker.ApiKey,
-        };
+        _apiConnectionsTrackerApiKey = new PasswordBox { Password = tracker.ApiKey };
         AddApiCredentialRow(
             stack,
             "Website tracker API key (TRACKER_API_KEY)",
@@ -56,6 +53,17 @@ public partial class MainShellWindow
             "website",
             TestWebsiteConnectionAsync,
             "The value must exactly match the TRACKER_API_KEY secret on the Cloudflare tracker Worker. It is encrypted when stored on this PC.");
+
+        stack.Children.Add(SettingsFieldLabel("Website social reporting API key (SOCIAL_STATS_API_KEY)"));
+        _apiConnectionsSocialStatsApiKey = new PasswordBox { Password = socialReporting.ApiKey };
+        stack.Children.Add(_apiConnectionsSocialStatsApiKey);
+        stack.Children.Add(new TextBlock
+        {
+            Text = "Dedicated desktop → website reporting secret. It is used only to send upload status and platform statistics to the Factburst website and is encrypted when stored on this PC.",
+            Foreground = SettingsMutedBrush(),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 2, 0, 10),
+        });
 
         var backup = new Button
         {
@@ -110,6 +118,8 @@ public partial class MainShellWindow
             var trackerApiKey = RequireApiValue(_apiConnectionsTrackerApiKey.Password, "Website tracker API key");
             var baseUrl = RequireApiValue(_apiConnectionsTrackerBaseUrl.Text, "Website tracker base URL");
             FactburstTrackerSettingsStore.Save(_data.SettingsPath, baseUrl, trackerApiKey);
+            if (_apiConnectionsSocialStatsApiKey is not null && _apiConnectionsSocialStatsApiKey.Password.Trim().Length >= 16)
+                FactburstSocialReportingSettingsStore.Save(_data.SettingsPath, _apiConnectionsSocialStatsApiKey.Password);
             var settings = _data.LoadSettings();
             using var client = new FactburstApiSettingsBackupClient();
             await client.BackupAsync(trackerApiKey, settings, FactburstApiSettingsBackupClient.DefaultWebsiteBaseUrl);
@@ -127,16 +137,9 @@ public partial class MainShellWindow
 
     private void WireWebsiteTrackerSaveIntoUnifiedFooter(StackPanel page)
     {
-        var saveButton = page.Children
-            .OfType<Grid>()
-            .SelectMany(grid => grid.Children.OfType<Button>())
-            .FirstOrDefault(button => string.Equals(
-                button.Content?.ToString(),
-                "Save API settings",
-                StringComparison.Ordinal));
+        var saveButton = page.Children.OfType<Grid>().SelectMany(grid => grid.Children.OfType<Button>()).FirstOrDefault(button => string.Equals(button.Content?.ToString(), "Save API settings", StringComparison.Ordinal));
         if (saveButton is null)
             return;
-
         saveButton.Content = "Save API & website settings";
         saveButton.Click += SaveApiConnectionsWebsite_Click;
     }
@@ -155,10 +158,9 @@ public partial class MainShellWindow
 
         try
         {
-            FactburstTrackerSettingsStore.Save(
-                _data.SettingsPath,
-                _apiConnectionsTrackerBaseUrl.Text,
-                apiKey);
+            FactburstTrackerSettingsStore.Save(_data.SettingsPath, _apiConnectionsTrackerBaseUrl.Text, apiKey);
+            if (_apiConnectionsSocialStatsApiKey is not null && _apiConnectionsSocialStatsApiKey.Password.Trim().Length >= 16)
+                FactburstSocialReportingSettingsStore.Save(_data.SettingsPath, _apiConnectionsSocialStatsApiKey.Password);
             SetConfiguredStatus("website", apiKey);
             if (_settingsPageStatus is not null)
                 _settingsPageStatus.Text = "API and website settings saved.";
@@ -167,12 +169,7 @@ public partial class MainShellWindow
         {
             if (_apiConnectionStatuses.TryGetValue("website", out var status))
                 status.Text = "✕ " + FriendlyApiTestError(error);
-            MessageBox.Show(
-                this,
-                error.Message,
-                "Website Connection",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            MessageBox.Show(this, error.Message, "Website Connection", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -180,12 +177,10 @@ public partial class MainShellWindow
     {
         var baseUrl = RequireApiValue(_apiConnectionsTrackerBaseUrl?.Text, "Website tracker base URL");
         var apiKey = RequireApiValue(_apiConnectionsTrackerApiKey?.Password, "Website tracker API key");
-
         var client = new FactburstLinkTrackerClient();
         var healthy = await client.HealthAsync(baseUrl);
         if (!healthy)
             throw new InvalidOperationException("The Factburst tracker health check did not report OK.");
-
         await client.FetchStatsAsync(baseUrl, apiKey);
         return "Working — Factburst website/tracker authenticated";
     }
