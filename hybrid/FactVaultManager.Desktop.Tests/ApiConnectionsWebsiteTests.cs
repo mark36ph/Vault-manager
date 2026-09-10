@@ -15,6 +15,21 @@ public sealed class ApiConnectionsWebsiteTests
     }
 
     [Fact]
+    public void Build219_DedicatedSocialReportingCredentialIsStoredSeparately()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.ApiConnectionsWebsite.cs");
+        var sync = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.FactburstSocialSync.cs");
+        var store = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/FactburstSocialReportingSettings.cs");
+
+        Assert.Contains("SOCIAL_STATS_API_KEY", source, StringComparison.Ordinal);
+        Assert.Contains("FactburstSocialReportingSettingsStore.Load(_data.SettingsPath)", source, StringComparison.Ordinal);
+        Assert.Contains("FactburstSocialReportingSettingsStore.Save(_data.SettingsPath", source, StringComparison.Ordinal);
+        Assert.Contains("reporting.IsConfigured ? reporting.ApiKey : tracker.ApiKey", sync, StringComparison.Ordinal);
+        Assert.Contains("SocialStatsSettingsKey", store, StringComparison.Ordinal);
+        Assert.Contains("LocalSecretProtector.Protect", store, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Build142_WebsiteTestChecksHealthAndAuthenticatedStats()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.ApiConnectionsWebsite.cs");
