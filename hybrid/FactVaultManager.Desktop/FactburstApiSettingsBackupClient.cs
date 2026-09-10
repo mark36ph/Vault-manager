@@ -8,6 +8,7 @@ namespace FactVaultManager.Desktop;
 public sealed class FactburstApiSettingsBackupClient : IDisposable
 {
     public const string DefaultWebsiteBaseUrl = "https://factburstquiz.com";
+    public const string DirectWorkerBaseUrl = "https://factburst-quiz-site.factburstquiz.workers.dev";
     private readonly HttpClient _client = new() { Timeout = TimeSpan.FromSeconds(30) };
 
     public async Task BackupAsync(string trackerApiKey, AppSettingsModel settings, string websiteBaseUrl = DefaultWebsiteBaseUrl, CancellationToken cancellationToken = default)
@@ -31,13 +32,29 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
             settings.ApprovedFacebookPageId,
             settings.ApprovedFacebookPageName,
             settings.InstagramAccessToken);
-        using var request = new HttpRequestMessage(HttpMethod.Post, baseUrl + "/api/admin/api-settings/backup");
+        var json = JsonSerializer.Serialize(new { settings = payload });
+
+        var response = await SendBackupRequestAsync(baseUrl, key, json, cancellationToken);
+        if ((int)response.StatusCode == 404 && !string.Equals(baseUrl, DirectWorkerBaseUrl, StringComparison.OrdinalIgnoreCase))
+        {
+            response.Dispose();
+            response = await SendBackupRequestAsync(DirectWorkerBaseUrl, key, json, cancellationToken);
+        }
+
+        using (response)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (!response.IsSuccessStatusCode) throw new HttpRequestException(ParseError(body, response.StatusCode));
+        }
+    }
+
+    private async Task<HttpResponseMessage> SendBackupRequestAsync(string baseUrl, string key, string json, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, baseUrl.TrimEnd('/') + "/api/admin/api-settings/backup");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        request.Content = new StringContent(JsonSerializer.Serialize(new { settings = payload }), Encoding.UTF8, "application/json");
-        using var response = await _client.SendAsync(request, cancellationToken);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (!response.IsSuccessStatusCode) throw new HttpRequestException(ParseError(body, response.StatusCode));
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+        return await _client.SendAsync(request, cancellationToken);
     }
 
     public void Dispose() => _client.Dispose();
