@@ -1,1 +1,85 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Analytics | Factburst Quiz Admin</title><link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/admin.css?v=5"><link rel="stylesheet" href="/admin-core.css?v=1"></head><body><main class="admin-shell"><header class="admin-header"><a class="admin-brand" href="/" aria-label="Factburst Quiz home"><span class="admin-brand-mark"><img src="/brand-icon.png?v=2" alt=""></span><span>Factburst Quiz Admin</span></a><div class="admin-header-actions"><a class="button button-secondary" href="/quizzes">View site</a></div></header><div class="admin-app-layout" id="admin-app"><section class="admin-main" id="admin-content"><div class="admin-page-heading"><p class="eyebrow">Growth &amp; performance</p><h1>Analytics</h1><p>Privacy-respecting website events and social performance.</p></div><section class="admin-panel"><div class="admin-panel-heading"><div><h2>Performance</h2></div><div><select id="analytics-days" aria-label="Analytics period"><option value="7">7 days</option><option value="30" selected>30 days</option><option value="90">90 days</option><option value="365">365 days</option></select><button id="analytics-refresh" class="button button-secondary" type="button">Refresh</button></div></div><p id="analytics-status" class="admin-status"></p><section class="admin-stats admin-stats-modern"><article class="admin-stat-card"><span>Events</span><strong id="analytics-events">0</strong><small>Total tracked events</small></article><article class="admin-stat-card"><span>Quiz starts</span><strong id="analytics-starts">0</strong><small>Started quizzes</small></article><article class="admin-stat-card"><span>Completions</span><strong id="analytics-completions">0</strong><small>Completed quizzes</small></article><article class="admin-stat-card"><span>Start → complete</span><strong id="analytics-rate">0%</strong><small>Conversion rate</small></article></section><div class="admin-dashboard-panels"><article class="admin-dashboard-card"><p class="eyebrow">Daily activity</p><h3>Events by day</h3><div id="analytics-daily-list"></div></article><article class="admin-dashboard-card"><p class="eyebrow">Event mix</p><h3>Tracked events</h3><div id="analytics-events-list"></div></article><article class="admin-dashboard-card"><p class="eyebrow">Top quizzes</p><h3>Quiz activity</h3><div id="analytics-quizzes-list"></div></article><article class="admin-dashboard-card"><p class="eyebrow">Sources</p><h3>Traffic sources</h3><div id="analytics-sources-list"></div></article></div></section></section></div></main><script src="/admin-core.js?v=5"></script><script src="/admin-analytics.js?v=3"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Analytics | Factburst Quiz Admin</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/admin.css?v=5">
+  <link rel="stylesheet" href="/admin-core.css?v=2">
+  <style>
+    .analytics-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .analytics-toolbar select{min-height:40px}
+    .analytics-kpis{grid-template-columns:repeat(6,minmax(0,1fr))}
+    .analytics-highlight-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+    .analytics-highlight{padding:15px 16px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.018)}
+    .analytics-highlight span{display:block;font-size:.76rem;text-transform:uppercase;letter-spacing:.05em;color:var(--admin-muted,#9ca8ba)}
+    .analytics-highlight strong{display:block;margin-top:5px;font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .analytics-highlight small{display:block;margin-top:3px;color:var(--admin-muted,#9ca8ba)}
+    .analytics-panel-grid{display:grid;grid-template-columns:1.35fr .65fr;gap:14px;margin-top:14px}
+    .analytics-panel-grid .admin-dashboard-card{min-width:0}
+    .analytics-chart{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+    .analytics-day{display:grid;grid-template-columns:76px minmax(0,1fr) 48px;align-items:center;gap:9px;font-size:.8rem}
+    .analytics-day-label{color:var(--admin-muted,#9ca8ba)}
+    .analytics-bar{height:10px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden}
+    .analytics-bar i{display:block;height:100%;border-radius:999px;background:currentColor;opacity:.75}
+    .analytics-list{display:flex;flex-direction:column;gap:2px;margin-top:10px}
+    .analytics-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+    .analytics-row:last-child{border-bottom:0}
+    .analytics-row span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .analytics-row strong{font-variant-numeric:tabular-nums}
+    .analytics-empty{padding:18px 0;color:var(--admin-muted,#9ca8ba)}
+    @media(max-width:1150px){.analytics-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.analytics-panel-grid{grid-template-columns:1fr}}
+    @media(max-width:700px){.analytics-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-highlight-grid{grid-template-columns:1fr}.analytics-day{grid-template-columns:62px minmax(0,1fr) 38px}}
+  </style>
+</head>
+<body>
+  <main class="admin-shell">
+    <header class="admin-header">
+      <a class="admin-brand" href="/" aria-label="Factburst Quiz home"><span class="admin-brand-mark"><img src="/brand-icon.png?v=2" alt=""></span><span>Factburst Quiz Admin</span></a>
+      <div class="admin-header-actions"><a class="button button-secondary" href="/quizzes">View site</a></div>
+    </header>
+    <div class="admin-app-layout" id="admin-app">
+      <section class="admin-main" id="admin-content">
+        <div class="admin-page-heading">
+          <p class="eyebrow">Growth &amp; performance</p>
+          <h1>Analytics</h1>
+          <p>Privacy-respecting website activity, quiz engagement and sharing performance.</p>
+        </div>
+        <section class="admin-panel">
+          <div class="admin-panel-heading">
+            <div><h2>Performance overview</h2><p>Use the period selector to compare recent activity.</p></div>
+            <div class="analytics-toolbar">
+              <select id="analytics-days" aria-label="Analytics period"><option value="7">7 days</option><option value="30" selected>30 days</option><option value="90">90 days</option><option value="365">365 days</option></select>
+              <button id="analytics-refresh" class="button button-secondary" type="button">Refresh</button>
+            </div>
+          </div>
+          <p id="analytics-status" class="admin-status"></p>
+          <section class="admin-stats admin-stats-modern analytics-kpis">
+            <article class="admin-stat-card"><span>Events</span><strong id="analytics-events">0</strong><small>Total tracked activity</small></article>
+            <article class="admin-stat-card"><span>Quiz starts</span><strong id="analytics-starts">0</strong><small>People starting quizzes</small></article>
+            <article class="admin-stat-card"><span>Completions</span><strong id="analytics-completions">0</strong><small>Finished quiz attempts</small></article>
+            <article class="admin-stat-card"><span>Completion rate</span><strong id="analytics-rate">0%</strong><small>Starts → completions</small></article>
+            <article class="admin-stat-card"><span>Shares</span><strong id="analytics-shares">0</strong><small>Score shares</small></article>
+            <article class="admin-stat-card"><span>YouTube clicks</span><strong id="analytics-youtube">0</strong><small>Outbound video clicks</small></article>
+          </section>
+          <div class="analytics-highlight-grid">
+            <article class="analytics-highlight"><span>Top quiz</span><strong id="analytics-top-quiz">—</strong><small id="analytics-top-quiz-count">No quiz activity yet</small></article>
+            <article class="analytics-highlight"><span>Top traffic source</span><strong id="analytics-top-source">—</strong><small id="analytics-top-source-count">No source data yet</small></article>
+            <article class="analytics-highlight"><span>Period</span><strong id="analytics-period">—</strong><small>Based on tracked events</small></article>
+          </div>
+          <div class="analytics-panel-grid">
+            <article class="admin-dashboard-card"><p class="eyebrow">Trend</p><h3>Daily activity</h3><div id="analytics-daily-list" class="analytics-chart"></div></article>
+            <article class="admin-dashboard-card"><p class="eyebrow">Engagement</p><h3>Event mix</h3><div id="analytics-events-list" class="analytics-list"></div></article>
+            <article class="admin-dashboard-card"><p class="eyebrow">Content</p><h3>Top quiz activity</h3><div id="analytics-quizzes-list" class="analytics-list"></div></article>
+            <article class="admin-dashboard-card"><p class="eyebrow">Acquisition</p><h3>Traffic sources</h3><div id="analytics-sources-list" class="analytics-list"></div></article>
+          </div>
+        </section>
+      </section>
+    </div>
+  </main>
+  <script src="/admin-core.js?v=6"></script>
+  <script src="/admin-analytics.js?v=4"></script>
+</body>
+</html>
