@@ -33,7 +33,7 @@
   }
   async function loadWebsite() { try { const data = await api("/api/admin/users/site-settings"); toggle.checked = !!data.maintenance_enabled; message.value = data.maintenance_message || ""; if (siteStatus) siteStatus.textContent = toggle.checked ? "Maintenance mode" : "Live"; } catch (error) { setStatus(status, error.message, "error"); if (siteStatus) siteStatus.textContent = "Unavailable"; } }
   async function loadAds() { try { const data = await api("/api/admin/site/ads"); adsEnabled.checked = !!data.enabled; adsClient.value = data.client || ""; adsLeft.value = data.left_slot || ""; adsRight.value = data.right_slot || ""; const result = updateAdsBadge(), active = !!data.active && result.realSlot; setStatus(adsState, active ? "Google Ads are active on the public site." : result.realSlot ? "Advertising is configured but currently disabled." : "Google Ads need attention before they should be enabled.", active ? "success" : ""); if (adsOverview) adsOverview.textContent = active ? "Active" : result.realSlot ? "Configured" : "Needs attention"; } catch (error) { setStatus(adsStatus, error.message, "error"); if (adsOverview) adsOverview.textContent = "Unavailable"; } }
-  async function loadBackup() { try { const data = await api("/api/admin/api-settings"); if (!data.configured) { backupState.textContent = "No Cloudflare API settings backup has been created yet."; backupDate.textContent = "Use the desktop app's Back up API settings to Cloudflare button."; services.textContent = "No backup available."; if (backupOverview) backupOverview.textContent = "Not configured"; return; } backupState.textContent = "Encrypted API settings backup is configured."; backupDate.textContent = data.backed_up_at ? `Last backup: ${new Date(data.backed_up_at).toLocaleString()}` : "Last backup time unavailable."; const entries = Object.entries(data.settings || {}); services.innerHTML = entries.length ? entries.map(([key, value]) => `<div class="admin-settings-service"><span>${escapeHtml(labelFor(key))}</span><code>${escapeHtml(String(value))}</code></div>`).join("") : "No configured API values were included in the backup."; if (backupOverview) backupOverview.textContent = "Configured"; } catch (error) { setStatus(backupStatus, error.message, "error"); if (backupOverview) backupOverview.textContent = "Unavailable"; } }
+  async function loadBackup() { try { const data = await api("/api/admin/api-settings"); if (!data.configured) { backupState.textContent = "No Cloudflare API settings backup has been created yet."; backupDate.textContent = "Use the desktop app's Back up API settings to Cloudflare button."; services.textContent = "No backup available."; if (backupOverview) backupOverview.textContent = "Not configured"; return; } backupState.textContent = "Encrypted API settings backup is configured."; backupDate.textContent = data.backed_up_at ? `Last backup: ${new Date(data.backed_up_at).toLocaleString()}` : "Last backup time unavailable."; const entries = Object.entries(data.settings || {}); services.innerHTML = entries.length ? entries.map(([key, value]) => `<div class="admin-settings-service"><span>${escapeHtml(labelFor(key))}</span><code>${escapeHtml(String(value))}</code></div>`).join("") : "No configured API values were included in the backup."; if (backupOverview) backupOverview.textContent = "Configured"; } catch (error) { setStatus(backupStatus, error.message, "error"); } }
   function labelFor(key) { return String(key).replace(/_/g, " ").replace(/\b\w/g, match => match.toUpperCase()); }
   function escapeHtml(value) { return String(value ?? "").replace(/[&<>\"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[character])); }
 
@@ -41,27 +41,32 @@
     if (!file || !/^image\/(png|jpeg)$/.test(file.type)) throw new Error("Please choose a PNG or JPG logo.");
     const image = await new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = () => reject(new Error("The selected image could not be read.")); img.src = URL.createObjectURL(file); });
     try {
+      const sourceIsPng = file.type === "image/png";
+      let width = image.naturalWidth || image.width;
+      let height = image.naturalHeight || image.height;
       const maxDimension = 700;
-      const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
-      canvas.height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
-      const context = canvas.getContext("2d");
-      context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.drawImage(image, 0, 0, canvas.width, canvas.height);
-      let quality = 0.88;
-      let blob = await canvasToBlob(canvas, "image/jpeg", quality);
-      while (blob.size > 145 * 1024 && quality > 0.5) { quality -= 0.06; blob = await canvasToBlob(canvas, "image/jpeg", quality); }
-      if (blob.size > 145 * 1024) {
-        const smaller = document.createElement("canvas");
-        smaller.width = Math.max(240, Math.round(canvas.width * 0.8));
-        smaller.height = Math.max(240, Math.round(canvas.height * 0.8));
-        smaller.getContext("2d").drawImage(canvas, 0, 0, smaller.width, smaller.height);
-        blob = await canvasToBlob(smaller, "image/jpeg", 0.72);
+      const initialScale = Math.min(1, maxDimension / Math.max(width, height));
+      width = Math.max(1, Math.round(width * initialScale));
+      height = Math.max(1, Math.round(height * initialScale));
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const context = canvas.getContext("2d");
+        if (!context) throw new Error("The logo could not be prepared.");
+        if (!sourceIsPng) {
+          context.fillStyle = "#ffffff";
+          context.fillRect(0, 0, width, height);
+        }
+        context.drawImage(image, 0, 0, width, height);
+        const outputType = sourceIsPng ? "image/png" : "image/jpeg";
+        const quality = sourceIsPng ? undefined : Math.max(0.55, 0.88 - attempt * 0.06);
+        const blob = await canvasToBlob(canvas, outputType, quality);
+        if (blob.size <= 145 * 1024) return blobToDataUrl(blob);
+        width = Math.max(160, Math.round(width * 0.82));
+        height = Math.max(160, Math.round(height * 0.82));
       }
-      if (blob.size > 150 * 1024) throw new Error("The logo could not be compressed below 150 KB. Please choose a smaller image.");
-      return blobToDataUrl(blob);
+      throw new Error(sourceIsPng ? "The transparent PNG could not be compressed below 150 KB. Please choose a smaller PNG." : "The logo could not be compressed below 150 KB. Please choose a smaller image.");
     } finally { URL.revokeObjectURL(image.src); }
   }
   function canvasToBlob(canvas, type, quality) { return new Promise((resolve, reject) => canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("The logo could not be compressed.")), type, quality)); }
