@@ -27,6 +27,7 @@ import { handleAdminPhase1Api } from "./admin-phase1-api.js";
 import { handleApiSettingsBackupApi } from "./api-settings-backup.js";
 import { enforceMaintenanceMode, handleSiteStatusApi } from "./site-controls.js";
 import { handlePublicAdsConfig, handleAdminAdsConfig } from "./site-ads.js";
+import { handlePublicLogo, handleAdminLogo } from "./site-logo.js";
 import { scoreGuestQuiz } from "./guest-score.js";
 import { createResendEmailAdapter } from "./resend-email.js";
 import { handleSeoRequest } from "./site-seo-overrides.js";
@@ -45,6 +46,9 @@ export default {
 
     const apiSettingsResponse = await handleApiSettingsBackupApi(request, env, url);
     if (apiSettingsResponse) return apiSettingsResponse;
+
+    const logoAdminResponse = await handleAdminLogo(request, env, url);
+    if (logoAdminResponse) return logoAdminResponse;
 
     const adsAdminResponse = await handleAdminAdsConfig(request, env, url);
     if (adsAdminResponse) return adsAdminResponse;
@@ -73,6 +77,8 @@ export default {
     if (seoResponse) return await rewriteSeoResponse(seoResponse, request.method);
     const analyticsResponse = await handleAnalyticsApi(request, env, url); if (analyticsResponse) return analyticsResponse;
     const socialStatsResponse = await handleSocialStatsApi(request, env, url); if (socialStatsResponse) return socialStatsResponse;
+    const logoResponse = await handlePublicLogo(request, env, url);
+    if (logoResponse) return logoResponse;
     if (url.pathname === "/api/site/ads" && request.method === "GET") {
       if (!env.DB) return new Response(JSON.stringify({enabled:false,client:"",left_slot:"",right_slot:""}),{headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
       return handlePublicAdsConfig(request, env.DB, url);
