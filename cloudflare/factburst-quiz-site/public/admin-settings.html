@@ -7,22 +7,27 @@
   <title>Settings | Factburst Quiz Admin</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/admin.css?v=5">
-  <link rel="stylesheet" href="/admin-core.css?v=3">
+  <link rel="stylesheet" href="/admin-core.css?v=4">
 </head>
 <body>
   <main class="admin-shell">
     <header class="admin-header">
-      <a class="admin-brand" href="/" aria-label="Factburst Quiz home"><span class="admin-brand-mark"><img src="/brand-icon.png?v=2" alt=""></span><div>Factburst Quiz Admin</div></a>
+      <a class="admin-brand" href="/" aria-label="Factburst Quiz home"><span class="admin-brand-mark"><img id="admin-header-logo" src="/brand-icon.png?v=2" alt=""></span><div>Factburst Quiz Admin</div></a>
       <div class="admin-header-actions"><a class="button button-secondary" href="/quizzes">View site</a></div>
     </header>
     <div class="admin-app-layout" id="admin-app">
       <section class="admin-main" id="admin-content">
-        <div class="admin-page-heading"><p class="eyebrow">Configuration</p><h1>Settings</h1><p>Manage public-site controls, advertising and connection backups from one place. Quiz generation stays in the desktop application.</p></div>
+        <div class="admin-page-heading"><p class="eyebrow">Configuration</p><h1>Settings</h1><p>Manage public-site controls, branding, advertising and connection backups from one place. Quiz generation stays in the desktop application.</p></div>
         <section class="admin-panel admin-settings-overview"><div class="admin-panel-heading"><div><p class="eyebrow">System status</p><h2>At-a-glance</h2></div></div><div class="admin-settings-status-grid">
           <article class="admin-settings-status-card"><span class="admin-settings-status-icon">●</span><div><strong id="settings-site-status">Checking…</strong><small>Public website</small></div></article>
           <article class="admin-settings-status-card"><span class="admin-settings-status-icon">$</span><div><strong id="settings-ads-status">Checking…</strong><small>Google AdSense</small></div></article>
           <article class="admin-settings-status-card"><span class="admin-settings-status-icon">↗</span><div><strong id="settings-backup-status">Checking…</strong><small>API backup</small></div></article>
         </div></section>
+
+        <section class="admin-panel"><div class="admin-panel-heading"><div><p class="eyebrow">Website</p><h2>Branding</h2></div><span class="admin-section-badge">Public logo</span></div>
+          <div class="admin-settings-feature-grid"><article class="admin-settings-card admin-control-card"><div><h3>Website logo</h3><p>Upload the logo used across the public website and social preview image. PNG or JPG only, maximum 150 KB.</p></div><div class="admin-logo-preview"><img id="site-logo-preview" src="/brand-icon.png?v=2" alt="Current FactBurst Quiz logo"></div></article>
+          <article class="admin-settings-card"><h3>Replace logo</h3><label class="admin-field"><span>Logo image</span><input id="site-logo-file" type="file" accept="image/png,image/jpeg"><small>Recommended: a square logo. The browser will resize and compress it to stay within the 150 KB limit.</small></label><div class="admin-logo-meta"><span id="site-logo-file-name">No new logo selected</span><span id="site-logo-file-size"></span></div><div class="admin-settings-actions"><button id="save-site-logo" class="button button-primary" type="button">Upload website logo</button><span id="site-logo-status" class="admin-status" role="status"></span></div></article></div>
+        </section>
 
         <section class="admin-panel"><div class="admin-panel-heading"><div><p class="eyebrow">Website</p><h2>Maintenance mode</h2></div><span class="admin-section-badge">Emergency protected</span></div>
           <div class="admin-settings-feature-grid"><article class="admin-settings-card admin-control-card"><div><h3>Public website status</h3><p>Temporarily take the public site offline while you work. Normal visitors will see the maintenance message instead of the site.</p></div><label class="admin-toggle"><input id="maintenance-toggle" type="checkbox"><span></span><b>Enable maintenance</b></label></article>
@@ -48,10 +53,10 @@
 
         <section class="admin-panel"><div class="admin-panel-heading"><div><p class="eyebrow">API &amp; Connections</p><h2>API keys &amp; connection backup</h2></div><span class="admin-section-badge">Encrypted backup</span></div><p>API credentials are backed up from the desktop app into the Cloudflare database. Full secrets are never displayed here.</p><div id="api-settings-backup-status" class="admin-status"></div><div id="api-settings-backup-grid" class="admin-settings-feature-grid"><article class="admin-settings-card"><h3>Cloudflare backup</h3><p id="api-settings-backup-state">Checking backup status…</p><p id="api-settings-backup-date"></p></article><article class="admin-settings-card"><h3>Configured services</h3><div id="api-settings-services">Loading…</div></article></div></section>
 
-        <section class="admin-panel"><div class="admin-panel-heading"><div><p class="eyebrow">Application</p><h2>Generation &amp; publishing</h2></div></div><p>Quiz generation, AI settings, queues, content creation and the main publishing workflow remain in the desktop app. This keeps the website admin focused on the live public catalogue and website operations.</p><div class="admin-settings-info-grid"><div><strong>Desktop app</strong><span>Generation, AI, YouTube packaging and publishing</span></div><div><strong>Website admin</strong><span>Published quizzes, social tools, analytics, maintenance and advertising</span></div></div></section>
+        <section class="admin-panel"><div class="admin-panel-heading"><div><p class="eyebrow">Application</p><h2>Generation &amp; publishing</h2></div></div><p>Quiz generation, AI settings, queues, content creation and the main publishing workflow remain in the desktop app. This keeps the website admin focused on the live public catalogue and website operations.</p><div class="admin-settings-info-grid"><div><strong>Desktop app</strong><span>Generation, AI, YouTube packaging and publishing</span></div><div><strong>Website admin</strong><span>Published quizzes, social tools, analytics, maintenance, branding and advertising</span></div></div></section>
       </section>
     </div>
   </main>
-  <script src="/admin-core.js?v=6"></script><script src="/admin-settings.js?v=7"></script>
+  <script src="/admin-core.js?v=6"></script><script src="/admin-settings.js?v=8"></script>
 </body>
 </html>
