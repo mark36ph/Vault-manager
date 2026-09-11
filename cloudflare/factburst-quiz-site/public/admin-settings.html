@@ -36,12 +36,13 @@
         </section>
 
         <section class="admin-panel"><div class="admin-panel-heading"><div><p class="eyebrow">Advertising</p><h2>Google AdSense</h2></div><span id="ads-settings-badge" class="admin-section-badge">Checking…</span></div>
-          <p>Configure the publisher account and ad slots used on supported quiz pages. Ads are only loaded after the visitor accepts optional advertising cookies.</p>
-          <div class="admin-settings-feature-grid"><article class="admin-settings-card admin-control-card"><div><h3>Advertising status</h3><p>Keep this disabled until the publisher ID, at least one real AdSense ad-slot ID and the required Google consent setup are ready.</p></div><label class="admin-toggle"><input id="ads-enabled" type="checkbox"><span></span><b>Enable Google Ads</b></label></article>
+          <p>Configure separate ad units for desktop side rails and the mobile horizontal ad shown above the quiz.</p>
+          <div class="admin-settings-feature-grid"><article class="admin-settings-card admin-control-card"><div><h3>Advertising status</h3><p>Keep this disabled until the publisher ID, real ad-slot IDs and the required Google consent setup are ready.</p></div><label class="admin-toggle"><input id="ads-enabled" type="checkbox"><span></span><b>Enable Google Ads</b></label></article>
           <article class="admin-settings-card"><h3>AdSense configuration</h3><div class="admin-settings-form-grid">
             <label class="admin-field"><span>Publisher ID</span><input id="adsense-client" type="text" inputmode="text" autocomplete="off" placeholder="ca-pub-1234567890123456" maxlength="32"><small>Starts with <code>ca-pub-</code>.</small></label>
-            <label class="admin-field"><span>Left ad slot</span><input id="adsense-left-slot" type="text" inputmode="numeric" autocomplete="off" placeholder="1234567890" maxlength="20"><small>Use the numeric slot ID from AdSense — not the publisher ID.</small></label>
-            <label class="admin-field"><span>Right ad slot</span><input id="adsense-right-slot" type="text" inputmode="numeric" autocomplete="off" placeholder="1234567890" maxlength="20"><small>Optional if the left slot is the only slot you use.</small></label>
+            <label class="admin-field"><span>Left desktop ad slot</span><input id="adsense-left-slot" type="text" inputmode="numeric" autocomplete="off" placeholder="1234567890" maxlength="20"><small>Numeric slot ID for the left desktop rail.</small></label>
+            <label class="admin-field"><span>Right desktop ad slot</span><input id="adsense-right-slot" type="text" inputmode="numeric" autocomplete="off" placeholder="1234567890" maxlength="20"><small>Optional numeric slot ID for the right desktop rail.</small></label>
+            <label class="admin-field"><span>Mobile horizontal ad slot</span><input id="adsense-mobile-slot" type="text" inputmode="numeric" autocomplete="off" placeholder="1234567890" maxlength="20"><small>Dedicated numeric slot ID for the horizontal mobile ad above the quiz.</small></label>
           </div><div id="ads-settings-validation" class="admin-settings-validation" role="status"></div><div class="admin-settings-actions"><button id="save-ads-settings" class="button button-primary" type="button">Save Google Ads settings</button><span id="ads-settings-status" class="admin-status" role="status"></span></div><p id="ads-settings-state" class="admin-status"></p></article></div>
           <div class="admin-checklist"><div class="admin-checklist-heading"><strong>AdSense readiness</strong><span>Code/configuration checks</span></div><div class="admin-checklist-grid">
             <div><span class="check" id="ads-check-publisher">•</span><span><strong>Publisher ID</strong><small>Valid AdSense publisher format</small></span></div>
@@ -57,6 +58,6 @@
       </section>
     </div>
   </main>
-  <script src="/admin-core.js?v=6"></script><script src="/admin-settings.js?v=8"></script>
+  <script src="/admin-core.js?v=6"></script><script src="/admin-settings.js?v=9"></script>
 </body>
 </html>
