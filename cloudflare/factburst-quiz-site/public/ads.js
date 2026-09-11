@@ -30,17 +30,17 @@ function initializeDesktopAds(config) {
     [document.querySelector("#quiz-ad-right"), config.right_slot],
   ].filter(([host, slot]) => host && validSlot(slot));
 
-  for (const [host, slot] of slots) mountAd(host, slot, "quiz-side-ad");
+  for (const [host, slot] of slots) mountAd(host, slot, "quiz-side-ad", config.client);
 }
 
 function initializeMobileAd(config) {
   const host = document.querySelector("#quiz-ad-mobile");
-  const slot = validSlot(config.left_slot) ? config.left_slot : config.right_slot;
+  const slot = config.mobile_slot;
   if (!host || !validSlot(slot)) return;
-  mountAd(host, slot, "quiz-mobile-ad");
+  mountAd(host, slot, "quiz-mobile-ad", config.client);
 }
 
-function mountAd(host, slot, className) {
+function mountAd(host, slot, className, client) {
   host.classList.remove("hidden");
   const label = document.createElement("span");
   label.className = "quiz-ad-label";
@@ -49,7 +49,7 @@ function mountAd(host, slot, className) {
   const ad = document.createElement("ins");
   ad.className = `adsbygoogle ${className}`;
   ad.style.display = "block";
-  ad.dataset.adClient = currentClient();
+  ad.dataset.adClient = client || currentClient();
   ad.dataset.adSlot = slot;
   ad.dataset.adFormat = "auto";
   ad.dataset.fullWidthResponsive = "true";
