@@ -89,13 +89,18 @@
 
   function addSignOut() {
     const header = document.querySelector(".admin-header-actions");
-    if (!header || header.querySelector("[data-admin-signout]")) return;
-    const b = document.createElement("button");
-    b.className = "button button-ghost";
-    b.type = "button";
+    if (!header) return;
+    let b = header.querySelector("#sign-out, [data-admin-signout]");
+    if (!b) {
+      b = document.createElement("button");
+      b.className = "button button-ghost";
+      b.type = "button";
+      b.textContent = "Sign out";
+      header.appendChild(b);
+    }
+    if (b.dataset.adminSignoutBound === "1") return;
     b.dataset.adminSignout = "1";
-    b.textContent = "Sign out";
-    header.appendChild(b);
+    b.dataset.adminSignoutBound = "1";
     b.onclick = async () => {
       try { await nativeFetch("/api/admin/auth/logout", { method: "POST", credentials: "same-origin" }); } catch {}
       sessionStorage.removeItem(KEY);
