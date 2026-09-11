@@ -6,7 +6,9 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
-    public const int CurrentBuildNumber = 226;
+    // Version/build values are owned by version.json; this compatibility property
+    // keeps existing UI and feature code using CurrentBuildNumber without duplicating data.
+    public static int CurrentBuildNumber => AppVersion.BuildNumber;
 
     private static readonly bool BuildInfoUiRegistered = RegisterBuildInfoUi();
     private bool _deferredShellInitializationScheduled;
