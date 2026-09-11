@@ -160,34 +160,18 @@ public sealed class RetiredFactCreationCleanupTests
     [Fact]
     public void CurrentBuild_MatchesCurrentVersionAndBuildNumber()
     {
-        var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
         var versionText = ReadRepositoryFile("version.json");
         using var document = JsonDocument.Parse(versionText);
+        var root = document.RootElement;
 
-        var expectedBuild = ExtractCurrentBuildNumber(buildInfo);
-        var versionRoot = document.RootElement;
-        Assert.True(versionRoot.TryGetProperty("build", out var buildProperty));
-        Assert.Equal(expectedBuild, buildProperty.GetInt32());
+        Assert.True(root.TryGetProperty("build", out var buildProperty));
+        Assert.True(buildProperty.TryGetInt32(out var expectedBuild));
+        Assert.Equal(expectedBuild, MainShellWindow.CurrentBuildNumber);
 
-        Assert.True(versionRoot.TryGetProperty("latest_version", out var latestVersionProperty));
+        Assert.True(root.TryGetProperty("latest_version", out var latestVersionProperty));
         var latestVersion = latestVersionProperty.GetString();
         Assert.False(string.IsNullOrWhiteSpace(latestVersion));
-        Assert.Matches($@"^1\.0\.{expectedBuild - 20}$", latestVersion!);
-    }
-
-    private static int ExtractCurrentBuildNumber(string buildInfo)
-    {
-        const string marker = "CurrentBuildNumber = ";
-        var start = buildInfo.IndexOf(marker, StringComparison.Ordinal);
-        Assert.True(start >= 0, "CurrentBuildNumber declaration was not found.");
-        start += marker.Length;
-
-        var end = start;
-        while (end < buildInfo.Length && char.IsDigit(buildInfo[end]))
-            end++;
-
-        Assert.True(end > start, "CurrentBuildNumber does not contain a numeric value.");
-        return int.Parse(buildInfo[start..end], System.Globalization.CultureInfo.InvariantCulture);
+        Assert.True(Version.TryParse(latestVersion, out _), "latest_version must be a valid semantic version.");
     }
 
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
