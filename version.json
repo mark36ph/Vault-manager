@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.208",
-  "build": 228,
+  "latest_version": "1.0.209",
+  "build": 229,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 228 fixes the Autopilot Library navigation so it opens Quiz History even when deferred startup has not finished.",
-    "Added a regression test for the Library navigation fix.",
-    "Desktop version and build metadata continue to use version.json as the single source of truth."
+    "Build 229 fixes the Autopilot Performance navigation so YouTube Manager is initialized on demand instead of showing a startup warning.",
+    "Added a regression test for deferred Performance navigation.",
+    "Build metadata continues to use version.json as the single source of truth."
   ]
 }
