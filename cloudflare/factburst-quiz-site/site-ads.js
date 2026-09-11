@@ -1,4 +1,4 @@
-const ADS_KEYS = ["ads_enabled", "adsense_client", "adsense_left_slot", "adsense_right_slot"];
+const ADS_KEYS = ["ads_enabled", "adsense_client", "adsense_left_slot", "adsense_right_slot", "adsense_mobile_slot"];
 
 export async function handlePublicAdsConfig(request, db, url) {
   if (url.pathname !== "/api/site/ads" || request.method !== "GET") return null;
@@ -21,6 +21,7 @@ export async function handleAdminAdsConfig(request, env, url) {
       client,
       left_slot: normalizeAdSlot(values.adsense_left_slot, client),
       right_slot: normalizeAdSlot(values.adsense_right_slot, client),
+      mobile_slot: normalizeAdSlot(values.adsense_mobile_slot, client),
       active: publicAds(values).enabled,
     });
   }
@@ -33,20 +34,21 @@ export async function handleAdminAdsConfig(request, env, url) {
   const client = normalizeClient(body?.client);
   const left = normalizeAdSlot(body?.left_slot, client);
   const right = normalizeAdSlot(body?.right_slot, client);
+  const mobile = normalizeAdSlot(body?.mobile_slot, client);
   if (enabled && !client) return json({ error: "Enter a valid AdSense Publisher ID such as ca-pub-1234567890123456." }, 400);
-  if (enabled && !left && !right) return json({ error: "Enter at least one real AdSense ad slot ID. Do not use the Publisher ID as the slot ID." }, 400);
+  if (enabled && !left && !right && !mobile) return json({ error: "Enter at least one real AdSense ad slot ID. Do not use the Publisher ID as the slot ID." }, 400);
 
   const now = new Date().toISOString();
-  const values = { ads_enabled: enabled ? "1" : "0", adsense_client: client, adsense_left_slot: left, adsense_right_slot: right };
+  const values = { ads_enabled: enabled ? "1" : "0", adsense_client: client, adsense_left_slot: left, adsense_right_slot: right, adsense_mobile_slot: mobile };
   for (const key of ADS_KEYS) {
     await env.DB.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at")
       .bind(key, values[key], now).run();
   }
-  return json({ ok: true, ...{ enabled, client, left_slot: left, right_slot: right }, active: enabled && Boolean(client) && Boolean(left || right), updated_at: now });
+  return json({ ok: true, enabled, client, left_slot: left, right_slot: right, mobile_slot: mobile, active: enabled && Boolean(client) && Boolean(left || right || mobile), updated_at: now });
 }
 
 async function readAdsSettings(db) {
-  const rows = await db.prepare(`SELECT key, value FROM site_settings WHERE key IN ('ads_enabled', 'adsense_client', 'adsense_left_slot', 'adsense_right_slot')`).all();
+  const rows = await db.prepare(`SELECT key, value FROM site_settings WHERE key IN ('ads_enabled', 'adsense_client', 'adsense_left_slot', 'adsense_right_slot', 'adsense_mobile_slot')`).all();
   return Object.fromEntries((rows.results || []).map(row => [String(row.key || ""), String(row.value || "")]));
 }
 
@@ -54,7 +56,8 @@ function publicAds(values) {
   const client = normalizeClient(values.adsense_client);
   const left = normalizeAdSlot(values.adsense_left_slot, client);
   const right = normalizeAdSlot(values.adsense_right_slot, client);
-  return { enabled: values.ads_enabled === "1" && Boolean(client) && Boolean(left || right), client, left_slot: left, right_slot: right };
+  const mobile = normalizeAdSlot(values.adsense_mobile_slot, client);
+  return { enabled: values.ads_enabled === "1" && Boolean(client) && Boolean(left || right || mobile), client, left_slot: left, right_slot: right, mobile_slot: mobile };
 }
 
 async function requireAdmin(request, env) {
