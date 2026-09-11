@@ -22,7 +22,7 @@ public sealed class LibraryContentLifecycleUiTests
         var lifecycle = source.IndexOf("QueueDeferredShellPhase(InitializeQuizContentLifecycleUi);", StringComparison.Ordinal);
         Assert.True(cleanup >= 0);
         Assert.True(lifecycle > cleanup);
-        Assert.Contains("public const int CurrentBuildNumber", source, StringComparison.Ordinal);
+        Assert.Contains("CurrentBuildNumber => AppVersion.BuildNumber", source, StringComparison.Ordinal);
     }
 
     private static string ReadRepositoryFile(string relativePath)
