@@ -56,12 +56,19 @@ public partial class MainShellWindow
             "The value must exactly match the TRACKER_API_KEY secret on the Cloudflare tracker Worker. It is encrypted when stored on this PC.");
 
         stack.Children.Add(SettingsFieldLabel("Website social reporting API key (SOCIAL_STATS_API_KEY)"));
-        _apiConnectionsSocialStatsApiKey = new PasswordBox { Password = socialReporting.ApiKey };
-        var socialRow = new StackPanel
+        _apiConnectionsSocialStatsApiKey = new PasswordBox
         {
-            Orientation = Orientation.Horizontal,
+            Password = socialReporting.ApiKey,
+            MinWidth = 300,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        var socialRow = new Grid
+        {
             Margin = new Thickness(0, 5, 0, 2),
         };
+        socialRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        socialRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        Grid.SetColumn(_apiConnectionsSocialStatsApiKey, 0);
         socialRow.Children.Add(_apiConnectionsSocialStatsApiKey);
         var testSocial = new Button
         {
@@ -70,6 +77,7 @@ public partial class MainShellWindow
             Margin = new Thickness(8, 0, 0, 0),
         };
         testSocial.Click += TestSocialReportingConnection_Click;
+        Grid.SetColumn(testSocial, 1);
         socialRow.Children.Add(testSocial);
         stack.Children.Add(socialRow);
         stack.Children.Add(new TextBlock
