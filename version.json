@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.206",
-  "build": 226,
+  "latest_version": "1.0.207",
+  "build": 227,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 226 fixes the build metadata mismatch that caused the automated test suite to fail.",
-    "The Updates button continues to download, apply and restart the app automatically.",
-    "The Social Reporting API connection test remains available with the corrected authentication flow."
+    "Build 227 centralizes all desktop version and build metadata in version.json.",
+    "The desktop app now reads its build number from the single version manifest, avoiding duplicate version values in source files.",
+    "CI now verifies build bumps using version.json only."
   ]
 }
