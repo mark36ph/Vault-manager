@@ -3,10 +3,13 @@ const dailyChallengeCard = document.querySelector("#daily-challenge-card");
 const dailyChallengeText = document.querySelector("#daily-challenge-text");
 const dailyChallengeCta = document.querySelector("#daily-challenge-cta");
 const dailyChallengeStreak = document.querySelector("#daily-challenge-streak");
+const dailyChallengeTimer = document.querySelector("#daily-challenge-timer");
+const dailyChallengeGoal = document.querySelector("#daily-challenge-goal");
 const latestCard = document.querySelector("#latest-card");
 const latestCta = document.querySelector("#latest-cta");
 const moreGrid = document.querySelector("#home-more-grid");
 const moreEmpty = document.querySelector("#home-more-empty");
+let dailyTimerId = null;
 
 initializeLanding().catch(error => {
   console.error(error);
@@ -58,6 +61,7 @@ function renderDailyChallenge(data) {
   dailyChallengeCard.classList.remove("loading-card");
   const completed = Boolean(daily.completed || daily.score !== null && daily.score !== undefined);
   const total = Number(daily.total || daily.question_count || 10);
+  const streak = Number(data?.streak?.current || 0);
   if (dailyChallengeText) {
     dailyChallengeText.textContent = completed
       ? `You completed today's ${total}-question challenge with ${Number(daily.score || 0)}/${total}. Come back tomorrow for a new challenge.`
@@ -69,11 +73,42 @@ function renderDailyChallenge(data) {
     dailyChallengeCta.textContent = completed ? "Play again" : "Play today's challenge";
   }
 
-  const streak = Number(data?.streak?.current || 0);
-  if (dailyChallengeStreak && streak > 0) {
-    dailyChallengeStreak.textContent = `🔥 ${streak}-day streak`;
-    dailyChallengeStreak.classList.remove("hidden");
+  if (dailyChallengeStreak) {
+    if (streak > 0) {
+      dailyChallengeStreak.textContent = `🔥 ${streak}-day streak`;
+      dailyChallengeStreak.classList.remove("hidden");
+    } else {
+      dailyChallengeStreak.textContent = "🔥 Start your streak";
+      dailyChallengeStreak.classList.remove("hidden");
+    }
   }
+
+  if (dailyChallengeGoal) {
+    dailyChallengeGoal.textContent = streak >= 7
+      ? "🏆 On Fire unlocked — keep the streak alive!"
+      : streak > 0
+        ? `🔥 ${7 - streak} more day${7 - streak === 1 ? "" : "s"} to unlock On Fire`
+        : "Complete today's challenge to start a streak";
+  }
+
+  startDailyCountdown();
+  dailyChallengeCard.classList.toggle("daily-complete", completed);
+}
+
+function startDailyCountdown() {
+  if (!dailyChallengeTimer) return;
+  if (dailyTimerId) clearInterval(dailyTimerId);
+  const update = () => {
+    const now = new Date();
+    const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+    const remaining = Math.max(0, next.getTime() - now.getTime());
+    const hours = Math.floor(remaining / 3600000);
+    const minutes = Math.floor((remaining % 3600000) / 60000);
+    const seconds = Math.floor((remaining % 60000) / 1000);
+    dailyChallengeTimer.textContent = `New challenge in ${hours}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+  };
+  update();
+  dailyTimerId = setInterval(update, 1000);
 }
 
 function renderLatest(container, quiz) {
