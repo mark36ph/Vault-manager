@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.0.202",
-  "build": 222,
+  "latest_version": "1.0.203",
+  "build": 223,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 222 adds a dedicated Social Reporting API connection test and keeps build metadata synchronized.",
+    "Build 223 fixes the Social Reporting API connection test authentication flow.",
     "The desktop website publishing and scheduling workflow remains available where it is still required."
   ]
 }
