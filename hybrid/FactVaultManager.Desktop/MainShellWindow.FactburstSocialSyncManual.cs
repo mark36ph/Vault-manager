@@ -6,7 +6,23 @@ namespace FactVaultManager.Desktop;
 
 public partial class MainShellWindow
 {
+    private static readonly bool _manualSocialSyncHandlerRegistered = RegisterManualSocialSyncHandler();
     private bool _factburstManualSyncButtonAdded;
+
+    private static bool RegisterManualSocialSyncHandler()
+    {
+        EventManager.RegisterClassHandler(
+            typeof(MainShellWindow),
+            FrameworkElement.LoadedEvent,
+            new RoutedEventHandler(MainShellWindow_LoadedForManualSocialSync));
+        return true;
+    }
+
+    private static void MainShellWindow_LoadedForManualSocialSync(object sender, RoutedEventArgs e)
+    {
+        if (sender is MainShellWindow window)
+            window.Dispatcher.BeginInvoke(window.AddFactburstManualSyncButton);
+    }
 
     private void AddFactburstManualSyncButton()
     {
@@ -19,6 +35,15 @@ public partial class MainShellWindow
         var refresh = FindButton(tab.Content as DependencyObject, "Refresh");
         if (refresh?.Parent is not Grid header)
             return;
+
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+        };
+
+        header.Children.Remove(refresh);
+        actions.Children.Add(refresh);
 
         var sync = new Button
         {
@@ -51,10 +76,10 @@ public partial class MainShellWindow
                 sync.IsEnabled = true;
             }
         };
+        actions.Children.Add(sync);
 
-        var refreshColumn = Grid.GetColumn(refresh);
-        Grid.SetColumn(sync, refreshColumn);
-        header.Children.Add(sync);
+        Grid.SetColumn(actions, Grid.GetColumn(refresh));
+        header.Children.Add(actions);
         _factburstManualSyncButtonAdded = true;
     }
 
@@ -69,11 +94,5 @@ public partial class MainShellWindow
             if (found is not null) return found;
         }
         return null;
-    }
-
-    private void InitializeFactburstManualSyncButton()
-    {
-        Loaded += (_, _) => Dispatcher.BeginInvoke(AddFactburstManualSyncButton);
-        MainTabs.SelectionChanged += (_, _) => Dispatcher.BeginInvoke(AddFactburstManualSyncButton);
     }
 }
