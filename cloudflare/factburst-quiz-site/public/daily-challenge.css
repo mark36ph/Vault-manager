@@ -1,8 +1,15 @@
 .daily-challenge-section{padding-top:0}
-.daily-challenge-card{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:24px 26px;border:1px solid rgba(53,199,255,.2);border-radius:16px;background:linear-gradient(135deg,rgba(53,199,255,.09),rgba(255,255,255,.025));box-shadow:0 14px 36px rgba(0,0,0,.14)}
-.daily-challenge-copy{min-width:0}
+.daily-challenge-card{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:24px 26px;border:1px solid rgba(53,199,255,.2);border-radius:16px;background:linear-gradient(135deg,rgba(53,199,255,.09),rgba(255,255,255,.025));box-shadow:0 14px 36px rgba(0,0,0,.14);transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease}
+.daily-challenge-card::after{content:"";position:absolute;width:220px;height:220px;right:-100px;top:-120px;border-radius:50%;background:rgba(53,199,255,.08);pointer-events:none}
+.daily-challenge-card:hover{transform:translateY(-2px);box-shadow:0 18px 42px rgba(0,0,0,.2);border-color:rgba(53,199,255,.34)}
+.daily-challenge-card.daily-complete{border-color:rgba(255,196,64,.35);background:linear-gradient(135deg,rgba(255,196,64,.11),rgba(255,255,255,.025))}
+.daily-challenge-copy{position:relative;z-index:1;min-width:0}
 .daily-challenge-copy h2{margin:4px 0 6px;font-size:clamp(24px,3vw,32px)}
 .daily-challenge-copy p:last-child{margin:0;color:var(--muted);line-height:1.55}
-.daily-challenge-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;flex-shrink:0}
+.daily-challenge-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}
+.daily-timer,.daily-goal{display:inline-flex;align-items:center;min-height:32px;padding:0 10px;border-radius:9px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);font-size:12px;font-weight:700;color:var(--muted)}
+.daily-timer{font-variant-numeric:tabular-nums;color:var(--text)}
+.daily-goal{color:#ffd76a}
+.daily-challenge-actions{position:relative;z-index:1;display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;flex-shrink:0}
 .daily-streak-badge{display:inline-flex;align-items:center;min-height:38px;padding:0 12px;border-radius:10px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.12);font-size:13px;font-weight:800;white-space:nowrap}
-@media(max-width:640px){.daily-challenge-card{align-items:flex-start;flex-direction:column;padding:20px}.daily-challenge-actions{width:100%;justify-content:flex-start}.daily-challenge-actions .button{flex:1;text-align:center}}
+@media(max-width:640px){.daily-challenge-card{align-items:flex-start;flex-direction:column;padding:20px}.daily-challenge-actions{width:100%;justify-content:flex-start}.daily-challenge-actions .button{flex:1;text-align:center}.daily-challenge-meta{display:grid;grid-template-columns:1fr;width:100%}.daily-timer,.daily-goal{justify-content:center;text-align:center}.daily-challenge-card:hover{transform:none}}
