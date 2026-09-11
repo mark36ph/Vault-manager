@@ -20,11 +20,7 @@ export async function handleSeoRequest(request, env, url, quizWorker) {
 
     if (socialMatch) {
       if (request.method === "HEAD") return response;
-      const png = await buildQuizSocialCardPng({
-        title: seo.socialTitle,
-        category: String(quiz.category || "Quiz"),
-        questionCount: Number(quiz.question_count) || 10,
-      });
+      const png = await buildQuizSocialCardPng({ title: seo.socialTitle, category: String(quiz.category || "Quiz"), questionCount: Number(quiz.question_count) || 10 });
       const headers = new Headers(response.headers);
       headers.set("content-type", "image/png");
       headers.set("cache-control", "public, max-age=300, s-maxage=3600, stale-while-revalidate=3600");
@@ -43,11 +39,8 @@ export async function handleSeoRequest(request, env, url, quizWorker) {
     headers.delete("etag");
     let html = applySeoHtml(await response.text(), seo);
     html = injectQuizQuestionPreviews(html, quiz);
-    return new Response(html, {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    });
+    html = injectQuizLearningContent(html, quiz);
+    return new Response(html, { status: response.status, statusText: response.statusText, headers });
   } catch (error) {
     console.error("Could not apply saved quiz SEO metadata", error);
     return response;
@@ -60,23 +53,12 @@ export function effectiveSeoMetadata(quiz) {
   const questionCount = Math.max(1, Number(quiz?.question_count) || 10);
   const baseDescription = compactText(quiz?.description);
   const suffix = " | Factburst Quiz";
-  const generatedTitle = title.toLowerCase().endsWith("factburst quiz")
-    ? trimAtWord(title, 65)
-    : `${trimAtWord(title, Math.max(18, 65 - suffix.length))}${suffix}`;
-  const generatedDescription = trimAtWord(
-    `Take this ${questionCount}-question ${category} quiz from Factburst Quiz. Test your knowledge, see your score and discover the facts behind each answer.`,
-    160,
-  );
-
+  const generatedTitle = title.toLowerCase().endsWith("factburst quiz") ? trimAtWord(title, 65) : `${trimAtWord(title, Math.max(18, 65 - suffix.length))}${suffix}`;
+  const generatedDescription = trimAtWord(`Take this ${questionCount}-question ${category} quiz from Factburst Quiz. Test your knowledge, see your score and discover the facts behind each answer.`, 160);
   const seoTitle = compactText(quiz?.seo_title) || generatedTitle;
-  const seoDescription = compactText(quiz?.seo_description) ||
-    (baseDescription.length >= 80 ? trimAtWord(baseDescription, 160) : generatedDescription);
+  const seoDescription = compactText(quiz?.seo_description) || (baseDescription.length >= 80 ? trimAtWord(baseDescription, 160) : generatedDescription);
   const socialTitle = compactText(quiz?.social_title) || trimAtWord(title, 100);
-  const socialDescription = compactText(quiz?.social_description) || trimAtWord(
-    `${questionCount} questions on ${category}. Can you score ${questionCount}/${questionCount}? Play the Factburst Quiz and compare your result.`,
-    200,
-  );
-
+  const socialDescription = compactText(quiz?.social_description) || trimAtWord(`${questionCount} questions on ${category}. Can you score ${questionCount}/${questionCount}? Play the Factburst Quiz and compare your result.`, 200);
   return { seoTitle, seoDescription, socialTitle, socialDescription };
 }
 
@@ -86,7 +68,6 @@ export function applySeoHtml(html, seo) {
   const seoDescription = escapeHtml(seo?.seoDescription || "Fast factual quizzes from Factburst Quiz.");
   const socialTitle = escapeHtml(seo?.socialTitle || seo?.seoTitle || "Factburst Quiz");
   const socialDescription = escapeHtml(seo?.socialDescription || seo?.seoDescription || "Fast factual quizzes from Factburst Quiz.");
-
   output = output.replace(/<title>[\s\S]*?<\/title>/i, `<title>${seoTitle}</title>`);
   output = replaceMeta(output, "name", "description", seoDescription);
   output = replaceMeta(output, "property", "og:title", socialTitle);
@@ -101,107 +82,82 @@ async function ensureSeoSchema(db) {
   const columns = await db.prepare("PRAGMA table_info(site_quizzes)").all();
   const names = new Set((columns.results || []).map(column => String(column.name || "")));
   if (!names.size) return;
-
-  if (!names.has("seo_title")) {
-    await db.prepare("ALTER TABLE site_quizzes ADD COLUMN seo_title TEXT NOT NULL DEFAULT ''").run();
-  }
-  if (!names.has("seo_description")) {
-    await db.prepare("ALTER TABLE site_quizzes ADD COLUMN seo_description TEXT NOT NULL DEFAULT ''").run();
-  }
-  if (!names.has("social_title")) {
-    await db.prepare("ALTER TABLE site_quizzes ADD COLUMN social_title TEXT NOT NULL DEFAULT ''").run();
-  }
-  if (!names.has("social_description")) {
-    await db.prepare("ALTER TABLE site_quizzes ADD COLUMN social_description TEXT NOT NULL DEFAULT ''").run();
-  }
+  if (!names.has("seo_title")) await db.prepare("ALTER TABLE site_quizzes ADD COLUMN seo_title TEXT NOT NULL DEFAULT ''").run();
+  if (!names.has("seo_description")) await db.prepare("ALTER TABLE site_quizzes ADD COLUMN seo_description TEXT NOT NULL DEFAULT ''").run();
+  if (!names.has("social_title")) await db.prepare("ALTER TABLE site_quizzes ADD COLUMN social_title TEXT NOT NULL DEFAULT ''").run();
+  if (!names.has("social_description")) await db.prepare("ALTER TABLE site_quizzes ADD COLUMN social_description TEXT NOT NULL DEFAULT ''").run();
   seoSchemaReady = true;
 }
 
 async function loadQuizSeo(db, slug) {
   const quiz = await db.prepare(`
-    SELECT
-      q.id,
-      q.slug,
-      q.title,
-      q.category,
-      q.description,
-      q.seo_title,
-      q.seo_description,
-      q.social_title,
-      q.social_description,
+    SELECT q.id, q.slug, q.title, q.category, q.description, q.seo_title, q.seo_description, q.social_title, q.social_description,
       (SELECT COUNT(*) FROM site_questions sq WHERE sq.quiz_id = q.id) AS question_count
-    FROM site_quizzes q
-    WHERE q.slug = ?
-    LIMIT 1
+    FROM site_quizzes q WHERE q.slug = ? LIMIT 1
   `).bind(slug).first();
   if (!quiz) return null;
 
-  const previewResult = await db.prepare(`
-    SELECT position, question
-    FROM site_questions
-    WHERE quiz_id = ?
-    ORDER BY position ASC
-    LIMIT 3
+  const questionResult = await db.prepare(`
+    SELECT position, question, correct_answer, explanation
+    FROM site_questions WHERE quiz_id = ? ORDER BY position ASC LIMIT 20
   `).bind(quiz.id).all();
 
-  return {
-    ...quiz,
-    question_previews: (previewResult.results || []).map(row => ({
-      position: Number(row.position) || 0,
-      question: compactText(row.question),
-    })).filter(row => row.question),
-  };
+  const questions = (questionResult.results || []).map(row => ({
+    position: Number(row.position) || 0,
+    question: compactText(row.question),
+    correct_answer: compactText(row.correct_answer),
+    explanation: compactText(row.explanation),
+  })).filter(row => row.question);
+
+  return { ...quiz, questions, question_previews: questions.slice(0, 3).map(row => ({ position: row.position, question: row.question })) };
 }
 
 function injectQuizQuestionPreviews(html, quiz) {
-  const previews = Array.isArray(quiz?.question_previews)
-    ? quiz.question_previews.filter(item => item?.question).slice(0, 3)
-    : [];
+  const previews = Array.isArray(quiz?.question_previews) ? quiz.question_previews.filter(item => item?.question).slice(0, 3) : [];
   if (!previews.length) return html;
-
   const section = `
       <section class="quiz-leaderboard-section seo-quiz-previews" aria-labelledby="seo-quiz-previews-title">
         <div class="section-heading"><div><p class="eyebrow">Sample questions</p><h2 id="seo-quiz-previews-title">A look inside this ${escapeHtml(quiz.category || "quiz")} quiz</h2></div></div>
+        <div class="quiz-feature"><div>
+          ${previews.map(item => `<p><strong>Question ${item.position || ""}:</strong> ${escapeHtml(item.question)}</p>`).join("")}
+          <p>These previews show the style and subject of the challenge without revealing the answers. Start the quiz to see the full set of questions and find out how you score.</p>
+        </div></div>
+      </section>
+`;
+  return html.replace(/(\s*<section class="quiz-leaderboard-section" id="quiz-high-scores">)/i, `${section}$1`);
+}
+
+function injectQuizLearningContent(html, quiz) {
+  const questions = Array.isArray(quiz?.questions) ? quiz.questions.filter(item => item.question).slice(0, 20) : [];
+  if (!questions.length) return html;
+  const category = escapeHtml(quiz.category || "general knowledge");
+  const title = escapeHtml(quiz.title || "this quiz");
+  const explained = questions.filter(item => item.explanation).length;
+  const section = `
+      <section class="quiz-leaderboard-section seo-quiz-learning" aria-labelledby="quiz-learning-notes-title">
+        <div class="section-heading"><div><p class="eyebrow">Learning notes</p><h2 id="quiz-learning-notes-title">Facts and explanations from ${title}</h2></div></div>
         <div class="quiz-feature">
           <div>
-            ${previews.map(item => `<p><strong>Question ${item.position || ""}:</strong> ${escapeHtml(item.question)}</p>`).join("")}
-            <p>These previews show the style and subject of the challenge without revealing the answers. Start the quiz to see the full set of questions and find out how you score.</p>
+            <p>This ${category} challenge contains ${questions.length} questions. The notes below provide additional context so the quiz can be useful as a quick learning resource as well as a test of recall.</p>
+            ${questions.map(item => `<details><summary>Question ${item.position}: ${escapeHtml(item.question)}</summary><p><strong>Correct answer:</strong> ${escapeHtml(item.correct_answer || "See the completed quiz result.")}</p>${item.explanation ? `<p><strong>Explanation:</strong> ${escapeHtml(item.explanation)}</p>` : `<p>This question is included to test knowledge within the ${category} category. Complete the quiz to see your result.</p>`}</details>`).join("")}
+            <p>${explained ? `${explained} of these questions include a saved factual explanation.` : "Complete the challenge to test your knowledge and review the result."} Explore the <a href="/quizzes.html">quiz library</a> for more subjects.</p>
           </div>
         </div>
       </section>
 `;
-
-  return html.replace(/(\s*<section class="quiz-leaderboard-section" id="quiz-high-scores">)/i, `${section}$1`);
+  return html.replace(/(\s*<footer\b)/i, `${section}$1`);
 }
 
 function replaceMeta(html, attribute, key, value) {
   const pattern = new RegExp(`<meta\\s+${attribute}=["']${escapeRegex(key)}["'][^>]*>`, "i");
   return html.replace(pattern, `<meta ${attribute}="${key}" content="${value}">`);
 }
-
-function compactText(value) {
-  return String(value ?? "").trim().replace(/\s+/g, " ");
-}
-
+function compactText(value) { return String(value ?? "").trim().replace(/\s+/g, " "); }
 function trimAtWord(value, maxLength) {
-  const text = compactText(value);
-  if (text.length <= maxLength) return text;
-  if (maxLength < 4) return text.slice(0, Math.max(0, maxLength));
-  let candidate = text.slice(0, maxLength).trimEnd();
-  const lastSpace = candidate.lastIndexOf(" ");
+  const text = compactText(value); if (text.length <= maxLength) return text; if (maxLength < 4) return text.slice(0, Math.max(0, maxLength));
+  let candidate = text.slice(0, maxLength).trimEnd(); const lastSpace = candidate.lastIndexOf(" ");
   if (lastSpace >= Math.max(12, Math.floor(maxLength / 2))) candidate = candidate.slice(0, lastSpace);
   return candidate.replace(/[\s\-:;,.]+$/g, "") + "…";
 }
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function escapeRegex(value) {
-  return String(value ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+function escapeHtml(value) { return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;").replace(/'/g, "&#39;"); }
+function escapeRegex(value) { return String(value ?? "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
