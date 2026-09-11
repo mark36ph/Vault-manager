@@ -7,41 +7,63 @@ if (document.body.dataset.page === "quiz") {
 function startAds() {
   if (factburstAdsStarted) return;
   factburstAdsStarted = true;
-  initializeSideAds().catch(error => console.error("Factburst side ads unavailable", error));
+  initializeAds().catch(error => console.error("Factburst ads unavailable", error));
 }
 
-async function initializeSideAds() {
-  if (!window.matchMedia("(min-width: 1180px)").matches) return;
+async function initializeAds() {
   const response = await fetch("/api/site/ads", { credentials: "same-origin", cache: "no-store" });
   if (!response.ok) return;
   const config = await response.json();
   if (!config?.enabled || !validClient(config.client)) return;
 
+  const desktop = window.matchMedia("(min-width: 1180px)").matches;
+  if (desktop) {
+    initializeDesktopAds(config);
+  } else {
+    initializeMobileAd(config);
+  }
+}
+
+function initializeDesktopAds(config) {
   const slots = [
     [document.querySelector("#quiz-ad-left"), config.left_slot],
     [document.querySelector("#quiz-ad-right"), config.right_slot],
   ].filter(([host, slot]) => host && validSlot(slot));
-  if (slots.length === 0) return;
 
-  for (const [host, slot] of slots) {
-    host.classList.remove("hidden");
-    const label = document.createElement("span");
-    label.className = "quiz-ad-label";
-    label.textContent = "Advertisement";
-    const ad = document.createElement("ins");
-    ad.className = "adsbygoogle quiz-side-ad";
-    ad.style.display = "block";
-    ad.dataset.adClient = config.client;
-    ad.dataset.adSlot = slot;
-    ad.dataset.adFormat = "auto";
-    ad.dataset.fullWidthResponsive = "true";
-    host.replaceChildren(label, ad);
-    try {
-      (window.adsbygoogle = window.adsbygoogle || []).push({});
-    } catch (error) {
-      console.error("Could not initialize AdSense slot", error);
-    }
+  for (const [host, slot] of slots) mountAd(host, slot, "quiz-side-ad");
+}
+
+function initializeMobileAd(config) {
+  const host = document.querySelector("#quiz-ad-mobile");
+  const slot = validSlot(config.left_slot) ? config.left_slot : config.right_slot;
+  if (!host || !validSlot(slot)) return;
+  mountAd(host, slot, "quiz-mobile-ad");
+}
+
+function mountAd(host, slot, className) {
+  host.classList.remove("hidden");
+  const label = document.createElement("span");
+  label.className = "quiz-ad-label";
+  label.textContent = "Advertisement";
+
+  const ad = document.createElement("ins");
+  ad.className = `adsbygoogle ${className}`;
+  ad.style.display = "block";
+  ad.dataset.adClient = currentClient();
+  ad.dataset.adSlot = slot;
+  ad.dataset.adFormat = "auto";
+  ad.dataset.fullWidthResponsive = "true";
+
+  host.replaceChildren(label, ad);
+  try {
+    (window.adsbygoogle = window.adsbygoogle || []).push({});
+  } catch (error) {
+    console.error("Could not initialize AdSense slot", error);
   }
+}
+
+function currentClient() {
+  return document.querySelector('meta[name="google-adsense-account"]')?.content || "";
 }
 
 function validClient(value) {
