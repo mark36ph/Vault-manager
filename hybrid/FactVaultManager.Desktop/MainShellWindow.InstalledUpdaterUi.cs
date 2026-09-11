@@ -28,19 +28,6 @@ public partial class MainShellWindow
 
         e.Handled = true;
         var installed = window._updates.IsInstalled;
-        var answer = MessageBox.Show(
-            window,
-            installed
-                ? "Install the latest Factburst Quiz Manager release now?\n\n" +
-                  "This update uses the Windows installer directly so it can repair older in-app update metadata without changing your settings or API keys."
-                : "This copy is running from the development/source folder rather than the Windows installer.\n\n" +
-                  "Install the current Factburst Quiz Manager release now?\n\n" +
-                  "After this one-time install, the Updates button will download and apply future versions automatically.",
-            installed ? "Update Factburst Quiz Manager" : "Install Factburst Quiz Manager",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-        if (answer != MessageBoxResult.Yes)
-            return;
 
         try
         {
@@ -69,7 +56,7 @@ public partial class MainShellWindow
                     window.HeaderStatusText.Text = $"Downloading installer... {percent}%"));
             }
 
-            window.HeaderStatusText.Text = "Installer started. Closing current copy...";
+            window.HeaderStatusText.Text = "Update downloaded. Restarting Factburst Quiz Manager...";
             Application.Current?.Shutdown();
         }
         catch (Exception error)
