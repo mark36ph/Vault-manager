@@ -4,6 +4,10 @@ export async function handleSocialStatsApi(request,env,url){
   if(!url.pathname.startsWith("/api/social/stats"))return null;
   if(!env.DB)return json({error:"Database unavailable."},503);
   await ensureSocialStatsSchema(env.DB);
+  if(request.method==="GET"&&url.pathname==="/api/social/stats"&&url.searchParams.get("test")==="1"){
+    if(!isStatsWriterAuthorized(request,env))return json({error:"Social stats API key is invalid."},401);
+    return json({ok:true,test:true,message:"Social stats API key accepted."});
+  }
   if(request.method==="GET"&&url.pathname==="/api/social/stats"){
     if(!(await isAdminAuthorized(request,env)))return json({error:"Administrator authentication required."},401);
     return listSocialStats(env.DB,url);
