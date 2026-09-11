@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Xunit;
 
 namespace FactVaultManager.Desktop.Tests;
@@ -160,10 +161,33 @@ public sealed class RetiredFactCreationCleanupTests
     public void CurrentBuild_MatchesCurrentVersionAndBuildNumber()
     {
         var buildInfo = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.BuildInfo.cs");
-        var version = ReadRepositoryFile("version.json");
-        Assert.Contains("CurrentBuildNumber = 221", buildInfo, StringComparison.Ordinal);
-        Assert.Contains("\"build\": 221", version, StringComparison.Ordinal);
-        Assert.Contains("\"latest_version\": \"1.0.201\"", version, StringComparison.Ordinal);
+        var versionText = ReadRepositoryFile("version.json");
+        using var document = JsonDocument.Parse(versionText);
+
+        var expectedBuild = ExtractCurrentBuildNumber(buildInfo);
+        var versionRoot = document.RootElement;
+        Assert.True(versionRoot.TryGetProperty("build", out var buildProperty));
+        Assert.Equal(expectedBuild, buildProperty.GetInt32());
+
+        Assert.True(versionRoot.TryGetProperty("latest_version", out var latestVersionProperty));
+        var latestVersion = latestVersionProperty.GetString();
+        Assert.False(string.IsNullOrWhiteSpace(latestVersion));
+        Assert.Matches($@"^1\.0\.{expectedBuild - 20}$", latestVersion!);
+    }
+
+    private static int ExtractCurrentBuildNumber(string buildInfo)
+    {
+        const string marker = "CurrentBuildNumber = ";
+        var start = buildInfo.IndexOf(marker, StringComparison.Ordinal);
+        Assert.True(start >= 0, "CurrentBuildNumber declaration was not found.");
+        start += marker.Length;
+
+        var end = start;
+        while (end < buildInfo.Length && char.IsDigit(buildInfo[end]))
+            end++;
+
+        Assert.True(end > start, "CurrentBuildNumber does not contain a numeric value.");
+        return int.Parse(buildInfo[start..end], System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static bool RepositoryFileExists(string relativePath) => FindRepositoryFile(relativePath) is not null;
