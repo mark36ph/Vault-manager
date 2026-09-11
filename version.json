@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.0.201",
-  "build": 221,
+  "latest_version": "1.0.202",
+  "build": 222,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 221 moves website analytics to the Factburst web admin and removes the legacy desktop Website and Web Analytics pages.",
+    "Build 222 adds a dedicated Social Reporting API connection test and keeps build metadata synchronized.",
     "The desktop website publishing and scheduling workflow remains available where it is still required."
   ]
 }
