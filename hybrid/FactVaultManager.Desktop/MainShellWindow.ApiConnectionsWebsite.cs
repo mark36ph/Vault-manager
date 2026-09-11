@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -56,7 +57,21 @@ public partial class MainShellWindow
 
         stack.Children.Add(SettingsFieldLabel("Website social reporting API key (SOCIAL_STATS_API_KEY)"));
         _apiConnectionsSocialStatsApiKey = new PasswordBox { Password = socialReporting.ApiKey };
-        stack.Children.Add(_apiConnectionsSocialStatsApiKey);
+        var socialRow = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(0, 5, 0, 2),
+        };
+        socialRow.Children.Add(_apiConnectionsSocialStatsApiKey);
+        var testSocial = new Button
+        {
+            Content = "Test Social Reporting",
+            MinWidth = 145,
+            Margin = new Thickness(8, 0, 0, 0),
+        };
+        testSocial.Click += TestSocialReportingConnection_Click;
+        socialRow.Children.Add(testSocial);
+        stack.Children.Add(socialRow);
         stack.Children.Add(new TextBlock
         {
             Text = "Dedicated desktop → website reporting secret. It is used only to send upload status and platform statistics to the Factburst website and is encrypted when stored on this PC.",
@@ -106,6 +121,36 @@ public partial class MainShellWindow
 
         SetConfiguredStatus("website", tracker.ApiKey);
         WireWebsiteTrackerSaveIntoUnifiedFooter(page);
+    }
+
+    private async void TestSocialReportingConnection_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_apiConnectionsSocialStatsApiKey is null)
+            return;
+
+        try
+        {
+            var key = RequireApiValue(_apiConnectionsSocialStatsApiKey.Password, "Website social reporting API key");
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            using var request = new HttpRequestMessage(HttpMethod.Get, FactburstWebsiteSocialStatsClient.DefaultWebsiteBaseUrl + "/api/social/stats?limit=1");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
+            using var response = await client.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                throw new HttpRequestException($"Social reporting returned HTTP {(int)response.StatusCode}: {body}");
+            }
+
+            if (_settingsPageStatus is not null)
+                _settingsPageStatus.Text = "Social reporting API key is working.";
+            MessageBox.Show(this, "Social reporting connection successful. The SOCIAL_STATS_API_KEY is accepted by the Factburst website.", "Social Reporting Test", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception error)
+        {
+            if (_settingsPageStatus is not null)
+                _settingsPageStatus.Text = "Social reporting test failed: " + FriendlyApiTestError(error);
+            MessageBox.Show(this, error.Message, "Social Reporting Test", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private async void BackupApiSettingsToCloudflare_Click(object? sender, RoutedEventArgs e)
