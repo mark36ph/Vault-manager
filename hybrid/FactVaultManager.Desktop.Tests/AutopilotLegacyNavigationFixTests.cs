@@ -14,6 +14,16 @@ public sealed class AutopilotLegacyNavigationFixTests
         Assert.Contains("e.Handled = true;", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void PerformanceNavigation_InitializesYouTubeManagerWhenDeferredStartupHasNotReachedIt()
+    {
+        var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.AutopilotLegacyNavigationFix.cs");
+        Assert.Contains("autopilot-first-nav:Performance", source, StringComparison.Ordinal);
+        Assert.Contains("window.InitializeYouTubeAnalyticsPage();", source, StringComparison.Ordinal);
+        Assert.Contains("window._youtubeAnalyticsTabIndex", source, StringComparison.Ordinal);
+        Assert.Contains("window.SelectAutopilotNav(\"Performance\")", source, StringComparison.Ordinal);
+    }
+
     private static string ReadRepositoryFile(string relativePath)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
