@@ -2,7 +2,7 @@
   "use strict";
   const $ = s => document.querySelector(s);
   const toggle = $("#maintenance-toggle"), message = $("#maintenance-message"), save = $("#save-website-settings"), status = $("#website-settings-status"), siteStatus = $("#settings-site-status");
-  const adsEnabled = $("#ads-enabled"), adsClient = $("#adsense-client"), adsLeft = $("#adsense-left-slot"), adsRight = $("#adsense-right-slot"), adsSave = $("#save-ads-settings"), adsStatus = $("#ads-settings-status"), adsState = $("#ads-settings-state"), adsBadge = $("#ads-settings-badge"), adsValidation = $("#ads-settings-validation"), publisherCheck = $("#ads-check-publisher"), slotCheck = $("#ads-check-slot"), adsOverview = $("#settings-ads-status");
+  const adsEnabled = $("#ads-enabled"), adsClient = $("#adsense-client"), adsLeft = $("#adsense-left-slot"), adsRight = $("#adsense-right-slot"), adsMobile = $("#adsense-mobile-slot"), adsSave = $("#save-ads-settings"), adsStatus = $("#ads-settings-status"), adsState = $("#ads-settings-state"), adsBadge = $("#ads-settings-badge"), adsValidation = $("#ads-settings-validation"), publisherCheck = $("#ads-check-publisher"), slotCheck = $("#ads-check-slot"), adsOverview = $("#settings-ads-status");
   const backupOverview = $("#settings-backup-status"), backupStatus = $("#api-settings-backup-status"), backupState = $("#api-settings-backup-state"), backupDate = $("#api-settings-backup-date"), services = $("#api-settings-services");
   const logoFile = $("#site-logo-file"), logoPreview = $("#site-logo-preview"), headerLogo = $("#admin-header-logo"), logoSave = $("#save-site-logo"), logoStatus = $("#site-logo-status"), logoName = $("#site-logo-file-name"), logoSize = $("#site-logo-file-size");
   const setStatus = (element, text, type = "") => { if (!element) return; element.textContent = text; element.className = `admin-status ${type}`.trim(); };
@@ -11,19 +11,19 @@
   function validSlot(value) { return /^\d{4,20}$/.test(String(value || "").trim()); }
   function slotMatchesPublisher(slot, client) { const publisherNumber = String(client || "").replace(/^ca-pub-/, ""); return Boolean(slot && publisherNumber && String(slot).trim() === publisherNumber); }
   function updateAdsValidation() {
-    const client = String(adsClient?.value || "").trim(), left = String(adsLeft?.value || "").trim(), right = String(adsRight?.value || "").trim();
-    const publisherOk = validClient(client), leftOk = validSlot(left), rightOk = validSlot(right), anySlot = leftOk || rightOk;
-    const leftLooksWrong = leftOk && slotMatchesPublisher(left, client), rightLooksWrong = rightOk && slotMatchesPublisher(right, client);
-    const realSlot = (leftOk && !leftLooksWrong) || (rightOk && !rightLooksWrong);
+    const client = String(adsClient?.value || "").trim(), left = String(adsLeft?.value || "").trim(), right = String(adsRight?.value || "").trim(), mobile = String(adsMobile?.value || "").trim();
+    const publisherOk = validClient(client), leftOk = validSlot(left), rightOk = validSlot(right), mobileOk = validSlot(mobile), anySlot = leftOk || rightOk || mobileOk;
+    const leftLooksWrong = leftOk && slotMatchesPublisher(left, client), rightLooksWrong = rightOk && slotMatchesPublisher(right, client), mobileLooksWrong = mobileOk && slotMatchesPublisher(mobile, client);
+    const realSlot = (leftOk && !leftLooksWrong) || (rightOk && !rightLooksWrong) || (mobileOk && !mobileLooksWrong);
     if (publisherCheck) { publisherCheck.textContent = publisherOk ? "✓" : "!"; publisherCheck.classList.toggle("warn", !publisherOk); }
     if (slotCheck) { slotCheck.textContent = realSlot ? "✓" : "!"; slotCheck.classList.toggle("warn", !realSlot); }
-    if (!adsValidation) return { publisherOk, anySlot, realSlot, leftLooksWrong, rightLooksWrong };
+    if (!adsValidation) return { publisherOk, anySlot, realSlot, leftLooksWrong, rightLooksWrong, mobileLooksWrong };
     adsValidation.className = "admin-settings-validation";
     if (!publisherOk) { adsValidation.textContent = "Enter a valid AdSense Publisher ID in the format ca-pub-1234567890123456."; adsValidation.classList.add("error"); }
     else if (!anySlot) { adsValidation.textContent = "Add at least one numeric AdSense ad-slot ID before enabling advertising."; adsValidation.classList.add("error"); }
-    else if (leftLooksWrong || rightLooksWrong) { adsValidation.textContent = "The slot ID currently matches your Publisher ID. Ad slot IDs are separate numeric IDs created for individual ad units. Replace it with the actual slot ID from AdSense."; adsValidation.classList.add("error"); }
+    else if (leftLooksWrong || rightLooksWrong || mobileLooksWrong) { adsValidation.textContent = "A slot ID currently matches your Publisher ID. Ad slot IDs are separate numeric IDs created for individual ad units. Replace it with the actual slot ID from AdSense."; adsValidation.classList.add("error"); }
     else { adsValidation.textContent = "Publisher and ad-slot formats look valid."; adsValidation.classList.add("success"); }
-    return { publisherOk, anySlot, realSlot, leftLooksWrong, rightLooksWrong };
+    return { publisherOk, anySlot, realSlot, leftLooksWrong, rightLooksWrong, mobileLooksWrong };
   }
   function updateAdsBadge() {
     const result = updateAdsValidation(), ready = result.publisherOk && result.realSlot, active = Boolean(adsEnabled?.checked) && ready;
@@ -32,7 +32,7 @@
     return result;
   }
   async function loadWebsite() { try { const data = await api("/api/admin/users/site-settings"); toggle.checked = !!data.maintenance_enabled; message.value = data.maintenance_message || ""; if (siteStatus) siteStatus.textContent = toggle.checked ? "Maintenance mode" : "Live"; } catch (error) { setStatus(status, error.message, "error"); if (siteStatus) siteStatus.textContent = "Unavailable"; } }
-  async function loadAds() { try { const data = await api("/api/admin/site/ads"); adsEnabled.checked = !!data.enabled; adsClient.value = data.client || ""; adsLeft.value = data.left_slot || ""; adsRight.value = data.right_slot || ""; const result = updateAdsBadge(), active = !!data.active && result.realSlot; setStatus(adsState, active ? "Google Ads are active on the public site." : result.realSlot ? "Advertising is configured but currently disabled." : "Google Ads need attention before they should be enabled.", active ? "success" : ""); if (adsOverview) adsOverview.textContent = active ? "Active" : result.realSlot ? "Configured" : "Needs attention"; } catch (error) { setStatus(adsStatus, error.message, "error"); if (adsOverview) adsOverview.textContent = "Unavailable"; } }
+  async function loadAds() { try { const data = await api("/api/admin/site/ads"); adsEnabled.checked = !!data.enabled; adsClient.value = data.client || ""; adsLeft.value = data.left_slot || ""; adsRight.value = data.right_slot || ""; adsMobile.value = data.mobile_slot || ""; const result = updateAdsBadge(), active = !!data.active && result.realSlot; setStatus(adsState, active ? "Google Ads are active on the public site." : result.realSlot ? "Advertising is configured but currently disabled." : "Google Ads need attention before they should be enabled.", active ? "success" : ""); if (adsOverview) adsOverview.textContent = active ? "Active" : result.realSlot ? "Configured" : "Needs attention"; } catch (error) { setStatus(adsStatus, error.message, "error"); if (adsOverview) adsOverview.textContent = "Unavailable"; } }
   async function loadBackup() { try { const data = await api("/api/admin/api-settings"); if (!data.configured) { backupState.textContent = "No Cloudflare API settings backup has been created yet."; backupDate.textContent = "Use the desktop app's Back up API settings to Cloudflare button."; services.textContent = "No backup available."; if (backupOverview) backupOverview.textContent = "Not configured"; return; } backupState.textContent = "Encrypted API settings backup is configured."; backupDate.textContent = data.backed_up_at ? `Last backup: ${new Date(data.backed_up_at).toLocaleString()}` : "Last backup time unavailable."; const entries = Object.entries(data.settings || {}); services.innerHTML = entries.length ? entries.map(([key, value]) => `<div class="admin-settings-service"><span>${escapeHtml(labelFor(key))}</span><code>${escapeHtml(String(value))}</code></div>`).join("") : "No configured API values were included in the backup."; if (backupOverview) backupOverview.textContent = "Configured"; } catch (error) { setStatus(backupStatus, error.message, "error"); } }
   function labelFor(key) { return String(key).replace(/_/g, " ").replace(/\b\w/g, match => match.toUpperCase()); }
   function escapeHtml(value) { return String(value ?? "").replace(/[&<>\"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[character])); }
@@ -49,22 +49,15 @@
       width = Math.max(1, Math.round(width * initialScale));
       height = Math.max(1, Math.round(height * initialScale));
       for (let attempt = 0; attempt < 8; attempt++) {
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const context = canvas.getContext("2d");
-        if (!context) throw new Error("The logo could not be prepared.");
-        if (!sourceIsPng) {
-          context.fillStyle = "#ffffff";
-          context.fillRect(0, 0, width, height);
-        }
+        const canvas = document.createElement("canvas"); canvas.width = width; canvas.height = height;
+        const context = canvas.getContext("2d"); if (!context) throw new Error("The logo could not be prepared.");
+        if (!sourceIsPng) { context.fillStyle = "#ffffff"; context.fillRect(0, 0, width, height); }
         context.drawImage(image, 0, 0, width, height);
         const outputType = sourceIsPng ? "image/png" : "image/jpeg";
         const quality = sourceIsPng ? undefined : Math.max(0.55, 0.88 - attempt * 0.06);
         const blob = await canvasToBlob(canvas, outputType, quality);
         if (blob.size <= 145 * 1024) return blobToDataUrl(blob);
-        width = Math.max(160, Math.round(width * 0.82));
-        height = Math.max(160, Math.round(height * 0.82));
+        width = Math.max(160, Math.round(width * 0.82)); height = Math.max(160, Math.round(height * 0.82));
       }
       throw new Error(sourceIsPng ? "The transparent PNG could not be compressed below 150 KB. Please choose a smaller PNG." : "The logo could not be compressed below 150 KB. Please choose a smaller image.");
     } finally { URL.revokeObjectURL(image.src); }
@@ -75,27 +68,20 @@
 
   logoFile?.addEventListener("change", () => { const file = logoFile.files?.[0]; if (!file) { logoName.textContent = "No new logo selected"; logoSize.textContent = ""; return; } logoName.textContent = file.name; logoSize.textContent = formatBytes(file.size); setStatus(logoStatus, "Ready to compress and upload."); });
   logoSave?.addEventListener("click", async () => {
-    const file = logoFile?.files?.[0];
-    if (!file) { setStatus(logoStatus, "Choose a PNG or JPG logo first.", "error"); return; }
+    const file = logoFile?.files?.[0]; if (!file) { setStatus(logoStatus, "Choose a PNG or JPG logo first.", "error"); return; }
     logoSave.disabled = true; setStatus(logoStatus, "Compressing logo…");
     try {
-      const dataUrl = await prepareLogo(file);
-      setStatus(logoStatus, "Uploading…");
+      const dataUrl = await prepareLogo(file); setStatus(logoStatus, "Uploading…");
       await api("/api/admin/site/logo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ data_url: dataUrl }) });
-      const cacheBust = `?logo=${Date.now()}`;
-      if (logoPreview) logoPreview.src = `/brand-icon.png${cacheBust}`;
-      if (headerLogo) headerLogo.src = `/brand-icon.png${cacheBust}`;
-      setStatus(logoStatus, "Website logo updated successfully.", "success");
-      logoSize.textContent = "Uploaded and optimised";
-      logoFile.value = "";
-      logoName.textContent = "No new logo selected";
-    } catch (error) { setStatus(logoStatus, error.message, "error"); }
-    finally { logoSave.disabled = false; }
+      const cacheBust = `?logo=${Date.now()}`; if (logoPreview) logoPreview.src = `/brand-icon.png${cacheBust}`; if (headerLogo) headerLogo.src = `/brand-icon.png${cacheBust}`;
+      setStatus(logoStatus, "Website logo updated successfully.", "success"); logoSize.textContent = "Uploaded and optimised"; logoFile.value = ""; logoName.textContent = "No new logo selected";
+    } catch (error) { setStatus(logoStatus, error.message, "error"); } finally { logoSave.disabled = false; }
   });
 
   save?.addEventListener("click", async () => { save.disabled = true; setStatus(status, "Saving…"); try { const data = await api("/api/admin/users/site-settings", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ maintenance_enabled: toggle.checked, maintenance_message: message.value }) }); toggle.checked = !!data.maintenance_enabled; message.value = data.maintenance_message || ""; setStatus(status, toggle.checked ? "Maintenance mode enabled." : "Website is live.", "success"); if (siteStatus) siteStatus.textContent = toggle.checked ? "Maintenance mode" : "Live"; } catch (error) { setStatus(status, error.message, "error"); } finally { save.disabled = false; } });
-  adsSave?.addEventListener("click", async () => { const validation = updateAdsValidation(); if (adsEnabled.checked && (!validation.publisherOk || !validation.realSlot)) { setStatus(adsStatus, "Fix the AdSense configuration before enabling Google Ads.", "error"); return; } adsSave.disabled = true; setStatus(adsStatus, "Saving…"); try { const data = await api("/api/admin/site/ads", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled: adsEnabled.checked, client: adsClient.value, left_slot: adsLeft.value, right_slot: adsRight.value }) }); adsEnabled.checked = !!data.enabled; adsClient.value = data.client || ""; adsLeft.value = data.left_slot || ""; adsRight.value = data.right_slot || ""; updateAdsBadge(); setStatus(adsStatus, "Google Ads settings saved.", "success"); setStatus(adsState, data.active ? "Google Ads are active on the public site." : "Advertising is configured but currently disabled.", data.active ? "success" : ""); if (adsOverview) adsOverview.textContent = data.active ? "Active" : "Configured"; } catch (error) { setStatus(adsStatus, error.message, "error"); } finally { adsSave.disabled = false; } });
-  [adsClient, adsLeft, adsRight, adsEnabled].forEach(element => element?.addEventListener("input", updateAdsBadge));
+  adsSave?.addEventListener("click", async () => { const validation = updateAdsValidation(); if (adsEnabled.checked && (!validation.publisherOk || !validation.realSlot)) { setStatus(adsStatus, "Fix the AdSense configuration before enabling Google Ads.", "error"); return; } adsSave.disabled = true; setStatus(adsStatus, "Saving…"); try { const data = await api("/api/admin/site/ads", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled: adsEnabled.checked, client: adsClient.value, left_slot: adsLeft.value, right_slot: adsRight.value, mobile_slot: adsMobile.value }) }); adsEnabled.checked = !!data.enabled; adsClient.value = data.client || ""; adsLeft.value = data.left_slot || ""; adsRight.value = data.right_slot || ""; adsMobile.value = data.mobile_slot || ""; updateAdsBadge(); setStatus(adsStatus, "Google Ads settings saved.", "success"); setStatus(adsState, data.active ? "Google Ads are active on the public site." : "Advertising is configured but currently disabled.", data.active ? "success" : ""); if (adsOverview) adsOverview.textContent = data.active ? "Active" : "Configured"; } catch (error) { setStatus(adsStatus, error.message, "error"); } finally { adsSave.disabled = false; } });
+  [adsClient, adsLeft, adsRight, adsMobile, adsEnabled].forEach(element => element?.addEventListener("input", updateAdsBadge));
+  adsEnabled?.addEventListener("change", updateAdsBadge);
   toggle?.addEventListener("change", () => { if (siteStatus) siteStatus.textContent = toggle.checked ? "Maintenance mode" : "Live"; });
-  if (toggle && message) loadWebsite(); if (adsEnabled && adsClient && adsLeft && adsRight) loadAds(); if (backupStatus && backupState && backupDate && services) loadBackup();
+  if (toggle && message) loadWebsite(); if (adsEnabled && adsClient && adsLeft && adsRight && adsMobile) loadAds(); if (backupStatus && backupState && backupDate && services) loadBackup();
 })();
