@@ -132,7 +132,7 @@ public partial class MainShellWindow
         {
             var key = RequireApiValue(_apiConnectionsSocialStatsApiKey.Password, "Website social reporting API key");
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
-            using var request = new HttpRequestMessage(HttpMethod.Get, FactburstWebsiteSocialStatsClient.DefaultWebsiteBaseUrl + "/api/social/stats?limit=1");
+            using var request = new HttpRequestMessage(HttpMethod.Get, FactburstWebsiteSocialStatsClient.DefaultWebsiteBaseUrl + "/api/social/stats?test=1");
             request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
             using var response = await client.SendAsync(request);
             if (!response.IsSuccessStatusCode)
