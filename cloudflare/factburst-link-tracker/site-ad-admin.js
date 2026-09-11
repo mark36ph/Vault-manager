@@ -9,7 +9,7 @@ export async function handleSiteAdAdmin(request, env, url) {
 async function readSettings(db) {
   const rows = await db.prepare(`
     SELECT key, value FROM site_settings
-    WHERE key IN ('ads_enabled', 'adsense_client', 'adsense_left_slot', 'adsense_right_slot')
+    WHERE key IN ('ads_enabled', 'adsense_client', 'adsense_left_slot', 'adsense_right_slot', 'adsense_mobile_slot')
   `).all();
   const values = Object.fromEntries((rows.results || []).map(row => [String(row.key || ""), String(row.value || "")]));
   return json({
@@ -17,6 +17,7 @@ async function readSettings(db) {
     client: String(values.adsense_client || ""),
     left_slot: String(values.adsense_left_slot || ""),
     right_slot: String(values.adsense_right_slot || ""),
+    mobile_slot: String(values.adsense_mobile_slot || ""),
   });
 }
 
@@ -32,6 +33,7 @@ async function updateSettings(request, db) {
   const client = normalizeClient(body?.client);
   const leftSlot = normalizeSlot(body?.left_slot);
   const rightSlot = normalizeSlot(body?.right_slot);
+  const mobileSlot = normalizeSlot(body?.mobile_slot);
   if (String(body?.client || "").trim() && !client) {
     return json({ error: "AdSense publisher ID must look like ca-pub-1234567890123456." }, 400);
   }
@@ -41,8 +43,11 @@ async function updateSettings(request, db) {
   if (String(body?.right_slot || "").trim() && !rightSlot) {
     return json({ error: "Right AdSense slot must contain digits only." }, 400);
   }
-  if (enabled && (!client || (!leftSlot && !rightSlot))) {
-    return json({ error: "Add an AdSense publisher ID and at least one side-rail ad slot before enabling ads." }, 400);
+  if (String(body?.mobile_slot || "").trim() && !mobileSlot) {
+    return json({ error: "Mobile AdSense slot must contain digits only." }, 400);
+  }
+  if (enabled && (!client || (!leftSlot && !rightSlot && !mobileSlot))) {
+    return json({ error: "Add an AdSense publisher ID and at least one ad slot before enabling ads." }, 400);
   }
 
   const now = new Date().toISOString();
@@ -51,6 +56,7 @@ async function updateSettings(request, db) {
     setting(db, "adsense_client", client, now),
     setting(db, "adsense_left_slot", leftSlot, now),
     setting(db, "adsense_right_slot", rightSlot, now),
+    setting(db, "adsense_mobile_slot", mobileSlot, now),
   ]);
   return readSettings(db);
 }
