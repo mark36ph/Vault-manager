@@ -22,5 +22,9 @@
   <ItemGroup>
     <InternalsVisibleTo Include="FactVaultManager.Desktop.Tests" />
     <Resource Include="Assets\FactVaultManager.ico" />
+    <Content Include="..\..\version.json" Link="version.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </Content>
   </ItemGroup>
 </Project>
