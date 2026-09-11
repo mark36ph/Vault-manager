@@ -137,7 +137,6 @@
 
   async function boot() {
     shell();
-    addDiagnostics();
     const hasLoginForm = Boolean(document.querySelector("#login-form"));
     const valid = await verifySession();
     if (valid) {
