@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.221",
-  "build": 241,
+  "latest_version": "1.0.222",
+  "build": 242,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 241 adds Restore API settings from Cloudflare in Settings > API & Connections.",
-    "Cloudflare restore requires the SITE_ADMIN_KEY and never changes the application database or project data.",
-    "The encrypted backup now includes the dedicated SOCIAL_STATS_API_KEY as well as the existing API credentials."
+    "Build 242 fixes the Restore API settings from Cloudflare dialog crash.",
+    "Cloudflare API restore now builds its WPF dialog without attaching the same element to two parents.",
+    "Restore changes API connection settings only and never changes the application database or project data."
   ]
 }
