@@ -79,7 +79,8 @@ public partial class MainShellWindow
         QueueDeferredShellPhase(InitializeQuizBatchButtonSync);
         QueueDeferredShellPhase(InitializeQuizYouTubePackagingMenuSync);
         QueueDeferredShellPhase(InitializeYouTubeUploadPackageUi);
-        QueueDeferredShellPhase(InitializeUploadManagerPage);
+        // Upload Manager is created on demand when its navigation entry is opened.
+        // It must not touch the database during application startup.
         QueueDeferredShellPhase(InitializeUploadManagerYouTubeStatusSync);
         QueueDeferredShellPhase(InitializeUnifiedPublicationStateUi);
         QueueDeferredShellPhase(InitializeScheduledPromoPublishingBatchForApp);
