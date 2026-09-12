@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.218",
-  "build": 238,
+  "latest_version": "1.0.219",
+  "build": 239,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 238 removes the database bootstrap path completely.",
-    "Application updates will never create a new factvault.db database.",
-    "An existing user database is preserved; if it is missing, the app will not manufacture a replacement. Database recovery remains an explicit Settings action."
+    "Build 239 fixes stale database migration markers so an existing user database can be recovered after an update.",
+    "The app no longer closes when the database is missing; Settings remains available for manual recovery.",
+    "Database recovery only searches for existing user data and never creates a replacement factvault.db."
   ]
 }
