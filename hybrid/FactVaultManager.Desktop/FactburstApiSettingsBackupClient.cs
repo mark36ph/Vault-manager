@@ -27,7 +27,7 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
         }
     }
 
-    public async Task<AppSettingsModel> RestoreAsync(string siteAdminKey, string websiteBaseUrl = DefaultWebsiteBaseUrl, CancellationToken cancellationToken = default)
+    public async Task<FactburstApiSettingsRestoreResult> RestoreAsync(string siteAdminKey, string websiteBaseUrl = DefaultWebsiteBaseUrl, CancellationToken cancellationToken = default)
     {
         var key = (siteAdminKey ?? "").Trim();
         if (key.Length < 16) throw new InvalidOperationException("Enter the Cloudflare site administrator key to restore API settings.");
@@ -40,7 +40,7 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
             if (!response.IsSuccessStatusCode) throw new HttpRequestException(ParseError(body, response.StatusCode));
             var result = JsonSerializer.Deserialize<RestoreResponse>(body);
             if (result?.Settings is null) throw new InvalidOperationException("Cloudflare did not return a valid API settings backup.");
-            return result.Settings.ToModel();
+            return new FactburstApiSettingsRestoreResult(result.Settings.ToModel(), result.Settings.TrackerBaseUrl, result.Settings.TrackerApiKey);
         }
     }
 
@@ -131,3 +131,5 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
         };
     }
 }
+
+public sealed record FactburstApiSettingsRestoreResult(AppSettingsModel Settings, string TrackerBaseUrl, string TrackerApiKey);
