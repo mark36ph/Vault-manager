@@ -124,7 +124,7 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
             YouTubeOAuthRefreshToken = YouTubeOAuthRefreshToken,
             ApprovedYouTubeChannelId = YouTubeApprovedChannelId,
             ApprovedYouTubeChannelName = YouTubeApprovedChannelName,
-            FacebookPageAccessToken = FacebookPageId == null ? "" : "",
+            FacebookPageAccessToken = FacebookPageAccessToken,
             ApprovedFacebookPageId = FacebookPageId,
             ApprovedFacebookPageName = FacebookPageName,
             InstagramAccessToken = InstagramAccessToken,
