@@ -79,6 +79,7 @@ public partial class MainShellWindow
         QueueDeferredShellPhase(InitializeQuizBatchButtonSync);
         QueueDeferredShellPhase(InitializeQuizYouTubePackagingMenuSync);
         QueueDeferredShellPhase(InitializeYouTubeUploadPackageUi);
+        QueueDeferredShellPhase(InitializeUploadManagerPage);
         QueueDeferredShellPhase(InitializeUploadManagerYouTubeStatusSync);
         QueueDeferredShellPhase(InitializeUnifiedPublicationStateUi);
         QueueDeferredShellPhase(InitializeScheduledPromoPublishingBatchForApp);
