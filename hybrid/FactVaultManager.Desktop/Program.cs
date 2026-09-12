@@ -37,18 +37,10 @@ public static class Program
                     InstalledDataMigration.Run();
             });
 
-            // The desktop data service requires factvault.db during MainShellWindow
-            // construction. If the installed database is still missing after the
-            // migration pass, the robust library recovery must run synchronously so
-            // its filesystem discovery has a chance to restore the database before
-            // the application tries to open it. Once a usable database exists, the
-            // remaining recovery work can stay deferred to preserve startup speed.
-            if (!File.Exists(Path.Combine(appDataRoot, "data", "factvault.db")))
-                RunRecoveryNow("library recovery", InstalledLibraryRecoveryV2.Run);
-            else
-                DeferredStartupRecovery.Add(("library recovery", InstalledLibraryRecoveryV2.Run));
+            // Database/library recovery is deliberately not a startup operation.
+            // It can perform filesystem discovery and must only run when the user
+            // explicitly requests a recovery check from Settings.
 
-            RunStartupRecovery("question library recovery", InstalledQuestionLibraryRecoveryV3.Run);
             RunStartupRecovery("project consolidation", InstalledProjectConsolidation.Run);
             RunStartupRecovery("credential recovery", InstalledCredentialRecovery.Run);
             RunStartupRecovery("deep credential recovery", InstalledCredentialDeepRecovery.Run);
