@@ -71,8 +71,23 @@ public partial class MainShellWindow
 
         button.Click += (_, _) =>
         {
+            // The modern button is nested inside the compact navigation container,
+            // so NavigateLegacy cannot find it by searching direct legacy children.
+            // Initialize the page on demand, then select its actual hidden tab directly.
             InitializeUploadManagerPage();
-            NavigateLegacy("Upload Manager", "Upload Manager");
+            if (_uploadManagerTabIndex < 0 || MainTabs is null || _uploadManagerTabIndex >= MainTabs.Items.Count)
+            {
+                MessageBox.Show(this,
+                    "The Upload Manager could not be initialized. Check the database status in Settings.",
+                    "Factburst Autopilot",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            MainTabs.SelectedIndex = _uploadManagerTabIndex;
+            ApplyNavigationSelection(_uploadManagerTabIndex);
+            SelectAutopilotNav("Upload Manager");
         };
 
         var libraryIndex = navigation.Children.IndexOf(library);
