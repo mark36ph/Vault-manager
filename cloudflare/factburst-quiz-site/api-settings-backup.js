@@ -46,7 +46,7 @@ function sanitizeSettings(value) {
     "openai_api_key", "openai_model",
     "youtube_api_key", "youtube_oauth_client_id", "youtube_oauth_client_secret", "youtube_oauth_refresh_token", "youtube_approved_channel_id", "youtube_approved_channel_name",
     "facebook_page_access_token", "facebook_approved_page_id", "facebook_approved_page_name",
-    "instagram_access_token"
+    "instagram_access_token", "social_stats_api_key"
   ];
   const result = {};
   for (const key of allowed) {
@@ -160,5 +160,5 @@ function fromBase64Url(value) {
 }
 
 function json(data, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-factburst-api": "api-settings-backup-v3" } });
+  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-factburst-api": "api-settings-backup-v4" } });
 }
