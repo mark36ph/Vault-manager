@@ -18,6 +18,13 @@ export async function handleApiSettingsBackupApi(request, env, url) {
       await env.DB.prepare("INSERT INTO site_settings(key,value,updated_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at").bind(BACKUP_KEY, encrypted, now).run();
       return json({ ok: true, backed_up_at: now, configured: summarize(settings) });
     }
+    if (request.method === "POST" && pathname === "/api/admin/api-settings/restore") {
+      if (!(await requireAdmin(request, env))) return json({ error: "Administrator authentication required." }, 401);
+      const row = await env.DB.prepare("SELECT value,updated_at FROM site_settings WHERE key=? LIMIT 1").bind(BACKUP_KEY).first();
+      if (!row?.value) return json({ configured: false, backed_up_at: null, settings: null });
+      const settings = await decryptJson(String(row.value), String(env.SITE_ADMIN_KEY || "").trim());
+      return json({ configured: true, backed_up_at: row.updated_at || null, settings });
+    }
     if (pathname === "/api/admin/api-settings" && request.method === "GET") {
       if (!(await requireAdmin(request, env))) return json({ error: "Administrator authentication required." }, 401);
       const row = await env.DB.prepare("SELECT value,updated_at FROM site_settings WHERE key=? LIMIT 1").bind(BACKUP_KEY).first();
@@ -53,9 +60,8 @@ function summarize(settings) {
   const result = {};
   for (const [key, value] of Object.entries(settings || {})) {
     if (!String(value).trim()) continue;
-    if (key.endsWith("_model") || key.endsWith("_base_url") || key.endsWith("_client_id") || key.endsWith("_channel_id") || key.endsWith("_channel_name") || key.endsWith("_page_id") || key.endsWith("_page_name")) {
-      result[key] = String(value);
-    } else {
+    if (key.endsWith("_model") || key.endsWith("_base_url") || key.endsWith("_client_id") || key.endsWith("_channel_id") || key.endsWith("_channel_name") || key.endsWith("_page_id") || key.endsWith("_page_name")) result[key] = String(value);
+    else {
       const text = String(value);
       result[key] = `${"•".repeat(Math.min(8, Math.max(4, text.length)))}${text.slice(-4)}`;
     }
@@ -66,15 +72,10 @@ function summarize(settings) {
 async function isTrackerAuthorized(request, env) {
   const supplied = String(request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "").trim();
   if (supplied.length < TRACKER_API_KEY_MIN_LENGTH) return false;
-
   const configured = String(env.TRACKER_API_KEY || "").trim();
   if (configured.length >= TRACKER_API_KEY_MIN_LENGTH) return supplied === configured;
-
   try {
-    const response = await fetch(`${TRACKER_BASE_URL}/api/stats`, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${supplied}` },
-    });
+    const response = await fetch(`${TRACKER_BASE_URL}/api/stats`, { method: "GET", headers: { Authorization: `Bearer ${supplied}` } });
     return response.ok;
   } catch (error) {
     console.error("Tracker API key validation failed", error);
@@ -159,5 +160,5 @@ function fromBase64Url(value) {
 }
 
 function json(data, status = 200) {
-  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-factburst-api": "api-settings-backup-v2" } });
+  return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-factburst-api": "api-settings-backup-v3" } });
 }
