@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.212",
-  "build": 232,
+  "latest_version": "1.0.213",
+  "build": 233,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 232 fixes the missing Upload Manager navigation entry.",
-    "Upload Manager is initialized during deferred startup so it is available in the main navigation without waiting for another feature to open it.",
+    "Build 233 fixes the Upload Manager entry in the modern Factburst navigation sidebar.",
+    "Upload Manager is now inserted directly after Library and remains available even when the legacy navigation is hidden.",
     "The Upload Manager Sync Now button remains available for immediate YouTube, Facebook and Instagram status synchronization."
   ]
 }
