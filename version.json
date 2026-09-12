@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.216",
-  "build": 236,
+  "latest_version": "1.0.217",
+  "build": 237,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 236 fixes the modern Upload Manager navigation so it opens the real Upload Manager page instead of reporting that it is still starting.",
-    "Upload Manager is now initialized only when opened, preventing it from reading the database during application startup.",
-    "Database recovery remains manual and is never triggered by normal Upload Manager navigation or application startup."
+    "Build 237 fixes installed database migration getting permanently blocked by an empty bootstrap database.",
+    "An empty or incomplete local database is now treated as migration-pending, while databases containing user data remain protected from replacement.",
+    "Database recovery remains manual and is not used as a startup filesystem recovery scan."
   ]
 }
