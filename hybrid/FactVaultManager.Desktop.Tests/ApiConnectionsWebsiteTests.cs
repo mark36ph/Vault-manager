@@ -15,7 +15,7 @@ public sealed class ApiConnectionsWebsiteTests
     }
 
     [Fact]
-    public void Build219_DedicatedSocialReportingCredentialIsStoredSeparately()
+    public void Build240_DedicatedSocialReportingCredentialIsRecoverableWithMainSettingsBackup()
     {
         var source = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.ApiConnectionsWebsite.cs");
         var sync = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.FactburstSocialSync.cs");
@@ -27,6 +27,9 @@ public sealed class ApiConnectionsWebsiteTests
         Assert.Contains("reporting.IsConfigured ? reporting.ApiKey : tracker.ApiKey", sync, StringComparison.Ordinal);
         Assert.Contains("SocialStatsSettingsKey", store, StringComparison.Ordinal);
         Assert.Contains("LocalSecretProtector.Protect", store, StringComparison.Ordinal);
+        Assert.Contains("factburst_social_reporting_api_key", store, StringComparison.Ordinal);
+        Assert.Contains("AppSettingsDocumentStore.Load(appSettingsPath)", store, StringComparison.Ordinal);
+        Assert.Contains("AppSettingsDocumentStore.Save(appSettingsPath, main)", store, StringComparison.Ordinal);
     }
 
     [Fact]
