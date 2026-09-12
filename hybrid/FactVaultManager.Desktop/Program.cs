@@ -31,6 +31,12 @@ public static class Program
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "FactVaultManager");
 
+            // A stale completion marker must never prevent recovery of an existing
+            // user database. This only removes the marker when the installed database
+            // is missing, empty or unreadable; it never creates a database.
+            RunStartupRecovery("stale data migration marker repair", () =>
+                InstalledDataMigrationMarkerRepair.ClearIfStale(appDataRoot));
+
             // An application update must NEVER manufacture a replacement database.
             // If the installed database is missing, the migration path may only copy
             // an existing user database from a known legacy location. If no source is
@@ -85,7 +91,8 @@ public static class Program
 
     private static void RunStartupRecovery(string name, Action action)
     {
-        if (string.Equals(name, "data migration", StringComparison.Ordinal))
+        if (string.Equals(name, "data migration", StringComparison.Ordinal) ||
+            string.Equals(name, "stale data migration marker repair", StringComparison.Ordinal))
         {
             RunRecoveryNow(name, action);
             return;
@@ -140,6 +147,29 @@ public static class Program
                 catch
                 {
                 }
+            }
+
+            return;
+        }
+
+        if (e.Exception is FileNotFoundException databaseError &&
+            string.Equals(databaseError.Message, "FactVault database was not found.", StringComparison.Ordinal))
+        {
+            WriteCrashLog("WPF dispatcher database-missing exception (handled)", e.Exception);
+            e.Handled = true;
+
+            try
+            {
+                var owner = sender is Application application ? application.MainWindow : null;
+                MessageBox.Show(
+                    owner,
+                    "The FactVault database is not currently available.\n\nNo replacement database will be created automatically. Open Settings → Project Integrity → Check database recovery to search for an existing user database.",
+                    "Database Recovery Required",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
+            catch
+            {
             }
 
             return;
