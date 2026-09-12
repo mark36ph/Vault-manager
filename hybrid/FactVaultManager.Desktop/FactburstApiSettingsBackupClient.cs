@@ -16,30 +16,10 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
         var key = (trackerApiKey ?? "").Trim();
         if (key.Length < 16) throw new InvalidOperationException("Add the website tracker API key before backing up API settings.");
         var baseUrl = ValidateBaseUrl(websiteBaseUrl);
-        var payload = new BackupSettings(
-            "https://go.factburstquiz.com",
-            key,
-            settings.OpenAiKey,
-            settings.OpenAiModel,
-            settings.YouTubeApiKey,
-            settings.YouTubeOAuthClientId,
-            settings.YouTubeOAuthClientSecret,
-            settings.YouTubeOAuthRefreshToken,
-            settings.ApprovedYouTubeChannelId,
-            settings.ApprovedYouTubeChannelName,
-            settings.FacebookPageAccessToken,
-            settings.ApprovedFacebookPageId,
-            settings.ApprovedFacebookPageName,
-            settings.InstagramAccessToken);
+        var payload = new BackupSettings("https://go.factburstquiz.com", key, settings.OpenAiKey, settings.OpenAiModel, settings.YouTubeApiKey, settings.YouTubeOAuthClientId, settings.YouTubeOAuthClientSecret, settings.YouTubeOAuthRefreshToken, settings.ApprovedYouTubeChannelId, settings.ApprovedYouTubeChannelName, settings.FacebookPageAccessToken, settings.ApprovedFacebookPageId, settings.ApprovedFacebookPageName, settings.InstagramAccessToken);
         var json = JsonSerializer.Serialize(new { settings = payload });
-
         var response = await SendBackupRequestAsync(baseUrl, key, json, cancellationToken);
-        if ((int)response.StatusCode == 404 && !string.Equals(baseUrl, DirectWorkerBaseUrl, StringComparison.OrdinalIgnoreCase))
-        {
-            response.Dispose();
-            response = await SendBackupRequestAsync(DirectWorkerBaseUrl, key, json, cancellationToken);
-        }
-
+        if ((int)response.StatusCode == 404 && !string.Equals(baseUrl, DirectWorkerBaseUrl, StringComparison.OrdinalIgnoreCase)) { response.Dispose(); response = await SendBackupRequestAsync(DirectWorkerBaseUrl, key, json, cancellationToken); }
         using (response)
         {
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -53,19 +33,13 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
         if (key.Length < 16) throw new InvalidOperationException("Enter the Cloudflare site administrator key to restore API settings.");
         var baseUrl = ValidateBaseUrl(websiteBaseUrl);
         var response = await SendRestoreRequestAsync(baseUrl, key, cancellationToken);
-        if ((int)response.StatusCode == 404 && !string.Equals(baseUrl, DirectWorkerBaseUrl, StringComparison.OrdinalIgnoreCase))
-        {
-            response.Dispose();
-            response = await SendRestoreRequestAsync(DirectWorkerBaseUrl, key, cancellationToken);
-        }
-
+        if ((int)response.StatusCode == 404 && !string.Equals(baseUrl, DirectWorkerBaseUrl, StringComparison.OrdinalIgnoreCase)) { response.Dispose(); response = await SendRestoreRequestAsync(DirectWorkerBaseUrl, key, cancellationToken); }
         using (response)
         {
             var body = await response.Content.ReadAsStringAsync(cancellationToken);
             if (!response.IsSuccessStatusCode) throw new HttpRequestException(ParseError(body, response.StatusCode));
             var result = JsonSerializer.Deserialize<RestoreResponse>(body);
-            if (result?.Settings is null)
-                throw new InvalidOperationException("Cloudflare did not return a valid API settings backup.");
+            if (result?.Settings is null) throw new InvalidOperationException("Cloudflare did not return a valid API settings backup.");
             return result.Settings.ToModel();
         }
     }
@@ -98,12 +72,7 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
 
     private static string ParseError(string body, System.Net.HttpStatusCode status)
     {
-        try
-        {
-            using var document = JsonDocument.Parse(body);
-            if (document.RootElement.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.String)
-                return error.GetString()?.Trim() ?? $"API settings request returned HTTP {(int)status}.";
-        }
+        try { using var document = JsonDocument.Parse(body); if (document.RootElement.TryGetProperty("error", out var error) && error.ValueKind == JsonValueKind.String) return error.GetString()?.Trim() ?? $"API settings request returned HTTP {(int)status}."; }
         catch (JsonException) { }
         return $"API settings request returned HTTP {(int)status}.";
     }
@@ -122,11 +91,7 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
         [property: JsonPropertyName("facebook_page_access_token")] string FacebookPageAccessToken,
         [property: JsonPropertyName("facebook_approved_page_id")] string FacebookPageId,
         [property: JsonPropertyName("facebook_approved_page_name")] string FacebookPageName,
-        [property: JsonPropertyName("instagram_access_token")] string InstagramAccessToken)
-    {
-        public string ApprovedFacebookPageId => FacebookPageId;
-        public string ApprovedFacebookPageName => FacebookPageName;
-    }
+        [property: JsonPropertyName("instagram_access_token")] string InstagramAccessToken);
 
     private sealed record RestoreResponse(
         [property: JsonPropertyName("configured")] bool Configured,
@@ -145,8 +110,8 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
         [property: JsonPropertyName("youtube_approved_channel_id")] string YouTubeApprovedChannelId,
         [property: JsonPropertyName("youtube_approved_channel_name")] string YouTubeApprovedChannelName,
         [property: JsonPropertyName("facebook_page_access_token")] string FacebookPageAccessToken,
-        [property: JsonPropertyName("facebook_approved_page_id")] string FacebookApprovedPageId,
-        [property: JsonPropertyName("facebook_approved_page_name")] string FacebookApprovedPageName,
+        [property: JsonPropertyName("facebook_approved_page_id")] string FacebookPageId,
+        [property: JsonPropertyName("facebook_approved_page_name")] string FacebookPageName,
         [property: JsonPropertyName("instagram_access_token")] string InstagramAccessToken)
     {
         public AppSettingsModel ToModel() => new()
@@ -159,9 +124,9 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
             YouTubeOAuthRefreshToken = YouTubeOAuthRefreshToken,
             ApprovedYouTubeChannelId = YouTubeApprovedChannelId,
             ApprovedYouTubeChannelName = YouTubeApprovedChannelName,
-            FacebookPageAccessToken = FacebookPageAccessToken,
-            ApprovedFacebookPageId = ApprovedFacebookPageId,
-            ApprovedFacebookPageName = ApprovedFacebookPageName,
+            FacebookPageAccessToken = FacebookPageId == null ? "" : "",
+            ApprovedFacebookPageId = FacebookPageId,
+            ApprovedFacebookPageName = FacebookPageName,
             InstagramAccessToken = InstagramAccessToken,
         };
     }
