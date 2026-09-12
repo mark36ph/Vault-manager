@@ -5,18 +5,18 @@ using System.Text.Json.Serialization;
 
 namespace FactVaultManager.Desktop;
 
-public sealed class FactburstApiSettingsBackupClient : IDisposable
+public sealed class FactVaultManagerApiSettingsBackupClient : IDisposable
 {
     public const string DefaultWebsiteBaseUrl = "https://factburstquiz.com";
     public const string DirectWorkerBaseUrl = "https://factburst-quiz-site.factburstquiz.workers.dev";
     private readonly HttpClient _client = new() { Timeout = TimeSpan.FromSeconds(30) };
 
-    public async Task BackupAsync(string trackerApiKey, AppSettingsModel settings, string websiteBaseUrl = DefaultWebsiteBaseUrl, CancellationToken cancellationToken = default)
+    public async Task BackupAsync(string trackerApiKey, AppSettingsModel settings, string socialStatsApiKey = "", string websiteBaseUrl = DefaultWebsiteBaseUrl, CancellationToken cancellationToken = default)
     {
         var key = (trackerApiKey ?? "").Trim();
         if (key.Length < 16) throw new InvalidOperationException("Add the website tracker API key before backing up API settings.");
         var baseUrl = ValidateBaseUrl(websiteBaseUrl);
-        var payload = new BackupSettings("https://go.factburstquiz.com", key, settings.OpenAiKey, settings.OpenAiModel, settings.YouTubeApiKey, settings.YouTubeOAuthClientId, settings.YouTubeOAuthClientSecret, settings.YouTubeOAuthRefreshToken, settings.ApprovedYouTubeChannelId, settings.ApprovedYouTubeChannelName, settings.FacebookPageAccessToken, settings.ApprovedFacebookPageId, settings.ApprovedFacebookPageName, settings.InstagramAccessToken);
+        var payload = new BackupSettings("https://go.factburstquiz.com", key, settings.OpenAiKey, settings.OpenAiModel, settings.YouTubeApiKey, settings.YouTubeOAuthClientId, settings.YouTubeOAuthClientSecret, settings.YouTubeOAuthRefreshToken, settings.ApprovedYouTubeChannelId, settings.ApprovedYouTubeChannelName, settings.FacebookPageAccessToken, settings.ApprovedFacebookPageId, settings.ApprovedFacebookPageName, settings.InstagramAccessToken, socialStatsApiKey);
         var json = JsonSerializer.Serialize(new { settings = payload });
         var response = await SendBackupRequestAsync(baseUrl, key, json, cancellationToken);
         if ((int)response.StatusCode == 404 && !string.Equals(baseUrl, DirectWorkerBaseUrl, StringComparison.OrdinalIgnoreCase)) { response.Dispose(); response = await SendBackupRequestAsync(DirectWorkerBaseUrl, key, json, cancellationToken); }
@@ -40,7 +40,7 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
             if (!response.IsSuccessStatusCode) throw new HttpRequestException(ParseError(body, response.StatusCode));
             var result = JsonSerializer.Deserialize<RestoreResponse>(body);
             if (result?.Settings is null) throw new InvalidOperationException("Cloudflare did not return a valid API settings backup.");
-            return new FactburstApiSettingsRestoreResult(result.Settings.ToModel(), result.Settings.TrackerBaseUrl, result.Settings.TrackerApiKey);
+            return new FactburstApiSettingsRestoreResult(result.Settings.ToModel(), result.Settings.TrackerBaseUrl, result.Settings.TrackerApiKey, result.Settings.SocialStatsApiKey);
         }
     }
 
@@ -91,7 +91,8 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
         [property: JsonPropertyName("facebook_page_access_token")] string FacebookPageAccessToken,
         [property: JsonPropertyName("facebook_approved_page_id")] string FacebookPageId,
         [property: JsonPropertyName("facebook_approved_page_name")] string FacebookPageName,
-        [property: JsonPropertyName("instagram_access_token")] string InstagramAccessToken);
+        [property: JsonPropertyName("instagram_access_token")] string InstagramAccessToken,
+        [property: JsonPropertyName("social_stats_api_key")] string SocialStatsApiKey);
 
     private sealed record RestoreResponse(
         [property: JsonPropertyName("configured")] bool Configured,
@@ -112,7 +113,8 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
         [property: JsonPropertyName("facebook_page_access_token")] string FacebookPageAccessToken,
         [property: JsonPropertyName("facebook_approved_page_id")] string FacebookPageId,
         [property: JsonPropertyName("facebook_approved_page_name")] string FacebookPageName,
-        [property: JsonPropertyName("instagram_access_token")] string InstagramAccessToken)
+        [property: JsonPropertyName("instagram_access_token")] string InstagramAccessToken,
+        [property: JsonPropertyName("social_stats_api_key")] string SocialStatsApiKey)
     {
         public AppSettingsModel ToModel() => new()
         {
@@ -132,4 +134,4 @@ public sealed class FactburstApiSettingsBackupClient : IDisposable
     }
 }
 
-public sealed record FactburstApiSettingsRestoreResult(AppSettingsModel Settings, string TrackerBaseUrl, string TrackerApiKey);
+public sealed record FactburstApiSettingsRestoreResult(AppSettingsModel Settings, string TrackerBaseUrl, string TrackerApiKey, string SocialStatsApiKey);
