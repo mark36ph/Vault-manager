@@ -31,16 +31,16 @@ public static class Program
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "FactVaultManager");
 
+            // An application update must NEVER manufacture a replacement database.
+            // If the installed database is missing, the migration path may only copy
+            // an existing user database from a known legacy location. If no source is
+            // found, the application remains without a database until the user chooses
+            // the explicit recovery action in Settings.
             RunStartupRecovery("data migration", () =>
             {
                 if (InstalledDataMigrationGuard.ShouldRun(appDataRoot))
                     InstalledDataMigration.Run();
             });
-
-            // Bootstrap only creates an empty database container when the installed
-            // database is genuinely missing. It does not search for, copy, or recover
-            // a database. Database recovery remains an explicit Settings action.
-            DatabaseBootstrap.EnsureInstalledDatabase();
 
             // Database/library recovery is deliberately not a startup operation.
             // It can perform filesystem discovery and must only run when the user
@@ -112,9 +112,6 @@ public static class Program
         }
         catch (Exception error)
         {
-            // Recovery is deliberately best-effort: a damaged optional backup or legacy
-            // data file must never prevent the desktop application from opening. The
-            // exception is still recorded so the underlying recovery issue can be fixed.
             WriteCrashLog($"Startup recovery warning: {name}", error);
         }
     }
