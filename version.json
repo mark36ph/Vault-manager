@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.214",
-  "build": 234,
+  "latest_version": "1.0.215",
+  "build": 235,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 234 removes database recovery scans from application startup and adds a manual database recovery check in Settings.",
-    "YouTube Analytics now uses the last saved analytics snapshot when opened and only contacts YouTube when Refresh from YouTube is pressed.",
-    "Startup no longer performs the delayed automatic YouTube Growth Analytics refresh."
+    "Build 235 fixes startup when the installed FactVault database is missing by creating an empty local database container without running recovery scans.",
+    "Database recovery remains manual from Settings and never searches for or copies a database during normal startup.",
+    "The existing database migration still runs before the bootstrap so existing data is preserved when a known migration source is available."
   ]
 }
