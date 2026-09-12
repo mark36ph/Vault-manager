@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.219",
-  "build": 239,
+  "latest_version": "1.0.220",
+  "build": 240,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 239 fixes stale database migration markers so an existing user database can be recovered after an update.",
-    "The app no longer closes when the database is missing; Settings remains available for manual recovery.",
-    "Database recovery only searches for existing user data and never creates a replacement factvault.db."
+    "Build 240 preserves and restores the website social reporting API key with the main application settings.",
+    "The Social Reporting API connection remains visible and recoverable when its dedicated credential mirror is missing.",
+    "Application updates never create or replace the user database."
   ]
 }
