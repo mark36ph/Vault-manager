@@ -5,7 +5,7 @@ using System.Text.Json.Serialization;
 
 namespace FactVaultManager.Desktop;
 
-public sealed class FactVaultManagerApiSettingsBackupClient : IDisposable
+public sealed class FactburstApiSettingsBackupClient : IDisposable
 {
     public const string DefaultWebsiteBaseUrl = "https://factburstquiz.com";
     public const string DirectWorkerBaseUrl = "https://factburst-quiz-site.factburstquiz.workers.dev";
@@ -118,17 +118,9 @@ public sealed class FactVaultManagerApiSettingsBackupClient : IDisposable
     {
         public AppSettingsModel ToModel() => new()
         {
-            OpenAiKey = OpenAiApiKey,
-            OpenAiModel = OpenAiModel,
-            YouTubeApiKey = YouTubeApiKey,
-            YouTubeOAuthClientId = YouTubeOAuthClientId,
-            YouTubeOAuthClientSecret = YouTubeOAuthClientSecret,
-            YouTubeOAuthRefreshToken = YouTubeOAuthRefreshToken,
-            ApprovedYouTubeChannelId = YouTubeApprovedChannelId,
-            ApprovedYouTubeChannelName = YouTubeApprovedChannelName,
-            FacebookPageAccessToken = FacebookPageAccessToken,
-            ApprovedFacebookPageId = FacebookPageId,
-            ApprovedFacebookPageName = FacebookPageName,
+            OpenAiKey = OpenAiApiKey, OpenAiModel = OpenAiModel,
+            YouTubeApiKey = YouTubeApiKey, YouTubeOAuthClientId = YouTubeOAuthClientId, YouTubeOAuthClientSecret = YouTubeOAuthClientSecret, YouTubeOAuthRefreshToken = YouTubeOAuthRefreshToken, ApprovedYouTubeChannelId = YouTubeApprovedChannelId, ApprovedYouTubeChannelName = YouTubeApprovedChannelName,
+            FacebookPageAccessToken = FacebookPageAccessToken, ApprovedFacebookPageId = FacebookPageId, ApprovedFacebookPageName = FacebookPageName,
             InstagramAccessToken = InstagramAccessToken,
         };
     }
