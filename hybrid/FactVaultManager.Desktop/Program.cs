@@ -37,6 +37,11 @@ public static class Program
                     InstalledDataMigration.Run();
             });
 
+            // Bootstrap only creates an empty database container when the installed
+            // database is genuinely missing. It does not search for, copy, or recover
+            // a database. Database recovery remains an explicit Settings action.
+            DatabaseBootstrap.EnsureInstalledDatabase();
+
             // Database/library recovery is deliberately not a startup operation.
             // It can perform filesystem discovery and must only run when the user
             // explicitly requests a recovery check from Settings.
