@@ -1,3 +1,5 @@
+using Microsoft.Data.Sqlite;
+
 namespace FactVaultManager.Desktop.Tests;
 
 public sealed class InstalledDataMigrationGuardTests
@@ -34,13 +36,37 @@ public sealed class InstalledDataMigrationGuardTests
     }
 
     [Fact]
-    public void BlocksMigrationWhenInstalledDatabaseAlreadyExists()
+    public void AllowsMigrationWhenInstalledDatabaseExistsButIsEmpty()
     {
         using var sandbox = new TemporaryDirectory();
         var appDataRoot = Path.Combine(sandbox.Path, "installed");
         var data = Path.Combine(appDataRoot, "data");
+        var database = Path.Combine(data, "factvault.db");
         Directory.CreateDirectory(data);
-        File.WriteAllBytes(Path.Combine(data, "factvault.db"), [1, 2, 3]);
+
+        using var connection = new SqliteConnection($"Data Source={database}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "CREATE TABLE projects (id INTEGER PRIMARY KEY, title TEXT NOT NULL DEFAULT '')";
+        command.ExecuteNonQuery();
+
+        Assert.True(InstalledDataMigrationGuard.ShouldRun(appDataRoot));
+    }
+
+    [Fact]
+    public void BlocksMigrationWhenInstalledDatabaseContainsUserData()
+    {
+        using var sandbox = new TemporaryDirectory();
+        var appDataRoot = Path.Combine(sandbox.Path, "installed");
+        var data = Path.Combine(appDataRoot, "data");
+        var database = Path.Combine(data, "factvault.db");
+        Directory.CreateDirectory(data);
+
+        using var connection = new SqliteConnection($"Data Source={database}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "CREATE TABLE projects (id INTEGER PRIMARY KEY, title TEXT NOT NULL DEFAULT ''); INSERT INTO projects(title) VALUES('Existing project')";
+        command.ExecuteNonQuery();
 
         Assert.False(InstalledDataMigrationGuard.ShouldRun(appDataRoot));
     }
