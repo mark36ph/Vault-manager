@@ -11,7 +11,6 @@ public partial class MainShellWindow
     private static readonly bool YouTubeAnalyticsAutopilotRegistered = RegisterYouTubeAnalyticsAutopilot();
     private readonly YouTubeAnalyticsAutopilotService _youtubeAnalyticsAutopilot = new();
     private bool _youtubeGrowthRefreshRunning;
-    private bool _youtubeGrowthStartupRefreshQueued;
 
     private static bool RegisterYouTubeAnalyticsAutopilot()
     {
@@ -20,26 +19,7 @@ public partial class MainShellWindow
             FrameworkElement.LoadedEvent,
             new RoutedEventHandler(YouTubeAnalyticsAutopilotButton_Loaded),
             handledEventsToo: true);
-        EventManager.RegisterClassHandler(
-            typeof(MainShellWindow),
-            FrameworkElement.LoadedEvent,
-            new RoutedEventHandler(YouTubeAnalyticsAutopilotWindow_Loaded),
-            handledEventsToo: true);
         return true;
-    }
-
-    private static void YouTubeAnalyticsAutopilotWindow_Loaded(object sender, RoutedEventArgs e)
-    {
-        if (sender is not MainShellWindow window || window._youtubeGrowthStartupRefreshQueued)
-            return;
-        window._youtubeGrowthStartupRefreshQueued = true;
-        window.Dispatcher.BeginInvoke(
-            DispatcherPriority.ApplicationIdle,
-            new Action(async () =>
-            {
-                await Task.Delay(TimeSpan.FromSeconds(3));
-                await window.RefreshYouTubeGrowthAnalyticsAsync(showErrors: false);
-            }));
     }
 
     private static void YouTubeAnalyticsAutopilotButton_Loaded(object sender, RoutedEventArgs e)
