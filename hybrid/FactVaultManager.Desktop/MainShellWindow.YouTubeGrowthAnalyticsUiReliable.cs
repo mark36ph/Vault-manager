@@ -106,18 +106,13 @@ public partial class MainShellWindow
 
     private async void YouTubeGrowthAnalyticsTab_Click(object sender, RoutedEventArgs e)
     {
-        // The manager navigation rebuilds the Analytics section. Wait for the existing
-        // navigation refresh to settle, then wire the newly-created controls and show the
-        // Growth view as the final state.
+        // Opening Analytics uses the last saved snapshot only. Network analytics refresh
+        // is deliberately reserved for the explicit Refresh from YouTube button.
         await Task.Delay(75);
         for (var attempt = 0; attempt < 600 && _youtubeAnalyticsPageRefreshing; attempt++)
             await Task.Delay(100);
 
         EnsureYouTubeGrowthAnalyticsUiWiring();
-        await RefreshYouTubeGrowthAnalyticsAsync(showErrors: false);
-        for (var attempt = 0; attempt < 600 && _youtubeGrowthRefreshRunning; attempt++)
-            await Task.Delay(100);
-
         await Dispatcher.Yield(DispatcherPriority.ContextIdle);
         ApplyYouTubeGrowthAnalyticsUi();
     }
