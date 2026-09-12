@@ -70,7 +70,7 @@ public partial class MainShellWindow
             MinWidth = 170,
             MinHeight = 34,
             HorizontalAlignment = HorizontalAlignment.Left,
-            ToolTip = "Inspect for a recoverable Library/question database only when you request it.",
+            ToolTip = "Inspect for an existing user database only when you request it.",
         };
         _databaseRecoveryCheckButton.Click += async (_, _) => await RunManualDatabaseRecoveryCheckAsync();
         content.Children.Add(_databaseRecoveryCheckButton);
@@ -91,18 +91,40 @@ public partial class MainShellWindow
         if (_databaseRecoveryCheckButton is not null)
             _databaseRecoveryCheckButton.IsEnabled = false;
         if (_databaseRecoveryCheckStatus is not null)
-            _databaseRecoveryCheckStatus.Text = "Checking database recovery sources…";
+            _databaseRecoveryCheckStatus.Text = "Checking for an existing database…";
 
         try
         {
             await Task.Run(() =>
             {
+                var appDataRoot = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "FactVaultManager");
+
+                // Allow a previous migration marker to be retried, but never create a DB.
+                InstalledDataMigrationMarkerRepair.ClearIfStale(appDataRoot);
+
+                // This migration only copies an existing user database from a known
+                // location. It does not manufacture a replacement database.
+                if (InstalledDataMigrationGuard.ShouldRun(appDataRoot))
+                    InstalledDataMigration.Run();
+
+                // Also inspect the dedicated recovery sources on explicit user request.
                 InstalledLibraryRecoveryV2.Run();
                 InstalledQuestionLibraryRecoveryV3.Run();
             });
 
             if (_databaseRecoveryCheckStatus is not null)
-                _databaseRecoveryCheckStatus.Text = "Database recovery check completed. Review the integrity report and recovery diagnostics if a problem was found.";
+            {
+                var databasePath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "FactVaultManager",
+                    "data",
+                    "factvault.db");
+                _databaseRecoveryCheckStatus.Text = File.Exists(databasePath)
+                    ? "An existing database is now available. Restart Factburst Quiz Manager to reload it."
+                    : "No existing user database was found in the recovery sources. No new database was created.";
+            }
         }
         catch (Exception error)
         {
