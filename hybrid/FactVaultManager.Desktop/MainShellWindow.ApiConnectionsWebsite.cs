@@ -31,8 +31,7 @@ public partial class MainShellWindow
         stack.Children.Add(SettingsFieldLabel("Website social reporting API key (SOCIAL_STATS_API_KEY)"));
         _apiConnectionsSocialStatsApiKey = new PasswordBox { Password = socialReporting.ApiKey, MinWidth = 300, HorizontalAlignment = HorizontalAlignment.Stretch };
         var socialRow = new Grid { Margin = new Thickness(0, 5, 0, 2) };
-        socialRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        socialRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        socialRow.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); socialRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         Grid.SetColumn(_apiConnectionsSocialStatsApiKey, 0); socialRow.Children.Add(_apiConnectionsSocialStatsApiKey);
         var testSocial = new Button { Content = "Test Social Reporting", MinWidth = 145, Margin = new Thickness(8, 0, 0, 0) };
         testSocial.Click += TestSocialReportingConnection_Click; Grid.SetColumn(testSocial, 1); socialRow.Children.Add(testSocial); stack.Children.Add(socialRow);
@@ -46,8 +45,7 @@ public partial class MainShellWindow
         var cloudflare = new Button { Content = "Open Cloudflare Dashboard", MinWidth = 158, HorizontalAlignment = HorizontalAlignment.Left };
         cloudflare.Click += (_, _) => OpenSettingsExternalLink("https://dash.cloudflare.com/"); stack.Children.Add(cloudflare);
         var insertIndex = page.Children.Count;
-        for (var index = 0; index < page.Children.Count; index++)
-            if (page.Children[index] is Border border && border.Child is StackPanel section && section.Children.OfType<TextBlock>().FirstOrDefault()?.Text == "Connection checks") { insertIndex = index; break; }
+        for (var index = 0; index < page.Children.Count; index++) if (page.Children[index] is Border border && border.Child is StackPanel section && section.Children.OfType<TextBlock>().FirstOrDefault()?.Text == "Connection checks") { insertIndex = index; break; }
         page.Children.Insert(insertIndex, website);
         SetConfiguredStatus("website", tracker.ApiKey);
         WireWebsiteTrackerSaveIntoUnifiedFooter(page);
@@ -77,11 +75,12 @@ public partial class MainShellWindow
         {
             var trackerApiKey = RequireApiValue(_apiConnectionsTrackerApiKey.Password, "Website tracker API key");
             var baseUrl = RequireApiValue(_apiConnectionsTrackerBaseUrl.Text, "Website tracker base URL");
+            var socialKey = _apiConnectionsSocialStatsApiKey?.Password.Trim() ?? "";
             FactburstTrackerSettingsStore.Save(_data.SettingsPath, baseUrl, trackerApiKey);
-            if (_apiConnectionsSocialStatsApiKey is not null && _apiConnectionsSocialStatsApiKey.Password.Trim().Length >= 16) FactburstSocialReportingSettingsStore.Save(_data.SettingsPath, _apiConnectionsSocialStatsApiKey.Password);
+            if (socialKey.Length >= 16) FactburstSocialReportingSettingsStore.Save(_data.SettingsPath, socialKey);
             var settings = _data.LoadSettings();
             using var client = new FactburstApiSettingsBackupClient();
-            await client.BackupAsync(trackerApiKey, settings, FactburstApiSettingsBackupClient.DefaultWebsiteBaseUrl);
+            await client.BackupAsync(trackerApiKey, settings, socialKey, baseUrl);
             if (_settingsPageStatus is not null) _settingsPageStatus.Text = "API settings were encrypted and backed up to Cloudflare.";
             MessageBox.Show(this, "The configured API settings were encrypted and backed up to Cloudflare successfully.", "Cloudflare API Backup", MessageBoxButton.OK, MessageBoxImage.Information);
         }
@@ -99,22 +98,23 @@ public partial class MainShellWindow
         var cancel = new Button { Content = "Cancel", Width = 90, Margin = new Thickness(0, 0, 8, 0), IsCancel = true };
         var restore = new Button { Content = "Restore", Width = 90, IsDefault = true };
         buttons.Children.Add(cancel); buttons.Children.Add(restore);
-        var root = new DockPanel(); DockPanel.SetDock(buttons, Dock.Bottom); root.Children.Add(buttons); DockPanel.SetDock(panel, Dock.Top); root.Children.Add(panel); dialog.Content = root;
+        var root = new DockPanel(); DockPanel.SetDock(buttons, Dock.Bottom); root.Children.Add(buttons); root.Children.Add(panel); dialog.Content = root;
         restore.Click += (_, _) => { if (adminKeyBox.Password.Trim().Length >= 16) dialog.DialogResult = true; else MessageBox.Show(dialog, "Enter the Cloudflare site administrator key.", "Restore API settings", MessageBoxButton.OK, MessageBoxImage.Warning); };
         if (dialog.ShowDialog() != true) return;
         try
         {
-            var baseUrl = RequireApiValue(_apiConnectionsTrackerBaseUrl?.Text, "Website tracker base URL");
             using var client = new FactburstApiSettingsBackupClient();
-            var restored = await client.RestoreAsync(adminKeyBox.Password, baseUrl);
+            var restored = await client.RestoreAsync(adminKeyBox.Password, FactburstApiSettingsBackupClient.DefaultWebsiteBaseUrl);
             var current = _data.LoadSettings();
-            current.OpenAiKey = restored.OpenAiKey; current.OpenAiModel = restored.OpenAiModel;
-            current.YouTubeApiKey = restored.YouTubeApiKey; current.YouTubeOAuthClientId = restored.YouTubeOAuthClientId; current.YouTubeOAuthClientSecret = restored.YouTubeOAuthClientSecret; current.YouTubeOAuthRefreshToken = restored.YouTubeOAuthRefreshToken; current.ApprovedYouTubeChannelId = restored.ApprovedYouTubeChannelId; current.ApprovedYouTubeChannelName = restored.ApprovedYouTubeChannelName;
-            current.FacebookPageAccessToken = restored.FacebookPageAccessToken; current.ApprovedFacebookPageId = restored.ApprovedFacebookPageId; current.ApprovedFacebookPageName = restored.ApprovedFacebookPageName; current.InstagramAccessToken = restored.InstagramAccessToken;
+            current.OpenAiKey = restored.Settings.OpenAiKey; current.OpenAiModel = restored.Settings.OpenAiModel;
+            current.YouTubeApiKey = restored.Settings.YouTubeApiKey; current.YouTubeOAuthClientId = restored.Settings.YouTubeOAuthClientId; current.YouTubeOAuthClientSecret = restored.Settings.YouTubeOAuthClientSecret; current.YouTubeOAuthRefreshToken = restored.Settings.YouTubeOAuthRefreshToken; current.ApprovedYouTubeChannelId = restored.Settings.ApprovedYouTubeChannelId; current.ApprovedYouTubeChannelName = restored.Settings.ApprovedYouTubeChannelName;
+            current.FacebookPageAccessToken = restored.Settings.FacebookPageAccessToken; current.ApprovedFacebookPageId = restored.Settings.ApprovedFacebookPageId; current.ApprovedFacebookPageName = restored.Settings.ApprovedFacebookPageName; current.InstagramAccessToken = restored.Settings.InstagramAccessToken;
             _data.SaveSettings(current);
-            FactburstTrackerSettingsStore.Save(_data.SettingsPath, restored.ProjectsFolder.Length > 0 ? restored.ProjectsFolder : baseUrl, restored.TrackerApiKey);
-            if (_apiConnectionsTrackerBaseUrl is not null) _apiConnectionsTrackerBaseUrl.Text = baseUrl;
+            if (restored.TrackerApiKey.Trim().Length >= 16) FactburstTrackerSettingsStore.Save(_data.SettingsPath, restored.TrackerBaseUrl, restored.TrackerApiKey);
+            if (restored.SocialStatsApiKey.Trim().Length >= 16) FactburstSocialReportingSettingsStore.Save(_data.SettingsPath, restored.SocialStatsApiKey);
+            if (_apiConnectionsTrackerBaseUrl is not null) _apiConnectionsTrackerBaseUrl.Text = restored.TrackerBaseUrl;
             if (_apiConnectionsTrackerApiKey is not null) _apiConnectionsTrackerApiKey.Password = restored.TrackerApiKey;
+            if (_apiConnectionsSocialStatsApiKey is not null) _apiConnectionsSocialStatsApiKey.Password = restored.SocialStatsApiKey;
             if (_settingsPageStatus is not null) _settingsPageStatus.Text = "API settings restored from Cloudflare.";
             MessageBox.Show(this, "API settings were restored from the encrypted Cloudflare backup. Your database and projects were not changed.", "Cloudflare API Restore", MessageBoxButton.OK, MessageBoxImage.Information);
         }
