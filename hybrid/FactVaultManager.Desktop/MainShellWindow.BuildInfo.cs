@@ -126,7 +126,6 @@ public partial class MainShellWindow
         QueueDeferredShellPhase(InitializeLibraryPlatformSymbolFix);
         QueueDeferredShellPhase(InitializeStartupSafeUiCleanup);
         QueueDeferredShellPhase(InitializeCreateAdvancedUiCleanup);
-        QueueDeferredShellPhase(InitializeDatabaseBackupAndRecovery);
         QueueDeferredShellPhase(InitializeQuizHistoryPage);
     }
 }
