@@ -11,6 +11,7 @@ public sealed record FactburstSocialReportingSettings(string ApiKey)
 public static class FactburstSocialReportingSettingsStore
 {
     private const string FileName = "factburst-social-reporting.json";
+    private const string MainSettingsField = "factburst_social_reporting_api_key";
 
     public static string PathFor(string appSettingsPath)
     {
@@ -29,11 +30,15 @@ public static class FactburstSocialReportingSettingsStore
                 appSettingsPath,
                 DatabaseSettingsStore.SocialStatsSettingsKey,
                 path);
-            if (string.IsNullOrWhiteSpace(json))
-                return new FactburstSocialReportingSettings("");
-            var root = JsonNode.Parse(json) as JsonObject ?? new JsonObject();
-            return new FactburstSocialReportingSettings(
-                LocalSecretProtector.Unprotect(root["api_key"]?.GetValue<string>() ?? ""));
+            if (!string.IsNullOrWhiteSpace(json))
+                return Parse(json);
+
+            // Keep the dedicated credential recoverable from the main settings document.
+            // This is important because the main settings document is included in the
+            // encrypted API-settings backup and travels with the user's restored database.
+            var main = AppSettingsDocumentStore.Load(appSettingsPath);
+            var fallback = main[MainSettingsField]?.GetValue<string>() ?? "";
+            return new FactburstSocialReportingSettings(LocalSecretProtector.Unprotect(fallback));
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException or InvalidOperationException)
         {
@@ -47,11 +52,26 @@ public static class FactburstSocialReportingSettingsStore
         var key = (apiKey ?? "").Trim();
         if (key.Length < 16)
             throw new ArgumentException("Social reporting API key looks too short.");
-        var payload = new JsonObject { ["api_key"] = LocalSecretProtector.Protect(key) };
+
+        var protectedKey = LocalSecretProtector.Protect(key);
+        var payload = new JsonObject { ["api_key"] = protectedKey };
         DatabaseSettingsStore.SaveJsonAndMirror(
             appSettingsPath,
             DatabaseSettingsStore.SocialStatsSettingsKey,
             PathFor(appSettingsPath),
             payload.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
+
+        // Also keep an encrypted copy in the main settings document so the credential is
+        // included in API-settings backups and restored with the user's settings.
+        var main = AppSettingsDocumentStore.Load(appSettingsPath);
+        main[MainSettingsField] = protectedKey;
+        AppSettingsDocumentStore.Save(appSettingsPath, main);
+    }
+
+    private static FactburstSocialReportingSettings Parse(string json)
+    {
+        var root = JsonNode.Parse(json) as JsonObject ?? new JsonObject();
+        return new FactburstSocialReportingSettings(
+            LocalSecretProtector.Unprotect(root["api_key"]?.GetValue<string>() ?? ""));
     }
 }
