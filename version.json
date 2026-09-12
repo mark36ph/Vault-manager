@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.210",
-  "build": 230,
+  "latest_version": "1.0.211",
+  "build": 231,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 230 fixes the Upload Manager Sync Now button so it is added after the deferred Upload Manager page is created.",
-    "The button can now force an immediate YouTube, Facebook and Instagram status sync to FactBurst Quiz.",
-    "Build metadata continues to use version.json as the single source of truth."
+    "Build 231 adds a reliable Upload Manager entry to the desktop navigation.",
+    "The Upload Manager page is initialized during deferred shell startup so its navigation entry is always available.",
+    "The Upload Manager Sync Now button continues to force an immediate YouTube, Facebook and Instagram status sync."
   ]
 }
