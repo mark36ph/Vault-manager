@@ -89,16 +89,21 @@ public partial class MainShellWindow
 
     private async void RestoreApiSettingsFromCloudflare_Click(object? sender, RoutedEventArgs e)
     {
+        // Build the dialog tree only once. Do not assign panel to Window.Content before
+        // adding it to root; WPF elements can have only one logical parent.
         var adminKeyBox = new PasswordBox { MinWidth = 360, Margin = new Thickness(0, 8, 0, 4) };
         var panel = new StackPanel { Margin = new Thickness(16) };
         panel.Children.Add(new TextBlock { Text = "Enter the Cloudflare SITE_ADMIN_KEY used by Factburst Quiz.", TextWrapping = TextWrapping.Wrap });
         panel.Children.Add(adminKeyBox);
-        var dialog = new Window { Title = "Restore API settings from Cloudflare", Content = panel, Width = 440, Height = 170, WindowStartupLocation = WindowStartupLocation.CenterOwner, Owner = this, ResizeMode = ResizeMode.NoResize };
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(16, 0, 16, 16) };
         var cancel = new Button { Content = "Cancel", Width = 90, Margin = new Thickness(0, 0, 8, 0), IsCancel = true };
         var restore = new Button { Content = "Restore", Width = 90, IsDefault = true };
         buttons.Children.Add(cancel); buttons.Children.Add(restore);
-        var root = new DockPanel(); DockPanel.SetDock(buttons, Dock.Bottom); root.Children.Add(buttons); root.Children.Add(panel); dialog.Content = root;
+        var root = new DockPanel();
+        DockPanel.SetDock(buttons, Dock.Bottom);
+        root.Children.Add(buttons);
+        root.Children.Add(panel);
+        var dialog = new Window { Title = "Restore API settings from Cloudflare", Content = root, Width = 440, Height = 190, WindowStartupLocation = WindowStartupLocation.CenterOwner, Owner = this, ResizeMode = ResizeMode.NoResize };
         restore.Click += (_, _) => { if (adminKeyBox.Password.Trim().Length >= 16) dialog.DialogResult = true; else MessageBox.Show(dialog, "Enter the Cloudflare site administrator key.", "Restore API settings", MessageBoxButton.OK, MessageBoxImage.Warning); };
         if (dialog.ShowDialog() != true) return;
         try
