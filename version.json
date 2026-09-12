@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.213",
-  "build": 233,
+  "latest_version": "1.0.214",
+  "build": 234,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 233 fixes the Upload Manager entry in the modern Factburst navigation sidebar.",
-    "Upload Manager is now inserted directly after Library and remains available even when the legacy navigation is hidden.",
-    "The Upload Manager Sync Now button remains available for immediate YouTube, Facebook and Instagram status synchronization."
+    "Build 234 removes database recovery scans from application startup and adds a manual database recovery check in Settings.",
+    "YouTube Analytics now uses the last saved analytics snapshot when opened and only contacts YouTube when Refresh from YouTube is pressed.",
+    "Startup no longer performs the delayed automatic YouTube Growth Analytics refresh."
   ]
 }
