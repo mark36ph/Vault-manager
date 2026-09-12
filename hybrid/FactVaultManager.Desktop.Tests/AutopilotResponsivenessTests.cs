@@ -34,16 +34,18 @@ public sealed class AutopilotResponsivenessTests
     }
 
     [Fact]
-    public void StartupRecovery_IsBestEffortAndUsesCurrentRecoverySet()
+    public void StartupRecovery_DoesNotRunDatabaseRecoveryAutomatically()
     {
         var program = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/Program.cs");
-        Assert.DoesNotContain("InstalledDatabaseRecovery.Run();", program, StringComparison.Ordinal);
-        Assert.Contains("RunRecoveryNow(\"library recovery\", InstalledLibraryRecoveryV2.Run);", program, StringComparison.Ordinal);
-        Assert.Contains("if (!File.Exists(Path.Combine(appDataRoot, \"data\", \"factvault.db\")))", program, StringComparison.Ordinal);
-        Assert.Contains("DeferredStartupRecovery.Add((\"library recovery\", InstalledLibraryRecoveryV2.Run));", program, StringComparison.Ordinal);
-        Assert.Contains("RunStartupRecovery(\"question library recovery\", InstalledQuestionLibraryRecoveryV3.Run);", program, StringComparison.Ordinal);
+        Assert.DoesNotContain("InstalledLibraryRecoveryV2.Run", program, StringComparison.Ordinal);
+        Assert.DoesNotContain("InstalledQuestionLibraryRecoveryV3.Run", program, StringComparison.Ordinal);
         Assert.Contains("RunStartupRecovery(\"credential recovery\", InstalledCredentialRecovery.Run);", program, StringComparison.Ordinal);
         Assert.Contains("private static void RunStartupRecovery(string name, Action action)", program, StringComparison.Ordinal);
+
+        var manualRecovery = ReadRepositoryFile("hybrid/FactVaultManager.Desktop/MainShellWindow.DatabaseRecoveryManual.cs");
+        Assert.Contains("Check database recovery", manualRecovery, StringComparison.Ordinal);
+        Assert.Contains("InstalledLibraryRecoveryV2.Run();", manualRecovery, StringComparison.Ordinal);
+        Assert.Contains("InstalledQuestionLibraryRecoveryV3.Run();", manualRecovery, StringComparison.Ordinal);
     }
 
     [Fact]
