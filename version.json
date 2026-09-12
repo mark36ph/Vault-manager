@@ -1,11 +1,11 @@
 {
-  "latest_version": "1.0.220",
-  "build": 240,
+  "latest_version": "1.0.221",
+  "build": 241,
   "installer_url": "https://github.com/mark36ph/Vault-manager/releases/latest/download/FactVaultManager-win-x64-stable-Setup.exe",
   "sha256": "",
   "release_notes": [
-    "Build 240 preserves and restores the website social reporting API key with the main application settings.",
-    "The Social Reporting API connection remains visible and recoverable when its dedicated credential mirror is missing.",
-    "Application updates never create or replace the user database."
+    "Build 241 adds Restore API settings from Cloudflare in Settings > API & Connections.",
+    "Cloudflare restore requires the SITE_ADMIN_KEY and never changes the application database or project data.",
+    "The encrypted backup now includes the dedicated SOCIAL_STATS_API_KEY as well as the existing API credentials."
   ]
 }
